@@ -1,0 +1,709 @@
+Title: A Geometry-Aware Residual Correction of Hagan's SABR Implied Volatility Formula
+
+URL Source: https://arxiv.org/pdf/2605.06604v1
+
+Published Time: Fri, 08 May 2026 01:46:23 GMT
+
+Number of Pages: 33
+
+Markdown Content:
+# A Geometry-Aware Residual Correction of Hagan’s SABR Implied Volatility Formula 
+
+Adil Reghai 1,2 , Lama Tarsissi 2, Gérard Biau 3,4 , and Alex Lipton 1,5 1Abu Dhabi Investment Authority (ADIA) 
+
+> 2
+
+SAFIR, Sorbonne University Abu Dhabi (SUAD) 
+
+> 3
+
+Sorbonne Université, LPSM, Paris 
+
+> 4
+
+Institut Universitaire de France 
+
+> 5
+
+ADIA Lab 16th March 2025 
+
+Abstract 
+
+This paper proposes a hybrid methodology to improve the approximation of SABR 
+
+(Stochastic Alpha Beta Rho) implied volatility by combining analytical structure with machine learning. The approach augments the neural-network input representation with geometric features derived from the stochastic differential equations of the SABR model. Unlike approaches that fully replace analytical formulas with black-box models, the proposed framework preserves the analytical backbone of the model. The hybridization operates along two complementary dimensions. First, geometry-aware variables reflecting intrinsic properties of the SABR dynamics are used as structured inputs to the network. Second, the neural network is trained to learn the residual error relative to Hagan’s closed-form approximation rather than implied volatility directly. The resulting model acts as a structured residual correction to the analytical formula, retaining interpretability while capturing higher-order effects that are not included in the asymptotic expansion. Numerical experiments conducted over realistic parameter domains, as well as stressed environments, show that the method improves accuracy and robustness compared with both analytical approximations and standard neural-network approaches. Because the correction remains lightweight and structurally consistent with the underlying model, the framework is well suited for real-time pricing and calibration in practical trading environments. 
+
+1
+
+> arXiv:2605.06604v1 [q-fin.CP] 7 May 2026
+
+# 1 Introduction 
+
+The accurate approximation of implied volatilities under the SABR (Stochastic Alpha Beta Rho) model has long been a central problem in quantitative finance, owing to the analytical elegance of the model and its pervasive use in global derivatives markets. The closed-form expansion introduced by Hagan [ Hagan et al., 2002 ] rapidly became the industry standard due to its computational speed, smoothness, and ease of calibration. Long before its academic publication, the model was already used on the trading floors of Paribas Investment Bank, where practitioners exploited persistent mispricings in swaption wings, highlighting early on the need for a consistent parameterization of smile dynamics across moneyness and maturities. Despite its widespread adoption, the Hagan formula is only an approximation. Its limitations are well documented: systematic biases appear away from the at-the-money (ATM) region, where the option strike is close to the forward. Similar biases also arise in the in-the-money (ITM) region, where the strike lies below the forward, and in the out-of-the-money (OTM) region, where the strike lies above the forward. Throughout the paper, we distinguish between the strict ATM point ( K = F0) and the ATM region, which refers to strikes in a neighborhood of F0. These imperfections lead to pricing inaccuracies, potential static arbitrage in the volatility cube, and mispricing of both vanilla and exotic derivatives [ Obłój, 2008 , Paulot, 2009 , Lund, 2023 ]. These issues become particularly significant in modern production environments, where models must ensure global smoothness, robust extrapolation, and numerical stability within high-dimensional calibration workflows. In parallel, machine learning approaches have gained momentum as potential surrogates for the SABR pricing map. Deep feedforward networks have been shown to approximate SABR-implied volatilities or invert the calibration map [ McGhee, 2021 , Thorin, 2021 ,Stuijt, 2021 ], while arbitrage-aware architectures have been proposed to enforce shape constraints [Feng et al., 2019]. These developments underscore the growing interest in hybrid quantitative-machine-learning paradigms, but also highlight persistent trade-offs between flexibility, interpretability, and robustness. 
+
+Current challenge. Practitioners increasingly need models that remain anchored in inter-pretable, well-understood analytical structures, correct the known deficiencies of the asymptotic expansion, generalize reliably across regimes, and preserve stability for large-scale calibration and real-time pricing. Purely data-driven methods do not guarantee this; purely analytical ones lack flexibility. A principled hybrid approach that reconciles both worlds is still missing. To address these challenges, we introduce a hybrid machine learning framework that tightly couples the analytical asymptotic SABR formula with data-driven learning. The Hagan formula serves as a baseline estimator, while a neural network is trained in a supervised manner to learn the correction term for the exact implied volatility surface obtained through high-precision Monte Carlo pricing. Crucially, the network is supplied with geometry-aware features derived from the internal structure of the SABR model, including scaling invariants, homogeneity properties, and correlation-induced curvature effects. In this setting, the model does not attempt to relearn implied volatility from scratch; instead, it focuses on approximating the residual between the true SABR-implied volatility and its asymptotic counterpart. This residual-learning strategy, enriched by geometry-informed inputs, enhances generalization across strikes, maturities, and volatility regimes while preserving calibration stability, interpretability, and real-time pricing performance. 
+
+Our contribution. The hybrid learning framework that we propose is based on a Residual Neural Network (ResNN) that learns a multiplicative correction of the Hagan formula, thus preserving the analytical structure while learning only the missing higher-order effects from Monte Carlo ground truth. 2Our methodology is structured around three core pillars. The first pillar consists in en-riching the learning inputs with geometry-driven features derived from the intrinsic SABR Riemannian metric (Poincaré half-plane representation), including the CEV-flattened coordinate, the hyperbolic geodesic distance, and the associated leading-order implied volatility invariants. The second pillar is a ratio-based training objective, directly expressed in implied volatilities and normalized by the Hagan baseline. This formulation enforces relative-error learning and improves numerical stability across regimes. Since the correction is learned around a positive analytical baseline, positivity is empirically preserved over the parameter domain considered in our experiments. The third pillar is a scalable Monte Carlo data-generation pipeline with variance reduction techniques and a tenor-bucket parameter generator, designed to ensure both numerical accuracy and market realism. This pipeline yields a large supervised data set suitable for robust out-of-sample generalization. Quantitatively, the proposed architecture achieves the best performance across the considered diagnostics. On the held-out test set, the global coefficient of determination increases from approximately R2 ≈ 0.73 for the naive deep network to R2 ≈ 0.92 
+
+for the residual-only architecture and R2 ≈ 0.94 for the geometry-aware architecture, reaching 
+
+R2 ≈ 0.97 for the proposed hybrid geometric–residual model. This improvement is accompanied by a marked reduction in validation loss, tighter clustering around the diagonal in correlation diagnostics, and a visible contraction of dispersion in long-maturity and stressed regimes. Across learning stability, global accuracy, regional smile reconstruction, and stress robustness, the hybrid residual–geometric architecture consistently delivers the best overall performance among the considered specifications. 
+
+Structure of the paper. Section 2 reviews the related literature on SABR asymptotics, analytical refinements, and machine-learning approaches to volatility modeling. Section 3 recalls the SABR dynamics and revisits Hagan’s formula, before assessing its baseline accuracy through a simple Monte Carlo experiment. Section 4 presents our hybrid methodology, including a synthetic data-generation pipeline based on variance-reduced Monte Carlo, a set of geometry-driven features extracted from the SABR manifold, and a residual neural architecture designed to learn a multiplicative correction to the Hagan formula. Section 5 reports extensive numerical experiments and discusses the gains brought by output residualization and geometric conditioning, with a particular focus on accuracy ATM, ITM and OTM behavior, robustness in stressed regimes, convergence properties, and inference speed. Section 6 concludes and outlines possible extensions. For completeness, Appendix A details the practical implementation aspects of the proposed approach, while Appendix B provides supplementary figures for the experiments. 
+
+# 2 Related work 
+
+The SABR model introduced by [ Hagan et al., 2002 ] remains one of the most widely used para-metric frameworks for modeling the implied volatility smile, thanks to its analytical tractability and economic interpretability. Subsequent works have proposed refined asymptotic corrections to improve its accuracy, notably [ Obłój, 2008 ] and [ Paulot, 2009 ], as well as structural extensions to handle negative rates and extreme regimes [ Antonov et al., 2015 , Lund, 2023 ]. These contri-butions remain, however, purely analytical and inherit the intrinsic limitations of asymptotic expansions for long maturities or large vol-of-vol regimes. More recently, machine learning approaches have been introduced to accelerate calibration or to approximate the SABR mapping itself. Neural calibration of SABR parameters is studied in [ McGhee, 2021 , Thorin, 2021 , Stuijt, 2021 ], while [ Muguruza et al., 2019 ] proposes a general neural calibration framework for stochastic volatility models. These approaches significantly reduce calibration time; however, they do not modify the analytical structure of the SABR approximation nor address its structural pricing errors. A different line of research aims at directly learning the implied volatility surface from market data. In particular, [ Feng et al., 2019 ] implements a neural network that predicts the entire 3implied volatility surface while enforcing no-arbitrage, monotonicity, and convexity constraints through architectural design and penalization. While this ensures financial admissibility of the generated smiles, the resulting model discards any explicit stochastic volatility structure and lacks interpretable model parameters. However, none of the above approaches reconcile the full analytical structure of the Hagan formula with data-driven corrections in a unified geometric framework. Thus, our contribution is to preserve the analytical SABR approximation as a structural backbone while learning only a residual correction through a supervised neural network enriched with SABR geometric features. 
+
+# 3 The Hagan formula 
+
+The SABR ( Stochastic Alpha Beta Rho ) model [ Hagan et al., 2002 ] provides a stochastic volatility framework that is widely used to reproduce the volatility smile observed in option markets. It assumes that both the forward price and its volatility follow correlated stochastic differential equations. 
+
+3.1 Model definition 
+
+Let (Ft)t≥0 denote the forward price and (σt)t≥0 its stochastic volatility. The SABR dynamics are given by 
+
+dF t = σtF βt dW t,dσ t = νσ t dZ t,d⟨W, Z ⟩t = ρ dt, 
+
+(1) where 
+
+• F0 > 0 is the forward price at time t = 0 ,
+
+• σ0 > 0 is the initial volatility at time t = 0 ,
+
+• β ∈ [0 , 1] controls the elasticity of variance ( β = 1 corresponds to the lognormal case, β = 0 
+
+to the normal case), 
+
+• ν > 0 is the volatility of volatility (vol-of-vol), 
+
+• W and Z are two Brownian motions defined on the same filtered probability space, 
+
+• d⟨W, Z ⟩t denotes the quadratic covariation of W and Z,
+
+• ρ ∈ [−1, 1] is the instantaneous correlation between the Brownian motions Wt and Zt.In the sequel, to follow market practices, we denote α = σ0 > 0. In the special case ν = 0 , the volatility process becomes deterministic and constant, σt ≡ α, and the SABR dynamics reduce to the Constant Elasticity of Variance (CEV) model 
+
+dF t = αF βt dW t.
+
+The SABR model is used to price European claims with fixed maturity T > 0 and strike K > 0,whose payoff is given by (FT − K)+. The option price 
+
+E[(FT − K)+]
+
+is expressed within the Black framework (i.e. under the forward measure) by introducing an effective volatility, called the Black implied volatility σBS (T, F 0, K ), defined implicitly through 
+
+E[(FT − K)+] = CBlack 
+
+> (
+
+T, F 0, K, σ BS (T, F 0, K )). (2) 4Here, CBlack denotes the Black pricing formula, given by 
+
+CBlack (T, F 0, K, σ ) = F0 N (d1) − K N (d2), (3) where 
+
+d1 = ln( F0/K ) + 12 σ2Tσ√T , d2 = d1 − σ√T , 
+
+and N (·) denotes the cumulative distribution function of the standard normal distribution. In this formulation, the volatility σ is the only unknown parameter. Since no closed-form expression is available for the implied volatility σBS (T, F 0, K ), Hagan [ Hagan et al., 2002 ] proposed an approximation formula described in the next section. Here, “Black” refers to the forward-option pricing formula under the forward measure. In the remainder of the paper, when we introduce a lognormal control-variate process with constant volatility, we refer to it as a Black–Scholes-type dynamics, whose option prices are evaluated with the same Black formula. 
+
+3.2 Hagan’s formula 
+
+The celebrated closed-form approximation of σBS (T, F 0, K ) derived by Hagan reads: 
+
+σHagan (T, F 0, K ) = α
+
+(F0K) 1−β
+
+> 2
+
+{
+
+1 + (1 − β)2
+
+24 
+
+[
+
+ln 
+
+( F0
+
+K
+
+)] 2
+
++ (1 − β)4
+
+1920 
+
+[
+
+ln 
+
+( F0
+
+K
+
+)] 4} zx(z)
+
+×
+
+[
+
+1 + T
+
+( (1 − β)2α2
+
+24( F0K)1−β + ρβνα 
+
+4( F0K) 1−β
+
+> 2
+
++ (2 − 3ρ2)ν2
+
+24 
+
+)] 
+
+,
+
+(4) where 
+
+z = να (F0K) 1−β 
+
+> 2
+
+ln 
+
+( F0
+
+K
+
+)
+
+, x(z) = ln 
+
+( √ 1 − 2ρz + z2 + z − ρ
+
+1 − ρ
+
+)
+
+. (5) In the strict at-the-money (ATM) case, i.e. when F0 = K, the expression simplifies to: 
+
+σATM 
+
+> Hagan
+
+(T ) = αF β−10
+
+[
+
+1 + T
+
+( (1 − β)2α2
+
+24 F 2(1 −β)0
+
++ ρβνα 
+
+4F 1−β
+
+> 0
+
++ (2 − 3ρ2)ν2
+
+24 
+
+)] 
+
+. (6) Taken together, Equations (4) and (6) constitute the analytical SABR implied volatility approxi-mation universally adopted in the financial industry. For convenience, the expression in Equation (4) may also be rewritten as: 
+
+σHagan (T, F 0, K ) = σATM 
+
+> Hagan
+
+(T ) (F0K) 1−β
+
+> 2
+
+F β−10
+
+zx(z)
+
+×
+
+[
+
+1 + (1 − β)2
+
+24 
+
+(
+
+ln F0
+
+K
+
+)2
+
++ (1 − β)4
+
+1920 
+
+(
+
+ln F0
+
+K
+
+)4]
+
+.
+
+(7) In particular, under the SABR model, the expected payoff can be approximated by the Black price given in Equation (3) evaluated at strike K and maturity T , using the effective volatility 
+
+σHagan (T, F 0, K ):
+
+E[( FT − K)+] ≈ CBlack 
+
+(T, F 0, K, σ Hagan (T, F 0, K )). (8) 
+
+3.3 Simple experiment 
+
+To assess the accuracy of the asymptotic Hagan approximation, we compute benchmark implied volatilities using Monte Carlo simulations of the SABR dynamics. The joint process (Ft, σ t)
+
+is simulated by discretizing the coupled stochastic differential equations driven by correlated 5Brownian motions. The simulated terminal forward values FT are then used to evaluate vanilla option payoffs. The corresponding implied volatilities are recovered by numerically inverting the Black formula. We use a robust bracketing-based root solver (with a safeguarded Newton step), following the production-grade implementation described in [ Reghai and Kettani, 2020 ]. We consider strikes K ranging from 0.5F0 to 2F0.To reduce sampling variance and enhance numerical stability, we employ a control variate based on the Black model with constant volatility. The SABR and Black processes are simulated simultaneously using shared Brownian increments; the difference in simulated payoffs is then corrected by adding the analytical Black price. The parameters used in this experiment are: 
+
+F0 = 1 .0, T = 1 .0, α = 0 .2, β = 0 .5, ρ = −0.8, ν = 1 .2.
+
+Figure 1: SABR implied volatility smile: comparison between the Hagan formula and Monte Carlo estimates. 
+
+Strike Hagan Monte Carlo 
+
+0.5000 0.479629 0.437594 0.6000 0.408284 0.365567 0.7000 0.341588 0.302924 0.8000 0.278291 0.247893 0.9000 0.219048 0.199904 1.0000 0.174469 0.167880 1.1000 0.175983 0.167897 1.2000 0.207090 0.187350 1.3000 0.242159 0.209537 1.4000 0.276081 0.230476 1.5000 0.308127 0.249331 1.6000 0.338332 0.266118 1.7000 0.366869 0.281714 1.8000 0.393927 0.296523 1.9000 0.419671 0.310618 2.0000 0.444244 0.324398 Table 1: Approximation quality: comparison between the Hagan analytical formula and Monte Carlo implied volatilities using 10 6 simulation paths. 6Figure 1 and Table 1 jointly illustrate the structure of the approximation error. In the ATM region (i.e. for strikes close to F0), the analytical and Monte Carlo implied volatilities remain relatively close, but the agreement is not exact: even at strict ATM ( K = F0), a visible bias persists. Moving away from the money, discrepancies increase progressively. In the deep wings, the analytical approximation significantly overestimates the Monte Carlo smile in this parameter configuration, revealing the limitations of the first-order asymptotic expansion. These deviations reflect higher-order geometric and curvature effects that are not captured by Hagan’s closed-form approximation. This experiment, therefore, suggests that the Hagan formula provides a structurally coherent and qualitatively accurate description of the smile, but exhibits systematic quantitative biases, including in the ATM region and more prominently in the tails. Such discrepancies can translate into material pricing and hedging errors at the trading-desk level, particularly for far-from-the-money options or during calibration routines. The objective of the remainder of this paper is to correct this discrepancy through a residual multiplicative adjustment to the asymptotic formula within a supervised hybrid framework, while preserving its analytical structure, stability, and interpretability. 
+
+# 4 Methodology 
+
+The core principle of our methodology is to perform supervised learning of the Black implied volatility σBS derived by the SABR model. To this end, we construct a fully synthetic training data set, where reference implied volatilities are obtained from a numerically enhanced Monte Carlo engine, denoted by σMC . Our approach is deliberately hybrid. Rather than attempting to learn the implied volatility surface from scratch, we exploit the strong analytical structure provided by the Hagan formula and train a neural network whose sole purpose is to correct this baseline. The learning task is therefore twofold: first, we enrich the model inputs with geometry-driven features extracted from the intrinsic structure of the SABR dynamics; second, we constrain the neural network to operate as a residual correction to the analytical approximation. Concretely, we define the corrected implied volatility as 
+
+σGeoResNN (x, Λ; θ) := σHagan (x) (1 + ∆ θ(x, Λ) ), (9) where x = ( T, F 0, K, α, β, ρ, ν ) denotes the full vector of SABR parameters, Λ = Λ( x) represents a set of geometry-informed features, and θ are the trainable parameters of a deep feed-forward neural network ∆θ. We refer to this architecture as the SABR Residual Geometric Neural Network (GeoResNN). The multiplicative structure of (9) is essential: it constrains the network to learn a controlled, relative correction in a perturbative and dimensionless sense. The objective is to learn the parameters θ such that the corrected volatility σGeoResNN accurately matches the Monte Carlo reference. To this end, we introduce the following theoretical loss function, expressed directly in implied volatilities and normalized by the Hagan approximation: 
+
+L(θ) = E 
+
+> (
+
+σGeoResNN (x, Λ; θ) − σMC (x)
+
+σHagan (x) 
+
+> )2
+
+. (10) This normalization explicitly focuses the learning process on the residual correction term captured by ∆θ. In practice, the expectation in Equation (10) is approximated by an empirical average over M supervised samples: 
+
+L(θ) ≈ 1
+
+M
+
+> M∑
+> m=1
+> (
+
+∆θ
+
+> (
+
+x(m), Λ(m)) − ( σMC 
+
+> (
+
+x(m))
+
+σHagan 
+
+> (
+
+x(m)) − 1))2
+
+. (11) Figure 2 provides a high-level overview of the complete learning pipeline, from Monte Carlo data generation to the residual correction of the analytical implied volatility. 7x       
+
+> (SABR params) Monte Carlo σMC
+> (Training Data)
+> Λ( x), σ Hagan (x)∆θ
+> (GeoResNN) σHagan (x) (1 + ∆ θ(x, Λ)) MSE
+
+( σpred   
+
+> σHagan ,σMC
+> σHagan
+
+)
+
+Figure 2: Minimalist pipeline of the proposed hybrid SABR approximation. Monte Carlo (with a Black control variate) provides ground-truth implied volatilities σMC . Geometric features Λ
+
+are extracted from x. A residual geometric neural network outputs ∆θ(x, Λ) and predicts the corrected volatility σHagan (x) (1 + ∆ θ(x, Λ)) . Training is performed on implied volatilities via a mean-squared error loss. The next two subsections detail the construction of the approach: we first introduce the geometry-driven feature map Λ, and then describe the Monte Carlo engine used to generate the supervised training data. 
+
+4.1 Geometric formulation and feature extraction for learning 
+
+Our approach explicitly exploits the intrinsic geometry induced by the SABR dynamics. Following the geometric interpretation of SABR introduced by Paulot [ Paulot, 2009 ] and further developed by Henry-Labordère [ Henry-Labordère, 2009 ], and more generally grounded in Riemannian geometry and diffusion theory [ do Carmo, 1992 , Rosenberg, 1997 ], we construct learning features that are adapted to the natural geometry of the diffusion model, rather than relying solely on raw parameters. The geometry–driven feature Λ is defined as the quadruple (q, σ min , d H, σ 0), where q represents the flattened forward coordinate induced by the CEV transformation, σmin the terminal volatility minimizing the geodesic action, dH the associated hyperbolic geodesic distance, and σ0 the leading-order SABR implied volatility obtained from large-deviation asymptotics. Starting from the SABR stochastic differential equations given in Equation (1) , the infinitesi-mal covariance of the state vector (Ft, σ t) over a time increment dt is given by 
+
+Cov 
+
+[( dF t
+
+dσ t
+
+)] 
+
+=
+
+( σ2 
+
+> t
+
+F 2βt ρ ν σ 2 
+
+> t
+
+F βt
+
+ρ ν σ 2 
+
+> t
+
+F βt ν2σ2
+
+> t
+
+)
+
+dt. (12) Up to a scalar factor, the inverse of this covariance defines a Riemannian metric on the state space, which governs the short-time behavior of transition densities through geodesic distances. 
+
+Flattened forward coordinate q. The first geometric ingredient flattens the coordinate F in the stochastic process into the new coordinate q, defined via the CEV-integrated transformation 
+
+q =
+
+∫ FF0
+
+dϕ ϕβ =
+
+
+
+F 1−β − F 1−β
+
+> 0
+
+1 − β , β̸ = 1 ,
+
+ln FF0
+
+, β = 1 .
+
+(13) This change of variable removes the state-dependent scaling of the forward diffusion and yields a locally homogeneous representation of the SABR geometry. In the variables (q, σ ), the contravariant metric simplifies to 
+
+(gij ) = σ2
+
+(
+
+1 ρρ 1
+
+)
+
+.
+
+8Minimal geodesic volatility σmin . In this step, we transform the correlated variables (q, σ )
+
+into two orthogonal coordinates (u, v ) by applying an orthogonal transformation induced by the metric g. This yields 
+
+u = q − ρσ 
+
+> √
+
+1 − ρ2 , v = σ, (14) which maps the SABR geometry to the Poincaré upper half-plane, endowed with the line element 
+
+ds 2 = du 2 + dv 2
+
+v2 . (15) In this hyperbolic geometry, option prices in the short-maturity regime are governed by large-deviation principles: the dominant contribution comes from the path minimizing the associated geodesic action. Minimizing the hyperbolic distance between the initial point (0 , α ) and the strike manifold with respect to the terminal volatility yields 
+
+σmin =
+
+> √
+
+α2 + 2 ρ α q + q2. (16) 
+
+Hyperbolic geodesic distance dH. The corresponding minimal geodesic distance is given in closed form by 
+
+dH(0 , α ; q) = ln  
+
+> (
+
+σmin + ρ α + q
+
+(1 + ρ) α
+
+> )
+
+. (17) This quantity controls the exponential decay of SABR transition probabilities and therefore constitutes the fundamental geometric object underlying the short-time asymptotics. 
+
+Leading-order implied volatility σ0. The final geometric quantity is the leading-order implied volatility σ0, obtained by matching the SABR large-deviation exponent with the corre-sponding Black–Scholes exponent [Paulot, 2009]: 
+
+σ0 = ln( K/F 0)ln  
+
+> (
+
+σmin + ρ α + q
+
+(1 + ρ) α 
+
+> )
+
+(18) At strict ATM ( K = F0), this expression reduces to σ0 = αF β−10 , recovering the local volatility level. In conclusion, the geometry-driven feature vector 
+
+Λ = (q, σ min , d H, σ 0
+
+> )
+
+, (19) encodes the leading-order geometric information of the SABR diffusion and serves as an enriched input representation for the neural network, enabling it to focus on learning higher-order corrections beyond the geometric baseline. In the context of option pricing, the diffusion is evaluated on the strike manifold, i.e. at 
+
+F = K. Consequently, the geometric quantities q, σmin , dH and σ0 are evaluated as functions of the strike level. Figure 3 below summarizes the sequence of geometric transformations underlying the SABR model. We now turn to the construction of the training data set, a key ingredient underpinning the quality, robustness, and generalization capabilities of the learning process. 9Original coordinates                    
+
+> (F, σ )
+> Flattened coordinates
+> (q, σ )
+> Hyperbolic coordinates
+> (u, v )
+> q=∫F−βdF u=q−ρσ
+> √1−ρ2, v =σ
+> gij =σ2
+> (1ρρ1
+> )
+> ds 2=du 2+dv 2
+> v2
+
+Figure 3: Geometric transformations underlying the SABR model. The forward variable is flattened via the CEV integral, then rotated into hyperbolic coordinates in which the SABR metric reduces to the standard Poincaré half-plane metric. 
+
+4.2 Training data generation 
+
+The performance of our supervised learning approach critically depends on the quality of the training data. In the present setting, two complementary aspects must be carefully addressed. First, the SABR parameter configurations used to generate the data set must be representative of realistic market regimes. Second, the numerical estimation of reference implied volatilities must be sufficiently accurate to prevent the network from learning Monte Carlo noise. The training data generation framework is therefore organized around these two pillars: domain realism and numerical accuracy. 
+
+Domain realism: synthetic SABR parameter generator 
+
+We design a synthetic parameter generator that reflects typical market conditions while preserving broad regime coverage. Each training sample corresponds to a SABR parameter tuple (T, F 0, K, α, β, ρ, ν ). The maturity 
+
+T is drawn uniformly from the discrete set of maturities DEFAULT_MATS . The choice of parameter ranges and regime specifications is designed to reflect typical market conditions and is detailed in Appendix A, with a summary provided in Table 4. Algorithm 1 describes the SABR parameter sampling scheme. 
+
+Algorithm 1 SABR parameter sampling Sample T uniformly from the discrete set DEFAULT_MATS ;Assign T to its corresponding tenor bucket; Draw (F0, α, β, ρ, ν ) uniformly within the bucket-specific parameter ranges; Generate 11 strikes around the forward (5 ITM, 5 OTM, and 1 ATM) to obtain 11 tuples of the form (T, F 0, K, α, β, ρ, ν );Enforce admissible domains by projecting β ∈ [0 , 1] and ρ ∈ [−0.95 , 0.95] .We now describe the Monte Carlo engine used to compute the reference implied volatilities associated with each sampled SABR configuration produced by Algorithm 1. 
+
+Numerical accuracy: Monte Carlo engine and variance reduction 
+
+Beyond covering a realistic parameter domain, accurate reference implied volatilities are required to prevent the network from learning numerical noise. We therefore rely on large-scale Monte Carlo simulations of the SABR dynamics to compute high-precision option prices, which are subsequently inverted into implied volatilities. These quantities serve as ground-truth targets for the supervised learning procedure (with target σMC 
+
+> (
+
+x(m)) in Equation (11)). 10 Following Muguruza et al. [Muguruza et al., 2019 ], a full grid of implied volatilities is generated from each Monte Carlo simulation. A single simulation therefore produces multiple supervised samples across strikes at essentially no additional random-number cost, since the same simulated terminal values are reused to price all strikes. In total, we consider m ∈ [1 , M ] with M = 187 ,000 ,arising from approximately 17 ,000 Monte Carlo runs, each generating 11 option prices from the same set of P = 100 ,000 simulated paths. Since the time discretization scales with maturity, the total number of Gaussian random draws should be understood as an order-of-magnitude estimate rather than an exact fixed count; in our setup it is of the order of 10 11 .Hereafter, we detail the discretization of Equation (1) . We introduce a lognormal Black–Scholes-type reference process with constant volatility ¯σ = α which will be used as a control variate, 
+
+dF Black  
+
+> t
+
+= ¯ σ F Black  
+
+> t
+
+dW t, F Black  
+
+> 0
+
+= F0,
+
+driven by the same Brownian motion Wt as the SABR forward, ensuring pathwise coupling between the two models. The coupled SABR and Black reference processes are simulated jointly on a uniform time grid 
+
+{tk = k∆t, k = 0 , . . . , N } using an Euler-Maruyama discretization, with correlated Gaussian increments (Wk, Z k) satisfying E[WkZk] = ρ. For each path in the Monte Carlo simulation, European call payoffs are computed under both models, 
+
+ΠSABR = ( FT − K)+, ΠBlack = ( F Black  
+
+> T
+
+− K)+,
+
+and combined through the standard control-variate estimator ̂
+
+CSABR = 1
+
+P
+
+> P∑
+> p=1
+> (
+
+ΠSABR  
+
+> p
+
+− ΠBlack  
+
+> p
+> )
+
++ CBlack (T, F 0, K, ¯σ),
+
+where CBlack denotes the analytical Black price defined in Equation (3). Monte Carlo prices are finally inverted through the Black formula to obtain the reference implied volatilities σMC (x), defined implicitly by 
+
+CBlack (T, F 0, K, σ MC (x)) = ̂ CSABR .
+
+Algorithm 2 outlines our Monte Carlo pricing scheme. 
+
+Algorithm 2 Monte Carlo pricing with control variate for SABR Fix the number of Monte Carlo paths P and time steps N ;Set the control variate volatility ¯σ = α;
+
+for p = 1 to P do 
+
+Simulate coupled SABR and Black-Scholes paths using common Brownian increments; Compute terminal payoffs ΠSABR  
+
+> p
+
+and ΠBlack  
+
+> p
+
+;
+
+end for 
+
+Estimate the SABR price using the control-variate estimator; Invert the Black formula to obtain σMC .The resulting data set is stored as a table with columns {T, F 0, K, α, β, ρ, ν, σ Hagan , σ MC }, and can subsequently be augmented with geometry-derived features to construct supervised learning pairs for training the SABR Residual Geometric Neural Network. We now present a set of numerical experiments that validate the proposed geometry-aware residual learning framework and quantify its gains in accuracy and efficiency over standard ML SABR approximations. 11 5 Numerical experiments 
+
+In this section, we conduct a comprehensive series of numerical experiments to assess the proposed methodology in a systematic and incremental manner. The objective is to isolate and quantify the contribution of each modeling component by progressively enriching the learning setup. We begin with a purely data-driven baseline in which a deep neural network is trained directly on implied volatility data without any structural constraint. This reference model, termed the Naive Deep Network (NDN), learns the full volatility surface as a black-box mapping from market inputs to implied volatility. We then isolate the contribution of geometric information. In this second specification, the network is trained directly on implied volatility but receives as additional inputs geometry-aware features derived from the SABR stochastic structure. This model, referred to as the Geometric Neural Network (GeoNN), evaluates the incremental value of embedding structural information at the input level only. Next, we isolate the contribution of residual learning. Instead of predicting implied volatility itself, the network is trained to learn a multiplicative correction to the analytical Hagan SABR formula. This Residual Neural Network 
+
+(ResNN) preserves the asymptotic structure of the closed-form approximation while focusing exclusively on modeling its systematic deviations. Finally, we consider the full hybrid architecture proposed in this article, which combines residual learning with geometry-driven input features. This model, denoted as the Geometric Residual Neural Network (GeoResNN), integrates both output normalization relative to Hagan’s formula and intrinsic geometric information derived from the SABR manifold. It therefore exploits structure at both the input and output levels. 
+
+5.1 Experimental Protocol 
+
+All models are trained under strictly identical conditions, using the same synthetic SABR data set, identical train–validation–test splits, and comparable computational budgets. The supervised data set consists of the followinf subsets: 
+
+• 110,000 training samples, 
+
+• 55,000 validation samples, 
+
+• 22,000 test samples. Training is performed with a batch size of 128 and identical optimization settings across models, ensuring comparable gradient dynamics. We evaluate the models along several complementary axes: Among the reported diagnostics, we use the coefficient of determination R2 to quantify how closely model-implied volatilities match the Monte Carlo reference values. 
+
+5.2 Comparative Results and Discussion 
+
+This section presents a structured comparison of the four neural architectures. The quantitative diagnostics are reported in Table 3, and are organized according to the evaluation axes introduced in Table 2. Each row of the comparison table corresponds to a specific experimental dimension, ensuring methodological consistency. A detailed model-by-model analysis is provided in the subsequent subsections. 12 Evaluation axis What is tested Purpose 
+
+Model architecture NDN, GeoNN, ResNN, GeoResNN Isolate contribution of residual learn-ing and geometry Learning dynamics Training and validation loss evolution Assess stability and overfitting Global accuracy Surface R2 and relative RMSE Measure overall approximation qual-ity ATM accuracy Error near K = F0 Critical trading region ITM accuracy Error near K = 0 .95 F0 Left wing robustness OTM accuracy Error near K = 1 .05 F0 Right wing robustness Term-structure stability Maturity sweep T ∈ [0 .25 , 5] Long-horizon stability Stress robustness High ν, extreme ρ, high curvature regimes Out-of-distribution robustness Inference performance Runtime vs Monte Carlo Production feasibility Table 2: Summary of experimental evaluation axes and objectives                                                           
+
+> Evaluation axis NDN GeoNN ResNN GeoResNN
+> Model architecture Direct map-ping Direct +ge-ometry Residual to Hagan Residual + ge-ometry Learning dynamics (validation loss) 0.42–0.44 0.075–0.085 0.112–0.114 0.071–0.073 Global accuracy ( R2overall) 0.73 0.94 0.92 0.97 ATM accuracy ( R2)0.72 0.93 0.87 0.95 ITM accuracy ( R2)0.73 0.94 0.93 0.96 OTM accuracy ( R2)0.74 0.96 0.95 0.99 Term-structure stability Poor Good Very good Excellent Stress robustness Weak Weak Very good Excellent Learning stability Unstable Stable Stable Highly stable Inference performance (runtime) 120 μs240 μs530 μs545 μsSpeed-up vs Monte Carlo ∼10 4∼10 4∼10 4∼10 4
+
+Table 3: Quantitative comparison of neural architectures (empirical results) 
+
+5.3 Model-by-Model Analysis 
+
+NDN. The naive architecture exhibits pronounced overfitting behavior, as illustrated in Figure 4. While the training loss rapidly decreases to approximately 0.04 , the validation loss remains substantially higher and stabilizes around 0.42 –0.44 , resulting in a large and persistent generalization gap. The instability observed during early epochs further indicates that the model struggles to learn a structurally coherent representation of the implied volatility surface. Global accuracy diagnostics (Figure 5) confirm this limitation. The global test coefficient of determination remains modest ( R2 ≈ 0.73 ), with noticeable dispersion across ITM, ATM, and OTM regions. In particular, the at-the-money region exhibits visible curvature misalignment, while both wings display systematic bias relative to Monte Carlo benchmarks. The structural weakness becomes more pronounced under stressed parameter regimes (Fig-ure 6). In configurations characterized by high vol-of-vol and strong skew, the model fails to preserve convexity and produces visibly flattened wings. Errors increase significantly as parameters move away from the central region of the training distribution. Finally, the maturity sweep across multiple smile slices (Figure 7) shows that the model does not preserve the correct asymptotic scaling with maturity. For longer maturities, convexity is progressively underestimated and the smile shape degenerates toward an almost linear profile. 13 GeoNN. Embedding geometry-derived invariants into the input representation substantially improves learning stability and generalization. As shown in Figure 8, the training loss decreases smoothly to below 0.03 , while the validation loss stabilizes around 0.075 –0.08 , with no late-stage divergence. Compared to the naive architecture, the generalization gap is markedly reduced, indicating that geometric conditioning effectively regularizes the functional mapping. Global accuracy diagnostics (Figure 9) confirm this improvement. The global test coefficient of determination increases to approximately R2 ≈ 0.94 , with regional values reaching about 
+
+0.93 in the ATM region, 0.94 in the ITM region, and 0.96 in the OTM region. The dispersion observed in the naive model contracts significantly, and the predicted implied volatilities align more closely with Monte Carlo benchmarks across strikes. Strike-slice analysis across maturities (Figure 11) shows that curvature and skew are substan-tially better captured, particularly for short and intermediate maturities. In particular, the ATM region is accurately reproduced, and moderate skew configurations are well approximated. How-ever, for longer maturities, a mild underestimation of wing convexity becomes visible, suggesting that geometric conditioning alone does not fully correct asymptotic scaling. Under stressed parameter regimes (Figure 10), robustness improves markedly compared to the naive model. The central region remains stable and skew behavior is preserved more consistently, especially in high vol-of-vol configurations. Nevertheless, extreme wing regions may still exhibit residual bias when parameters move toward the boundaries of the training distribution. Taken together, these results demonstrate that embedding geometric structure at the in-put level significantly enhances stability, curvature fidelity, and stress robustness. While not entirely eliminating long-maturity bias, geometric conditioning constitutes a major step toward structurally coherent volatility surface approximation. 
+
+ResNN. The Residual Neural Network introduces output normalization by learning a multi-plicative correction to the analytical Hagan approximation. As shown in Figure 12, the learning dynamics are markedly stable: the training loss decreases smoothly from approximately 0.095 to 
+
+∼ 0.05 , while the validation loss stabilizes around 0.112 –0.114 . The absence of oscillations and the small generalization gap indicate that residual learning significantly improves conditioning relative to the naive architecture. Global accuracy diagnostics (Figure 13) show a clear improvement over the NDN baseline. The global test coefficient of determination increases to approximately R2 ≈ 0.92 , with regional performance of about 0.87 in the ATM region, 0.93 in the ITM region, and 0.95 in the OTM region. Dispersion is visibly reduced compared to NDN, although it remains slightly higher than in the geometry-aware specification. Strike-slice analysis across maturities (Figure 15) highlights the structural advantage of residual normalization. Short-maturity smiles are reconstructed with high fidelity, and ATM curvature is accurately reproduced. For longer maturities, the model benefits from preserving the asymptotic scaling embedded in the Hagan formula. Unlike GeoNN, convexity does not collapse; however, systematic bias inherited from the analytical approximation remains partially visible in the wings. Under stressed parameter configurations (Figure 14), the model exhibits improved robustness relative to NDN. Central regions remain stable and skew is preserved more consistently. Never-theless, when Hagan deviates materially from Monte Carlo in extreme high-curvature regimes, the residual correction amplitude remains bounded, limiting the model’s ability to fully eliminate wing bias. Overall, residual learning stabilizes optimization and preserves asymptotic structure, substan-tially improving generalization relative to the naive network. However, without explicit geometric conditioning at the input level, the architecture remains partially constrained by the structural biases of the analytical baseline. 14 GeoResNN. The hybrid residual–geometric architecture combines output normalization rela-tive to the Hagan formula with geometry-derived input features. As shown in Figure 16, the learning dynamics are both stable and efficient: the training loss decreases smoothly toward 
+
+∼ 0.05 , while the validation loss stabilizes near 0.071 –0.073 , representing the lowest validation error among all considered architectures. The generalization gap remains small and no late-stage divergence is observed. Global accuracy diagnostics (Figure 17) confirm the superiority of the hybrid specification. The global test coefficient of determination reaches approximately R2 ≈ 0.97 , with regional performance of about 0.95 in the ATM region, 0.96 in the ITM region, and 0.99 in the OTM region. Dispersion around the diagonal is minimal and significantly reduced relative to both the residual-only and geometry-only models. Strike-slice comparisons across maturities (Figure 19) demonstrate consistent curvature and skew preservation. The at-the-money region exhibits highly accurate convexity reproduction, while both wings maintain the correct asymptotic scaling. Unlike GeoNN, long-maturity convexity does not flatten; unlike ResNN, residual analytical bias is effectively corrected. Under stressed parameter configurations (Figure 18), robustness is markedly improved. Even in regimes characterized by high vol-of-vol and pronounced skew, the model maintains stable curvature and avoids wing degeneration. No instability or extrapolation explosion is observed. Across the full maturity sweep up to T = 5 , term-structure behavior remains coherent and stable, confirming that the hybrid architecture successfully internalizes both local geometric structure and asymptotic scaling properties of the SABR manifold. Overall, combining residual normalization with geometric conditioning yields the strongest bias–variance trade-off among all tested specifications, delivering the most accurate and struc-turally consistent approximation of the implied volatility surface. 
+
+5.4 Synthesis 
+
+The experiments reveal a clear hierarchy: 
+
+• Pure black-box learning (NDN) exhibits poor generalization and unstable learning dynamics. 
+
+• Geometric conditioning (GeoNN) substantially improves global accuracy and reduces prediction variance across the volatility surface. 
+
+• Residual learning (ResNN) stabilizes optimization and preserves the asymptotic structure inherited from the analytical SABR approximation, although its global accuracy remains slightly below the geometry-aware specification. 
+
+• Combining both mechanisms (GeoResNN) yields the most accurate and robust architecture across all evaluation axes. Progressively injecting analytical structure and geometric information leads to substantial improvements in learning behavior and model robustness. The GeoResNN architecture achieves the best bias–variance trade-off among the tested specifications, while maintaining strong robustness under stressed regimes and production-level inference speed. 
+
+# 6 Conclusion 
+
+In this paper, we propose a hybrid modeling framework for SABR implied volatility surfaces that combines analytical approximations with machine learning in a structurally consistent manner. Rather than treating neural networks as black-box replacements, the approach embeds Hagan’s formula directly within the architecture and enriches the input representation with geometric features derived from the intrinsic structure of the SABR dynamics. 15 The proposed framework operates as a structured residual corrector. The neural network learns a multiplicative correction to the analytical approximation, while the analytical component preserves the correct asymptotic behavior and financial interpretability of the model. By incorporating geometry-aware variables and constraining the learning task around the analytical baseline, the architecture effectively reduces the hypothesis space and guides the network toward economically meaningful solutions. Extensive numerical experiments conducted over realistic parameter domains show that the proposed model significantly improves predictive accuracy compared with both purely analytical formulas and standard neural-network approaches. In particular, the hybrid architecture remains stable across maturities and strike regions and performs especially well in the at-the-money region while maintaining strong accuracy when moving further away from it—an area where classical approximations typically deteriorate. The method also demonstrates robust behavior under stressed parameter configurations, highlighting its ability to generalize beyond the calibration domain. On the held-out test set, the global coefficient of determination increases from approximately 
+
+R2 ≈ 0.73 for a naive deep network to R2 ≈ 0.97 for the hybrid architecture. At the same time, the model remains computationally efficient at inference time and retains a level of interpretability grounded in financial modeling principles. Overall, this work illustrates how machine learning can extend, rather than replace, analytical financial models. By respecting the structural properties of the underlying dynamics, domain-informed neural architectures provide a robust and practically implementable framework for high-performance volatility surface modeling, particularly in environments where both accuracy and computational efficiency are essential. 16 A Implementation Details 
+
+This section provides a detailed description of the numerical implementation, covering the generation of Monte Carlo reference prices, data set construction, network inputs, and training protocol. All design choices are made to ensure numerical stability, reproducibility, and consistency with the analytical structure of the SABR model. 
+
+Monte Carlo training data generation 
+
+We construct a large supervised training data set by generating multiple SABR parameter configurations representative of realistic trading regimes. For each configuration, option prices are computed across several maturities and strikes, and subsequently inverted into implied volatilities. To capture the term-structure dependence typically observed in SABR calibrations, maturities are grouped into five tenor buckets: 
+
+{1W, 2W, 3W, 4W } → 1W_1M , {2M, 3M, 4M, 5M, 6M } → 2M_6M ,
+
+{9M, 1Y } → 9M_1Y , {2Y, 3Y } → 2Y_3Y , {4Y, 5Y } → 4Y_5Y .
+
+Within each bucket, SABR parameters are sampled independently and uniformly over predefined ranges designed to capture the orders of magnitude typically observed in interest-rate markets. These ranges are informed by practitioner experience and commonly reported calibration results, and are summarized in Table 4. In negative-rate environments, a standard positive shift is applied to forwards and strikes prior to implied-volatility computation. This approach preserves model consistency while avoiding the introduction of an additional shift parameter, which would increase dimensionality without providing a material learning benefit. Bucket Tenors F0 α β ρ ν
+
+1W_1M 1W–1M [0.005, 0.03] [0.005, 0.02] [0.00, 0.30] [-0.20, 0.20] [0.05, 0.20] 2M_6M 2M–6M [0.005, 0.04] [0.01, 0.03] [0.20, 0.50] [-0.30, 0.10] [0.10, 0.30] 9M_1Y 9M–1Y [0.01, 0.05] [0.02, 0.04] [0.30, 0.70] [-0.40, 0.00] [0.20, 0.40] 2Y_3Y 2Y–3Y [0.015, 0.06] [0.03, 0.05] [0.40, 0.80] [-0.50, -0.10] [0.30, 0.50] 4Y_5Y 4Y–5Y [0.02, 0.07] [0.04, 0.06] [0.50, 1.00] [-0.60, -0.20] [0.40, 0.60] Table 4: Synthetic SABR parameter ranges by tenor bucket used to generate the training data set. The ranges are chosen to reflect typical interest-rate market calibrations and can be adapted to other asset classes. For each sampled parameter set, option prices are computed on a structured strike–maturity grid defined as follows. Maturities belong to the discrete set 
+
+T ∈ { 1W , 2W, 3W, 4W, 2M, 3M, 4M, 5M, 6M, 9M, 1Y, 2Y, 3Y, 4Y, 5Y},
+
+referred to as DEFAULT_MATS . For each maturity, strikes are defined relative to the forward as 
+
+K = F0 exp (n ¯σ√T ), n ∈ {− 3, −2.5, . . . , 3},
+
+where ¯σ = α denotes the at-the-money volatility level. This construction ensures dense coverage of the ATM region as well as the volatility wings. For each SABR configuration x = ( T, F 0, K, α, β, ρ, ν ), a reference implied volatility σMC (x)
+
+is computed via Monte Carlo simulation of the SABR dynamics. 17 Let P denote the number of Monte Carlo trajectories and N the total number of time steps used to discretize the interval [0 , T ]. In all experiments, we use 
+
+P = 10 5 paths , N = 50 T total time steps ,
+
+that is, approximately 50 time steps per year when T is expressed in years. The time discretization therefore scales linearly with maturity. 
+
+Data set construction 
+
+In total, the Monte Carlo engine generates 187 ,000 supervised samples. The resulting data set is split into training, validation, and test subsets containing 110 ,000 , 55 ,000 , and 22 ,000 
+
+observations respectively. To ensure full reproducibility, the Monte Carlo engine is initialized with a fixed random seed ( seed = 42 ). The data set is randomly shuffled and split into training, validation, and test subsets. Prior to training, samples for which σMC deviates by more than ten empirical standard deviations from the corresponding Hagan approximation σHagan are discarded. This filtering removes rare Monte Carlo outliers and improves numerical stability without altering the overall distribution of the data. 
+
+GeoResNN architecture 
+
+The GeoResNN is implemented as a fully connected multilayer perceptron taking as input the concatenated vector (x, Λ) of SABR parameters and geometry-derived features. The network uses three hidden layers of sizes 64 , 64 , and 32 , each followed by batch normalization and ReLU activation, and outputs a scalar residual correction ∆θ(x, Λ) . The corrected implied volatility is defined in Equation (9) , and training is performed using the normalized relative loss introduced in Equations (10)–(11). 
+
+Optimization and training protocol 
+
+Optimization is performed using the Adam optimizer with parameters 
+
+η0 = 4 × 10 −3, β1 = 0 .9, β2 = 0 .999 ,
+
+and no weight decay. The relatively large initial learning rate is enabled by the residual formulation and batch normalization. A ReduceLROnPlateau scheduler monitors the validation loss and reduces the learning rate by a factor of 0.5 after 5 consecutive epochs without improvement. Training is carried out for 
+
+100 epochs using mini-batches sampled from a shuffled data loader. After each epoch, validation performance is evaluated and the model parameters achieving the lowest validation loss are stored. Final model weights correspond to these best-performing parameters, effectively implementing early stopping. 
+
+Runtime 
+
+On a standard CPU device, training the GeoResNN for 100 epochs on the full data set requires approximately 2 minutes. This makes it suitable for rapid retraining if needed. 18 B Supplementary Figures 
+
+For all correlation diagnostic plots in this appendix, the blue line denotes the identity line y = x,corresponding to perfect agreement with Monte Carlo, while the orange line represents the fitted linear regression. In an ideal setting, both lines would coincide. 
+
+Figure 4: NDN learning dynamics. Training and validation loss evolution. The validation curve stabilizes near 0.43, indicating severe overfitting and a persistent generalization gap. 19 Figure 5: NDN correlation diagnostics. Correlation between neural predictions and Monte Carlo implied volatilities across ITM, ATM, and OTM regions. Significant dispersion is observed, particularly near ATM. 20 Figure 6: NDN under stress. Model behavior under stressed SABR parameters. The architecture fails to preserve skew and convexity in extreme regimes. 21 Figure 7: NDN smile slices across maturities. Comparison of neural and Monte Carlo implied volatilities for multiple maturities. Long-maturity convexity is progressively underestimated. 22 Figure 8: GeoNN learning dynamics. Training and validation loss evolution. The validation loss stabilizes near 0.08, indicating improved generalization relative to NDN. 
+
+Figure 9: GeoNN correlation diagnostics. Correlation between neural predictions and Monte Carlo implied volatilities across ITM, ATM, and OTM regions. Dispersion is significantly reduced relative to NDN. 23 Figure 10: GeoNN under stress. Model behavior under stressed SABR parameters. Skew and central curvature are more robustly preserved compared to the naive model. 24 Figure 11: GeoNN smile slices across maturities. Comparison of neural and Monte Carlo implied volatilities for multiple maturities. Curvature is well captured for short and intermediate maturities, with mild wing underestimation at longer horizons. 25 Figure 12: ResNN learning dynamics. Training and validation loss evolution. The validation loss stabilizes near 0.113, indicating stable convergence and reduced overfitting relative to NDN. 
+
+Figure 13: ResNN correlation diagnostics. Correlation between neural predictions and Monte Carlo implied volatilities across ITM, ATM, and OTM regions. Dispersion is reduced relative to NDN but remains higher than GeoNN in certain regions. 26 Figure 14: ResNN under stress. Model behavior under stressed SABR parameters. Central regions remain stable, though residual wing bias may persist in extreme configurations. 27 Figure 15: ResNN smile slices across maturities. Comparison of neural and Monte Carlo implied volatilities for multiple maturities. Asymptotic scaling is preserved, though analytical bias is not fully eliminated in long-maturity wings. 28 Figure 16: GeoResNN learning dynamics. Training and validation loss evolution. The validation loss stabilizes near 0.072, indicating the strongest generalization among all architectures. 
+
+Figure 17: GeoResNN correlation diagnostics. Correlation between neural predictions and Monte Carlo implied volatilities across ITM, ATM, and OTM regions. Dispersion is minimal and alignment with Monte Carlo is strongest among all models. 29 Figure 18: GeoResNN under stress. Model behavior under stressed SABR parameters. Curvature and skew remain stable even in high vol-of-vol regimes. 30 Figure 19: GeoResNN smile slices across maturities. Comparison of neural and Monte Carlo implied volatilities for multiple maturities. The model preserves curvature and asymptotic scaling across the full maturity range. 31 Funding 
+
+Adil Reghai acknowledges financial support from the Abu Dhabi Investment Authority (ADIA) through a PhD sponsorship. Gérard Biau is a member of the Institut Universitaire de France. No additional external funding was received for this research. 
+
+# Author Contributions 
+
+Conceptualization: Adil Reghai, Gérard Biau and Alex Lipton. Methodology: Adil Reghai and Lama Tarsissi. Formal analysis: Adil Reghai. Software and numerical experiments: Adil Reghai. Writing – original draft: Adil Reghai. Writing – review and editing: Lama Tarsissi, Gérard Biau and Alex Lipton. All authors reviewed and approved the final manuscript. 
+
+# Conflict of Interest 
+
+The authors declare that they have no conflict of interest. 
+
+# Data Availability 
+
+The synthetic data used in this study were generated through Monte Carlo simulations of the SABR model. The code used to generate the data and reproduce the numerical experiments is available from the authors upon reasonable request. 
+
+# Acknowledgments 
+
+The authors thank colleagues and collaborators for useful discussions related to volatility modeling and machine learning in quantitative finance. 
+
+# References 
+
+[Antonov et al., 2015] Antonov, A., Konikov, M., and Spector, M. (2015). The free boundary sabr: Natural extension to negative rates. Risk Magazine , pages 81–85. [do Carmo, 1992] do Carmo, M. P. (1992). Riemannian Geometry . Birkhäuser, Boston, Basel, Berlin. [Feng et al., 2019] Feng, L., Wu, X., Arik, S. Ö., and Pfister, T. (2019). Incorporating prior financial domain knowledge into neural networks for implied volatility surface prediction. arXiv preprint , arXiv:1904.12834. [Hagan et al., 2002] Hagan, P. S., Kumar, D., Lesniewski, A. S., and Woodward, D. E. (2002). Managing smile risk. Wilmott Magazine , 1:84–108. [Henry-Labordère, 2009] Henry-Labordère, P. (2009). Analysis, Geometry, and Modeling in Finance: Advanced Methods in Option Pricing . Chapman and Hall/CRC, Boca Raton. [Lund, 2023] Lund, B. (2023). Modelling the volatility smile in negative-rate environments: Empirical analysis of sabr variants. CBS Research Working Paper , pages 1–46. [McGhee, 2021] McGhee, W. A. (2021). An artificial neural network representation of the sabr stochastic volatility model. Journal of Computational Finance , 25(2):1–40. 32 [Muguruza et al., 2019] Muguruza, A., Manso, J., and Serna, G. (2019). An efficient calibration of stochastic volatility models using neural networks. arXiv preprint , arXiv:1901.09647. [Obłój, 2008] Obłój, J. (2008). Fine-tune your smile: Correction to hagan et al. Wilmott Magazine , pages 84–89. [Paulot, 2009] Paulot, L. (2009). Asymptotic implied volatility at the second order with applica-tion to the sabr model. arXiv preprint , arXiv:0906.0658. [Reghai and Kettani, 2020] Reghai, A. and Kettani, O. (2020). Financial Models in Production .SpringerBriefs in Finance. Springer, Cham. [Rosenberg, 1997] Rosenberg, S. (1997). The Laplacian on a Riemannian Manifold: An Intro-duction to Analysis on Manifolds . Cambridge University Press, Cambridge. [Stuijt, 2021] Stuijt, H. (2021). Deep calibration of the sabr model. Master’s thesis, Erasmus University Rotterdam, Rotterdam. [Thorin, 2021] Thorin, H. (2021). Artificial neural networks for sabr model calibration and hedging. Master’s thesis, Imperial College London, London. 33

@@ -1,0 +1,1427 @@
+Title: Faster Monotone Implied Volatility Solver
+
+URL Source: https://arxiv.org/pdf/2605.22427v2
+
+Published Time: Wed, 27 May 2026 00:06:59 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+Article 
+
+# Faster Monotone Implied Volatility Solver 
+
+Fabien Le Floc’h 
+
+> Independent researcher; fabien@2ipi.com
+
+Abstract 
+
+We present ThiopheneIV, a Black–Scholes implied-volatility solver with a monotone core and explicit pro-duction guards. The solver starts from the simple Choi–Huh–Su L3 lower-bound seed and applies three Euler–Chebyshev steps on a lower branch and three Halley steps on the remaining upper branch. We prove that, in exact arithmetic, the seed lies below the root and both maps increase monotonically without over-shooting. We also detail the practical challenges encountered for a double-precision implementation: parity normalisation, microscopic Bachelier-limit handling, saturated price treatment, and an optional Jäckel–Newton polish. Across standard grids, market-like data, high-volatility cases, and adversarial corners, ThiopheneIV agrees closely with multiprecision Black reference prices at low latency. We provide detailed comparisons with recent solvers, including Jäckel’s Let’s Be Rational . The broader lesson is that a convergence proof gives a clean core, but robust production inversion still depends on boundary handling and on the pricing objective one chooses to match. 
+
+Keywords: implied volatility; Black–Scholes model; monotone convergence; Euler–Chebyshev method; Halley method; numerical option pricing 
+
+## 1. Introduction 
+
+Implied volatility inversion recovers the Black–Scholes volatility 𝜎 from an option price. It is a small scalar root-finding problem, but it is called so often in calibration and risk systems that both latency and tail robustness matter. The numerical difficulty is not merely local convergence of Newton-like iterations. Deep out-of-the-money prices can underflow, nearly in-the-money prices can lose time value before the solver is called, and high-volatility prices close to the upper bound are poorly conditioned in volatility. Jäckel’s Let’s Be Rational [ 3] remains the natural reference implementation for this domain. It combines normalised prices, region-dependent asymptotics, complementary objectives, and carefully selected iterations. Choi, Huh, and Su [ 5] derive implied-volatility bounds from option-delta inequalities and prove monotone convergence of Newton’s method from their lower bounds. This paper studies a production solver built around the Choi–Huh–Su L3 lower bound. We call it ThiopheneIV. The solver uses the L3 formula as a global non-Bachelier seed. After reducing the input to a normalised out-of-the-money call price 𝑐 and total volatility 𝑣 = 𝜎 √𝑇 , it refines the smaller-tail log objective: 
+
+ln( 𝑐 ) for 𝑐 ≤ 1∕2 and ln(1 − 𝑐 ) for 𝑐 > 1∕2 . At an iterate 𝑣 𝑛 , write 
+
+𝜂 𝑛 = − 𝐹 (𝑣 𝑛 )
+
+𝐹 ′(𝑣 𝑛 ) , 𝜆 𝑛 = 𝐹 (𝑣 𝑛 )𝐹 ′′ (𝑣 𝑛 )[𝐹 ′(𝑣 𝑛 )] 2 .
+
+On the lower tail, 𝐹 (𝑣 ) = ln( 𝑐 (𝑥, 𝑣 )) − ln( 𝑐 target ) and ThiopheneIV uses the Euler–Chebyshev method of order three [9, p. 81], 
+
+𝑣 𝑛 +1 = 𝑣 𝑛 + 𝜂 𝑛 (1 + 𝜆 𝑛 
+
+2 ).
+
+On the upper tail, 𝐹 (𝑣 ) = ln(1 − 𝑐 target ) − ln(1 − 𝑐 (𝑥, 𝑣 )) and ThiopheneIV uses Halley’s method in the closely related rational form 
+
+𝑣 𝑛 +1 = 𝑣 𝑛 + 𝜂 𝑛 
+
+1 − 𝜆 𝑛 ∕2 .
+
+> 1
+> arXiv:2605.22427v2 [q-fin.CP] 25 May 2026
+
+Starting from the Choi L3 lower-bound seed, both maps are monotone increasing and bounded above by the true root in exact arithmetic (Appendices E and F). The paper contributes an explicit normalised L3-seeded algorithm, monotone no-overshoot proofs for its lower-tail Euler–Chebyshev and upper-tail Halley maps, and the production boundary handling needed for robust double-precision use. Accuracy and latency are compared against multiprecision Black references and recent implied-volatility solvers, including Jäckel’s reference implementation. 
+
+## 2. Problem Formulation 
+
+2.1. Normalization 
+
+All prices are first reduced to the same normalised OTM representation. Let 𝐶 and 𝑃 denote undiscounted call and put prices with forward 𝐹 , strike 𝐾 , and time to expiry 𝑇 . We call an option at the money (ATM) when 
+
+𝐹 = 𝐾 , and near ATM when | ln( 𝐹 ∕𝐾 )| is small. A call is out of the money (OTM) when 𝐹 < 𝐾 , while a put is OTM when 𝐹 > 𝐾 ; the opposite cases are in the money (ITM). Rather than carrying separate call, put, ITM, and OTM formulae through the solver, we order the forward–strike pair as 
+
+𝐹 ∗ = min( 𝐹, 𝐾 ), 𝐾 ∗ = max( 𝐹, 𝐾 ), 𝐹 ∗
+
+𝐾 ∗
+
+= min( 𝐹 ∕𝐾, 𝐾 ∕𝐹 ) ≤ 1.
+
+The corresponding OTM value is obtained by put–call parity, and by exchanging the forward and strike for OTM puts: 
+
+𝐶 OTM =
+
+⎧⎪⎪⎨⎪⎪⎩
+
+𝐶, call and 𝐹 ≤ 𝐾, 𝐶 − ( 𝐹 − 𝐾 ), call and 𝐹 > 𝐾, 𝑃, put and 𝐹 > 𝐾, 𝑃 − ( 𝐾 − 𝐹 ), put and 𝐹 < 𝐾. 
+
+Thus every admissible input is represented as an undiscounted OTM call on (𝐹 ∗, 𝐾 ∗). The variables passed to the scalar inversion are 
+
+𝑥 = ln ( 𝐹 ∗
+
+𝐾 ∗
+
+) ≤ 0, 𝑒 𝑥 = 𝐹 ∗
+
+𝐾 ∗
+
+, 𝑐 = 𝐶 OTM 
+
+𝐹 ∗
+
+, 𝑣 = 𝜎 √𝑇. (1) We also use the sqrt-forward normalised price 
+
+𝛽 = 𝑐𝑒 𝑥 ∕2 = 𝐶 OTM 
+
+√𝐹 ∗𝐾 ∗
+
+, 𝑐 = 𝛽𝑒 −𝑥 ∕2 . (2) This is only a change of price scale; the solver input remains the OTM-forward-normalised price 𝑐 .This normalisation removes intrinsic value before inversion. In particular, originally ITM options are priced through their OTM parity legs, avoiding the cancellation that would occur if one subtracted a large intrinsic component from the original option price. Here and throughout, Φ denotes the standard normal cumulative distribution function. In these coordinates the Black formula for the normalised OTM call price is 
+
+𝑐 (𝑥, 𝑣 ) = Φ 
+
+( 𝑥 𝑣 + 𝑣 
+
+2
+
+)
+
+− 𝑒 −𝑥 Φ
+
+( 𝑥 𝑣 − 𝑣 
+
+2
+
+)
+
+. (3) 
+
+2.2. Tail-Log Objective and erfcx Decomposition 
+
+Following Jäckel [ 3] and Choi et al. [ 5], the iteration is performed in logarithmic price space rather than on the raw price residual. For a target normalised price 𝑐 target , ThiopheneIV uses the smaller tail 
+
+𝑓 (𝑣 ) = 
+
+⎧⎨⎩
+
+ln( 𝑐 (𝑥, 𝑣 )) − ln (𝑐 target 
+
+), 𝑐 target ≤ 1∕2 ,
+
+ln(1 − 𝑐 (𝑥, 𝑣 )) − ln (1 − 𝑐 target 
+
+), 𝑐 target > 1∕2 .
+
+(4) 
+
+> 2
+
+Proposition 1. For ℎ = 𝑥 ∕𝑣 and 𝑡 = 𝑣 ∕2 , the log-price admits the representation 
+
+ln( 𝑐 ) = − 12 (ℎ2 + 𝑡 2) − ln(2) − 𝑥  
+
+> 2
+
++ ln (𝑁 + − 𝑁 −), (5) 
+
+where 
+
+𝑁 + = erf cx 
+
+(
+
+−( ℎ + 𝑡 )∕ √2
+
+)
+
+, 𝑁 − = erf cx 
+
+(
+
+−( ℎ − 𝑡 )∕ √2
+
+)
+
+. (6) 
+
+Proof. Using (3) and Φ( 𝑧 ) = 12 erf c 
+
+(
+
+−𝑧 ∕√2
+
+)
+
+gives 
+
+𝑐 = 12
+
+[erf c 
+
+(
+
+−( ℎ + 𝑡 )∕ √2
+
+)
+
+− 𝑒 −𝑥 erf c 
+
+(
+
+−( ℎ − 𝑡 )∕ √2
+
+)] .
+
+Now write erf c( 𝑧 ) = 𝑒 −𝑧 2
+
+erf cx( 𝑧 ). Since ℎ𝑡 = 𝑥 ∕2 ,
+
+𝑒 −( ℎ+𝑡 )2∕2 = 𝑒 −( ℎ2+𝑡 2)∕2− 𝑥 ∕2 , 𝑒 −𝑥 𝑒 −( ℎ−𝑡 )2∕2 = 𝑒 −( ℎ2+𝑡 2)∕2− 𝑥 ∕2 .
+
+The two terms therefore share the common factor 𝑒 −( ℎ2+𝑡 2)∕2− 𝑥 ∕2 ∕2 . Factoring it out and taking logarithms gives (5). 
+
+Proposition 2. For the same ℎ = 𝑥 ∕𝑣 and 𝑡 = 𝑣 ∕2 , the complementary log-price admits the representation 
+
+ln(1 − 𝑐 ) = − 12 (ℎ + 𝑡 )2 − ln(2) + ln (𝑀 + + 𝑀 −), (7) 
+
+where 
+
+𝑀 + = erf cx 
+
+(
+
+(ℎ + 𝑡 )∕ √2
+
+)
+
+, 𝑀 − = erf cx 
+
+(
+
+−( ℎ − 𝑡 )∕ √2
+
+)
+
+. (8) 
+
+Proof. Using (3), 
+
+1 − 𝑐 = 12 erf c 
+
+(
+
+(ℎ + 𝑡 )∕ √2
+
+)
+
++ 12 𝑒 −𝑥 erf c 
+
+(
+
+−( ℎ − 𝑡 )∕ √2
+
+)
+
+.
+
+After writing erf c( 𝑧 ) = 𝑒 −𝑧 2
+
+erf cx( 𝑧 ), the two terms share the common factor 𝑒 −( ℎ+𝑡 )2∕2 ∕2 , because ℎ𝑡 = 𝑥 ∕2 
+
+implies 𝑒 −𝑥 𝑒 −( ℎ−𝑡 )2∕2 = 𝑒 −( ℎ+𝑡 )2∕2 . Factoring it out and taking logarithms gives (7). Equation (7) is used whenever 𝑐 target > 1∕2 . It avoids the loss of scale in ln( 𝑐 ) near the upper price bound while requiring the same two erf cx evaluations as (5). 
+
+Remark 1. The scaled complementary error function erf cx( 𝑧 ) = 𝑒 𝑧 2
+
+erf c( 𝑧 ) is bounded and positive for all real 𝑧 .Consequently, the difference 𝑁 + − 𝑁 − remains computable even when the price itself would underflow to zero in double precision. This is the main reason for using the log-price formulation: the objective 𝑓 (𝑣 ) remains well defined and smoothly differentiable for arbitrarily deep OTM options. 
+
+Equations (5) and (7) are the default ThiopheneIV iteration objectives: the unpolished solver selects the smaller logarithmic tail, applying Euler–Chebyshev steps on ln( 𝑐 ) and Halley steps on ln(1 − 𝑐 ). The expanded Jäckel branch in Appendix B is used separately as the benchmark reference price and as the optional final-polish target. The same numerical choices also matter before inversion, when prices are produced or used as targets. Table 1 compares three double-precision pricing paths against a 512-bit reference price: the textbook normal-CDF formula (3) , the beta-normalised erf cx /log formula (5) , and the expanded Jäckel reference branch of Appendix B. The CDF path uses a normal CDF implemented through Apache Commons Numbers erfc ; the erf cx /log path evaluates the sqrt-forward-normalised price 𝛽 = 𝑐 √𝑒 𝑥 with Apache Commons Numbers erfcx and then divides by √𝑒 𝑥 ; and the expanded path uses the Jäckel-style branch. The plotting script draws these Java-benchmark values and supplies the high-precision error scale. The examples are concrete OTM equity-style 
+
+> 3
+
+quotes, written in terms of the forward moneyness 𝐹 ∗∕𝐾 ∗, expiry, annualised volatility, and total volatility 
+
+𝑣 = 𝜎 √𝑇 .The erf cx dependency should be a high-quality scaled complementary error function, not the literal product 𝑒 𝑧 2
+
+erf c( 𝑧 ) in the positive tail. We found the implementations of Apache Commons Numbers to be of the highest quality (the best accuracy). Cody’s implementation from Netlib is nearly as good, while Johnson’s implementation part of Julia ’s SpecialFunctions.jl is less accurate, but may still be satisfactory (especially with the polishing step) for the double-precision regimes tested here (see Appendix C). 
+
+Table 1. Concrete double-precision Black pricing diagnostics for the OTM-normalised call price 𝑐 = 𝐶 OTM ∕𝐹 ∗. The scenario column gives the market-style expiry/volatility description when one is used; the input column always lists the starting (𝐹 ∗∕𝐾 ∗, 𝑣 ). The reference price is shown at the starting 𝑣 ; the error columns report the maximum relative error over 512 successive double-precision values of 𝑣 starting there, relative to a high-precision reference price.                                
+
+> Scenario (𝐹 ∗∕𝐾 ∗, 𝑣 )𝑐 ref CDF erfcx/log Expanded Jäckel Lesson
+> Two-week 7.5% OTM, 15% vol (0 .925 ,2.99×10 −2 )4.42×10 −5 1.6×10 −13 5.2×10 −14 1.9×10 −15
+> Tail cancellation is already visible in the CDF path; the branched reference is cleaner. Monotonicity diagnostic, 𝑣 = 5% (0 .955 ,5.00×10 −2 )4.94×10 −3 2.7×10 −14 1.7×10 −14 7.1×10 −16
+> This later figure case has small absolute pricing errors, but still tens to hundreds of price ulps. One-day 0.5% OTM, 10% vol (0 .995 ,6.30×10 −3 )7.65×10 −4 1.6×10 −13 1.1×10 −13 5.1×10 −16
+> The beta-normalised erfcx path is good with Commons erfcx; the expanded branch gives the reference.
+
+Figure 1 visualises two of these one-ulp sweeps in total volatility. In these practical cases, the beta-normalised erf cx /log formula improves on the textbook CDF path, while the branched reference remains cleaner still. 0 100 200 300 400 500 
+
+> One-ulp step index
+> 10 0
+> 10 1
+> 10 2
+> 10 3
+> 10 4
+> Absolute price error (ulps)
+> CDF tail cancellation
+
+𝐹 ∗∕𝐾 ∗ = 0 .925 , 𝑇 = 2 𝑤, 𝜎 = 15%      
+
+> 0100 200 300 400 500
+> One-ulp step index
+> Commons erfcx improves CDF
+
+𝐹 ∗∕𝐾 ∗ = 0 .995 , 𝑇 = 1 𝑑, 𝜎 = 10%   
+
+> CDF erfcx/log expanded
+
+Figure 1. Pricing-formula accuracy diagnostic against a high-precision reference. Each panel advances 𝑣 by 512 successive double-precision values and plots absolute price error in ulps of the high-precision OTM-normalised price. The left panel shows a realistic short-expiry OTM quote where the CDF formula loses tail bits; the right panel shows a near-ATM short-expiry quote where a high-quality erf cx implementation avoids the larger CDF error, but the expanded branch is still the last-bit reference. 
+
+Figure 2 separates the signed price-step diagnostic because it is visually easier to read on its own and it illustrates a different point. Even when all three formulas are accurate in absolute terms, the double-precision price sequence need not be monotone under successive one-ulp increases of total volatility. This happens for the CDF, beta-normalised erf cx /log, and expanded Jäckel-style evaluations; higher precision reduces cancellation but does not turn a rounded double-precision evaluation into the real-valued monotone function. Table 2 repeats the comparison on practical quoted-price grids rather than irrelevant deep tails. It confirms the same qualitative pattern: the CDF path is limited by tail cancellation, the Commons erf cx /log path is usually cleaner in OTM regimes, and the expanded branch remains the reference evaluation for pricing diagnostics and optional polish. 
+
+40 100 200 300 400 500 
+
+One-ulp step index 
+
+> −200
+> −150
+> −100
+> −50
+> 0
+> 50
+> 100
+> 150
+> 200
+> Price step (ulps)
+
+Price steps from nextUp( 𝑣 ) for 𝐹 ∗∕𝐾 ∗ = 0 .955 , 𝑣 0 = 0 .05 
+
+> CDF (152 down, 187 flat) erfcx/log (100 down, 123 flat) expanded (6 down, 52 flat)
+
+Figure 2. One-ulp price-step diagnostic for 𝐹 ∗∕𝐾 ∗ = 0 .955 and 𝑣 = 0 .05 . Each curve shows the local OTM-price step produced by advancing total volatility by one double-precision value. Negative points mark local downward steps despite the monotonicity of the real-valued Black price. 
+
+Table 2. Regime-level assessment of direct Black pricing formulas against a 200-decimal-digit reference on practical OTM quote grids. The broad grid uses 0.80 ≤ 𝐹 ∗∕𝐾 ∗ ≤ 0.995 , expiries from one day to one year, and annualised volatilities from 10% to 120%. The near-ATM grid uses 0.99 ≤ 𝐹 ∗∕𝐾 ∗ ≤ 0.9995 , expiries from one day to two weeks, and annualised volatilities from 5% to 80%. Deep tails below 𝑐 = 10 −12 are omitted here.                                 
+
+> Regime Points CDF p99 erfcx/log p99 Expanded p99 Conclusion
+> Broad OTM grid, 10 −8 ≤𝑐 ≤5×10 −2 390 3.9×10 −13 5.4×10 −14 2.0×10 −15 The Commons-erfcx path reduces CDF cancellation, and the reference branch is cleaner. Tiny quoted premiums, 10 −12 ≤𝑐 < 10 −8 19 2.1×10 −12 8.9×10 −14 5.9×10 −15 Tail cancellation increasingly favours the log/expanded formulations. Near-ATM short-dated grid, 𝑐 ≤5×10 −2 186 2.8×10 −13 8.8×10 −14 4.6×10 −16 Direct erfcx/log is useful, but the expanded branch is the last-bit reference.
+
+This improvement should not be confused with a guarantee of strict monotonicity in floating-point arithmetic. The real Black price is monotone in total volatility, but a particular double-precision evaluation need not be monotone when the input is advanced by one ulp (unit in the last place, the spacing between adjacent double-precision numbers at the value under discussion); this distinction is highlighted in [ 4 ]. The expansion is valuable for reducing cancellation, but Figure 2 shows that it should not be read as a floating-point monotonicity guarantee. 
+
+## 3. Solver Design 
+
+3.1. Log-Price Derivatives 
+
+ThiopheneIV refines total volatility with the selected tail-log objective from Section 2.2. Let 
+
+𝑔 (𝑣 ) = ln( 𝑐 (𝑥, 𝑣 )) − ln (𝑐 target 
+
+), ℎ = 𝑥 ∕𝑣, 𝑡 = 𝑣 ∕2 .
+
+The derivatives needed by the Euler–Chebyshev correction follow from the same erfcx decomposition used to evaluate the objective. 
+
+5Proposition 3. In the log-price formulation, the first three derivatives of 𝑔 0(𝑣 ) = ln( 𝑐 (𝑥, 𝑣 )) admit closed-form expressions: 
+
+𝑔 ′0(𝑣 ) = 2∕ √2𝜋 𝑁 + − 𝑁 − , (9) 
+
+𝑔 ′′ 0 (𝑣 )
+
+𝑔 ′0(𝑣 ) = (ℎ + 𝑡 )( ℎ − 𝑡 )
+
+𝑣 − 𝑔 ′0(𝑣 ), (10) 
+
+𝑔 (3) 0 (𝑣 )
+
+𝑔 ′0(𝑣 ) = −3 ℎ2 − 𝑡 2 + ( ℎ2 − 𝑡 2)2
+
+𝑣 2 − 3 𝑔 ′0(𝑣 ) 𝑔 ′′ 0 (𝑣 )
+
+𝑔 ′0(𝑣 ) − [𝑔 ′0(𝑣 )]2. (11) 
+
+Proof. The vega of the normalised Black formula is 𝜕𝑐 ∕𝜕𝑣 = 𝜙 (𝑑 1), where 𝜙 is the standard normal density. Thus 𝑔 ′0(𝑣 ) = 𝑐 −1 𝜙 (𝑑 1). Expressing 𝜙 (𝑑 1) = (2 𝜋 )−1∕2 𝑒 −𝑑 21 ∕2 and using Equation (6) gives (9) ; Equations (10) and (11) follow by differentiating with respect to 𝑣 and simplifying. For the complementary branch, write 𝑆 = 𝑀 + +𝑀 − and 𝓁 𝑞 (𝑣 ) = ln(1− 𝑐 (𝑥, 𝑣 )) . The common exponential factor in (7) cancels from the Newton and second-derivative ratios, giving 
+
+𝓁 ′
+
+> 𝑞
+
+(𝑣 ) = − 2
+
+√2𝜋 𝑆 , (12) 
+
+𝓁 ′′  
+
+> 𝑞
+
+(𝑣 )
+
+𝓁 ′
+
+> 𝑞
+
+(𝑣 ) = −( ℎ + 𝑡 )( 12 − 𝑥 𝑣 2 ) + 2
+
+√2𝜋 𝑆 . (13) Thus the upper-tail Halley step needs the same two erf cx values and one logarithm as the direct log-price step; no additional exponential evaluation is required. Once the two erf cx values for the selected tail are available from the objective evaluation, the derivative ratios involve only elementary arithmetic. The Chebyshev and Halley corrections therefore cost little more than a Newton step with the same erf cx calls, but have cubic local convergence at the simple root. 
+
+3.2. Choi–Huh–Su L3 Seed 
+
+For 𝑥 ≤ 0, set 𝑘 = − 𝑥 ≥ 0 and 𝐸 = 𝑒 𝑘 . The Choi–Huh–Su L3 seed maps the normalised OTM price to 
+
+𝑝 3 = 𝑐 (𝑐 + 𝐸 )2𝑐 + 𝐸 − 1 , 𝑧 3 = Φ −1 (𝑝 3), (14) and then solves 𝑧 3 = 𝑑 1(𝑣 ) = − 𝑘 ∕𝑣 + 𝑣 ∕2 for a positive total volatility. The root is evaluated in rationalised form when 𝑧 3 < 0 to avoid cancellation; Appendix D gives the exact transcription, including the ATM limit. The seed is not selected because it is the most accurate raw approximation. Its advantage is structural: Choi et al. [ 5] prove that this value is a lower bound for the admissible implied volatility. ThiopheneIV uses that lower-side property as the entry point for a monotone refinement rather than as a merely empirical basin guess. The inverse normal CDF is evaluated by a piecewise rational approximation; subsequent cubic steps and the optional Jäckel–Newton polish absorb the last-bit differences introduced by that approximation. 
+
+3.3. Cubic Refinement 
+
+Given a finite positive seed 𝑣 𝑛 below the root, define the Newton displacement and the usual dimensionless Chebyshev–Halley curvature parameter 
+
+𝜂 𝑛 = − 𝑔 (𝑣 𝑛 )
+
+𝑔 ′(𝑣 𝑛 ) , 𝜆 𝑛 = 𝑔 (𝑣 𝑛 )𝑔 ′′ (𝑣 𝑛 )[𝑔 ′(𝑣 𝑛 )] 2 .
+
+On the lower-tail log-price branch, ThiopheneIV applies the Euler–Chebyshev method of order three [ 9 , p. 81] in the compact form 
+
+𝑣 𝑛 +1 = 𝑣 𝑛 + 𝜂 𝑛 (1 + 12 𝜆 𝑛 ). (15) 
+
+> 6
+
+The production path uses three full-precision refinement steps on either objective branch. Appendix E proves that, in real arithmetic, the map in (15) satisfies 0 < 𝑇 (𝑣 ) − 𝑣 ≤ 𝑣 ∗ − 𝑣 for every 𝑣 ∈ (0 , 𝑣 ∗) when 𝑥 ≤ 0 on the lower-tail log-price branch. Therefore the corresponding sequence from the Choi L3 lower-bound seed is monotone increasing, bounded by the true root, and convergent. The upper-tail branch instead applies Halley’s method to the complementary objective, using the derivative ratios in (12) –(13) to avoid loss of scale when 𝑐 > 1∕2 :
+
+𝑣 𝑛 +1 = 𝑣 𝑛 + 𝜂 𝑛 
+
+1 − 12 𝜆 𝑛 
+
+, (16) where 𝜂 𝑛 = −( 𝓁 𝑞 (𝑣 𝑛 ) − 𝓁 𝑞 (𝑣 ∗))∕ 𝓁 ′
+
+> 𝑞
+
+(𝑣 𝑛 ) > 0 and 𝜆 𝑛 = ( 𝓁 𝑞 (𝑣 𝑛 ) − 𝓁 𝑞 (𝑣 ∗)) 𝓁 ′′  
+
+> 𝑞
+
+(𝑣 𝑛 )∕[ 𝓁 ′
+
+> 𝑞
+
+(𝑣 𝑛 )] 2. Appendix F records the corresponding monotone-convergence result. 
+
+3.4. Optional Jäckel–Newton Polish 
+
+The default ThiopheneIV objective is the selected erfcx/tail-log formula. When the goal is instead to match the expanded Jäckel reference price as closely as possible, one final Newton correction is applied on the lower-price half 𝑐 ≤ 1∕2 to the residual in the sqrt-forward normalised price 𝛽 = 𝑐𝑒 𝑥 ∕2 from (2) . For 𝑐 > 1∕2 ,the core solver is already using the complementary ln(1 − 𝑐 ) objective, and a final direct-price residual can be less well conditioned than the quantity being inverted. The correction uses the reference price from Appendix B, converted to the same sqrt-forward normalisation, and the analytic normalised vega. The cutoff 𝑐 ≤ 1∕2 is an objective-conditioning cutoff: above the midpoint the small quantity is 1 − 𝑐 , so the complementary log objective remains better conditioned than a direct price residual. Section 5.2 separates this cutoff from Jäckel’s expanded price-evaluation regions and measures the numerical effect of moving it. 
+
+3.5. Guards and Hot Path 
+
+Figure 3 summarises the input-domain branch map. The same guards are also useful for any Choi-seeded or Jäckel-like solver that is expected to handle adversarial inputs rather than only smooth benchmark grids. 10 −14 10 −12 10 −10 10 −8 10 −6 10 −4 10 −2 1           
+
+> Distance from ATM 𝑚 = − 𝑥 (log scale; left edge approximates 𝑥 = 0 )
+> 10 −12
+> 10 −9
+> 10 −6
+> 10 −3
+> 1∕2
+> 0.999
+> 1 − 10 −6
+> OTM-normalised price  𝑐  (logit scale)
+> lower-tail objective Choi L3 seed
+> ln( 𝑐 )
+> 3 Euler–Chebyshev steps
+> first guard tiny near-ATM Bachelier seed small-Black polish
+> upper-tail objective Choi L3 seed
+> ln(1 − 𝑐 )
+> 3 Halley steps
+> 𝑐 = 10 −6
+> 𝑚  = 10 −8
+> 𝑐 = 1∕2
+> IV+ direct-price Jäckel polish only for 𝑐 ≤1∕2
+> first guard: tiny near-ATM lower-tail objective upper-tail objective
+
+Figure 3. ThiopheneIV input-domain branch map after OTM normalisation, shown in the variables 𝑚 = − 𝑥 and 
+
+𝑐 = 𝐶 OTM ∕𝐹 ∗. The vertical axis is a logit scale, so the top tick is capped at 1 − 10 −6 only to keep the approach to the upper bound 𝑐 = 1 finite. The tiny near-ATM guard is tested first. For all remaining inputs the solver forms a Choi L3 seed and repairs it only if it is invalid or non-finite. The unpolished route then uses three Euler–Chebyshev steps on ln( 𝑐 ) for 𝑐 ≤ 1∕2 
+
+and three Halley steps on ln(1 − 𝑐 ) for 𝑐 > 1∕2 . The optional ThiopheneIV+ price polish is applied only for 𝑐 ≤ 1∕2 ; for 
+
+𝑐 > 1∕2 the complementary-gap objective is retained without an expanded Jäckel price polish. 
+
+> 7
+
+## 4. Experimental Setup 
+
+4.1. Reference Price Computation 
+
+Benchmarking a solver to machine precision requires reference prices accurate to the last bit. The textbook Black–Scholes formula 𝑐 = Φ( 𝑑 1) − 𝑒 −𝑥 Φ( 𝑑 2) suffers from catastrophic cancellation for deep OTM options, and even the erfcx/log objective used by the unpolished solver can lose relative bits in nearly-ATM, very-low-volatility cases because it subtracts two close erfcx values. Therefore the main accuracy tables use prices generated from a multiprecision Black evaluator at the known reference total volatility. The resulting OTM-normalised prices are rounded to double precision and stored with the source distribution, so the benchmark does not regenerate a double-precision pricing oracle on each run. For each reference total volatility, the stored price is passed to the solver in the same 𝑐 = 𝐶 OTM ∕𝐹 ∗ convention as any other input. Thus the reported accuracy is a comparison against rounded multiprecision Black prices, not merely against the internal objective of the unpolished solver. ITM prices are recovered via put–call parity (a well-conditioned addition of intrinsic value), never by direct evaluation. 
+
+4.2. Test Datasets 
+
+To ensure robustness, we benchmark on eight datasets spanning the full range of practically relevant option parameters (Table 3).  
+
+> Table 3. Test datasets.
+
+Dataset Cases Description 
+
+CLY-3D 51 ,321 Cui–Liu–Yao three-dimensional grid: 𝐾 ∈ [105 , 800] , 𝑇 ∈ [0 .01 , 2] , 𝜎 ∈ [0 .01 , 0.99] ,filtered at price 10 −20 
+
+CLY-20 1,600 Cui–Liu–Yao fixed-volatility surface: 𝜎 = 20% , 𝐾 ∈ [105 , 180] , 𝑇 ∈ [0 .1, 2] 
+
+CLY-80 1,600 Cui–Liu–Yao fixed-volatility surface: 𝜎 = 80% , 𝐾 ∈ [105 , 800] , 𝑇 ∈ [0 .1, 2] 
+
+Jäckel 5,182 Wide moneyness: 𝐾 ∕𝐹 ∈ [0 .5, 8] , 𝜎 up to 4.0 Market 7,151 Realistic: 𝐾 ∕𝐹 ∈ [0 .7, 1.5] , 𝑇 from 1/252 to 5 yr Corners 278 Edge cases: low-vol/short-mat, high-vol/deep-OTM, near-ATM small-price, and satu-rated upper-price cases Stress 1,270 Extremes: 𝐾 ∕𝐹 up to 100× , 𝑇 ∈ [0 .001 , 10] 
+
+HighVol 149 Fallback stress zone: |𝑥 | ≥ 3, 𝑐 ∈ (0 .05 , 0.95) , 𝜎 up to 2.5 The first three datasets reproduce the comparison grids from Cui–Liu–Yao [ 2]: the main three-dimensional grid and the two fixed-volatility surface grids used in their numerical comparison with previous literature. The HighVol dataset specifically targets the region |𝑥 | ≥ 3 with large option prices, where Li’s rational approximation is outside its fitted domain and the asymptotic OTM guard only accepts part of the set; cases are filtered to 𝑐 < 0.95 to reflect the practical use of put–call parity for deep ITM options. Appendix A gives the exact construction rules used by the benchmark generator. 
+
+4.3. Solvers Under Comparison 
+
+The main comparison is between ThiopheneIV and Jäckel’s Let’s Be Rational . The timing rows use the same benchmark protocol: minimum of 500 sweeps and 3 independent runs. 
+
+• Jäckel’s Let’s Be Rational [ 3 ]. Region-dependent asymptotic expansions, log-space iteration, and a complementary objective. The comparison uses the normalised API with 𝛽 = 𝑐 √𝐹 ∕𝐾 and the original two-iteration default. 
+
+• ThiopheneIV. Choi–Huh–Su L3 seed, three full-precision lower-tail Euler–Chebyshev steps, upper-tail Halley steps, and production guards. We denote the polished configuration by ThiopheneIV+ :ThiopheneIV with one final expanded Jäckel price polish on 𝑐 ≤ 1∕2 only; the upper half remains on the complementary-gap objective. 
+
+> 8
+
+## 5. Results 
+
+5.1. Accuracy and Timing 
+
+Table 4 reports accuracy and latency on the eight benchmark datasets. Input prices for the accuracy block are generated from a multiprecision Black price at the known total volatility 𝑣 ref , rounded to double precision, and then passed to the solver as OTM-normalised prices. Errors are measured in ulps of the reference total volatility. For each test case, if the reference total volatility is 𝑣 ref and the solver returns ̂ 𝑣 =̂ 𝜎 √𝑇 , the reported per-case error is 
+
+|̂ 𝑣 − 𝑣 ref |
+
+nextUp( 𝑣 ref ) − 𝑣 ref 
+
+.
+
+Thus the unit is the local double-precision spacing at the reference volatility, not a fixed decimal tolerance. For example, at 𝑣 ref = 0 .20 , one ulp is 2.7755575615628914 × 10 −17 ; an 8-ulp error corresponds to an absolute total-volatility error of about 2.22 × 10 −16 , or a relative error of about 1.11 × 10 −15 . Table 4 reports the maximum of this quantity over each dataset. This makes the accuracy table a comparison against a multiprecision price-generation oracle rather than against the simpler erfcx/log formula. 
+
+Table 4. Accuracy against rounded multiprecision Black reference prices and latency by dataset.                                                                
+
+> CLY-3D CLY-20 CLY-80 Jäckel Market Corners Stress HighVol Accuracy – max error (ulp of reference total volatility)
+> Jäckel 23 5425 29 240 33 2ThiopheneIV 133 62 789 177 329 138 2ThiopheneIV+ 24 5513 29 41 33 2
+> ThiopheneIV+ accuracy – max absolute total-volatility error
+> ThiopheneIV+ 7.8×10 −16 1.7×10 −16 5.6×10 −16 6.2×10 −15 8.9×10 −16 2.7×10 −15 8.9×10 −16 8.9×10 −16
+> Latency (ns/call)
+> Jäckel 244 230 221 225 204 263 239 208 ThiopheneIV 167 164 165 171 170 177 176 166 ThiopheneIV+ 211 209 212 209 215 226 223 201
+
+Unpolished ThiopheneIV is faster than Jäckel’s solver on all eight datasets in this run. The optional Newton polish is still competitive with Jäckel’s two-iteration reference path, but it is no longer a pure low-latency configuration; its purpose is reference-price alignment on the lower-price half. When the comparison target is instead the rounded multiprecision Black price, individual polished cases can move by a few ulps in either direction once the three fixed iterations have already reached the last-bit regime. The upper half is left on the complementary-gap objective, avoiding the direct price-residual conditioning illustrated in Appendix A.2. The Corners ulp count is driven by a near-zero-vega case; the absolute-error row shows that the ThiopheneIV+ maximum there is 2.7 × 10 −15 in total volatility. Figure 4 gives fixed-log-moneyness slices against Jäckel’s normalised solver. It checks that ThiopheneIV remains in the same accuracy band as the Jäckel reference on the diagnostic slices, and shows how the optional ThiopheneIV+ polish collapses most of the lower-price reference-price residual. The separation between ThiopheneIV and ThiopheneIV+ in the first panel ( 𝑥 = −10 −8 , 𝑣 ≲ 10 −3 ) is the same kind of pricing-formula limit highlighted by Figure 1, not a sign that the Choi seed or the three cubic refinement steps have failed to converge. The input prices in the figure are generated by the expanded Jäckel reference price. Unpolished ThiopheneIV then solves the erfcx/log objective, whose two erfcx terms are nearly equal in this near-ATM, very-small-total-variance corner. At this scale the erfcx/log formula has already lost enough relative bits that its root is slightly different from the expanded-Jäckel-reference root. The resulting relative price mismatch is typically 10 −10 –10 −12 in this panel, which appears as about 10 −12 relative volatility error. Jäckel and ThiopheneIV+ both finish by matching the expanded Jäckel reference price, so their curves lie near the double-precision floor. Figure 5 resolves the same style of fixed-𝑥 slices by iteration stage. The Choi L3 seed starts on the lower side of the root, and the lower-tail Chebyshev / upper-tail Halley steps compress the error to the double-precision floor across the diagnostic grid.       
+
+> 910 −5 10 −4 10 −3 10 −2 10 −1 15
+
+Reference total volatility 𝑣 
+
+> 10 −18
+> 10 −17
+> 10 −16
+> 10 −15
+> 10 −14
+> 10 −13
+> 10 −12
+> 10 −11
+> Relative total-volatility error
+
+𝑥 = −10 −8   
+
+> 10 −1 15
+
+Reference total volatility 𝑣 
+
+𝑥 = −0 .5  
+
+> 10 −1 15
+
+Reference total volatility 𝑣 
+
+> 10 −18
+> 10 −17
+> 10 −16
+> 10 −15
+> 10 −14
+> 10 −13
+> 10 −12
+> 10 −11
+> Relative total-volatility error
+
+𝑥 = −2    
+
+> 0.5 125
+
+Reference total volatility 𝑣 
+
+𝑥 = −8   
+
+> Jaeckel ThiopheneIV ThiopheneIV+
+
+Figure 4. Fixed-𝑥 comparison of ThiopheneIV and ThiopheneIV+ against Jäckel’s implementation. Each panel varies the reference total volatility at fixed log-moneyness and reports relative total-volatility error. 
+
+5.2. Jäckel–Newton Polish Diagnostic 
+
+The cutoff 𝑐 ≤ 1∕2 used by ThiopheneIV+ is not the boundary of Jäckel’s expanded price-evaluation regions. Let 𝑐 J denote the Jäckel expansion threshold derived in Appendix B, namely 
+
+𝑐 J = erf 
+
+(√ 2 𝜖 1∕16 )
+
+≈ 0 .16650723223355586 .
+
+For 𝑐 ≤ 𝑐 J, the polish targets the expanded lower-tail Jäckel evaluator and reduces the regular-grid inverse errors to the last few ulps. The intermediate band 𝑐 J < 𝑐 ≤ 1∕2 is different: the same Jäckel-style evaluator has already fallen back to the Cody erfc/erfcx formula. Here 𝑥 is fixed and the sqrt-forward normalised price 
+
+𝛽 = 𝑐𝑒 𝑥 ∕2 from (2) is proportional to 𝑐 , so the Newton residual is still formed on the smaller-tail price; the correction remains well conditioned, but its value depends on the price oracle being matched. 
+
+Table 5. Effect of moving the optional Jäckel–Newton polish cutoff. The vectors in the first two rows are maximum total-volatility errors, in the dataset order of Table 4. 
+
+Experiment Target price Numerical result Takeaway 
+
+All benchmark cases; no final polish Rounded multiprecision Max total-volatility error: 
+
+133 , 62 , 7, 89 , 177 , 329 , 138 , 2 ulps Baseline after the three fixed refinement steps. All benchmark cases; polish restricted to 𝑐 ≤ 𝑐 J
+
+Rounded multiprecision Max total-volatility error: 24 , 5, 5, 13 , 29 , 41 , 33 , 2
+
+ulps Same maxima as the 𝑐 ≤ 1∕2 
+
+polish; the low-tail expansion region supplies the grid-level gain. 
+
+𝑐 J < 𝑐 ≤ 1∕2 band (6603 cases); add polish in this band Rounded multiprecision Price residual better/worse/same: 2124/676/3803; largest gain/loss: 8/5 price ulps Mixed last-bit effect against the multiprecision oracle. 
+
+𝑐 J < 𝑐 ≤ 1∕2 band (6603 cases); add polish in this band Jäckel formula Price residual better/worse/same: 2188/121/4294; max total-volatility error: 9 to 6 ulps More favourable when the same Jäckel formula supplies the target. 
+
+10 10 −5 10 −4 10 −3 10 −2 10 −1 1 5 
+
+> Reference total volatility 𝑣
+> 10 −18
+> 10 −15
+> 10 −12
+> 10 −9
+> 10 −6
+> 10 −3
+> 10 0
+> Relative total-volatility error
+
+𝑥 = −10 −8    
+
+> 10 −1 15
+> Reference total volatility 𝑣
+
+𝑥 = −0 .5   
+
+> 10 −1 15
+> Reference total volatility 𝑣
+> 10 −18
+> 10 −15
+> 10 −12
+> 10 −9
+> 10 −6
+> 10 −3
+> 10 0
+> Relative total-volatility error
+
+𝑥 = −2     
+
+> 0.5 125
+> Reference total volatility 𝑣
+
+𝑥 = −8    
+
+> Choi L3 seed Euler–Chebyshev 1 Euler–Chebyshev 2 Euler–Chebyshev 3
+
+Figure 5. Fixed-𝑥 convergence slices for the Choi L3 seed and the ThiopheneIV refinement chain. Each panel fixes log-moneyness and varies the reference total volatility. Curves show relative total-volatility error after the seed and after one, two, and three full-precision refinement steps; values are floored at 10 −18 only for log-scale plotting. 
+
+Thus the polish above 𝑐 J is mainly a choice to align with Jäckel’s double-precision pricing formula. That formula is a high-quality double oracle, but its rounded price can still differ in the last bit, or by a few ulps after inversion, from a price generated in multiprecision and rounded to double. It is deliberately optional: when invoked it improves ulp-level agreement with the expanded Jäckel reference price, but it adds roughly 48–55 ns per call. This last correction is useful only when the surrounding system also treats that reference price as the target. Ideally, production systems would use the same high-accuracy Jäckel-style Black price for pricing, calibration, and inversion. In practice, the straightforward Black–Scholes formula built from a library normal CDF is extremely common; in such systems the pricing formula itself is typically less accurate than the expanded Jäckel reference price, so the polish may provide no practical benefit. Figure 6 shows locally the same effect reported in Table 4: where the optional polish is active, it reduces the residual of the expanded Jäckel reference price, with the incremental cost visible in the latency block of the table. The small non-zero mean of the ThiopheneIV+ curve in the left panel is a floating-point effect, not evidence that the polished method remains a lower bound. After the final Newton polish, the sign is dominated by rounding, objective evaluation mismatch, and ulp quantisation; vega maps the remaining few-volatility-ulp bias into sub-ulp price changes, so the repriced residual can look mean-zero. 
+
+5.3. Operation Costs 
+
+The Choi L3 seed is compact, but the three exact cubic refinement steps dominate the hot path through erfcx and logarithm evaluations. This explains why ThiopheneIV is faster than the Jäckel comparison while still spending most of its latency budget on the proof-backed refinement.             
+
+> 11 0100 200 300 400 500
+> One-ulp step index
+> −150
+> −125
+> −100
+> −75
+> −50
+> −25
+> 0
+> 25
+> 50
+> Vol. error (ulps of  𝑣 )
+> IV( 𝑐 exp (𝑣 )) − 𝑣
+> ThiopheneIV ThiopheneIV+ Jaeckel
+> 0100 200 300 400 500
+> One-ulp step index
+> −60
+> −50
+> −40
+> −30
+> −20
+> −10
+> 0
+> 10
+> 20
+> Relative price error ( 10 −15  units)
+> (𝑐 exp (IV( 𝑐 )) − 𝑐 )∕ 𝑐
+> ThiopheneIV ThiopheneIV+ Jaeckel
+
+Figure 6. Local round-trip diagnostics for the optional Jäckel–Newton polish. The left panel measures implied-volatility error when the input price is generated by the expanded Jäckel reference price; the right panel measures the relative price residual after inversion and repricing with the same reference formula. 
+
+Table 6. Micro-benchmarked operation costs relevant to ThiopheneIV in the implementation. 
+
+Operation Cost (ns) 
+
+Thiophene L3 guess 19.6 1 exact erfcx (Boost/Commons) 5.9 Natural logarithm 4.9 Exponential 3.8 Square root 0.7 Direct Jäckel–Newton polish, when applied about 48–55 
+
+## 6. Discussion 
+
+The proof-backed part of ThiopheneIV is deliberately narrow and explicit. In real arithmetic the Choi L3 seed starts on the lower side of the root, the lower-tail Euler–Chebyshev map and upper-tail Halley map are increasing and do not overshoot. This gives a clean monotone-convergence story that is absent from a purely empirical H3 chain. The engineering story is less clean, and that is the important practical point. A double-precision solver has to decide what to do when an inverse-normal probability is rounded to the endpoint, when a candidate update is non-finite, when the price is so close to the no-arbitrage upper bound that volatility is poorly conditioned, or when a microscopic near-ATM price is better represented by a Bachelier-limit expansion than by the Black tails themselves. These branches do not contradict the convergence theorem; they protect the preconditions under which the theorem and the floating-point evaluation are useful. Jäckel’s solver embodies a similar lesson from another direction. Its robustness comes from normalisation, asymptotic regions, complementary objectives, and careful iteration choices. ThiopheneIV replaces the central seed-and-refine mechanism with Choi L3 plus monotone cubic refinement maps, but it still needs comparable boundary awareness. The optional Jäckel–Newton polish is another example: convergence to the erfcx/log objective is already obtained, yet matching a different high-accuracy pricing objective to a few ulps can require one more targeted correction on the lower-price half. In the upper half, the complementary-gap objective is the better-conditioned target. The benchmark timings are implementation timings, not universal constants. A faster erfcx implemen-tation, a vectorised batch path, or a different inverse normal CDF would shift the absolute numbers. The qualitative trade-off should be more portable: a monotone seed-refine pair buys mathematical transparency, while production robustness and final-reference matching add guard and polish costs that must be budgeted explicitly. 
+
+> 12
+
+## 7. Conclusions 
+
+ThiopheneIV combines the Choi–Huh–Su L3 lower-bound seed with three lower-tail Euler–Chebyshev corrections or, for prices above the midpoint, three upper-tail Halley corrections on the complementary logarithmic objective. In exact arithmetic, the Choi seed, lower-tail Euler–Chebyshev map, and upper-tail Halley map give monotone convergence from below to the admissible Black–Scholes implied volatility. In the reported benchmark, the unpolished implementation has low-double-digit to few-hundred-ulp maximum errors against the multiprecision reference prices and is faster than the Jäckel comparison on all eight datasets. With the optional Jäckel–Newton polish on 𝑐 ≤ 1∕2 , the regular-grid errors are low ulp counts against the multiprecision reference prices, but the correction is aimed primarily at agreement with the Jäckel double-precision price formula. The polish is therefore best viewed as an optional reference-alignment step rather than a universal improvement. Production systems should preferably use the same high-accuracy Jäckel-style Black price for all pricing tasks, but many still use the textbook normal-CDF Black–Scholes formula. In those stacks, the extra polish can be below the accuracy floor of the surrounding pricing code. The main conclusion is not that a convergence proof makes implied-volatility solving simple. The proof guarantees the mathematical iteration once its preconditions are met. A robust production solver still needs many additional steps: normalising quotes to equivalent out-of-the-money prices, evaluating tail prices safely, guarding probabilities and updates, handling microscopic near-at-the-money prices, treating prices close to the no-arbitrage upper bound, and sometimes applying a final polish to machine-epsilon agreement with a chosen reference price. Writing such a solver is therefore less straightforward than “start from a guaranteed seed and iterate”, even when the real-arithmetic convergence is settled. The value of ThiopheneIV is that it separates these two issues: a transparent monotone core, surrounded by the necessary engineering safeguards. 
+
+## Appendix A. Benchmark Construction and Worked Examples 
+
+Appendix A.1. Normalisation and dataset construction 
+
+All generated benchmark cases are converted to the same normalised OTM representation before being passed to the solvers. Given spot 𝑆 , strike 𝐾 , maturity 𝑇 , volatility 𝜎 , and rate 𝑟 , the benchmark helper computes 
+
+𝐹 = 𝑆𝑒 𝑟𝑇 , 𝐹 ∗ = min( 𝐹, 𝐾 ), 𝐾 ∗ = max( 𝐹, 𝐾 ), 𝑒 𝑥 = 𝐹 ∗∕𝐾 ∗,
+
+and then 
+
+𝑥 = ln( 𝑒 𝑥 ), 𝑣 ref = 𝜎 √𝑇. 
+
+For accuracy reporting, the stored price is the OTM-normalised price obtained from a multiprecision Black calculation and rounded to double precision. For the raw dataset filters, the corresponding ln( 𝑐 ) is required to be finite, no larger than −10 −15 (effectively at the upper price boundary), no smaller than −708 (double underflow), and 𝑐 ∈ (0 , 1) . The benchmark array stores (𝑐, 𝑒 𝑥 , 𝑇, 𝜎 ); all six generated datasets use calls, with ITM calls represented through the OTM parity leg. 
+
+Appendix A.2. Concrete worked examples 
+
+For example, the near-ATM small-price Corners case 𝑆 = 100 , 𝐾 = 100 .5, 𝑇 = 0 .01 , 𝜎 = 0 .05 , 𝑟 = 0 gives 
+
+𝐹 = 100 , 𝑒 𝑥 = 100∕100 .5 = 0 .9950248756218906 ,𝑥 = −0 .004987541511039051 , 𝑣 ref = 0 .005000000000000001 ,
+
+ln( 𝑐 ) = −7 .776203975967922 , 𝑐 = 4 .196019744216237 × 10 −4 .
+
+It is therefore stored as a valid Corners case and enters the near-ATM small-price seed branch ( 𝑐 ≤ 5 × 10 −4 
+
+and |𝑥 | < 0.01 ), not the microscopic Bachelier branch ( 𝑐 ≤ 10 −6 and |𝑥 | ≤ 10 −8 ). 
+
+> 13
+
+A complementary saturated-price corner illustrates the conditioning at high volatility close to ATM. With 
+
+𝑆 = 100 , 𝐾 = 100 .01 , 𝑇 = 10 , 𝜎 = 3 , and 𝑟 = 0 , one obtains 
+
+𝑒 𝑥 = 0 .9999000099990001 , 𝑥 = −9 .999500033332494 × 10 −5 ,𝑣 ref = 9 .486832980505138 , ln( 𝑐 ) = −2 .1015432345450336 × 10 −6 ,𝑐 = 0 .9999978984589737 , 1 − 𝑐 = 2 .1015410263114376 × 10 −6 .
+
+This case is near ATM but enters the upper-tail branch because 𝑐 > 1∕2 . In this regime, a guarded production solver can still reprice to machine-precision price accuracy even when the returned volatility differs from the generating value by more than a few ulps. The larger error in volatility is unavoidable conditioning: the normalised vega is only 5.19 × 10 −6 , so an absolute price perturbation at double precision is amplified when inverted for 𝑣 .A smaller but useful upper-half regression case is obtained from the exact binary double inputs printed as 
+
+𝑥 = −10 −6 , 𝑐 = 0 .9999 , 𝑇 = 1 .
+
+The multiprecision reference total volatility for those rounded inputs is 
+
+𝑣 ∗ = 7 .7811840154613839563 … .
+
+ThiopheneIV returns 
+
+7.781184015461386 ,
+
+and ThiopheneIV+ returns the same value because the direct Jäckel price polish is inactive for 𝑐 > 1∕2 . This is about 1.9 ulps of the reference total volatility. If the expanded Jäckel direct-price Newton correction is applied nevertheless, it returns 
+
+7.781184015461925 ,
+
+about 609 ulps from the same reference. The direct price is accurate in absolute terms, but above the midpoint the small quantity is the complementary gap 1 − 𝑐 ; subtracting against the no-arbitrage upper bound makes a direct price residual a poor Newton target. 
+
+Appendix A.3. Microscopic Bachelier-limit branch 
+
+The microscopic branch is deliberately narrower than the ordinary near-ATM small-price seed. It is entered only for normalised OTM prices 𝑐 ≤ 10 −6 , |𝑥 | ≤ 10 −8 , and 𝑥 ≤ 0 (with a one-part-in 10 12 tolerance on the price cut-off). In this box the two Black normal terms are almost equal and the volatility is of the same order as the log-moneyness. Iterating directly on the Black formula can therefore spend its effort resolving a difference of nearly equal tail quantities, while a central ATM approximation can be wrong by orders of magnitude as soon as |𝑥 |∕𝑣 is no longer small. The branch first removes the first-order lognormal skew by using the sqrt-forward variables 
+
+𝛽 = 𝑐𝑒 𝑥 ∕2 , 𝑚 = − 𝑥 ≥ 0, 𝑎 = 𝑚 ∕𝑣. 
+
+The leading price is the Bachelier integral 
+
+𝐼 0(𝑚, 𝑣 ) = 𝑣𝜙 (𝑎 ) − 𝑚 Φ(− 𝑎 ),
+
+and the local Black correction is evaluated through the expansion 
+
+𝛽 Bl (𝑚, 𝑣 ) ≈ 𝐼 0 − 𝐼 2
+
+8 + 𝐼 4
+
+128 ,
+
+where 
+
+𝐼 2 = 𝑣 3𝜙 (𝑎 ) − 𝑚 2𝐼 0
+
+3 , 𝐼 4 = 𝑣 5𝜙 (𝑎 ) − 𝑚 2𝐼 2
+
+5 .
+
+> 14
+
+The Newton denominator uses the exact sqrt-forward Black vega identity 
+
+𝜕𝛽 𝜕𝑣 = 𝜙 (𝑎 )𝑒 −𝑣 2∕8 ,
+
+so the correction remains well-scaled even when the price itself is microscopic. There are three exits. If 𝑚 > 0 and ln( 𝑚 ∕𝛽 ) > 20 , a normal deep-tail equation is solved for 𝑎 = 𝑚 ∕𝑣 :
+
+ln ( 𝛽 𝑚 ) = − 𝑎 2
+
+2 − 12 ln(2 𝜋 ) + ln ( 1
+
+𝑎 −
+
+√ 𝜋 
+
+2 erf cx ( 𝑎 
+
+√2
+
+)) .
+
+The scaled Mills-ratio form avoids subtracting two underflow-level normal tails. This candidate is accepted only when the resulting ratio 𝑚 ∕𝑣 is larger than 4, where the omitted Black correction is numerically negligible. Otherwise, the rational Bachelier approximation of Le Floc’h [ 12 ] supplies the normal-model seed, and two Newton corrections are applied to the expansion above. The only remaining terminal path is defensive: if neither guarded path returns a finite positive value, the branch returns the zero-volatility limit. For finite admissible inputs this path is not expected, since the rational seed covers the ATM and transition regimes while the deep-tail solve intercepts ratios below the rational approximation’s finite domain. A deep-tail example is obtained directly in normalised coordinates by taking 
+
+𝑥 = −10 −14 , 𝑒 𝑥 = 0 .99999999999999 , 𝑇 = 1 , ln( 𝑐 ) = −100 .
+
+Equivalently, one may take 𝐾 ∗ = 1 and 𝐹 ∗ = 𝑒 𝑥 = 0.99999999999999 , giving 𝐶 OTM = 𝐹 ∗𝑐 =3.7200759760207988 × 10 −44 . Thus 𝑐 = 𝑒 −100 = 3 .720075976020836 × 10 −44 and 
+
+𝑚 = − 𝑥 = 10 −14 .
+
+The Bachelier-limit branch is active because 𝑐 ≤ 10 −6 , |𝑥 | ≤ 10 −8 , and 𝑥 ≤ 0. The deep-tail sub-branch is selected first (before the rational Bachelier seed) because 
+
+ln( 𝑚 ) − ln( 𝑐 ) = 67 .76380869808337 > 20 .
+
+Solving the scaled Mills-ratio equation gives ̂𝑣 = 9 .155604419747184 × 10 −16 , 𝑚 ∕̂𝑣 = 10 .922271803739784 > 4.
+
+A 120-digit check of the Black formula gives the consistent root 𝑣 ref = 9 .155604419747139 × 10 −16 for ln( 𝑐 ) = −100 . The relative difference between the branch value and this high-precision Black root is about 5.0 × 10 −15 .By contrast, 𝑣 = 1 .25 × 10 −15 gives ln( 𝑐 ) = −71 .43799710528910 , so it is not the reference volatility for the 
+
+ln( 𝑐 ) = −100 input. In ordinary double precision the direct erfcx Black log-price difference collapses for this point, which is why the solver uses the Bachelier-limit tail equation instead of entering the Black H3 path. A second example shows why the rational Bachelier seed is still needed outside the accepted deep tail. Take 
+
+𝑥 = −10 −8 , 𝑒 𝑥 = 0 .9999999900000001 , 𝑇 = 1 , 𝑐 = 10 −16 .
+
+Then 
+
+𝑚 = 10 −8 , 𝛽 = 𝑐𝑒 𝑥 ∕2 = 9 .999999950000000 × 10 −17 , ln( 𝑚 ∕𝛽 ) = 18 .420680748952365 .
+
+The price and moneyness are microscopic, but the conservative deep-tail test is not satisfied because ln( 𝑚 ∕𝛽 ) <
+
+20 . This is the transition region: the central estimate √2𝜋𝛽 is too small by almost a factor of eight, while the asymptotic tail equation is not used. The rational Bachelier seed gives the normal root 
+
+𝑣 = 1 .9952018436169516 × 10 −9 , 𝑚 ∕𝑣 = 5 .012024238044884 ,
+
+> 15
+
+and the local Black correction leaves the value unchanged at the shown precision. A high-precision evaluation of Φ( 𝑥 ∕𝑣 + 𝑣 ∕2) − 𝑒 −𝑥 Φ( 𝑥 ∕𝑣 − 𝑣 ∕2) at this value gives 1.0000000000000004 × 10 −16 , i.e., the target price to double precision. The example is therefore neither an ATM case nor a safely asymptotic tail case; it is exactly the narrow zone for which the Bachelier rational seed keeps the expansion polish in its convergence basin. 
+
+Appendix A.4. Choi seed repair 
+
+The Choi L3 formula is the intended non-Bachelier entry point for ThiopheneIV. The seed-repair fallback in the implementation is used only if the Choi seed is non-finite or non-positive after the floating-point probability calculation; it is not the FlashIV Li/asymptotic dispatch and it is not reached in the extensive benchmark presented in this paper. It is nevertheless part of ThiopheneIV as a production solver. A concrete adversarial example is 𝑥 ≃ −720 , 𝑒 𝑥 ≃ 2 .03 × 10 −313 , and 𝑐 = nextUp(0) : the L3 probability calculation becomes non-finite in double precision, and the repair path supplies a finite positive seed before the cubic refinement begins. The repair hierarchy is deliberately conservative. For a very small near-ATM price ( 𝑐 < 10 −4 and 
+
+|𝑥 | < 0.01 ), it uses 
+
+𝑣 0 =
+
+√
+
+𝑥 2 + 2 𝜋𝑐 2,
+
+the first-order ATM relation with a moneyness correction. Otherwise it tries the guarded OTM asymptotic seed 
+
+𝐷 = √max{−2 ln( 𝑐 ) − ln(2 𝜋 ), 0} , 𝑣 0 = −2 𝑥 𝐷 + √𝐷 2 − 2 𝑥 ,
+
+accepted only when the discriminant and denominator are finite and positive. If even this defensive path fails, the terminal fallback is 𝑣 0 = √2|𝑥 |, followed by the positive floor 10 −10 . These branches are outside the real-arithmetic convergence proof; their role is only to ensure that rounded or adversarial inputs still reach a finite positive starting point. 
+
+Appendix A.5. Dataset grids 
+
+The dataset builders use the following grids, with the above filtering applied after each raw case is generated: 
+
+• CLY-3D. 𝑆 = 100 , 𝑟 = 0.03 , 𝐾 = linspace(105 , 800 , 40) , 𝑇 = linspace(0 .01 , 2, 40) , and 𝜎 =linspace(0 .01 , 0.99 , 40) , retaining prices above 10 −20 as in the Cui–Liu–Yao comparison script. 
+
+• CLY-20. 𝑆 = 100 , 𝑟 = 0 .03 , 𝜎 = 0 .20 , 𝐾 = linspace(105 , 180 , 40) , and 𝑇 = linspace(0 .1, 2, 40) .
+
+• CLY-80. 𝑆 = 100 , 𝑟 = 0 .03 , 𝜎 = 0 .80 , 𝐾 = linspace(105 , 800 , 40) , and 𝑇 = linspace(0 .1, 2, 40) .
+
+• Jäckel. 𝑆 = 100 , 𝑟 = 0, 𝐾 = 100 linspace(0 .5, 8, 30) , 𝑇 ∈ {0 .01 , 0.1, 0.25 , 0.5, 1, 2} , and 𝜎 =linspace(0 .02 , 4, 30) .
+
+• Market. 𝑆 = 100 , 𝑟 = 0.03 , 𝐾 = 100 linspace(0 .7, 1.5, 30) , 𝑇 ∈{1∕252 , 5∕252 , 21∕252 , 63∕252 , 0.5, 1, 2, 5} , and 𝜎 = linspace(0 .05 , 1.5, 30) .
+
+• Corners. The union of low-volatility short-maturity ITM calls; deep OTM calls with 𝐾 ∈{200 , 300 , 500 , 1000 , 2000} ; near-OTM short-maturity calls with 𝐾 = linspace(101 , 150 , 10) ; high-volatility cases with 𝐾 ∈ {100 , 150 , 200 , 500} ; and the near-ATM small-price grid 𝐾 ∈ {100 .5, 101 , 102 , 105 , 110} ,
+
+𝑇 ∈ {0 .001 , 0.005 , 0.01} , 𝜎 ∈ {0 .005 , 0.01 , 0.02 , 0.05} .
+
+• Stress. 𝑆 = 100 , 𝑟 = 0.03 , 𝐾 ∈ {101 , 102 , 103 , 110 , 150 , 200 , 500 , 1000 , 2000 , 5000 , 10000} 
+
+and 𝐾 ∈ {10 , 20 , 50 , 80 , 90 , 95 , 98 , 99} , 𝑇 ∈ {0 .001 , 0.005 , 0.01 , 0.05 , 0.1, 0.5, 1, 2, 5, 10} , and 𝜎 ∈{0 .01 , 0.02 , 0.05 , 0.10 , 0.20 , 0.30 , 0.50 , 0.80 , 0.99} .
+
+• HighVol. 𝑆 = 100 , 𝑟 = 0 , 𝐾 ∈ {1 , 2, 3, 4} , 𝑇 ∈ {1 , 2, 3, 5, 7, 10} , and 𝜎 ∈ {0 .5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5} ,retaining only cases with finite ln( 𝑐 ) and ln( 𝑐 ) ≤ −0 .05 before the common normalisation filter. 
+
+> 16
+
+## Appendix B. Expanded Normalised-Black Evaluation 
+
+The cancellation-avoiding computation used for the expanded Jäckel reference price in Table 4 and Figures 1, 2, and 6 is a price evaluator, not an additional implied-volatility iteration. It works in Jäckel’s sqrt-forward normalisation 
+
+𝛽 (𝑥, 𝑠 ) = 𝑐 (𝑥, 𝑠 )𝑒 𝑥 ∕2 ,
+
+and the OTM-forward-normalised price used elsewhere in this paper is recovered afterwards as 𝑐 = 𝛽𝑒 −𝑥 ∕2 .For 𝑥 ≤ 0 and total volatility 𝑠 , define 
+
+ℎ = 𝑥 𝑠 , 𝑡 = 𝑠 
+
+2 , 𝜈 (𝑥, 𝑠 ) = 1
+
+√2𝜋 
+
+exp [− 12
+
+(ℎ2 + 𝑡 2)].
+
+The exact beta-normalised Black price is 
+
+𝛽 (𝑥, 𝑠 ) = 𝑒 𝑥 ∕2 Φ( ℎ + 𝑡 ) − 𝑒 −𝑥 ∕2 Φ( ℎ − 𝑡 ) = 𝑒 ℎ𝑡 Φ( ℎ + 𝑡 ) − 𝑒 −ℎ𝑡 Φ( ℎ − 𝑡 ),
+
+because 𝑥 = 2 ℎ𝑡 . Its derivative with respect to total volatility is exactly 
+
+𝜕𝛽 ∕𝜕𝑠 = 𝜈 (𝑥, 𝑠 ).
+
+Jäckel’s implementation therefore often evaluates the scaled price 𝛽 ∕𝜈 in the difficult regions and multiplies by 𝜈 only at the end. This is the source of the phrase “expanded normalised Black” in this paper. The branch dispatcher is applied in the (𝑥, 𝑠 ) plane before any price is formed. With Jäckel’s constants 
+
+𝜂 = −13 and 𝜏 = 2 𝜖 1∕16 , where 𝜖 is double-precision machine epsilon, Region I is defined by 
+
+𝑥 < 𝜂𝑠, 𝑠 ( 𝑠 
+
+2 − (𝜏 + 12 + 𝜂 )) + 𝑥 < 0,
+
+while Region II is defined by 
+
+𝑠 (𝑠 − 2 𝜏 ) − 𝑥 𝜂 < 0.
+
+The actual price evaluator is then 
+
+𝛽 J(𝑥, 𝑠 ) = 
+
+⎧⎪⎨⎪⎩
+
+𝜈 (𝑥, 𝑠 ) 𝑅 I(ℎ, 𝑡 ), Region I ,𝜈 (𝑥, 𝑠 ) 𝑅 II (ℎ, 𝑡 ), Region II ,𝛽 Cody (𝑥, 𝑠 ), otherwise .
+
+Region I is tested first. It is the deep-tail branch; it evaluates a rational asymptotic expansion for the scaled price. In the notation above it has the form 
+
+𝑅 I(ℎ, 𝑡 ) = 𝑡 
+
+(ℎ + 𝑡 )( ℎ − 𝑡 ) Ω( 𝑞, 𝑒 ), 𝑒 = ( 𝑡 ℎ )
+
+> 2
+
+, 𝑞 = ( ℎ
+
+(ℎ + 𝑡 )( ℎ − 𝑡 ) )
+
+> 2
+
+,
+
+where Ω is Jäckel’s Horner-evaluated polynomial in 𝑞 , with coefficients depending on 𝑒 and with the number of retained terms chosen by the tail bound. Region II is the small-𝑡 branch. It is not a separate model: it is the odd Taylor expansion of the same exact beta-normalised Black price after the vega factor has been divided out, 
+
+𝑅 II (ℎ, 𝑡 ) = 𝑡 
+
+> 6
+
+∑
+
+> 𝑗 =0
+
+𝑏 𝑗 (ℎ)𝑡 2𝑗 .
+
+Let 
+
+𝑎 (ℎ) = 1 + ℎ
+
+√ 𝜋 
+
+2 erf cx (− ℎ
+
+√2
+
+).
+
+> 17
+
+Equivalently, 𝑎 (ℎ) = 1 + ℎΦ( ℎ)∕ 𝜙 (ℎ), so the leading coefficient satisfies 𝜕𝛽 ∕𝜕𝑡 |𝑡 =0 = 2 𝜈 (ℎ, 0) 𝑎 (ℎ). This is why 
+
+𝑎 (ℎ) appears in every coefficient. For large negative ℎ, the expression 1 + ℎΦ( ℎ)∕ 𝜙 (ℎ) is small and would be cancellation-prone if evaluated literally; the implementation uses rational approximations to 𝑎 (ℎ) in that tail. The coefficients are 
+
+𝑏 0 = 2 𝑎, 𝑏 1 = −1 + 𝑎 (3 + ℎ2)3 ,𝑏 2 = −7 − ℎ2 + 𝑎 (15 + 10 ℎ2 + ℎ4)60 ,𝑏 3 = −57 − 18 ℎ2 − ℎ4 + 𝑎 (105 + 105 ℎ2 + 21 ℎ4 + ℎ6)2520 ,𝑏 4 = 1181440 
+
+[
+
+−561 − 285 ℎ2 − 33 ℎ4 − ℎ6
+
++ 𝑎 (945 + 1260 ℎ2 + 378 ℎ4 + 36 ℎ6 + ℎ8)
+
+]
+
+,𝑏 5 = 119958400 
+
+[
+
+−6555 − 4680 ℎ2 − 840 ℎ4 − 52 ℎ6 − ℎ8
+
++ 𝑎 (10395 + 17325 ℎ2 + 6930 ℎ4 + 990 ℎ6 + 55 ℎ8 + ℎ10 )
+
+]
+
+,𝑏 6 = 13113510400 
+
+[
+
+−89055 − 82845 ℎ2 − 20370 ℎ4 − 1926 ℎ6 − 75 ℎ8 − ℎ10 
+
++ 𝑎 (135135 + 270270 ℎ2 + 135135 ℎ4 + 25740 ℎ6 + 2145 ℎ8 + 78 ℎ10 + ℎ12 )
+
+]
+
+.
+
+The fallback branch evaluates the same exact price with a Cody-style choice of erf c or erf cx . Let 
+
+𝑞 1 = − ℎ + 𝑡 
+
+√2
+
+, 𝑞 2 = − ℎ − 𝑡 
+
+√2
+
+, 𝜌 = 0 .46875 .
+
+Then 2𝛽 Cody is computed as 
+
+⎧⎪⎪⎨⎪⎪⎩
+
+𝑒 𝑥 ∕2 erf c( 𝑞 1) − 𝑒 −𝑥 ∕2 erf c( 𝑞 2), 𝑞 1 < 𝜌, 𝑞 2 < 𝜌, 𝑒 𝑥 ∕2 erf c( 𝑞 1) − 𝑒 −( ℎ2+𝑡 2)∕2 erf cx( 𝑞 2), 𝑞 1 < 𝜌 ≤ 𝑞 2,𝑒 −( ℎ2+𝑡 2)∕2 erf cx( 𝑞 1) − 𝑒 −𝑥 ∕2 erf c( 𝑞 2), 𝑞 2 < 𝜌 ≤ 𝑞 1,𝑒 −( ℎ2+𝑡 2)∕2 [erf cx( 𝑞 1) − erf cx( 𝑞 2)] , 𝜌 ≤ 𝑞 1, 𝜌 ≤ 𝑞 2.
+
+Each row is algebraically the same erfc representation of the Black price; the branching only chooses where to factor out the Gaussian exponential so that the two terms remain on a comparable numerical scale. The optional ThiopheneIV+ polish uses this evaluator in the beta scale. Given a target 𝛽 ∗ = 𝑐 target 𝑒 𝑥 ∕2 
+
+and a current total volatility 𝑠 , one Jäckel–Newton correction is 
+
+𝑠 new = 𝑠 + 𝛽 ∗ − 𝛽 J(𝑥, 𝑠 )
+
+𝜈 (𝑥, 𝑠 ) .
+
+The correction is applied only on the lower-price half in the main solver; the upper half is kept on the complementary ln(1 − 𝑐 ) objective. It is useful to separate these price-evaluation regions from the solver’s lower/upper objective split. For fixed total volatility, the normalised OTM price increases with 𝑥 up to the ATM boundary 𝑥 = 0 . Hence the largest possible price in Region II is approached at 𝑥 → 0− and 𝑠 → 2𝜏 , giving 
+
+sup 
+
+> II
+
+𝑐 = 2Φ( 𝜏 ) − 1 = erf ( 𝜏 
+
+√2
+
+) ≈ 0 .16650723223355586 .
+
+> 18
+
+In Region I, the price-maximising boundary gives 𝑑 1 = 𝑥 ∕𝑠 + 𝑠 ∕2 ≤ 𝜂 + 1∕2 + 𝜏 , and therefore 
+
+sup 
+
+I
+
+𝑐 = Φ (𝜂 + 12 + 𝜏 ) = 5 .1395297547074 × 10 −35 .
+
+Thus Jäckel’s explicit Region I/II expansions are strictly lower-price machinery; they never apply for 𝑐 ≥ 1∕2 .This is why the optional ThiopheneIV+ direct-price polish is limited to the lower half and why the upper half instead keeps the complementary ln(1 − 𝑐 ) objective. The expanded-Jäckel price-evaluation regions used by the optional polish are shown separately in Fig-ure A1. −16 −12 −8 −4 0
+
+Moneyness ratio ℎ = 𝑥 ∕𝑣 
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Half total volatility  𝑡  = 𝑣 ∕2
+
+Region I tail expansion Region II small-𝑡 expansion                            
+
+> C
+> erf cx ,erf cx
+> B
+> erf c ,erf cx
+> A
+> erf c ,erf c 𝑞 1 = 𝜌 𝑞 2 = 𝜌
+> Jaeckel: 𝜂 = −13 ,𝜏 = 2 𝜖 1∕16 ; Cody: 𝜌 = 0 .46875
+> 𝑞 1= −( ℎ+𝑡 )∕ √2,𝑞 2= −( ℎ−𝑡 )∕ √2
+> Region I: tail expansion Region II: small-𝑡 expansion A: erf c ,erf c
+> B: erf c ,erf cx
+> C: erf cx ,erf cx
+> D: erf cx ,erf c (formal)
+
+Figure A1. Expanded-Jäckel price-evaluation dispatch in the variables ℎ = 𝑥 ∕𝑣 and 𝑡 = 𝑣 ∕2 . Region I uses the tail expansion, Region II uses the small-𝑡 expansion, and the remaining domain uses the Cody erfc/erfcx path. The ThiopheneIV+ polish uses this evaluator as its price target; the ThiopheneIV core chooses its lower- or upper-tail objective independently of these price-evaluation regions. 
+
+## Appendix C. Erfcx Implementation Impact 
+
+Table A1. Accuracy against rounded multiprecision Black reference prices by dataset, using different implementations of 
+
+erfc and erfcx .                                                       
+
+> CLY-3D CLY-20 CLY-80 Jäckel Market Corners Stress HighVol ThiopheneIV accuracy – max error (ulp of reference total volatility)
+> Cody 190 52 8142 520 557 285 2Commons 133 49 863 177 329 138 2Johnson 400 71 16 97 1210 537 484 3
+> ThiopheneIV+ accuracy – max error (ulp of reference total volatility)
+> Cody 23 5414 30 41 33 2Commons 23 5413 29 41 33 2Johnson 22 5713 29 41 32 3
+
+The polished ThiopheneIV+ path is robust across erfcx choices. The unpolished fast solver is where Apache Commons implementation is clearly better on our reference benchmarks (Table A1). 
+
+19 Appendix D. Choi–Huh–Su L3 Seed in ThiopheneIV 
+
+ThiopheneIV uses the Choi–Huh–Su L3 lower-bound formula as an initial value for the Euler–Chebyshev refinement. This appendix records the formula in the normalised variables used throughout. The solver receives 𝑥 = ln( 𝐹 ∗∕𝐾 ∗) ≤ 0, 𝑒 𝑥 = 𝐹 ∗∕𝐾 ∗, and 𝑐 = 𝐶 OTM ∕𝐹 ∗. Define 
+
+𝑘 = − 𝑥 ≥ 0, 𝐸 = 𝑒 𝑘 = 1
+
+𝑒 𝑥 = 𝐾 ∗
+
+𝐹 ∗
+
+. (A1) For 𝑘 > 0, the L3 seed first maps the observed price to 
+
+𝑝 3 = 𝑐 (𝑐 + 𝐸 )2𝑐 + 𝐸 − 1 , 𝑧 3 = Φ −1 (𝑝 3). (A2) The denominator is positive on the admissible OTM price interval. In floating-point arithmetic the implemen-tation still rejects non-positive or non-finite denominators and clamps 𝑝 3 to the open interval representable by doubles before evaluating the inverse normal CDF. The final step is purely algebraic. Since 
+
+𝑑 1(𝑣 ) = 𝑥 𝑣 + 𝑣 
+
+2 = − 𝑘 𝑣 + 𝑣 
+
+2 , (A3) the seed solves 𝑑 1(𝑣 ) = 𝑧 3, equivalently 𝑣 2∕2 − 𝑧 3𝑣 − 𝑘 = 0 . The positive solution is evaluated as 
+
+𝑣 L3 =
+
+⎧⎪⎨⎪⎩
+
+𝑧 3 +
+
+√
+
+𝑧 23 + 2 𝑘, 𝑧 3 ≥ 0,
+
+2𝑘 
+
+√
+
+𝑧 23 + 2 𝑘 − 𝑧 3
+
+, 𝑧 3 < 0, (A4) where the second branch is the rationalised form of the same root and avoids cancellation when 𝑧 3 is negative. At the ATM limit 𝑘 = 0 , Equation (A2) reduces to 𝑝 3 = (1 + 𝑐 )∕2 and the Black price is 𝑐 = 2Φ( 𝑣 ∕2) − 1 .Thus we use 
+
+𝑣 ATM = 2Φ −1 ( 1 + 𝑐 
+
+2 ), (A5) with the small-price series 
+
+𝑣 ATM ≈ √2𝜋 𝑐 (1 + 𝜋𝑐 2
+
+12 ), 𝑐 < 10 −4 , (A6) to avoid spending an inverse-normal evaluation on an almost linear case. If any of these steps produces a non-finite or non-positive seed, ThiopheneIV falls back to the same asymptotic safeguard used by the standalone reference implementation. For prices above the midpoint ( 𝑐 > 1∕2 ), the same seed is refined with the complementary ln(1 − 𝑐 ) objective. 
+
+## Appendix E. Monotone Convergence of Chebyshev’s Method from the Choi Seed 
+
+This appendix provides a self-contained proof that the Euler–Chebyshev method converges monotonically from below to the root of the log-price objective when started from the Choi–Huh–Su L3 lower-bound seed, for all admissible OTM prices in real arithmetic. Throughout, we use the notation of Section 2.2. 
+
+Setup 
+
+Let 𝑥 ≤ 0, 𝑘 = − 𝑥 ≥ 0, and let the log-price objective be 
+
+𝑔 (𝑣 ) = ln 𝑏 (𝑥, 𝑣 ) − ln 𝑐 target , (A7) where 𝑏 (𝑥, 𝑣 ) is the normalised Black call price and 𝑐 target ∈ (0 , 1) is fixed. The unique positive root 𝑣 ∗ satisfies 
+
+𝑔 (𝑣 ∗) = 0 . The log-vega is 𝑦 (𝑣 ) = 𝑔 ′(𝑣 ) = 𝑓 (𝑣 )∕ 𝑏 (𝑥, 𝑣 ), where 𝑓 (𝑣 ) = 𝜙 (𝑑 1(𝑣 )) > 0 is the Black vega and 
+
+𝑑 1(𝑣 ) = 𝑥 ∕𝑣 + 𝑣 ∕2 .
+
+> 20
+
+For 𝑣 < 𝑣 ∗ we have 𝑔 (𝑣 ) < 0. Define the Newton displacement 𝜂 (𝑣 ) = − 𝑔 (𝑣 )∕ 𝑔 ′(𝑣 ) > 0, and the normalised curvature 𝑞 (𝑣 ) = 𝑔 ′′ (𝑣 )∕ 𝑔 ′(𝑣 ). The Euler–Chebyshev step is 
+
+𝑇 (𝑣 ) = 𝑣 + 𝜂 (𝑣 )(1 − 12 𝑞 (𝑣 ) 𝜂 (𝑣 )). (A8) Equivalently, with the standard Chebyshev–Halley curvature parameter 𝜆 (𝑣 ) = 𝑔 (𝑣 )𝑔 ′′ (𝑣 )∕[ 𝑔 ′(𝑣 )] 2 =−𝑞 (𝑣 )𝜂 (𝑣 ), this is 𝑇 (𝑣 ) = 𝑣 + 𝜂 (𝑣 )(1 + 𝜆 (𝑣 )∕2) . The proof below keeps 𝑞 (𝑣 ) because its sign is used directly. Let 𝑣 0 be the Choi–Huh–Su L3 seed (Appendix D). Choi et al. [ 5 ] prove the lower-bound property: 
+
+0 < 𝑣 0 ≤ 𝑣 ∗ for all admissible (𝑥, 𝑐 ).
+
+Theorem A1. For all 𝑥 ≤ 0, 𝑣 ∈ (0 , 𝑣 ∗), and admissible 𝑐 target ∈ (0 , 1) , the Chebyshev displacement satisfies 
+
+0 < 𝑇 (𝑣 ) − 𝑣 ≤ 𝑣 ∗ − 𝑣. (A9) 
+
+Consequently, the iterates 𝑣 𝑛 +1 = 𝑇 (𝑣 𝑛 ) starting from 𝑣 0 are monotone increasing, bounded above by 𝑣 ∗, and converge to 𝑣 ∗.
+
+The proof requires two lemmas. 
+
+Lemma A: log-concavity of 𝑏 in 𝑣 
+
+Lemma A1. The normalised Black price 𝑏 (𝑥, 𝑣 ) is log-concave in 𝑣 : 𝑔 ′′ (𝑣 ) ≤ 0 for all 𝑥 ≤ 0, 𝑣 > 0.
+
+Proof. Let 𝑎 (𝑣 ) = 𝑓 ′(𝑣 )∕ 𝑓 (𝑣 ) denote the log-derivative of the vega. Differentiating 𝑑 1 = 𝑥 ∕𝑣 + 𝑣 ∕2 gives 
+
+𝑑 ′1 = − 𝑥 ∕𝑣 2 + 1∕2 , hence 
+
+𝑎 (𝑣 ) = 𝑘 2
+
+𝑣 3 − 𝑣 
+
+4 . (A10) The second log-price derivative is 𝑔 ′′ = 𝑔 ′(𝑎 − 𝑦 ). Subtracting the two log-derivative relations, 
+
+𝑞 (𝑣 ) = 𝑔 ′′ (𝑣 )
+
+𝑔 ′(𝑣 ) = 𝑎 (𝑣 ) − 𝑦 (𝑣 ). (A11) Setting 𝐻 (𝑣 ) = 𝑓 (𝑣 ) − 𝑎 (𝑣 )𝑏 (𝑥, 𝑣 ), we compute 
+
+𝐻 ′(𝑣 ) = 𝑓 ′(𝑣 ) − 𝑎 ′(𝑣 )𝑏 (𝑥, 𝑣 ) − 𝑎 (𝑣 )𝑓 (𝑣 ) = 𝛽 (𝑣 ) 𝑏 (𝑥, 𝑣 ), (A12) where 𝛽 (𝑣 ) = − 𝑎 ′(𝑣 ) = 3 𝑘 2∕𝑣 4 + 1∕4 > 0, using 𝑓 ′(𝑣 ) = 𝑎 (𝑣 )𝑓 (𝑣 ) and 𝑏 ′(𝑥, 𝑣 ) = 𝑓 (𝑣 ). As 𝑣 ↓ 0, 𝐻 (𝑣 )
+
+has a non-negative limit: for 𝑘 > 0, the standard Mills expansion of the two cancelling normal tails gives 
+
+𝑏 (𝑥, 𝑣 ) = 𝑓 (𝑣 )( 𝑣 3∕𝑘 2 + 𝑂 (𝑣 5)) , so 𝐻 (𝑣 ) → 0; for 𝑘 = 0 , 𝐻 (𝑣 ) → 𝜙 (0) . Since 𝐻 ′ > 0, we conclude 𝐻 (𝑣 ) ≥ 0,i.e. 𝑓 (𝑣 ) ≥ 𝑎 (𝑣 )𝑏 (𝑥, 𝑣 ), equivalently 𝑦 (𝑣 ) ≥ 𝑎 (𝑣 ), equivalently 𝑞 (𝑣 ) = 𝑎 (𝑣 ) − 𝑦 (𝑣 ) ≤ 0. Therefore 𝑔 ′′ (𝑣 ) = 
+
+𝑔 ′(𝑣 )𝑞 (𝑣 ) ≤ 0.From Lemma A1, 𝑞 (𝑣 ) ≤ 0 and 𝜂 (𝑣 ) > 0, so 1 − 12 𝑞𝜂 ≥ 1 > 0, hence 𝑇 (𝑣 ) > 𝑣 . This proves the left inequality in (A9). 
+
+Lemma B: scalar curvature inequality 
+
+Lemma A2. For all 𝑥 ≤ 0, 𝑣 > 0, with 𝑦 (𝑣 ) = 𝑔 ′(𝑣 ), 𝑎 (𝑣 ) = 𝑘 2∕𝑣 3 − 𝑣 ∕4 , 𝛽 (𝑣 ) = 3 𝑘 2∕𝑣 4 + 1∕4 ,
+
+𝑦 2 − 3 𝑎𝑦 + 2 𝑎 2 + 𝛽 ≥ 0. (A13) 
+
+Proof. Set 𝑟 = 𝑦 − 𝑎 ≥ 0 (from Lemma A1). Substituting 𝑦 = 𝑎 + 𝑟 into (A13) gives 
+
+𝑦 2 − 3 𝑎𝑦 + 2 𝑎 2 + 𝛽 = 𝑟 2 − 𝑎𝑟 + 𝛽. (A14) 
+
+> 21
+
+If 𝑎 ≤ 0, then 
+
+𝑟 2 − 𝑎𝑟 + 𝛽 ≥ 𝛽 > 0, (A15) so (A13) follows immediately. It remains to consider 𝑎 > 0. Define 𝐴 (𝑣 ) = 𝑎𝑓 (𝑣 )∕( 𝑎 2 + 𝛽 ). Using 𝑓 ′ = 𝑎𝑓 
+
+and 𝑎 ′ = − 𝛽 , a direct calculation gives 
+
+𝐴 ′(𝑣 ) − 𝑓 (𝑣 ) = − 𝑓 (𝑣 ) 𝑎𝛽 ′ + 2 𝛽 2
+
+(𝑎 2 + 𝛽 )2 . (A16) Substituting 𝑎 = 𝑣 (𝑧 − 1∕4) , 𝛽 = 3 𝑧 + 1∕4 , 𝛽 ′ = −12 𝑧 ∕𝑣 with 𝑧 = 𝑘 2∕𝑣 4 ≥ 0 gives 
+
+𝑎𝛽 ′ + 2 𝛽 2 = −12 𝑧 2 + 3 𝑧 + 18 𝑧 2 + 3 𝑧 + 18 = 6 𝑧 2 + 6 𝑧 + 18 > 0. (A17) Hence 𝐴 ′ ≤ 𝑓 . Because 𝑎 > 0 implies 𝑘 > 0, we also have 𝑎 (𝑢 ) > 0 for every 0 < 𝑢 ≤ 𝑣 since 𝑎 ′(𝑢 ) = − 𝛽 (𝑢 ) < 0,and 𝐴 (0+) = 0 . Integrating from 0 to 𝑣 yields 𝐴 (𝑣 ) ≤ 𝑏 (𝑥, 𝑣 ), i.e. 𝑎𝑓 ∕( 𝑎 2 + 𝛽 ) ≤ 𝑏 , i.e. 𝑦 = 𝑓 ∕𝑏 ≤ (𝑎 2 + 𝛽 )∕ 𝑎 =
+
+𝑎 + 𝛽 ∕𝑎 , hence 𝑟 ≤ 𝛽 ∕𝑎 .
+
+Case 1 : 𝛽 ≥ 𝑎 2∕4 . Then 𝑟 2 − 𝑎𝑟 + 𝛽 = ( 𝑟 − 𝑎 ∕2) 2 + 𝛽 − 𝑎 2∕4 ≥ 0.
+
+Case 2 : 𝛽 < 𝑎 2∕4 . On 𝑟 ∈ [0 , 𝛽 ∕𝑎 ], the parabola 𝐷 (𝑟 ) = 𝑟 2 − 𝑎𝑟 + 𝛽 has its minimum at 𝑟 = 𝑎 ∕2 > 𝛽 ∕𝑎 ,so 𝐷 is decreasing on [0 , 𝛽 ∕𝑎 ]. Therefore 
+
+𝐷 (𝑟 ) ≥ 𝐷 
+
+( 𝛽 𝑎 
+
+)
+
+= 𝛽 2
+
+𝑎 2 − 𝛽 + 𝛽 = 𝛽 2
+
+𝑎 2 > 0. (A18) 
+
+Proof of Theorem A1 
+
+Proof. Let 𝜓 be the inverse branch of 𝑔 that maps (−∞ , 0) to (0 , 𝑣 ∗). Setting 𝑢 = 𝑔 (𝑣 ) < 0 and 𝑠 = − 𝑢 > 0, we have 𝑣 = 𝜓 (𝑢 ) and 𝑣 ∗ = 𝜓 (0) . The inverse derivatives are 𝜓 ′ = 1∕ 𝑔 ′, 𝜓 ′′ = − 𝑔 ′′ ∕𝑔 ′3, and 
+
+𝜓 ′′′ (𝑢 ) = 3𝑔 ′′ 2 − 𝑔 ′𝑔 ′′′ 
+
+𝑔 ′5 . (A19) Observe that the Chebyshev displacement equals the second-order Taylor approximation of 𝜓 from 𝑢 to 0:
+
+𝑇 (𝑣 ) − 𝑣 = 𝑠𝜓 ′(𝑢 ) + 12 𝑠 2𝜓 ′′ (𝑢 )= −𝑔 𝑔 ′ − 𝑔 ′′ 𝑔 2
+
+2𝑔 ′3 = 𝜂 (1 − 12 𝑞𝜂 ). (A20) Taylor’s theorem gives 
+
+𝑣 ∗ − 𝑣 = 𝜓 (0) − 𝜓 (𝑢 ) = 𝑠𝜓 ′(𝑢 ) + 12 𝑠 2𝜓 ′′ (𝑢 ) + 16 𝑠 3𝜓 ′′′ (𝜉 ) = 𝑇 (𝑣 ) − 𝑣 + 𝑠 3 
+
+> 6
+
+𝜓 ′′′ (𝜉 ), (A21) for some 𝜉 ∈ ( 𝑢, 0) . Thus 𝑇 (𝑣 ) − 𝑣 ≤ 𝑣 ∗ − 𝑣 follows once 𝜓 ′′′ ≥ 0 on (𝑢, 0) . Since the formula for 𝜓 ′′′ is evaluated at 𝑤 = 𝜓 (𝜉 ) ∈ ( 𝑣, 𝑣 ∗), it is enough to verify 3𝑔 ′′2 − 𝑔 ′𝑔 ′′′ ≥ 0 for all positive total volatilities. Using 
+
+𝛿 2 = 𝑔 ′′ ∕𝑔 ′ = 𝑞 and 𝛿 3 = 𝑔 ′′′ ∕𝑔 ′ from Proposition 3, 
+
+3𝑔 ′′2 − 𝑔 ′𝑔 ′′′ = 𝑔 ′2 (3 𝑞 2 − 𝛿 3). (A22) From (10)–(11), 
+
+𝛿 3 = −3 ℎ2 − 𝑡 2 + ( ℎ2 − 𝑡 2)2
+
+𝑣 2 − 3 𝑦𝑞 − 𝑦 2. (A23) 
+
+> 22
+
+Substituting 𝑎 = ( ℎ2 −𝑡 2)∕ 𝑣 = 𝑘 2∕𝑣 3 −𝑣 ∕4 , 𝑎 ′ = − 𝛽 , 𝑞 = 𝑎 −𝑦 , and 𝛿 3 = 𝑎 ′ +𝑎 2 −3 𝑦𝑞 −𝑦 2 = − 𝛽 +𝑎 2 −3 𝑦𝑞 −𝑦 2
+
+yields, after collecting terms, 
+
+3𝑞 2 − 𝛿 3 = 3( 𝑎 − 𝑦 )2 − (− 𝛽 + 𝑎 2 − 3 𝑦 (𝑎 − 𝑦 ) − 𝑦 2) = 2 𝑞 2 − 𝑞 ′ = 𝑦 2 − 3 𝑎𝑦 + 2 𝑎 2 + 𝛽. (A24) By Lemma A2, this is non-negative for all 𝑥 ≤ 0, 𝑣 > 0. Hence 𝜓 ′′′ (𝜉 ) ≥ 0, and the right inequality 
+
+𝑇 (𝑣 ) − 𝑣 ≤ 𝑣 ∗ − 𝑣 holds. The left inequality 𝑇 (𝑣 ) > 𝑣 follows from 𝑞 ≤ 0 (Lemma A1) and 𝜂 > 0.Both inequalities proven, the iterates satisfy 𝑣 0 ≤ 𝑣 1 ≤ 𝑣 2 ≤ ⋯ ≤ 𝑣 ∗. The sequence is monotone and bounded above, so it converges to some 𝓁 ≤ 𝑣 ∗. If 𝓁 < 𝑣 ∗ then 𝑔 (𝓁 ) < 0 and 𝑇 (𝓁 ) > 𝓁 , contradicting 𝑣 𝑛 → 𝓁 
+
+and 𝑣 𝑛 +1 = 𝑇 (𝑣 𝑛 ) → 𝓁 . Hence 𝓁 = 𝑣 ∗.Local cubic convergence follows from the standard Chebyshev error expansion, since 𝑔 ′(𝑣 ∗) > 0 guaran-tees a simple root. 
+
+Remark A1. The proof is entirely real-analytic and holds for the lower-tail log-price objective for all 𝑥 ≤ 0,
+
+𝑣 > 0, 𝑐 ∈ (0 , 1) , with no compact-domain restriction. The only prerequisite beyond Choi’s lower-bound seed (Appendix D) is the log-concavity of 𝑏 in 𝑣 (Lemma A1) and the scalar curvature inequality (A13) (Lemma A2). Neither lemma requires any upper-price exclusion; the saturated-price regime 𝑐 ≈ 1 is covered because both lemmas hold pointwise for all admissible (𝑥, 𝑣 ) for the ln( 𝑐 ) transform. The complementary ln(1 − 𝑐 ) branch is a separate conditioning choice and is not a consequence of this monotonicity theorem. 
+
+## Appendix F. Monotone Halley Convergence for the Complementary Objective 
+
+This appendix records the complementary analogue that is available when the upper-tail objective is refined by Halley’s method rather than by the Euler–Chebyshev polynomial correction. It is stated separately because its proof uses the negative Schwarzian of the complementary log objective, not the lower-tail log-concavity and inverse-curvature argument of Appendix E. The Schwarzian enters only to prove that Halley is Newton’s method applied to a concave transformed residual; convexity of the original complementary log objective fixes the sign of the step but is not enough by itself to rule out overshoot. Let 𝑏 (𝑥, 𝑣 ) denote the normalised OTM Black price and set 
+
+𝑄 (𝑥, 𝑣 ) = 1 − 𝑏 (𝑥, 𝑣 ). (A25) For a target 𝑄 ∗ ∈ (0 , 1) define the increasing complementary log objective 
+
+𝐺 (𝑣 ) = ln 𝑄 ∗ − ln 𝑄 (𝑥, 𝑣 ). (A26) The root 𝑣 ∗ is characterised by 𝑄 (𝑥, 𝑣 ∗) = 𝑄 ∗. For 𝑣 < 𝑣 ∗ we have 𝑄 (𝑥, 𝑣 ) > 𝑄 ∗ and therefore 𝐺 (𝑣 ) < 0.Define 
+
+𝜂 (𝑣 ) = − 𝐺 (𝑣 )
+
+𝐺 ′(𝑣 ) , 𝑅 (𝑣 ) = 𝐺 ′′ (𝑣 )
+
+𝐺 ′(𝑣 ) . (A27) The standard Chebyshev–Halley curvature parameter is 𝜆 (𝑣 ) = 𝐺 (𝑣 )𝐺 ′′ (𝑣 )∕[ 𝐺 ′(𝑣 )] 2 = − 𝑅 (𝑣 )𝜂 (𝑣 ). The Halley map can then be written in the equivalent forms 
+
+𝑇 𝐻 (𝑣 ) = 𝑣 − 𝐺 (𝑣 )∕ 𝐺 ′(𝑣 )1 − 12 𝐺 (𝑣 )𝐺 ′′ (𝑣 )∕[ 𝐺 ′(𝑣 )] 2
+
+= 𝑣 + 𝜂 (𝑣 )1 − 12 𝜆 (𝑣 )= 𝑣 + 𝜂 (𝑣 )1 + 12 𝑅 (𝑣 )𝜂 (𝑣 )
+
+. (A28) 
+
+Theorem A2. For every 𝑥 ≤ 0, every 𝑄 ∗ ∈ (0 , 1) , and every 𝑣 ∈ (0 , 𝑣 ∗), the Halley map (A28) satisfies 
+
+0 < 𝑇 𝐻 (𝑣 ) − 𝑣 ≤ 𝑣 ∗ − 𝑣. (A29) 
+
+Consequently, the iterates 𝑣 𝑛 +1 = 𝑇 𝐻 (𝑣 𝑛 ) from any starting value 𝑣 0 ∈ (0 , 𝑣 ∗) are monotone increasing, bounded above by 𝑣 ∗, and converge to 𝑣 ∗. The local convergence at the root is cubic. 
+
+> 23
+
+Proof. Write 𝑘 = − 𝑥 ≥ 0, 𝑑 1 = 𝑥 ∕𝑣 + 𝑣 ∕2 , and 
+
+𝑓 (𝑣 ) = 𝜙 (𝑑 1(𝑣 )) , 𝑦 (𝑣 ) = 𝑓 (𝑣 )
+
+𝑄 (𝑥, 𝑣 ) . (A30) Since the Black vega is 𝜕𝑏 ∕𝜕𝑣 = 𝑓 (𝑣 ), we have 𝑄 ′(𝑥, 𝑣 ) = − 𝑓 (𝑣 ) and therefore 
+
+𝐺 ′(𝑣 ) = 𝑦 (𝑣 ) > 0. (A31) In particular, 𝑄 (𝑥, 𝑣 ) is continuous and strictly decreasing from 1 as 𝑣 ↓ 0 to 0 as 𝑣 → ∞, so the equation 
+
+𝑄 (𝑥, 𝑣 ) = 𝑄 ∗ has a unique solution 𝑣 ∗ for every 𝑄 ∗ ∈ (0 , 1) . Let 
+
+𝑎 (𝑣 ) = 𝑓 ′(𝑣 )
+
+𝑓 (𝑣 ) = 𝑘 2
+
+𝑣 3 − 𝑣 
+
+4 , 𝛽 (𝑣 ) = − 𝑎 ′(𝑣 ) = 3𝑘 2
+
+𝑣 4 + 14 > 0. (A32) Differentiating 𝑦 = 𝑓 ∕𝑄 gives 
+
+𝐺 ′′ (𝑣 )
+
+𝐺 ′(𝑣 ) = 𝑎 (𝑣 ) + 𝑦 (𝑣 ). (A33) It remains to show that the right-hand side of (A33) is non-negative. Define 
+
+𝐻 (𝑣 ) = 𝑓 (𝑣 ) + 𝑎 (𝑣 )𝑄 (𝑥, 𝑣 ). (A34) Using 𝑓 ′ = 𝑎𝑓 , 𝑄 ′ = − 𝑓 , and 𝑎 ′ = − 𝛽 , we obtain 
+
+𝐻 ′(𝑣 ) = 𝑓 ′(𝑣 ) + 𝑎 ′(𝑣 )𝑄 (𝑥, 𝑣 ) + 𝑎 (𝑣 )𝑄 ′(𝑥, 𝑣 ) = − 𝛽 (𝑣 )𝑄 (𝑥, 𝑣 ) < 0. (A35) The Mills expansion of the two complementary normal tails gives 𝑄 (𝑥, 𝑣 ) = 𝑓 (𝑣 )(1∕ 𝑑 1 + 1∕(− 𝑑 2) + 𝑜 (1∕ 𝑣 )) 
+
+as 𝑣 → ∞, where 𝑑 2 = 𝑑 1 − 𝑣 . Since 𝑎 (𝑣 ) ∼ − 𝑣 ∕4 , this implies 𝐻 (𝑣 ) → 0 as 𝑣 → ∞. Because 𝐻 is strictly decreasing and tends to zero at infinity, 𝐻 (𝑣 ) > 0 for every finite 𝑣 > 0. Hence 
+
+𝑅 (𝑣 ) = 𝐺 ′′ (𝑣 )
+
+𝐺 ′(𝑣 ) = 𝑎 (𝑣 ) + 𝑦 (𝑣 ) = 𝐻 (𝑣 )
+
+𝑄 (𝑥, 𝑣 ) > 0. (A36) Thus 𝐺 is increasing and convex. We next show that the Schwarzian derivative of 𝐺 is negative. Let 
+
+𝑊 (𝑣 ) = 
+
+√
+
+𝑎 (𝑣 )2 + 2 𝛽 (𝑣 ), 𝑀 (𝑣 ) = 𝑓 (𝑣 )
+
+𝑊 (𝑣 ) . (A37) Since 𝑄 ′(𝑥, 𝑣 ) = − 𝑓 (𝑣 ) and 𝑄 (𝑥, 𝑣 ) → 0 as 𝑣 → ∞, we have 
+
+𝑄 (𝑥, 𝑣 ) = ∫
+
+> ∞
+> 𝑣
+
+𝑓 (𝑢 ) 𝑑𝑢. (A38) Moreover 𝑀 (𝑣 ) → 0 as 𝑣 → ∞. A direct differentiation gives 
+
+𝑀 ′(𝑣 ) + 𝑓 (𝑣 ) = 𝑓 (𝑣 )
+
+𝑊 (𝑣 )3
+
+[𝑊 (𝑣 )2(𝑊 (𝑣 ) + 𝑎 (𝑣 )) + 𝑎 (𝑣 )𝛽 (𝑣 ) − 𝛽 ′(𝑣 )]. (A39) The bracket is positive. If 𝑎 ≥ 0, then all terms in the bracket are non-negative and −𝛽 ′ = 12 𝑘 2∕𝑣 5 ≥ 0. If 
+
+𝑎 < 0, write 𝑠 = − 𝑎 > 0. Since 𝑊 2 = 𝑠 2 + 2 𝛽 ,
+
+𝑊 2(𝑊 − 𝑠 ) − 𝑠𝛽 = 𝛽 ( 2𝑊 2
+
+𝑊 + 𝑠 − 𝑠 ) = 𝛽𝑊 2 − 𝑠 ∕𝑊 − ( 𝑠 ∕𝑊 )2
+
+1 + 𝑠 ∕𝑊 > 0, (A40) 
+
+> 24
+
+and again −𝛽 ′ ≥ 0. Hence 𝑀 ′(𝑣 ) + 𝑓 (𝑣 ) > 0. Integrating this inequality from 𝑣 to infinity yields 
+
+𝑓 (𝑣 )
+
+𝑊 (𝑣 ) = 𝑀 (𝑣 ) ≤ 𝑄 (𝑥, 𝑣 ), so 𝑦 (𝑣 ) = 𝑓 (𝑣 )
+
+𝑄 (𝑥, 𝑣 ) ≤ 𝑊 (𝑣 ). (A41) Therefore 
+
+𝒮 𝐺 (𝑣 ) = 𝐺 ′′′ (𝑣 )
+
+𝐺 ′(𝑣 ) − 32 ( 𝐺 ′′ (𝑣 )
+
+𝐺 ′(𝑣 ) )
+
+> 2
+
+= 12
+
+(𝑦 (𝑣 )2 − 𝑎 (𝑣 )2) − 𝛽 (𝑣 ) ≤ 0. (A42) The inequality is strict for finite 𝑣 because 𝑀 ′(𝑣 ) + 𝑓 (𝑣 ) > 0 on every non-empty interval. Finally set 
+
+Ψ( 𝑣 ) = 𝐺 (𝑣 )
+
+√𝐺 ′(𝑣 )
+
+. (A43) Halley’s method applied to 𝐺 is Newton’s method applied to Ψ:
+
+𝑣 − Ψ( 𝑣 )Ψ′(𝑣 ) = 𝑣 − 𝐺 (𝑣 )∕ 𝐺 ′(𝑣 )1 − 12 𝐺 (𝑣 )𝐺 ′′ (𝑣 )∕[ 𝐺 ′(𝑣 )] 2
+
+= 𝑇 𝐻 (𝑣 ). (A44) For 𝑣 < 𝑣 ∗, 𝐺 (𝑣 ) < 0 and 𝑅 (𝑣 ) > 0, so 
+
+Ψ′(𝑣 ) = √𝐺 ′(𝑣 )(1 − 12
+
+𝐺 (𝑣 )𝐺 ′′ (𝑣 )[𝐺 ′(𝑣 )] 2 ) > 0. (A45) Furthermore, 
+
+Ψ′′ (𝑣 ) = − 12
+
+𝐺 (𝑣 )
+
+√𝐺 ′(𝑣 )
+
+𝒮 𝐺 (𝑣 ) < 0, (A46) by (A42). Thus Ψ is increasing and concave on (0 , 𝑣 ∗), with Ψ( 𝑣 ) < 0 and Ψ( 𝑣 ∗) = 0 . Concavity gives 
+
+0 = Ψ( 𝑣 ∗) ≤ Ψ( 𝑣 ) + Ψ ′(𝑣 )( 𝑣 ∗ − 𝑣 ), (A47) so the Newton displacement for Ψ satisfies 
+
+0 < 𝑇 𝐻 (𝑣 ) − 𝑣 = − Ψ( 𝑣 )Ψ′(𝑣 ) ≤ 𝑣 ∗ − 𝑣. (A48) The iterates are therefore monotone increasing and bounded above by 𝑣 ∗, so they converge to some limit 
+
+𝓁 ≤ 𝑣 ∗. If 𝓁 < 𝑣 ∗, continuity of the Halley map and the strict positivity of the displacement on (0 , 𝑣 ∗) would give 𝑇 𝐻 (𝓁 ) > 𝓁 , contradicting 𝑣 𝑛 +1 − 𝑣 𝑛 → 0. Hence 𝓁 = 𝑣 ∗. The usual Halley error expansion applies at the simple root, where 𝐺 ′(𝑣 ∗) > 0, and gives cubic local convergence. 
+
+Author Contributions: Not applicable (single author). 
+
+Funding: This research received no external funding. 
+
+Data Availability Statement: The source code used to generate the benchmark tables, including the solver variants, benchmark harnesses, and dataset builders, is available in the accompanying source distribution. The exact dataset grids are reproduced in Appendix A. 
+
+Acknowledgments: The author thanks Gary Kennedy for a thorough review and excellent feedback. 
+
+Conflicts of Interest: The author declares no conflicts of interest. 
+
+## References 
+
+1. Black, F. The Pricing of Commodity Contracts. J. Financ. Econ. 1976 , 3, 167–179. https://doi.org/10.1016/0304-405X(76)90024-6. 
+
+> 25
+
+2. Cui, Z.; Liu, Y.; Yao, Y. Tighter Bounds for Implied Volatility With the Dirac Delta Family Method. J. Futures Markets 
+
+2025 , 45 , e70024. https://doi.org/10.1002/fut.70024. 3. Jäckel, P. Let’s Be Rational. Wilmott 2017 , 2015 , 40–53. https://doi.org/10.1002/wilm.10395. 4. Le Floc’h, F. Monotonicity of the Black–Scholes Option Prices in Practice. Available online: https://chasethedevil. github.io/post/vol_monotonicity_in_practice/ (accessed on 19 May 2026). 5. Choi, J.; Huh, J.; Su, N. Tighter ‘Uniform Bounds for Black–Scholes Implied Volatility’ and the Applications to Root-Finding. Oper. Res. Lett. 2024 , 57 , 107189. https://doi.org/10.1016/j.orl.2024.107189. 6. Birnbaum, Z.W. An Inequality for Mill’s Ratio. Ann. Math. Statist. 1942 , 13 , 245–246. https://doi.org/10.1214/aoms/ 1177731611. 7. Sampford, M.R. Some Inequalities on Mill’s Ratio and Related Functions. Ann. Math. Statist. 1953 , 24 , 130–132. https://doi.org/10.1214/aoms/1177729093. 8. Abramowitz, M.; Stegun, I.A. Handbook of Mathematical Functions ; National Bureau of Standards, Applied Mathe-matics Series 55: Washington, DC, USA, 1964. 9. Traub, J.F. Iterative Methods for the Solution of Equations ; Chelsea Publishing Company: New York, NY, USA, 1982. 10. Householder, A.S. The Numerical Treatment of a Single Nonlinear Equation ; McGraw-Hill: New York, NY, USA, 1970. 11. Healy, J. Applied Quantitative Finance for Equity Derivatives , 4th ed.; self-published, 2024. 12. Le Floc’h, F. Fast and Accurate Analytic Basis Point Volatility. Available online: https://ssrn.com/abstract=2420757 (accessed on 16 May 2026).

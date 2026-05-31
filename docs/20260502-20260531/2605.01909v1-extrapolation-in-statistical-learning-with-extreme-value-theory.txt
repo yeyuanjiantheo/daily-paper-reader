@@ -1,0 +1,564 @@
+Title: Extrapolation in Statistical Learning with Extreme Value Theory
+
+URL Source: https://arxiv.org/pdf/2605.01909v1
+
+Published Time: Tue, 05 May 2026 01:27:23 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+# Extrapolation in Statistical Learning with Extreme Value Theory 
+
+# Sebastian Engelke 1, Nicola Gnecco 2, and Anne Sabourin 3
+
+> 1
+
+Research Institute for Statistics and Information Science, University of Geneva, Switzerland 
+
+> 2
+
+Department of Mathematics, Imperial College London, United Kingdom 
+
+> 3
+
+Université Paris Cité, Université Paris-Saclay, ENS Paris-Saclay, CNRS, SSA, INSERM, Centre Borelli, France 
+
+# May 5, 2026 
+
+Abstract 
+
+Extreme value theory provides rigorous theory and statistical tools for extrapolation in machine learning, particularly in settings where traditional methods struggle due to data scarcity in the tails. A broad range of tasks benefit from these advances, including regression and classification beyond the training data, extreme quantile regression, supervised and unsupervised dimension reduction, generative artificial intelligence and anomaly detection. This review synthesizes recent developments in these fields at the intersection of statistical learning and extreme value theory, with a focus on principled methods based on asymptotically motivated representations of the tail of univariate and multivariate distributions. We consider different theoretical frameworks for both asymptotically de-pendent and independent data and discuss how they translate into efficient statistical methods for extrapolation to extreme regions. By addressing both theoretical and practical aspects, we offer a comprehensive overview of the state-of-the-art in this quickly evolving field, and identify promising directions for future research. 
+
+Keywords: anomaly detection, classification and regression, dimension reduction, extreme quantile regression, generative artificial intelligence, non-asymptotic bounds 
+
+# 1 Introduction 
+
+Statistical learning encompasses methods and theory for a wide range of tasks such as regression and classification, dimension reduction and generative models (e.g., Hastie et al., 2009, Anthony and Bartlett, 1999, Vapnik, 2000) On the methodological side, this field is closely connected to machine learning and artificial intelligence (AI), but with a stronger focus on uncertainty quantification, interpretability, and mathematical understanding of the models. Applications of statistical learning typically feature high-dimensional predictors or response variables, complex dependence structures and large data sets. Recent examples include AI weather models (e.g., Lam et al., 2023), medicine (Rajkomar et al., 2019), industry (Jan et al., 2023). Flexible machine learning methods trained by empirical risk minimization excel at interpolation, that is, making predictions and drawing conclusions in regions with a sufficiently high density of data from the training distribution P. This practical success is supported by universal approximation results (e.g., Cybenko, 1989) and statistical guarantees (e.g., Schmidt-Hieber, 2020, Bousquet et al., 2004, Lugosi, 2002), which typically assume distributions of predictors and/or response with compact supports or sub-Gaussian tails, and evaluation on a test distribution Q = P that coincides with the training distribution. This theory, or variations thereof, apply to a wide range of tasks such as regression, classification or generative learning of high-dimensional distributions. On the other hand, situations that require predictions at points beyond the training data range violate the underlying assumptions of the theory since, for instance, the predictor space is unbounded, responses are heavy-tailed, or there is a test distribution shift Q̸ = P. In practice, the performance of machine 1
+
+> arXiv:2605.01909v1 [stat.ML] 3 May 2026
+
+u x
+
+P(X ≥ x) ∝
+
+
+
+1 + γ x − uσ
+
+−1/γ 
+
+> +
+
+A
+
+tA 
+
+P(X ∈ A) ≈ c(t)P(X ∈ tA )
+
+Figure 1: Left: Density of univariate X with its right tail approximated by a generalized Pareto distribu-tion. Right: Scatter of independent realizations of a random vector X ∈ R2. The probability of the rare event A ⊂ R2 is approximated by the probability of the rescaled event tA , t ∈ (0 , 1) , using a stability property of the multivariate tail of X.learning methods then often quickly degrades. The reason for the extrapolation issues is that flexible models such as neural networks make almost no assumptions on the data-generating process. While this flexibility is a strength for interpolation, it results in arbitrary behavior wherever information is missing. Examples for these extrapolation challenges appear in essentially any application, since generalization to new regimes is often a key interest. A related field in machine learning is domain adaptation (Ben-David et al., 2010), which aims to develop methods that perform well on a test distribution that differs from the training data. The approaches typically require data from the test distribution (Ben-David et al., 2006), assume that the test support is contained in the training support (Sugiyama et al., 2007), or assume causal structures (Christiansen et al., 2022). The extrapolation scenarios we consider here differ from these more classical situations as we only require samples from the training distribution and consider test points x ∈ Rp far from the training data. 
+
+Extrapolation challenges in applications 
+
+The challenge of extrapolation arises in essentially all applications of machine learning and AI. In the recent field of AI-driven weather forecasting, it has been observed that data-driven models generalize less well than physical models to record-breaking weather events that are more extreme than any training sample (Pasche et al., 2025b, Sun et al., 2025, Zhang et al., 2025). Similar issues are present in the prediction of protein fitness (Freschlin et al., 2024), large language models (Srivastava et al., 2023), or the long-standing problem of peak river flows (Martel et al., 2025). The general difficulty of extrapolation from a non-parametric perspective is that there is no informa-tion in regions without data, and any statistical guarantee will require additional assumptions (Stone, 1977). Extreme value theory provides suitable mild assumptions, the mathematical foundation, and the statistical tools to improve the extrapolation performance of machine learning methods (e.g., De Haan and Ferreira, 2007, Resnick, 2008). Similar to the central limit theorem, the tail of a univariate re-sponse X above some threshold u can be approximated under weak conditions by the generalized Pareto distribution, i.e., 
+
+P(X ≤ x | X > u ) ≈ 1 −
+
+
+
+1 + γ x − uσ
+
+−1/γ 
+
+> +
+
+, x ≥ u, (1.1) where σ > 0 is a scale parameter, and the shape parameter γ ∈ R determines the heaviness of the tail of Y (Balkema and de Haan, 1974); see Figure 1 (left) for an illustration. Estimation of these parameters on a training sample of size n relies only on the k ≪ n exceedances over u, where k is a tuning parameter that governs the bias-variance trade-off. This extrapolation allows us to transfer information from moderately large training observations to regions with very few or no data points, and it can improve machine learning methods for tasks such as extreme quantile regression with predictors or anomaly detection in possibly high-dimensional data sets. For a multivariate random vector X ∈ Rp, extrapolation involves the dependence structure between the largest observations of the marginal components. Similarly to the univariate case, there exists asymptotic theory that shows that the structure in the multivariate tail simplifies compared to the bulk 2of the distribution. The different approaches, including multivariate regular variation (Resnick, 2007), the conditional extremes model (Heffernan and Tawn, 2004) and the geometric approach (Nolde and Wadsworth, 2022), all leverage a stability that allows to compute probabilities P(X ∈ A) of rare events 
+
+A ⊂ Rp from a shifted version P(X ∈ tA ), t ∈ (0 , 1) , that is less extreme; see Figure 1 (right). The specific scaling factor c(t) > 0 between the two probabilities depends on the underlying framework. In general, in the multivariate case, there is no longer a simple parametric family as in Equation 1.1 that describes all possible tail behaviors, but the dependence structure is typically non-parametric. The field has developed effective tools that are applied to improve extrapolation in regression and classification tasks or to help generative AI methods to sample more accurately beyond the training data range. For a training sample of size n, estimators from extreme value theory only use a smaller effective sample size k ≪ n of observations that are relevant for extrapolation. This exacerbates the curse of dimensionality and makes dimension reduction and high-dimensional methods even more relevant. A lot of the recent work in multivariate extreme value theory concentrates on enforcing sparsity or reducing the dimensionality in high-dimensional problems (Engelke and Ivanovs, 2021). From the perspective of statistical learning theory, recent work has demonstrated that the apparent obstacles to developing non-asymptotic learning guarantees for heavy-tailed data are not insurmountable. By leveraging the specific structure in the distributional tail provided by multivariate extreme value theory, extremal distributions can be studied on bounded sets and it is possible to derive non-asymptotic guarantees that scale with the effective sample size k rather than the total sample size n (Lhaut et al., 2022, Clémençon et al., 2023); see also the dedicated review Clémençon and Sabourin (2025) for details and further references. In this article, we review recent works that build on principles from extreme value theory to address extrapolation issues in complex statistical learning problems. We include both methodological contri-butions that focus on a broad applicability to diverse data sets and approaches that derive theoretical guarantees under stronger assumptions. The paper is structured according to the different tasks that appear in statistical learning. In Section 3, we consider two types of extrapolation challenges in super-vised learning. First, in Section 3.2, we discuss the case where predictors X are more extreme than in the training sample and both regression and classification methods must rely on extrapolation principles to guarantee reliable prediction. Second, Section 3.3 is concerned with quantile regression for quantile levels that exceed the data range of the response variable Y . Stable extrapolation in this case has been studied in the field of extreme quantile regression, combining univariate extreme value approximations with flexible machine learning methods. Section 4 reviews literature on unsupervised learning. We fo-cus on extreme value approaches that improve extrapolation of generative AI methods in Section 4.1, and that are designed to detect anomalies in multivariate data in Section 4.2. We also revisit the field of sparsity and dimension reduction in multivariate extremes in Section 4.3, which has seen significant progress since the review Engelke and Ivanovs (2021). 
+
+# 2 Background 
+
+# 2.1 Univariate extreme value theory 
+
+Univariate extreme value theory provides the mathematical foundation to extrapolate the distribution of a random variable X beyond the data range in terms of its tail probabilities or high quantiles. In this section, we recall the main asymptotic results that motivate the limiting models used by many methods throughout this review. There are two main approaches to describing the extremes of a random variable X with distribution function F and upper endpoint u∗ ∈ (−∞ , ∞]. First, the peaks-over-threshold method describes the distribution of exceedances over a high threshold u as it tends to the upper endpoint u∗. We then say that F is in the domain of attraction of a generalized Pareto distribution with shape parameter γ ∈ R if there exists a scale function σ : R → (0 , ∞) such that 
+
+lim  
+
+> u→u∗
+
+P(X − u ≤ xσ (u) | X > u ) = 1 − (1 + γx )−1/γ  
+
+> +
+
+:= Hγ (x), x ≥ 0, (2.1) where Hγ is the distribution function of the generalized Pareto distribution (GPD) and a+ = max(0 , a )
+
+for a ∈ R (Balkema and de Haan, 1974). When γ = 0 this should be understood as the limit as γ ↓ 0,i.e., H0(x) = 1 − exp( −x). The shape parameter plays an important role as it determines the heaviness 3of the tail of X, ranging from heavy tails for γ > 0, through light tails for γ = 0 , and distributions with finite upper endpoint for γ < 0.Importantly, a large majority of well-known distributions satisfy the domain-of-attraction condition of Equation 2.1 for some γ ∈ R. Inverting this approximation at a fixed threshold u then yields a strategy to approximate high quantiles of X above level τ0 = F (u) by 
+
+Q(τ ) = F −1(τ ) ≈ u + σ(u)
+
+γ
+
+ 1 − τ0
+
+1 − τ
+
+γ
+
+− 1
+
+
+
+, τ > τ 0. (2.2) In practice, to compute these extrapolations based on an independent sample X1, . . . , X n of X, we first replace the threshold u = Xn−k:n by the (n − k)th order statistic of the sample. This corresponds to the empirical quantile at level τ0 = 1 − k/n , where k is the effective sample size of exceedances and its choice represents a bias-variance tradeoff. We further obtain estimators ˆσ = ˆ σ(u) and ˆγ of the GPD parameters, for instance by maximum likelihood estimation. The second approach in univariate extreme value theory studies the limit of block maxima Mn =max( X1, . . . , X n). For a random variable satisfying the domain-of-attraction condition of Equation 2.1, there exist sequences an > 0 and bn ∈ R such that 
+
+lim  
+
+> n→∞
+
+P
+
+ Mn − bn
+
+an
+
+≤ x
+
+
+
+= exp 
+
+n
+
+−(1 + γx )−1/γ 
+
+> +
+
+o
+
+:= Gγ (x), x ≥ 0, (2.3) where the limit is called the generalized extreme value (GEV) distribution. For a fixed block size n,we can again invert the approximation in Equation 2.3 to obtain of the τ -quantile of X by Q(τ ) ≈
+
+G−1 
+
+> γ
+
+{1 − (1 − τ )/n }.
+
+# 2.2 Multivariate extreme value theory 
+
+For a random vector X in d ≥ 2 dimensions, multivariate extreme value studies the extremal dependence between large observations in the different components. Naturally, this task is much more involved than the univariate problem and there does not exist a simple parametric family that describes all possible tail behaviors. Instead, there are several different modeling approaches to describe extremal dependence. In particular, the extremal dependence between two components Xi and Xj with distribution functions 
+
+Fi and Fj can be categorized broadly into two different regimes according to their extremal correlation (or upper tail dependence) coefficient 
+
+χij = lim  
+
+> q→1
+
+P(Fi(Xi) > q, F j (Xj ) > q )/(1 − q) ∈ [0 , 1] , (2.4) whenever the limit exists. If χij > 0, then we speak of asymptotic dependence, and if χij = 0 we say that the two components are asymptotically independent. The most classical framework for asymptotic dependence is multivariate regular variation (Resnick, 2008, Section 5). There are various ways of introducing this notion, and here we choose the formulation for threshold exceedances, which is closest to the univariate case of Equation 2.1. To simplify notation and to abstract away from marginal distribution, we assume that the marginal distributions of X are standard Pareto, which can be ensured in practice by preliminary marginal transformations based on probability integral transforms. The random vector X is multivariate regularly varying if its rescaled threshold exceedances converge in distribution to a multivariate Pareto distribution X∞, that is, 
+
+P(X∞ ≤ x) = lim  
+
+> u→∞
+
+P(X/u ≤ x | max  
+
+> i=1 ,...,d
+
+Xi > u ), x ∈ L , (2.5) where L = {x ∈ Rd : max i=1 ,...,d xi > 1} (Rootzén and Tajvidi, 2006). Alternatively, multivariate regular is often framed in polar coordinates. For some norm ∥ · ∥ , we define the radial and angular components as R = ∥X∥ and W = X/R , respectively. The convergence in Equation 2.5 is equivalent to 
+
+P(R/t > s, W ∈ B | R > t ) → s−1Φ( B), (2.6) where Φ is the spectral measure on the unit sphere Sd−1, and B ⊆ Sd−1 is a Borel subset. In other words, conditioning on a large radius R, the distributions of the radius and the angle are approximately 4independent. The latter can be any distribution Φ on the sphere as long as it satisfies certain moment constraints stemming from the choice of standard Pareto margins (e.g., Einmahl and Segers, 2009). A third interpretation of multivariate regular variation is in terms of componentwise maxima of i.i.d. copies of X, leading to the multivariate version of the GEV distribution (de Haan and Resnick, 1977). For the remainder of this section, we assume that X is normalized to standard Laplace margins, since approaches for asymptotic independence are more naturally expressed in light-tailed margins. A gen-eralization of multivariate regular variation that also covers asymptotic independence is the conditional extremes model introduced in Heffernan and Tawn (2004). For this approach, we single out Xj for some 
+
+j ∈ { 1, . . . , d } and condition on large values of this component. With normalization given by the two vectors a(j) ∈ (0 , 1] d−1 and β(j) ∈ (0 , 1) d−1, the conditional extremes model assumes the existence of a non-degenerate limit Z in dimension d − 1 such that 
+
+P(Z ≤ z) = lim  
+
+> u→∞
+
+P(X−j ≤ a(j)Xj + Xβ(j) 
+
+> j
+
+z | Xj > u ), z ∈ Rd−1; (2.7) for more general normalizations we refer to Heffernan and Tawn (2004). In particular, for the case of asymptotic dependence under multivariate regular variation, this assumption is satisfied with a(j) = 1
+
+and β(j) = 0. More generally, for indices where a(j) 
+
+> ℓ
+
+< 1 the components Yℓ and Yj are asymptotically independent. Another approach to describe extremal dependence of a random vector with density fX is through a geometric perspective (Balkema and Nolde, 2010, Nolde and Wadsworth, 2022). To this end, define the gauge function as 
+
+g(x) := lim  
+
+> t→∞
+
+− log fX(tx)/t, x ∈ Rd, (2.8) whenever the limit exists.for me It can be shown that the latter implies that the rescaled sample cloud 
+
+{X1/ log n, . . . , Xn/ log n} converges onto the limit set G = {x ∈ Rd : g(x) ≤ 1}. These objects can be used to describe the extremal dependence in many known distributions, in particular those that exhibit asymptotic independence. 
+
+# 3 Extrapolation in Supervised Learning 
+
+# 3.1 Setting 
+
+Supervised learning is concerned with the prediction of a response variable Y given a predictor vector X
+
+with values in some set X ⊆ Rp. The response variable typically takes values in Y = R (or possibly in 
+
+Rd) in which case we speak of regression, or in a finite set Y and we speak of classification. The goal is to construct a prediction model f : X → Y to estimate some statistic of the conditional distribution of 
+
+Y | X = x for a new test predictor x ∈ Rp of interest. The performance of such a model is measured by specifying a loss function ℓ : Y × Y → R and considering the expected risk 
+
+R(f ) = EQ [ℓ{f (X), Y }] , (3.1) where the expectation is taken over a test distribution Q of (X, Y ). The minimizer f ∗ of Equation 3.1 is called the Bayes predictor that attains the Bayes risk R(f ∗). In classification, the most common loss function is 0–1 loss ℓ(y, z ) = 1{y̸ =z} and the corresponding Bayes predictor f ∗(x) = arg max z∈Y PQ(Y =
+
+z | X = x). In regression, often the squared error ℓ(y, z ) = ( y − z)2 is used, which implies the conditional mean f ∗(x) = EQ(Y | X = x) as Bayes predictor. While the squared error loss focuses on the center of the response distribution, quantile regression uses the quantile check function ℓ(y, z ) = ( y−z)( τ −1{y<z })
+
+(Koenker and Bassett, 1978) at some probability level τ ∈ (0 , 1) . The Bayes predictor is then the τ -quantile f ∗(x) = qx(τ ) of the conditional distribution of Y | X = x under Q. In particular, for τ = 1 /2
+
+this reduces to the absolute error with median (Y | X = x) as Bayes predictor. For more details on supervised learning see, e.g. , the monographs Vapnik (2000), Devroye et al. (2013), Bousquet et al. (2004). Given a training sample (Xi, Y i), i = 1 , . . . , n , generated from the training distribution P of (X, Y ),a prediction model approximates the Bayes predictor by minimizing the empirical risk (or training error) 
+
+bR(f ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ℓ{f (Xi), Y i}. (3.2) 5Establishing theoretical and empirical guarantees regarding this approximation may be seen as the core idea of statistical learning (e.g., Schmidt-Hieber, 2020, Bousquet et al., 2004, Vapnik, 2000). Such guarantees typically require that the test distribution Q be identical to the train distribution P, with bounded sample spaces or sub-Gaussian tails. In machine learning, a well-known challenge is the out-of-distribution generalization problem where the test points are sampled from a different distribution Q than the training distribution P. Test predictors are then more likely to lie outside of the training data range so that they require extrapolation. While machine learning methods are very good at interpolation, they notoriously struggle if the test predictor is more extreme (in some sense) relative to the set of training predictors. This extrapolation problem is linked to domain adaptation and generalization, which aim to develop models that perform well on a test distribution that differs from the training data (Ben-David et al., 2006, Sugiyama et al., 2007, Rothenhäusler et al., 2021, Christiansen et al., 2022). The extrapolation scenarios we consider here differ from these more classical situations as we only require samples from the training distribution and consider test points x ∈ Rp far from the training data, that are seen as realizations from the same distribution as the training data. Occurrences of other events at least as large in some sense (say {∥ X∥ > ∥x∥} for some norm ∥ · ∥ ) have low probability, but are bound to happen in the long run, a typical motivation in risk analysis. Thus, our framework involves identical train and test distribution P = Q, although the focus is on the tails of P (in a sense that depends on the specific context), while the bulk plays practically no role. In Section 3.2 we discuss methods that use extreme value theory to tackle this problem, both in regression and classification, where X represents the predictor (or covariate vector) and the focus is on unusually large values of the predictor. A second type of extrapolation occurs in supervised settings because of data scarcity in the direction of the response variable Y . Predicting a conditional quantile qx(τ ) accurately using the empirical risk with the quantile loss requires sufficient samples in a neighborhood of x that exceed this quantile. For extremely high or low quantiles where τ → 1 or τ → 0, respectively, classical quantile regression methods fail. Such extreme quantile regression is a classical task in extreme value theory and has recently been combined with flexible machine learning methods to interpolate in the predictor space. In Section 3.3 we present different approaches to extreme quantile regression and discuss related topics such as the prediction of extreme events and dimension reduction guided by extreme responses. Figure 2 summa-rizes the main extrapolation problems considered in this section, namely classification and regression in extrapolation regimes of the covariate (left and center panel) and extreme quantile regression (right panel). 
+
+# 3.2 Extreme Predictors 
+
+3.2.1 Classification 
+
+We consider binary classification where the response Y takes values in the set Y = {0, 1} and the loss function is 0–1 loss ℓ(y, z ) = 1{y̸ =z}. The risk R(f ) defined in Equation 3.1 evaluates the performance of some classifier f : X → Y under the test distribution Q. The Bayes classifier minimizing this risk is given by f ∗(x) = 1{η(x)≥1/2}, where η(x) = PQ(Y = 1 | X = x). In this section, we assume that the training and test distributions coincide Q = P, and we drop any subscripts for simplicity. We further assume that the marginal distributions of X are normalized to standard Pareto distributions. To explicitly assess the extrapolation behavior of the classifier, Jalalzai et al. (2018) propose a tail risk by t > 0 by restricting the area of interest to large values of the predictor in terms of some norm ∥ · ∥ ,
+
+Rt(f ) = P{Y̸ = f (X) | ∥ X∥ > t },
+
+In order to define a limiting risk functional R∞ as t → ∞ , we need to restrict the possible test distribution 
+
+P. We assume that both class distributions X | Y = 0 and X | Y = 1 are multivariate regularly varying as in Equation 2.5, and that class probabilities P(Y = σ | ∥ X∥ > t ), σ ∈ { 0, 1}, are asymptotically comparable in the sense that their ratio converges to a non-zero constant. Under these assumptions, the rescaled random vector (X/t, Y ), conditioned on ∥X∥ > t , converges in distribution as t → ∞ , to a limit 
+
+(X∞, Y ∞) which describes the relation between extreme values of the predictor and the response. The limiting risk functional is then defined as 
+
+R∞(f ) = lim sup 
+
+> t→∞
+
+Rt(f ).
+
+602468               
+
+> 02468
+> X1
+> X 2
+> Class 12010 20
+> −4 −2 024
+> X
+> Y−10 010 20
+> −1.0 −0.5 0.0 0.5 1.0
+> X
+> Y
+
+Figure 2: Left: Extrapolation in classification when X can take extreme values, based on angular components of extremes. Marginal distributions have been transformed to Pareto (α = 3) for visual clarity. Center: Extrapolation in regression when X ∈ R can take extreme values. The dashed line represents the true regression function; the red line represents a fitted function based on an extrapolation-aware method; the yellow and green lines represent functions fitted by a random forest and a neural network, respectively. Grey and blue points represent training and test observations, respectively. Right: Extrapolation in quantile regression when Y can take extreme values, conditional on X. Grey (blue) points represent training observations below (above) an intermediate quantile. The dashed line represents the true 99 .95% conditional quantile. Orange and red lines represent fitted quantile curves using methods based on extreme value theory. The green line represents a fitted quantile curve using random forests, which lack extrapolation capabilities. Under additional technical assumptions, Jalalzai et al. (2018) show that the limiting Bayes classifier with respect to R∞ is given by f ∗∞(x) = 1{η∞(x)≥1/2}, where η∞(x) = P(Y∞ = 1 | X∞ = x), and it only depends on the angle, i.e., f ∗∞(x) = f ∗∞ ◦ w(x) with w(x) = x/∥x∥ and for all x ∈ Rp \ { 0}. Importantly, 
+
+Rt(f ∗∞) − Rt(f ∗) → 0, t → ∞ ,
+
+that is, the limiting Bayes classifier attains a pre-asymptotic risk that becomes arbitrarily close to the Bayes risk in extreme regions. This means that one may train a classifier over the simpler class of angular functions f (x) = h ◦ w(x) and use their invariance property for extrapolation. In practice, given the training sample (Xi, Y i), i = 1 , . . . , n , from the training distribution P, this can be achieved through empirical risk minimization using only the k ≪ n largest observations, 
+
+bRk(h) = 1
+
+k
+
+> k
+
+X
+
+> i=1
+
+1{Y(i)̸ = h ◦ w(X(i))}, (3.3) where (X(1) , Y (1) ), . . . , (X(n), Y (n)) are sorted in descending order in ∥Xi∥. The minimization is performed over a family of angular classifiers h ◦ w with controlled complexity with finite Vapnik–Chervonenkis dimension, a key concept in statistical learning theory for quantifying model capacity (e.g., Lugosi, 2002). The effective sample size 1 ≤ k ≤ n governs how far in the tail the classifier is trained and is a tuning parameter for the bias-variance trade-off, as illustrwated in the left panel of Figure 2. Theoretical guarantees in terms of finite-sample bounds for the empirical risk minimizer are established in Jalalzai et al. (2018), with extensions to predictors with different marginal distributions via rank transformations in Clémençon et al. (2023); see also the review Clémençon and Sabourin (2025) for more details. Jalalzai et al. (2020) apply the above classification method in extreme regions to natural language processing, leveraging a new heavy-tailed word embedding. Cross-validation (CV) for model selection in this context is addressed from a statistical learning theory perspective in Aghbalou et al. (2024a). Error bounds are derived for CV estimates of the risk of a classifier in a low-probability region, paralleling so-called sanity-check bounds from the statistical learning literature (Cornec, 2017). These bounds provide guarantees for model selection or hyperparameter tuning. For instance, in constrained logistic regression on extreme covariates, the predictor takes the 7form fβ (x) = sign (⟨β, w (x)⟩), where β ∈ Rp and ∥β∥1 ≤ C for some constant C that can be effectively chosen using CV. The CV errors satisfy bounds involving the effective sample sizes pn V and pn T of the training sets and validation sets, respectively, where p is the probability of the rare region. 
+
+3.2.2 Regression 
+
+In regression, the usual modeling assumption is that the real-valued response is generated through 
+
+Y = g(X, ε ), (3.4) where the regression function g : X × R → R depends on the predictor and an independent noise variable 
+
+ε. While this is the general framework, the most common assumption is the additive noise model where 
+
+g(X, ε ) = f (X) + ε for some function f : Rp → R.There are several ways to define which points require extrapolation, and we first focus on the case of a one-dimensional predictor variable X with values in X ⊆ R. Following a population perspective, we can define an extrapolation point as a data point x ∈ X that is not in the support of the training distribution, that is, x / ∈ supp (PX ), where PX denotes the marginal distribution of the predictors under the training distribution P. Shen and Meinshausen (2024) develop a method to perform extrapolation in this setting under the assumption of a pre-additive noise model where g(X, ε ) = f (X+ε) for some function f : R → R,that is, the noise ε is added on the level of the predictors. They prove out-of-distribution identifiably for one-dimensional predictors and propose the distributional regression method called engression to leverage extrapolation under the pre-additive noise model. In same framework of bounded predictor support, Pfister and Bühlmann (2024) assume that the qth derivatives of the conditional mean function 
+
+E(Y | X = x) on out-of-support x are bounded by those in-support. They derive upper and lower extrapolation bounds for the worst-case behavior of the regression function outside of training support. In practice, the framework of bounded training domains might be too restrictive, since extrapolation is often needed even if x ∈ supp (P). In fact, for a given sample size n, extrapolation is related to the range of the training sample (Xi, Y i), i = 1 , . . . , n , since in regions with few or no data points (even inside the support), non-parametric estimation becomes difficult. This motivates a data-centered perspective that is very common in extreme value theory: the meaning of extrapolation (or extreme) is relative to the available data; see Section 3.3 where an extreme quantile level is defined to be above the highest data point. Extreme value theory allows for assumptions that differ from the structural model assumption above and are more of distributional type that can be verified for many model classes. Similar to the power transformations of the response variable in Box and Cox (1964) that are designed to simplify the relation with predictors (e.g., to make it linear), Buriticá and Engelke (2024) propose to transform both predictor and response to Laplace margins X∗ = F −1 
+
+> L
+
+◦ FX (X) and Y ∗ = F −1 
+
+> L
+
+◦ FY (Y ), where FL is the Laplace distribution function. The dependence between X∗ and Y ∗ in extreme regions where X∗ is large is well-understood in multivariate extreme value theory; see multivariate regular variation and the conditional extremes approach in Section 2.2. In particular, the conditional median can be shown to be close to linear in many cases: median (Y ∗ | X∗ = x∗) = ax ∗ + ( x∗)β b + r(x∗),
+
+where a ∈ [−1, 1] , b ∈ R, β ∈ [0 , 1) and a remainder term that is asymptotically negligible. Leveraging this, Buriticá and Engelke (2024) propose an extrapolation principle based on the progression approxi-mation of the conditional median and show that the relative error can be controlled even outside of the data range up to a certain extrapolation limit that depends on the sample size n. For the additive noise model Y = f (X) + ε, they give conditions on the regression function f and the tail heaviness of X and 
+
+ε under which the progression extrapolation is valid. Also for the pre-additive noise model from Shen and Meinshausen (2024), progression can be shown to be applicable. The progression method is further extended to multivariate predictors X where the response follows an additive model. Clémençon et al. (2025) and Clémençon and Sabourin (2025, Section 5) propose a regression ex-trapolation approach for a bounded response Y and squared-error which is based on the assumption of multivariate regular variation as in Equation 2.5. Similar to the classification setup in Jalalzai et al. (2018), they assume regular variation with respect to the predictors, namely that (X/t, Y ), conditional on ∥X∥ > t converges in distribution to a limit (X∞, Y ∞) as t → ∞ . They show that it is then sufficient to consider tail regression functions h ◦ w(x) that depend only on the angle w(x) of the predictor when 8∥x∥ is sufficiently large, and promote learning via empirical risk minimization as in Equation 3.3 but with squared-error loss. Their framework is applicable, for instance, when the response Y arises from an appropriate rescaling of an initial target Z for which the vector (X, Z ) exhibits classical multivariate regular variation. The theory in Clémençon et al. (2025) is constrained to pure empirical risk minimization. Since most high-dimensional machine learning methods incorporate regularization, Clémençon and Sabourin (2025) extend this line of work by analyzing a lasso-type algorithm within a linear class of angular predictors 
+
+hβ ◦ w(x) = ⟨β, w (x)⟩ indexed by β ∈ Rp, but where the minimization problem includes an ℓ1-penalty 
+
+∥β∥1. They derive non-asymptotic, high-probability bounds on the prediction error, analogous to classical results but with the sample size n replaced by the effective sample size k. These bounds hold under the regression model 
+
+Y = f (X) + ⟨β, w (X)⟩ + σ(X)ε, 
+
+that is flexible in the bulk of X yet linear in the tail, where f : X → R is an arbitrary regression function that may dominate in the bulk but vanishes in the tail as ∥x∥ → ∞ . The quantity σ : X → R captures heteroscedastic noise variance and is assumed to depend only on the angle w(x) for large ∥x∥. The tail regression function hβ ◦ w(x) then only depends on the angle as required by the above theory. 
+
+# 3.3 Extreme Response 
+
+3.3.1 Extreme quantile regression 
+
+Given a pair (X, Y ) of predictor and response, an important task is to estimate the conditional quantile 
+
+qx(τ ) of Y | X = x at level τ ∈ (0 , 1) . Quantile regression leverages the representation 
+
+qx(τ ) = argmin q∈RE[ρτ (Y − q) | X = x], (3.5) where ρτ (t) := t(τ − 1{t< 0}) is the quantile check function (Koenker and Bassett, 1978). For n samples 
+
+(Xi, Y i), i = 1 , . . . , n , one estimates qx(τ ) by minimizing the empirical quantile loss 
+
+ˆqx(τ ) = argmin q∈M 
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ρτ (Yi − q(Xi)) , (3.6) over a model class M, e.g., linear models (Chernozhukov, 2005), random forests (Athey et al., 2019), or neural networks (Cannon, 2011). Such methods perform well for moderate levels τ , where enough observations exceed the target quantile. However, for more extreme levels, the empirical minimization in Equation 3.5 can result in a large bias (see, e.g., Pasche and Engelke, 2024, Figure 3). To overcome the bias of empirical methods for estimation of extreme quantiles, asymptotic approxi-mations of the distributional tail motivated by extreme value theory are usually employed. One line of work assumes Y | X = x is heavy-tailed and, for τ → 1, extrapolates from an intermediate quantile level 
+
+τ0 < 1 using the Weissman approximation 
+
+qx(τ ) ≈ qx(τ0)
+
+ 1 − τ0
+
+1 − τ
+
+γ(x)
+
+,
+
+where γ(x) is the conditional shape parameter (Weissman, 1978). Daouia et al. (2011) estimate qx(τ0)
+
+by inverting the conditional survival function estimated with kernel methods, and estimate γ(x) with, e.g., the Hill estimator localized using kernels. Gardes and Stupfler (2019) propose an integrated version of this Weissman estimator. A second line of work follows the peaks-over-threshold approach and assumes that Y | X = x lies in the domain of attraction of a GPD. First, an intermediate quantile function ˆqx(τ0) is estimated with a classical quantile regression method, and, second, the exceedances 
+
+Zi = ( Yi − ˆqXi (τ0)) +, i = 1 , . . . , n, (3.7) are modeled by a conditional GPD as defined in Equation 2.1 with scale and shape parameters ˆσ(Xi) > 0
+
+and ˆγ(Xi) ∈ R, respectively. Conditionally on a predictor value of interest x ∈ Rp, this yields an extreme 9quantile estimator at extreme level τ > τ 0
+
+ˆqx(τ ) = ˆ qx(τ0) + ˆ σ(x)
+
+ 1−τ0
+
+> 1−τ
+
+ˆγ(x)
+
+− 1ˆγ(x) .
+
+The intermediate quantile qx(τ0) together with the conditional GPD parameters ϑ(x) = ( σ(x), γ (x)) 
+
+characterize the tail of Y | X = x. Earlier work estimate ϑ(x) through parametric forms such as linear (Chernozhukov, 2005, Wang et al., 2012) or additive models (Chavez-Demoulin and Davison, 2005, Youngman, 2019). More recent approaches model ϑ(x) locally using machine learning methods. One possibility is to explicitly build a decision tree that places splits to maximize the GPD log-likelihood ℓϑ
+
+(Farkas et al., 2021). Another approach is to maximize the weighted GPD log-likelihood 
+
+Ln(ϑ; x) = 
+
+> n
+
+X
+
+> i=1
+
+ωn(x, Xi)ℓϑ(Zi)1 {Zi > 0}, x ∈ X , (3.8) where ℓϑ denotes the likelihood of the GPD model in Equation 2.1, and the weights ωn(x, Xi) describe the similarity between the training predictor Xi and x, and can be learned via random forests (Gnecco et al., 2024), gradient boosting (Velthoen et al., 2019, Koh, 2023), neural networks (Pasche and Engelke, 2024, Richards and Huser, 2025), or with high-dimensional statistical srategies such as Bayesian lasso (de Carvalho et al., 2022). These methods combine the advantages of extreme value extrapolation of the response Y with machine learning to handle large-dimensional predictors X; see Tang et al. (2026) for a more detailed review. One can interpret extreme quantile regression methods as probabilistic forecasts that show better properties for extreme outcomes than classical approaches. To assess this, Allen et al. (2025) introduce a notion called tail calibration that particularly targets exceedances over a high threshold. This framework is linked to the construction of prediction intervals with correct coverage. For a confidence level 1 − α ∈
+
+(0 , 1) , the (one-sided) prediction set Cα(x) = ( −∞ , q x(1 − α)] satisfies the marginal coverage 
+
+P{Ytest ∈ Cα(Xtest )} ≥ 1 − α, (3.9) for a test point (Xtest , Y test ); in fact, it even satisfies the corresponding conditional coverage. In practice, the quantile functions qx(1 − α) have to be estimated from data. For applications that require high-confidence prediction intervals where α is close to zero, extreme quantile regression methods as discussed above should be applied. Because of model misspecification and estimation uncertainty, the coverage in Equation 3.9 does no hold in general. The field of conformal inference (Vovk et al., 2005) studies the construction of prediction intervals ˆCα(x) with finite-sample coverage guarantees via suitable scores, where methods are typically calibrated on a sample from (X, Y ) of size nc. Again, for high-confidence where α < 1/(nc + 1) , classical conformal prediction fails to guarantee correct coverage since it requires extrapolation beyond the range of the validation sample. Pasche et al. (2025a) propose a method based on a GPD approximation of the calibration score distribution that, under certain assumptions, has asymptotic coverage for high-confidence prediction intervals. 
+
+3.3.2 Supervised dimension reduction for extreme responses 
+
+Another approach of regression of extreme responses with high dimensional predictors are dimension reduction methods. Several tools from modern high dimensional statistics have recently been adapted to the extreme value context. Gardes (2018) and Aghbalou et al. (2024a) develop a dimension reduction methods for the predictor X
+
+with the goal to preserve all relevant information on the tail of Y given X. To this end, they consider some orthogonal projection Π : Rp → Rp and assume the tail conditional independence condition (Aghbalou et al., 2024a) 
+
+E|P(Y > y | X) − P(Y > y | ΠX)|
+
+P(Y > y ) → 0, y → ∞ ;
+
+see Gardes (2018) for a different but closely related definition. The image of Π is called a tail dimension reduction (TDR) subspace. 10 Under additional regularity assumptions, Gardes (2018) prove that a conditional extreme quantile estimator using the reduced predictor Πx instead of x is asymptotically consistent, assuming that Π is known. The author proposes an algorithm to estimate the TDR space, which is suitable for moderate-dimensional settings. However, its computational complexity limits its applicability in higher dimensions, and the estimation error for the TDR is not explicitly controlled in the theory developed in this work. In contrast, Aghbalou et al. (2024a) focuses on asymptotic theory for an estimator of the TDR space using an inverse regression strategy inspired by Li (1991) and Cook and Weisberg (1991). This classical method relies on the fact that, under conditional independence of Y and X given ΠX and symmetry assumptions on the distribution of X given Y , the conditional first moment E [X | Y ] belongs to the dimension reduction space given by the image of Π. They adapt this framework to the extreme value setting by considering first and second moments of X conditional on the largest observed responses Y .While the above works consider equivalence of tail of the conditional distributions, an arguably weaker condition is to require only that the tail indices of the Y conditioned on X and ΠX, respectively, coincide for some projection Π. Under this assumption, Gardes and Podgorny (2025) estimate the conditional tail index by searching a matrix B ∈ Rp×q with q ≤ p whose columns span the so-called tail index dimension reduction (TIDR) space, such that the conditional tail index γ(x) of Y given X = x depends only on 
+
+B⊤x. A key quantity is γB (x) = max z∈Rp:B⊤z=B⊤x γ(z). If span (B) is a TIDR space, they show that 
+
+B minimizes the function γB (x) for all x over orthogonal matrices of a given rank. Estimators of B are proposed based on empirical risk minimization with consistency guarantees. In a related line of work, Bousebata et al. (2023) studies single-index inverse regression model Y =
+
+g(β⊤X) + ϵ, β ∈ Rp, to find linear combinations β⊤X of predictor that best explain the extreme values of the response Y , where g is assumed to be regular varying function and ϵ must have a sufficiently light tail. Their estimator maximizes the empirical covariance between β⊤X and Y conditionally on 
+
+Y exceeding a high threshold. The authors establish asymptotic normality of the estimated vector 
+
+ˆβ and apply the method to identify key drivers of extreme cereal yields. Girard and Pakzad (2025) generalize the framework to handle weak temporal dependence and certain missing data. In Arbel et al. (2024), this framework is enriched by integrating a Bayesian approach, which is particularly advantageous for regularization. This extension facilitates the derivation of sparse solutions for the direction vector 
+
+β, especially in high-dimensional settings and under low signal-to-noise ratios. Moreover, Girard and Pakzad (2024) extend the single-index model to the functional data setting, where the predictor is a possibly infinite-dimensional Hilbert space. 
+
+3.3.3 Unbalanced classification and prediction of rare events 
+
+In many applications, interest is in the prediction of the occurrence of a rare event Y (u) := 1{Y > u }
+
+given the predictor X = x, where u ∈ R is a high threshold. Note that the event Y (u) is rare in an unconditional sense, i.e., the probability P(Y (u) = 1) is very small, but the conditional probability 
+
+P(Y (u) = 1 | X = x) can be large. It therefore closely relates to the problem of unbalanced classification where the proportion of the minority class tends to zero. This is in contrast to extreme quantile regression in the previous section, where the target is the tail of the conditional distribution Y | X = x.In this (extreme) unbalanced classification framework of rare event prediction, Legrand et al. (2025) propose a new risk function for a family of predictors g = ( g(u), u > 0) 
+
+R(u)(g) = P  Y (u)̸ = g(u)(X)
+
+P  Y (u) = +1 or g(u)(X) = +1  ,
+
+that penalizes overly optimistic or pessimistic classifiers g(u) : Rp → {− 1, +1 }. They argue that good classifiers g(u) with respect to the limiting risk R(g) = lim u→∞ R(u)(g) ∈ [0 , 1] necessarily should exhibit asymptotic dependence as in Equation 2.4 between the random variables Y (u) and the predictions g(u)(X)
+
+as u → ∞ . In cases where no classifier with such asymptotic dependence exists, they also consider a refined risk measure adapted to the asymptotic independence setting. While they only consider linear classifiers in their theory, the proof techniques in Aghbalou et al. (2024b), which are tailored to the minimization of a re-balanced version of the 0–1 loss (Menon et al., 2020), could be adapted to establish non-asymptotic error bounds in their framework for more general model classes. Similarly to Legrand et al. (2025) but in the context of time series analysis, Verma et al. (2026) define the optimal extremal classifier as the one attaining the highest extremal correlation with rare event Y (u).11 For finite u, they derive a Neyman–Pearson-type characterization of optimal extreme event predictors using density ratios, and apply the methodology to solar flare forecasting. de Carvalho et al. (2025) study the prediction of cascading rare events where the event Y (u) might trigger another extreme event 
+
+I(u). They develop inference methods within a flexible Kolmogorov–Arnold neural network framework. 
+
+# 4 Unsupervised Settings 
+
+# 4.1 Generative AI 
+
+Generative artificial intelligence (GenAI) refers to a class of machine learning models that aim to learn the probability distribution of a complex, high-dimensional random vector X ∈ Rp and can generate new, realistic samples from it; see the left-hand side of Figure 3 for a bivariate example. The state-of-the-art methods have proved highly effective for this task and are now standard tools in applications ranging from language modeling (Vaswani et al., 2017) to image generation (Goodfellow et al., 2014), as well as AI weather forecasting (Price et al., 2024). Most of the approaches rely on a generator G : Rq → Rp that transforms a set of latent variables 
+
+Z ∈ Rq to have the desired distribution of X, i.e., 
+
+X d
+
+= G(Z), Z ∼ pZ (4.1) where the distribution pZ is often taken to be an independent normal or uniform distribution. Generative models learn an approximation Gϑ ≈ G of the generator from the training observations X1, . . . , Xn ∼ P ,in such a way that the distribution pϑ of Gϑ(Z) approximates best pX. The discrepancy between the training sample and the learned distribution is typically measured by some distance divergence measure, and then minimized using maximum likelihood or variational methods. Once trained, sampling from 
+
+Gϑ(Z) ∼ pϑ is cheap and produces data that approximately follow the distribution pX. There are several popular models for Gϑ, including generative adversarial networks (GANs), variational autoencoders (VAEs), diffusion models, and normalizing flows. A fundamental limitation of these methods concerns their extrapolation capabilities in terms of learning the correct distributional tail of pX. Extreme observations generated from Gϑ(Z) may not match the actual marginal distributions and/or dependence structure of extremes of X. In many applications in finance or meteorology, such events are the most relevant for the system. The reason for this limitation is the lack of sufficient extreme training data and the fact that the training loss typically focuses on the distributional bulk rather than the extremes. Extreme value theory described in Section 2 provides theoretically justified tools to extrapolate in a principled way beyond the data range and can therefore improve GenAI methods to better represent distributional tails. First, theoretical results show that the marginal distributions of the generated samples from a GAN are either bounded or light-tailed if the latent input Z is uniform or Gaussian, respectively (Wiese et al., 2019, Huster et al., 2021). Huster et al. (2021) and Girard et al. (2024) use heavy-tailed noise as input 
+
+Z and show that this improves the representation of the marginal, and to some extent, the multivariate tails. Instead of changing the latent distribution, McDonald et al. (2022) and Boulaguiem et al. (2022) fit GPD and GEV distributions to marginal distributions of the data, respectively, and then transform to the copula scale to learn the dependence structure through a flexible generator. Allouche et al. (2022) reparametrize the generator to make the univariate tails learnable by neural networks. While these approaches allow extrapolation of marginal distributions beyond the data range, there is no guarantee that the extremal dependence between the components of X is learned correctly. A different approach is Bhatia et al. (2021), which uses a conditional GAN with conditioning on the extremeness of a risk functional. Apart from the marginal distributions, the dependence structure can differ between the bulk and the tail, and classically trained GenAI methods may not reliably reproduce such tail dependence. For example, Lafon et al. (2023) show that classical generative models based on feed-forward networks with ReLU activations produce angular measures that concentrate on a finite set of points. Multivariate extreme value theory has developed a range of theoretically justified approaches to describe and learn multivariate tail dependence structures; see Section 2.2. Most of these approaches rely on the fact that extremal dependence simplifies when the data is transformed to certain standardized margins. We first describe a general recipe for these methods and then give concrete examples. 12 (i) Transform the random vector X to some standardized margins F∗ via componentwise probability integral transforms, i.e., X∗ = F −1 
+
+> ∗
+
+{FX(X)}.(ii) Assume a simpler dependence structure in the tail of X∗ that is asymptotically motivated by extreme value theory, and learn an extrapolation-aware generator G∗
+
+> ϑ
+
+(Z) for this representation. Most methods exploit a radial-angular decomposition 
+
+R := ∥X∗∥ , W := X∗/R, (4.2) where the choice of the norm depends on the specific method. Extrapolation is typically achieved by extrapolating the radius R.(iii) Generate samples ˆX∗ from G∗
+
+> ϑ
+
+(Z) and transform back to original scale by ˆX = F −1 
+
+> X
+
+{F∗( ˆX∗)},where the model for FX should also support extrapolation beyond the observed range. The joint distribution of (R, W) in Equation 4.2 admits the factorization 
+
+pR, W(r, w) (i)
+
+= pR(r)pW|R(w | r) (ii )
+
+= pW(w)pR|W(r | w). (4.3) Methods based on multivariate regular variation (MRV) use factorization (i), while methods based on the geometric approach use factorization (ii ).Under MRV, X∗ is typically standardized to Pareto margins, the radial measure pR(r) is Pareto, and the angular measure pW|R(· | r) becomes independent of the radius for large values of r; see the center panel of Figure 3. Lafon et al. (2023) already assume that the data are on a Pareto scale, and then learn two VAEs: an unconditional VAE to sample the heavy-tailed radius R ∼ pR, and a conditional VAE to sample the angular component W | R ∼ pW|R(· | r), enforcing independence between the radius and angle for large r. Lhaut et al. (2025) model the margins of X with GPD, transform the margins to Pareto scale X∗, and train a Wasserstein GAN on X∗ to learn the angular measure W | R > r above a high threshold r. In a similar vein, Hu and Castro-Camilo (2025) use a normalizing flow to jointly learn the margins and the tail dependence of X in an MRV framework. Following the maxima approach, Hasan et al. (2022) fit a generative model to the Pickands dependence function of a multivariate extreme value distribution. The MRV framework becomes uninformative if the data exhibit asymptotic independence, because the angular measure concentrates its mass on the axes. In this case, several complementary approaches have been proposed. Under the geometric extremes framework, the data is standardized to X∗ with exponential or or Laplace margins. The angular distribution pW is first modeled, and the conditional radial density then takes the form 
+
+pR|W(r | w) ∝ rd−1 exp[ −rg (w)] ,
+
+where large values g(w) correspond to a direction w with lighter tail, in the sense that it controls the exponential rate of decay of tail mass in that direction; see the right-hand side of Figure 3. After standardization to Laplace margins, Murphy-Barltrop et al. (2024) use a neural network as a flexible parameterization of the gauge function. Mackay et al. (2025) decompose the density of X via an angular-radial decomposition as in (ii ) of Equation 4.3. Their model is semi-parametric since they assume that 
+
+pR|W is in the domain of attraction of a GPD( σ(w), γ (w)) where (σ(w), γ (w)) is fitted with a dense neural network, and pW is learned with kernel density estimation. Wessel et al. (2025) introduce and compare different GenAI approaches to model angular distributions as they appear in many extreme models, including multivariate regular variation, the geometric approach, and the SPAR model. See also Allouche et al. (2026) for a more detailed review on simulation on extreme events with neural networks. 
+
+# 4.2 Anomaly Detection 
+
+Anomaly detection has emerged as a critical area in data science, driven by applications in fraud de-tection, aviation safety, health monitoring of complex systems and food risk assessment. Anomalies are typically defined as observations that deviate significantly from the training data X1, . . . , Xn from dis-tribution P. For a comprehensive overview, see the classical review by Chandola et al. (2009) and more recent works focusing on deep learning approaches Pang et al. (2021). 13 -2.5 0.0 2.5 1 2 3X1 X2 01230 1 2 3X1     
+
+> ∗
+> X2
+> ∗
+> pW|R=r
+> 0.00 0.25 0.50 0.75 1.00 -5 05-5 05X1
+> ∗
+> X2
+> ∗
+> pR|W=w
+> 0.00 0.25 0.50 0.75 1.00
+
+Figure 3: Right: Scatter of a random vector X on the original scale. Center: Scatter of the transformed 
+
+X∗ on Pareto margins, up to radial rescaling for visual clarity. The generative model learns the dis-tribution of the radius pR, and conditional on R = r, the angular distribution pW|R=r . Left: Scatter of the transformed X∗ on Laplace margins. The generative model learns the distribution of the angle 
+
+pW, and conditional on W = w, the radial distribution pR|W=w. Grey points correspond to training observations, while blue points correspond to observations sampled by the generative models. Quite early, it has been realized that the detection of anomalies can be phrased as an extreme value theory problem. The general idea is that a point x0 of interest should be labeled as an anomaly (or novelty), if it lies in a very low-probability region of the training distribution P. In order to accurately quantify this probability, the extreme value approximations discussed in Section 2 are used. We dis-cuss the literature that uses univariate approximations to improve anomaly detection in Section 4.2.1. Methods that aim to classify extreme points as anomalies based on multivariate extreme value theory are considered in Section 4.2.2. 
+
+4.2.1 Extreme value theory for anomaly detection 
+
+Roberts (1999) fit a Gaussian mixture model to the training data and use the GEV distribution to classify a new point as normal or abnormal; see also Clifton et al. (2011) for an extension to multivariate, multimodal distributions. In the context of time series analysis, Siffer et al. (2017) fit a GPD to the tail of univariate data to detect anomalies and describe an algorithm for online updates of the decision threshold. For novelty detection in a multi-class classification setting, the extreme value machine in Rudd et al. (2018) fits a GEV distribution to the smallest distance of a training point Xi to any point belonging to a different class. If a new point x0 is not close enough to any of the training points, measured by the probabilities of the respective GEV, it is classified as belonging to a novel, unseen class. Vignotto and Engelke (2020) discuss theoretical shortcomings of this approach in terms of how extreme value theory is applied, and propose the GPD classifier as alternative method for anomaly detection. Under the null hypothesis of a normal point x0 ∈ Rp, they show that the lower tail of the distribution of distances 
+
+Di = ∥Xi − x0∥2 belongs to the min-domain of attraction of a GEV distribution with shape parameter 
+
+γ = −1/p , since for small δ > 0
+
+P(Di < δ ) ≈ f (x0)Vp(δ) = f (x0)Cpδp, (4.4) where f (x0) is the training density at x0 under P, Vp(δ) is the volume of ball of radius δ in Rp, and Cp > 0
+
+is a constant depending only on the dimension p. Under the alternative hypothesis of an anomaly from a distribution with non-overlapping support, the Hill estimator converges almost surely to 0, enabling the construction of a statistical test for anomaly detection. 14 Intrinsic dimensionality in machine learning 
+
+Similar methods as for anomaly detection based on extreme value theory are used in the estimation of the intrinsic dimensionality, which describes the effective dimension of a high-dimensional data set (Amsaleg et al., 2015). In this case, the lower tail of the distances in Equation 4.4 is driven by the intrinsic dimension p′ < p . Intrinsic dimensionality of the predictor distribution can be connected to key properties of machine learning algorithms, such as the susceptibility to adversarial attacks (Bailey et al., 2022). 
+
+4.2.2 Anomaly detection for multivariate extremes 
+
+A second line of work focuses on anomaly detection for extreme multivariate observations, aiming to distinguish “normal” from “abnormal” extremes. This line of work assumes that anomalies in the bulk are handled separately. These methods consider the setting where the vector X standardized to Pareto margins is multivariate regularly varying and define the anomaly score for observation x as 
+
+s(x) = radial score( x) × directional score( x),
+
+where radial score( x) is low if x has large radius, while directional score( x) is low if x lies along “unusual directions”. In high dimensions, Goix et al. (2016, 2017) partition the upper tail of X into cone-type regions which represent different configurations of joint extremes. Their directional anomaly score is defined as the empirical frequency of training points in each cone-type region, yielding a sparse description of normal extremal behavior. This framework has also proven useful for clustering anomalous extreme events (Chiapino et al., 2020). In low-dimensional settings, instead of partitioning the upper tail of X into cone-type regions, Thomas et al. (2017) directly model the angular structure through angular mass-volume sets (Scott and Nowak, 2005). A mass-volume set of mass α for X is the smallest (in terms of Lebesgue measure) set A ⊆ Rp
+
+with probability at least α. Thomas et al. (2017) estimate mass-volume sets of high mass α for the angular component W of X. These sets correspond to the most likely directions where extreme points occur. In practice, a finite grid of values [α1, . . . , α M ] is chosen, yielding a family of nested mass-volume sets 
+
+Ω1 ⊂ . . . ⊂ ΩM constructed by constrained optimization of an empirical criterion, and the directional score of a new angle w is a stepwise function which is constant on the set differences Ωm+1 \ Ωm.Theoretical refinements for empirical standardization into Pareto margins are provided in Clémençon et al. (2023). The concept of mass-volume sets also plays a central role in Cai et al. (2011), where it is employed to delineate multivariate quantile contours. While their primary objective differs from that of anomaly detection, the two tasks of quantile contour estimation and anomaly detection are closely related, as both rely on characterizing the extreme regions of the data distribution. 
+
+# 4.3 Sparsity and Dimension Reduction 
+
+The period from roughly 2015 to 2020 has marked the beginning of a movement bridging extreme value theory with methods for sparsity and high dimensions from statistical learning. Engelke and Ivanovs (2021) reviewed the literature at that time with a focus on techniques for dimension reduction such as PCA, clustering concomitant extremes and graphical modeling. Research in these fields has made significant progress in recent years, and we briefly review recent works. Following earlier clustering approaches for extreme observation (Chautru, 2015, Chiapino et al., 2019, Janßen and Wan, 2020), new methods have been developed using spherical k-principal-components clustering (Fomichov and Ivanovs, 2023), spectral clustering Medina et al. (2024) or kernel PCA on the angular measure Medina et al. (2025). Clustering based on maxima in time series is studied in Boulin et al. (2025a), with applications to clustering precipitation records over Europe (Boulin et al., 2025b). Another approach involves the use of latent linear factor models for dimension reduction of the tail distribution Boulin and Bücher (2026). The previously open questions of dimension selection for PCA and subspace identification (Cooley and Thibaud, 2019, Drees and Sabourin, 2021) has been addressed in Butsch and Fasen-Hartmann (2025b,a) and further applications have been proposed (Rohrbeck and 15 Cooley, 2023). Regular variation and functional extensions of PCA have been developed for observations in separable Hilbert spaces with applications to real data (Clémençon et al., 2024). PCA for max-linear models establishes connections with tropical algebra (Reinbott and Janßen, 2026). On exponential margins, representations of extremes on a hyperplane have been proposed to facilitate modeling and linear dimension reduction, such as PCA (Wan, 2026). The theory and methodology for graphical modeling of extreme values (Gissibl and Klüppelberg, 2018, Engelke and Hitz, 2020, Segers, 2020) has been further extended in several directions. There are now structure learning methods with high-dimensional recovery guarantees for tree models (Engelke and Volgushev, 2022) by minimum spanning trees, and for general graphs in the class of Hüsler–Reiss distri-butions through lasso-type L1-penalization (Engelke et al., 2025c, Wan and Zhou, 2025) and with latent variables Engelke and Taeb (2025). In the same model class, efficient statistical inference techniques exploit matrix completions (Hentschel et al., 2025), score matching Lederer and Oesting (2024), and convex optimization problems with positive dependence (Röttger et al., 2023) and more general con-straints (Echave-Sustaeta Rodríguez and Röttger, 2025). In the context of max-linear graphical models, Tran et al. (2024) estimate directed tree structures. Directed extremal graphical models have been studied in connection with structural causal models and extremal treatment effects (Engelke et al., 2025a, Bai et al., 2026). Asymptotically independent data can be modeled in a sparse way by extremal graphical models based on the generalized notion of conditional independence in Engelke et al. (2025b) or the geometric approach in Papastathopoulos and Wadsworth (2026). Finally, a stochastic partial differential equation framework for sparse spatial extremes has been developed for the new class of intrinsic Whittle–Matérn Brown–Resnick fields (Bolin et al., 2025). For a more complete review on topics related to extremal graphical models we refer to (Engelke et al., 2024). 
+
+# 5 Concluding Remarks 
+
+Future Issues 
+
+1. The current extrapolation methods for supervised learning make simplifying assumptions, such as additive models or multivariate regular variation. Overcoming such regularity as-sumptions and integrating the underlying principles into large-scale machine learning meth-ods, such as neural networks for AI weather modeling, is an important future research direc-tion. 2. Evaluation of extrapolation performance is inherently difficult, which also deters fair model comparison and data-driven model selection. Especially for flexible models without rigorous statistical guarantees, a robust evaluation framework will be crucial in the future. 3. Asymptotic and non-asymptotic statistical theory for extreme value estimators is currently mostly limited to approaches based on multivariate regular variation. Extending this theory to approaches for asymptotic independence would further increase confidence in predictions from these methods. 4. Many approaches in this review adapt machine learning tools to the framework of extreme value theory. While their empirical effectiveness is checked on simulations, theoretical guar-antees are still missing in some cases and require non-trivial adaptations of proofs in classical learning theory. 5. Other fields such as causality or distributional regression have recently produced new ap-proaches to extrapolation. A combination of these methods with tools based on extreme value theory discussed in this review could turn out to be fruitful in the future. 
+
+Extrapolation is a hard problem and any method from statistical learning has to rely on certain assumptions. Extreme value theory provides one avenue for creating such assumptions that naturally arise through limiting theorems for the tails of univariate and multivariate distributions. Other types of assumptions for extrapolation exist in fields such as causality (Rothenhäusler et al., 2021) or distributional regression (Shen and Meinshausen, 2024). In general, there will not be one universally best method for 16 all problems, but the suitability of an approach will rather depend on the domain of application and the structure of the underlying data generating process. In future research, it is therefore crucial to have different frameworks and clearly stated sets of assumptions that cover different scenarios (e.g., asymptotically dependent versus independent multivariate data). Evaluation of the extrapolation performance of predictions or generated distributions is extremely difficult in practice. The reason is that the region that extrapolation targets has by definition few data points, and therefore classical cross-validation is not applicable. Future research should develop robust evaluation frameworks for model comparison and selection that are particularly tailored to tail regions of predictor or response distributions. Given this inherent difficulty of model evaluation, the theoretical analysis of new models should play a primary role in future work. Indeed, such results would highlight in which situation a model can be used with confidence and point at possible limitations. 
+
+# References 
+
+A. Aghbalou, F. Portier, A. Sabourin, and C. Zhou. Tail inverse regression: Dimension reduction for prediction of extremes. Bernoulli , 30(1):503–533, 2024a. A. Aghbalou, A. Sabourin, and F. Portier. Sharp error bounds for imbalanced classification: How many examples in the minority class? In Proceedings of The 27th International Conference on Artificial Intelligence and Statistics , pages 838–846. PMLR, 2024b. S. Allen, J. Koh, J. Segers, and J. Ziegel. Tail Calibration of Probabilistic Forecasts. Journal of the American Statistical Association , 120(552):2796–2808, 2025. M. Allouche, S. Girard, and E. Gobet. EV-GAN: Simulation of extreme events with ReLU neural networks. Journal of Machine Learning Research , 23(150):1–39, 2022. M. Allouche, S. Girard, and E. Gobet. On the simulation of extreme events with neural networks. In M. de Carvalho, R. Huser, P. Naveau, and a. B. J. Reich, editors, Handbook on Statistics of Extremes .Chapman & Hall/CRC, 2026. L. Amsaleg, O. Chelly, T. Furon, S. Girard, M. E. Houle et al. Estimating Local Intrinsic Dimensionality. In Proceedings of the 21th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pages 29–38, 2015. M. Anthony and P. L. Bartlett. Neural Network Learning: Theoretical Foundations . Cambridge Univer-sity Press, Cambridge, 1999. J. Arbel, S. Girard, and H. Lorenzo. Shrinkage for extreme partial least-squares. Statistics and Com-puting , 34(6):181, 2024. S. Athey, J. Tibshirani, and S. Wager. Generalized random forests. Annals of Statistics , 47(2):1148–1178, 2019. S. Bai, F. Fang, and T. Wang. Structural Causal Models for Extremes: An Approach Based on Exponent Measures. arXiv preprint arXiv:2508.00223 , 2026. J. Bailey, M. E. Houle, and X. Ma. Local Intrinsic Dimensionality, Entropy and Statistical Divergences. 
+
+Entropy , 24(9):1220, 2022. A. A. Balkema and L. de Haan. Residual life time at great age. Annals of Probability , 2(5):792–804, 1974. G. Balkema and N. Nolde. Asymptotic independence for unimodal densities. Advances in Applied Probability , 42(2):411–432, 2010. S. Ben-David, J. Blitzer, K. Crammer, and F. Pereira. Analysis of Representations for Domain Adapta-tion. In Advances in Neural Information Processing Systems , volume 19. MIT Press, 2006. S. Ben-David, J. Blitzer, K. Crammer, A. Kulesza, F. Pereira et al. A theory of learning from different domains. Machine Learning , 79(1):151–175, 2010. 17 S. Bhatia, A. Jain, and B. Hooi. Exgan: Adversarial generation of extreme samples. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 35, pages 6750–6758, 2021. D. Bolin, P. Braunsteins, S. Engelke, and R. Huser. Intrinsic Whittle–Matérn fields and sparse spatial extremes. arXiv preprint arXiv:2512.23395 , 2025. Y. Boulaguiem, J. Zscheischler, E. Vignotto, K. van der Wiel, and S. Engelke. Modeling and simulating spatial extremes by combining extreme value theory with generative adversarial networks. Environ-mental Data Science , 1:e5, 2022. A. Boulin and A. Bücher. Dimension Reduction in Multivariate Extremes via Latent Linear Factor Models. arXiv preprint arXiv:2602.23143 , 2026. A. Boulin, E. Di Bernardino, T. Laloë, and G. Toulemonde. High-Dimensional Variable Clustering based on Maxima of a Weakly Dependent Random Process. Journal of the American Statistical Association ,120(551):1933–1944, 2025a. A. Boulin, E. Di Bernardino, T. Laloë, and G. Toulemonde. Identifying regions of concomitant compound precipitation and wind speed extremes over Europe. Journal of the Royal Statistical Society Series C: Applied Statistics , 74(4):1057–1076, 2025b. M. Bousebata, G. Enjolras, and S. Girard. Extreme partial least-squares. Journal of Multivariate Analysis , 194:105101, 2023. O. Bousquet, S. Boucheron, and G. Lugosi. Introduction to Statistical Learning Theory. In O. Bousquet, U. von Luxburg, and G. Rätsch, editors, Advanced Lectures on Machine Learning: ML Summer Schools 2003, Canberra, Australia, February 2 - 14, 2003, Tübingen, Germany, August 4 - 16, 2003, Revised Lectures , pages 169–207. Springer, Berlin, Heidelberg, 2004. G. E. P. Box and D. R. Cox. An analysis of transformations. Journal of the Royal Statistical Society Series B: Statistical Methodology , 26(2):211–252, 1964. G. Buriticá and S. Engelke. Progression: An extrapolation principle for regression. arXiv preprint arXiv:2410.23246 , 2024. L. Butsch and V. Fasen-Hartmann. Estimation of the number of principal components in high-dimensional multivariate extremes. Scandinavian Journal of Statistics , 52(4):2270–2313, 2025a. L. Butsch and V. Fasen-Hartmann. Information criteria for the number of directions of extremes in high-dimensional data. Electronic Journal of Statistics , 19(2):5695–5740, 2025b. J. Cai, J. Einmahl, and L. De Haan. Estimation of extreme risk regions under multivariate regular variation. The Annals of Statistics , pages 1803–1826, 2011. A. J. Cannon. Quantile regression neural networks: Implementation in R and application to precipitation downscaling. Computers & Geosciences , 37(9):1277–1284, 2011. V. Chandola, A. Banerjee, and V. Kumar. Anomaly detection: A survey. ACM Comput. Surv. , 41(3): 15:1–15:58, 2009. E. Chautru. Dimension reduction in multivariate extreme value analysis. Electronic Journal of Statistics ,9(1):383–418, 2015. V. Chavez-Demoulin and A. C. Davison. Generalized additive modelling of sample extremes. Journal of the Royal Statistical Society Series C: Applied Statistics , 54(1):207–222, 2005. V. Chernozhukov. Extremal quantile regression. Annals of Statistics , 33(2):806–839, 2005. M. Chiapino, A. Sabourin, and J. Segers. Identifying groups of variables with the potential of being large simultaneously. Extremes. Statistical Theory and Applications in Science, Engineering and Economics ,22(2):193–222, 2019. 18 M. Chiapino, S. Clémençon, V. Feuillard, and A. Sabourin. A multivariate extreme value theory approach to anomaly clustering and visualization. Computational Statistics , 35(2):607–628, 2020. R. Christiansen, N. Pfister, M. E. Jakobsen, N. Gnecco, and J. Peters. A Causal Framework for Dis-tribution Generalization. IEEE Transactions on Pattern Analysis and Machine Intelligence , 44(10): 6614–6630, 2022. S. Clémençon and A. Sabourin. Weak signals and heavy tails: Machine-learning meets extreme value theory. arXiv preprint arXiv:2504.06984 , 2025. S. Clémençon, H. Jalalzai, S. Lhaut, A. Sabourin, and J. Segers. Concentration bounds for the empirical angular measure with statistical learning applications. Bernoulli. Official Journal of the Bernoulli Society for Mathematical Statistics and Probability , 29(4):2797–2827, 2023. S. Clémençon, N. Huet, and A. Sabourin. Regular variation in Hilbert spaces and principal component analysis for functional extremes. Stochastic Processes and their Applications , 174:104375, 2024. S. Clémençon, N. Huet, and A. Sabourin. On regression in extreme regions. Electronic Journal of Statistics , 19(2):4784–4828, 2025. D. A. Clifton, S. Hugueny, and L. Tarassenko. Novelty Detection with Multivariate Extreme Value Statistics. Journal of Signal Processing Systems , 65(3):371–389, 2011. R. D. Cook and S. Weisberg. Sliced Inverse Regression for Dimension Reduction: Comment. Journal of the American Statistical Association , 86(414):328–332, 1991. D. Cooley and E. Thibaud. Decompositions of dependence for high-dimensional extremes. Biometrika ,106(3):587–604, 2019. M. Cornec. Concentration inequalities of the cross-validation estimator for empirical risk minimizer. 
+
+Statistics , 51(1):43–60, 2017. G. Cybenko. Approximation by superpositions of a sigmoidal function. Mathematics of control, signals and systems , 2(4):303–314, 1989. A. Daouia, L. Gardes, S. Girard, and A. Lekina. Kernel estimators of extreme level curves. TEST. An Official Journal of the Spanish Society of Statistics and Operations Research , 20(2):311–333, 2011. M. de Carvalho, A. Kumukova, and G. dos Reis. Regression-type analysis for multivariate extreme values. Extremes , 25(4):595–622, 2022. M. de Carvalho, C. Ferrer, and R. Vallejos. A kolmogorov-arnold neural model for cascading extremes. 
+
+arXiv preprint arXiv:2505.13370 , 2025. L. De Haan and A. Ferreira. Extreme Value Theory: An Introduction . Springer Science & Business Media, 2007. L. de Haan and S. I. Resnick. Limit theory for multivariate sample extremes. Zeitschrift für Wahrschein-lichkeitstheorie und Verwandte Gebiete , 40(4):317–337, 1977. L. Devroye, L. Györfi, and G. Lugosi. A Probabilistic Theory of Pattern Recognition , volume 31. Springer Science & Business Media, 2013. H. Drees and A. Sabourin. Principal component analysis for multivariate extremes. Electronic Journal of Statistics , 15(1):908–943, 2021. I. Echave-Sustaeta Rodríguez and F. Röttger. Latent Gaussian and Hüsler–Reiss graphical models with Golazo penalty. International Journal of Approximate Reasoning , 185:109468, 2025. J. H. J. Einmahl and J. Segers. Maximum Empirical Likelihood Estimation of the Spectral Measure of an Extreme-Value Distribution. The Annals of Statistics , 37(5B):2953–2989, 2009. 19 S. Engelke and A. Hitz. Graphical models for extremes (with discussion). Journal of the Royal Statistical Society Series B: Statistical Methodology , 82:871–932, 2020. S. Engelke and J. Ivanovs. Sparse structures for multivariate extremes. Annual Review of Statistics and Its Application , 8:241–270, 2021. S. Engelke and A. Taeb. Extremal graphical modeling with latent variables via convex optimization. 
+
+Journal of Machine Learning Research , 26(42):1–68, 2025. S. Engelke and S. Volgushev. Structure Learning for Extremal Tree Models. Journal of the Royal Statistical Society Series B: Statistical Methodology , 84(5):2055–2087, 2022. S. Engelke, M. Hentschel, M. Lalancette, and F. Röttger. Graphical models for multivariate extremes. 
+
+arXiv preprint arXiv:2402.02187 , 2024. S. Engelke, N. Gnecco, and F. Röttger. Extremes of structural causal models. arXiv preprint arXiv:2503.06536 , 2025a. S. Engelke, J. Ivanovs, and K. Strokorb. Graphical models for infinite measures with applications to extremes. The Annals of Applied Probability , 35(5):3490–3542, 2025b. S. Engelke, M. Lalancette, and S. Volgushev. Learning extremal graphical structures in high dimensions. 
+
+arXiv preprint arXiv:2111.00840 , 2025c. S. Farkas, O. Lopez, and M. Thomas. Cyber claim analysis using Generalized Pareto regression trees with applications to insurance. Insurance: Mathematics and Economics , 98:92–105, 2021. V. Fomichov and J. Ivanovs. Spherical clustering in detection of groups of concomitant extremes. 
+
+Biometrika , 110(1):135–153, 2023. C. R. Freschlin, S. A. Fahlberg, P. Heinzelman, and P. A. Romero. Neural network extrapolation to distant regions of the protein fitness landscape. Nature Communications , 15(1):6405, 2024. L. Gardes. Tail dimension reduction for extreme quantile estimation. Extremes. Statistical Theory and Applications in Science, Engineering and Economics , 21(1):57–95, 2018. L. Gardes and A. Podgorny. Dimension reduction for the estimation of the conditional tail index. 
+
+Scandinavian Journal of Statistics , 52(3):1444–1476, 2025. L. Gardes and G. Stupfler. An integrated functional Weissman estimator for conditional extreme quan-tiles. REVSTAT Statistical Journal , 17(1):109–144, 2019. S. Girard and C. Pakzad. Functional extreme-PLS. arXiv preprint arXiv:2410.05517 , 2024. S. Girard and C. Pakzad. Extreme-PLS with missing data under weak dependence. arXiv preprint arXiv:2511.11338 , 2025. S. Girard, E. Gobet, and J. Pachebat. Deep generative modeling of multivariate dependent extremes. 2024. N. Gissibl and C. Klüppelberg. Max-linear models on directed acyclic graphs. Bernoulli. Official Journal of the Bernoulli Society for Mathematical Statistics and Probability , 24:2693–2720, 2018. N. Gnecco, E. M. Terefe, and S. Engelke. Extremal random forests. Journal of the American Statistical Association , 119(548):3059–3072, 2024. N. Goix, A. Sabourin, and S. Clémençon. Sparse representation of multivariate extremes with applications to anomaly ranking. In Artificial Intelligence and Statistics , pages 75–83, 2016. N. Goix, A. Sabourin, and S. Clémençon. Sparse representation of multivariate extremes with applications to anomaly detection. Journal of Multivariate Analysis , 161:12–31, 2017. 20 I. J. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Warde-Farley et al. Generative Adversarial Nets. In Advances in Neural Information Processing Systems , volume 27. Curran Associates, Inc., 2014. A. Hasan, K. Elkhalil, Y. Ng, J. M. Pereira, S. Farsiu et al. Modeling extremes with d-max-decreasing neural networks. In Uncertainty in Artificial Intelligence , pages 759–768. PMLR, 2022. T. Hastie, R. Tibshirani, and J. Friedman. The Elements of Statistical Learning . Springer New York, 2009. J. E. Heffernan and J. A. Tawn. A Conditional Approach for Multivariate Extreme Values (with dis-cussion). Journal of the Royal Statistical Society Series B: Statistical Methodology , 66(3):497–546, 2004. M. Hentschel, S. Engelke, and J. Segers. Statistical Inference for Hüsler–Reiss Graphical Models Through Matrix Completions. Journal of the American Statistical Association , 120(550):909–921, 2025. C. Hu and D. Castro-Camilo. GPDFlow: Generative multivariate threshold exceedance modeling via normalizing flows. arXiv preprint arXiv:2503.11822 , 2025. T. Huster, J. Cohen, Z. Lin, K. Chan, C. Kamhoua et al. Pareto GAN: Extending the representational power of gans to heavy-tailed distributions. In M. Meila and T. Zhang, editors, Proceedings of the 38th International Conference on Machine Learning , volume 139 of Proceedings of Machine Learning Research , pages 4523–4532. PMLR, 2021. H. Jalalzai, S. Clémençon, and A. Sabourin. On binary classification in extreme regions. In Advances in Neural Information Processing Systems , volume 31, 2018. H. Jalalzai, P. Colombo, C. Clavel, E. Gaussier, G. Varni et al. Heavy-tailed representations, text polarity classification & data augmentation. In Advances in Neural Information Processing Systems ,volume 33, pages 4295–4307, 2020. Z. Jan, F. Ahamed, W. Mayer, N. Patel, G. Grossmann et al. Artificial intelligence for industry 4.0: Systematic review of applications, challenges, and opportunities. Expert Systems with Applications ,216:119456, 2023. A. Janßen and P. Wan. k-means clustering of extremes. Electronic Journal of Statistics , 14(1):1211–1233, 2020. R. Koenker and G. Bassett. Regression quantiles. Econometrica : journal of the Econometric Society ,46(1):33–50, 1978. J. Koh. Gradient boosting with extreme-value theory for wildfire prediction. Extremes. Statistical Theory and Applications in Science, Engineering and Economics , 26:273–299, 2023. N. Lafon, P. Naveau, and R. Fablet. A VAE approach to sample multivariate extremes. arXiv preprint arXiv:2306.10987 , 2023. R. Lam, A. Sanchez-Gonzalez, M. Willson, P. Wirnsberger, M. Fortunato et al. Learning skillful medium-range global weather forecasting. Science , 382(6677):1416–1421, 2023. J. Lederer and M. Oesting. Extremes in High Dimensions: Methods and Scalable Algorithms. arXiv preprint arXiv:2303.04258 , 2024. J. Legrand, P. Naveau, and M. Oesting. Evaluation of Binary Classifiers for Asymptotically Dependent and Independent Extremes. Journal of the American Statistical Association , 120(551):1558–1568, 2025. S. Lhaut, A. Sabourin, and J. Segers. Uniform concentration bounds for frequencies of rare events. 
+
+Statistics & Probability Letters , 189:109610, 2022. S. Lhaut, H. Rootzén, and J. Segers. Wasserstein-Aitchison GAN for angular measures of multivariate extremes. arXiv preprint arXiv:2504.21438 , 2025. 21 K.-C. Li. Sliced Inverse Regression for Dimension Reduction. Journal of the American Statistical Asso-ciation , 86(414):316–327, 1991. G. Lugosi. Pattern Classification and Learning Theory. In L. Györfi, editor, Principles of Nonparametric Learning , pages 1–56. Springer, Vienna, 2002. E. Mackay, C. J. R. Murphy-Barltrop, J. Richards, and P. Jonathan. Deep Learning Joint Extremes of Metocean Variables Using the SPAR Model. Journal of Offshore Mechanics and Arctic Engineering ,148(2):021201, 2025. J.-L. Martel, R. Arsenault, R. Turcotte, M. Castañeda-Gonzalez, F. Brissette et al. Exploring the ability of LSTM-based hydrological models to simulate streamflow time series for flood frequency analysis. 
+
+Hydrology and Earth System Sciences , 29(19):4951–4968, 2025. A. McDonald, P.-N. Tan, and L. Luo. COMET Flows: Towards Generative Modeling of Multivariate Extremes and Tail Dependence. arXiv preprint arXiv:2205.01224 , 2022. M. A. Medina, R. A. Davis, and G. Samorodnitsky. Spectral learning of multivariate extremes. Journal of Machine Learning Research , 25(124):1–36, 2024. M. A. Medina, R. A. Davis, and G. Samorodnitsky. Insights into kernel PCA with application to multivariate extremes. SIAM Journal on Mathematics of Data Science , 7(2):777–801, 2025. A. K. Menon, S. Jayasumana, A. S. Rawat, H. Jain, A. Veit et al. Long-tail learning via logit adjustment. In International Conference on Learning Representations , 2020. C. J. R. Murphy-Barltrop, R. Majumder, and J. Richards. Deep learning of multivariate extremes via a geometric representation. arXiv preprint arXiv:2406.19936 , 2024. N. Nolde and J. L. Wadsworth. Linking representations for multivariate extremes via a limit set. Advances in Applied Probability , 54(3):688–717, 2022. G. Pang, C. Shen, L. Cao, and A. V. D. Hengel. Deep Learning for Anomaly Detection: A Review. ACM Computing Surveys , 54(2):1–38, 2021. I. Papastathopoulos and J. Wadsworth. Geometric extremal graphical models and coefficients of extremal dependence on block graphs. arXiv preprint arXiv:2601.00239 , 2026. O. C. Pasche and S. Engelke. Neural networks for extreme quantile regression with an application to forecasting of flood risk. The Annals of Applied Statistics , 18(4):2818–2839, 2024. O. C. Pasche, H. Lam, and S. Engelke. Extreme Conformal Prediction: Reliable Intervals for High-Impact Events. arXiv preprint arXiv:2505.08578 , 2025a. O. C. Pasche, J. Wider, Z. Zhang, J. Zscheischler, and S. Engelke. Validating Deep Learning Weather Forecast Models on Recent High-Impact Extreme Events. Artificial Intelligence for the Earth Systems ,4(1), 2025b. N. Pfister and P. Bühlmann. Extrapolation-Aware Nonparametric Statistical Inference. arXiv preprint arXiv:2402.09758 , 2024. I. Price, A. Sanchez-Gonzalez, F. Alet, T. R. Andersson, A. El-Kadi et al. GenCast: Diffusion-based ensemble forecasting for medium-range weather. arXiv preprint arXiv:2312.15796 , 2024. A. Rajkomar, J. Dean, and I. Kohane. Machine Learning in Medicine. New England Journal of Medicine ,380(14):1347–1358, 2019. F. Reinbott and A. Janßen. Principal Component Analysis for Max-Stable Distributions. Journal of the American Statistical Association , 0(0):1–12, 2026. S. I. Resnick. Heavy-Tail Phenomena: Probabilistic and Statistical Modeling . Springer Science & Business Media, 2007. 22 S. I. Resnick. Extreme Values, Regular Variation, and Point Processes , volume 4. Springer Science & Business Media, 2008. J. Richards and R. Huser. Regression modelling of spatiotemporal extreme U.S. wildfires via partially-interpretable neural networks. Journal of Computational and Graphical Statistics , 0(0):1–29, 2025. S. J. Roberts. Novelty detection using extreme value statistics. IEE Proceedings - Vision, Image and Signal Processing , 146(3):124–129, 1999. C. Rohrbeck and D. Cooley. Simulating flood event sets using extremal principal components. The Annals of Applied Statistics , 17(2):1333–1352, 2023. H. Rootzén and N. Tajvidi. Multivariate Generalized Pareto Distributions. Bernoulli , 12(5):917–930, 2006. D. Rothenhäusler, N. Meinshausen, P. Bühlmann, and J. Peters. Anchor Regression: Heterogeneous Data Meet Causality. Journal of the Royal Statistical Society Series B: Statistical Methodology , 83(2): 215–246, 2021. F. Röttger, S. Engelke, and P. Zwiernik. Total positivity in multivariate extremes. The Annals of Statistics , 51(3):962–1004, 2023. E. M. Rudd, L. P. Jain, W. J. Scheirer, and T. E. Boult. The Extreme Value Machine. IEEE Transactions on Pattern Analysis and Machine Intelligence , 40(3):762–768, 2018. J. Schmidt-Hieber. Nonparametric regression using deep neural networks with ReLU activation function. 
+
+The Annals of Statistics , 48(4):1875–1897, 2020. C. Scott and R. Nowak. Learning Minimum Volume Sets. In Advances in Neural Information Processing Systems , volume 18. MIT Press, 2005. J. Segers. One-versus multi-component regular variation and extremes of Markov trees. Advances in Applied Probability , 52(3):855–878, 2020. X. Shen and N. Meinshausen. Engression: Extrapolation through the lens of distributional regression. 
+
+Journal of the Royal Statistical Society Series B: Statistical Methodology , 87(3):653–677, 2024. A. Siffer, P.-A. Fouque, A. Termier, and C. Largouet. Anomaly Detection in Streams with Extreme Value Theory. In Proceedings of the 23rd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , KDD ’17, pages 1067–1075, New York, NY, USA, 2017. Association for Computing Machinery. A. Srivastava, A. Rastogi, A. Rao, A. A. M. Shoeb, A. Abid et al. Beyond the Imitation Game: Quan-tifying and extrapolating the capabilities of language models. Transactions on Machine Learning Research , 2023. C. J. Stone. Consistent Nonparametric Regression. The Annals of Statistics , 5(4):595–620, 1977. M. Sugiyama, M. Krauledat, and K.-R. Müller. Covariate Shift Adaptation by Importance Weighted Cross Validation. Journal of Machine Learning Research , 8(35):985–1005, 2007. Y. Q. Sun, P. Hassanzadeh, M. Zand, A. Chattopadhyay, J. Weare et al. Can AI weather models predict out-of-distribution gray swan tropical cyclones? Proceedings of the National Academy of Sciences , 122 (21):e2420914122, 2025. Y. Tang, J. Chen, D. Li, and H. J. Wang. Recent Advances in Conditional Extreme Quantile Analysis. 
+
+Annual Review of Statistics and Its Application , 13:297–319, 2026. A. Thomas, S. Clemencon, A. Gramfort, and A. Sabourin. Anomaly detection in extreme regions via empirical MV-sets on the sphere. In AISTATS , pages 1011–1019, 2017. N. M. Tran, J. Buck, and C. Klüppelberg. Estimating a directed tree for extremes. Journal of the Royal Statistical Society Series B: Statistical Methodology , 86(3):771–792, 2024. 23 V. N. Vapnik. The Nature of Statistical Learning Theory . Springer, New York, NY, 2000. A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones et al. Attention is all you need. In Advances in Neural Information Processing Systems , volume 30, 2017. J. Velthoen, J.-J. Cai, G. Jongbloed, and M. Schmeits. Improving precipitation forecasts using ex-treme quantile regression. Extremes. Statistical Theory and Applications in Science, Engineering and Economics , 22(4):599–622, 2019. V. Verma, S. Stoev, and Y. Chen. On the Optimal Prediction of Extreme Events in Heavy-Tailed Time Series With Applications to Solar Flare Forecasting. Journal of Time Series Analysis , 47(1):25–42, 2026. E. Vignotto and S. Engelke. Extreme value theory for anomaly detection–the GPD classifier. Extremes. Statistical Theory and Applications in Science, Engineering and Economics , 23(4):501–520, 2020. V. Vovk, A. Gammerman, and G. Shafer. Algorithmic Learning in a Random World . Springer Science & Business Media, 2005. P. Wan. Characterizing extremal dependence on a hyperplane. Biometrika , page asag015, 2026. P. Wan and C. Zhou. Graphical lasso for extremes. arXiv preprint arXiv:2307.15004 , 2025. H. J. Wang, D. Li, and X. He. Estimation of high conditional quantiles for heavy-tailed distributions. 
+
+Journal of The American Statistical Association , 107(500):1453–1464, 2012. I. Weissman. Estimation of Parameters and Larger Quantiles Based on the k Largest Observations. 
+
+Journal of the American Statistical Association , 73(364):812–815, 1978. J. B. Wessel, C. J. Murphy-Barltrop, and E. S. Simpson. A comparison of generative deep learning methods for multivariate angular simulation. arXiv preprint arXiv:2504.21505 , 2025. M. Wiese, R. Knobloch, and R. Korn. Copula & marginal flows: Disentangling the marginal from its joint. arXiv preprint arXiv:1907.03361 , 2019. B. D. Youngman. Generalized additive models for exceedances of high thresholds with an application to return level estimation for U.S. wind gusts. Journal of The American Statistical Association , 114 (528):1865–1879, 2019. Z. Zhang, E. Fischer, J. Zscheischler, and S. Engelke. Numerical models outperform AI weather forecasts of record-breaking extremes. arXiv preprint arXiv:2508.15724 , 2025. 24
