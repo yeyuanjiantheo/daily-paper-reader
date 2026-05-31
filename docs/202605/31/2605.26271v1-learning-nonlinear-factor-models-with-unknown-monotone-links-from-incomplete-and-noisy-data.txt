@@ -1,0 +1,8249 @@
+Title: Learning Nonlinear Factor Models with Unknown Monotone Links from Incomplete and Noisy Data
+
+URL Source: https://arxiv.org/pdf/2605.26271v1
+
+Published Time: Wed, 27 May 2026 00:12:30 GMT
+
+Number of Pages: 67
+
+Markdown Content:
+# Learning Nonlinear Factor Models with Unknown Monotone Links from Incomplete and Noisy Data 
+
+Yutong Chao a, Resat G¨ okhan a, Jalal Etesami a,c , Ali Habibnia b
+
+> aSchool of Computation, Information and Technology, Technical University of Munich, Germany
+> bDepartment of Economics, Virginia Tech, USA
+> cMunich Institute of Robotics and Machine Intelligence
+
+Abstract 
+
+We study a nonlinear factor model in which observed responses depend on low-rank latent factors through an unknown monotone link function. This setting is challenging and largely underexplored due to severe nonconvexity and identifiability issues. The link function is assumed to lie in a reproducing kernel Hilbert space (RKHS), enabling flexible nonparametric modeling while preserving identifiability. We formulate the problem as the joint recovery of the low-rank factors, loadings, and the nonlinear link function from possibly incomplete and noisy observations and propose a projected block coordinate descent (BCD) algorithm with explicit regularization to address scale and rotational ambiguities. Under mild incoherence of factors and standard sampling conditions, we establish convergence guarantees in both noiseless and noisy regimes, along with sublinear regret bounds for the link-function updates. Our results extend classical linear factor models to a broad nonlinear regime and provide a principled framework for learning nonlinear latent structures. We evaluate the proposed approach using controlled synthetic experiments, indicating promising performance. 
+
+Keywords: Non-linear Factor models, Reproducing Kernel Hilbert Space, Block-Coordinate Descant, Incomplete Data 
+
+1. Introduction 
+
+Advances in data collection technologies have led to the increasing availability of high-dimensional data, which are typically characterized by a large number of cross-sectional units and a high-dimensional feature space. Analyzing such data poses significant statistical and computational challenges. Factor models provide        
+
+> ⋆
+> Email addresses: cyut@cit.tum.de (Yutong Chao), resat.goekhan@tum.de (Resat G¨ okhan),
+> j.etesami@tum.de (Jalal Etesami), habibnia@vt.edu (Ali Habibnia)
+> arXiv:2605.26271v1 [stat.ML] 25 May 2026
+
+an effective dimension-reduction framework to address these challenges. Originally introduced in the field of psychometrics, factor models have since become a fun-damental tool for summarizing and modeling complex, high-dimensional data sets, with applications in statistics, economics, and other data science disciplines Ding et al. (2021); Fan et al. (2021); Barigozzi (2023). At their core, factor models assume that high-dimensional observations are generated from an underlying low-dimensional latent structure, often represented by a low-rank matrix. In high-dimensional settings, this low-rank structure acts as a natural form of regularization and often leads to more interpretable representations, particularly in scientific applications. Beyond traditional statistical modeling, low-rank assumptions play a central role in many machine learning problems. Prominent examples include matrix regression Negahban and Wainwright (2011); Chen and Wainwright (2015), rank-r principal component analysis Johnstone and Lu (2009); Birnbaum et al. (2013), low-rank and sparse matrix decomposition Cand` es et al. (2011); Chandrasekaran et al. (2011); Hsu et al. (2011), matrix completion Candes and Plan (2010); Sun and Luo (2016); Zheng and Lafferty (2016), and recommendation systems Alshbanat et al. (2025); Sankagiri et al. (2025). These problems can be unified under the following optimization problem with L as a loss function and 
+
+r ≪ n, T ,min 
+
+> B∈S 1
+
+min  
+
+> F∈S 2
+
+L(B⊤F ), S1 ⊆ Rr×n, S2 ⊆ Rr×T .
+
+Classical (linear) factor models, which have been extensively studied over the past decades, assume the following representation for the observed vector at time t:
+
+yt = B⊤ft + ut, t ∈ [T ], (1) where yt, u t ∈ Rn, ft is the t-th column of F , and ut is the error term, commonly referred to as the idiosyncratic component , which is assumed to be uncorrelated with both B and ft. The matrices B and F denote the latent loading factor and latent factors , respectively, and are the primary parameters of interest in literature of linear factor models. Within this framework with Gaussian errors, the loss function L is often a quadratic loss which leads to the following optimization: min B,F 
+
+P
+
+> i,t
+
+(yi,t − b⊤ 
+
+> i
+
+ft)2 + Re (B, F ), where Re (B, F ) denotes a regularization terms that could impose additional structure on the factors and loading factors. Linear factor models are widely used for estimating high-dimensional covariance and precision matrices. In particular, suppose that the factors {ft} in (1) are realizations of a multivariate distribution with unknown stationary covariance cov (ft). It is straightforward to see from (1) that the covariance matrix of the observed data can be expressed as ˆΣ := cov (yt)= B⊤cov (ft)B + cov (ut), where the first term is low-rank and the second is often sparse, reflecting the weak dependence of idiosyncratic errors. A central objective in the linear factor model literature is to estimate cov (yt)2accurately, especially in high-dimensional settings where the number of variables n
+
+exceeds the number of observations T . Consequently, different methods have been proposed to exploit the factor structure of ˆΣ in order to produce more accurate estimators. For instance, formulating the covariance matrix estimation under factor models as a low-rank plus sparse matrix decomposition problem Barratt and Boyd (2023). Prominent application of this framework include portfolio management and risk assessment in financial economics De Nard et al. (2021), graphical models Meinshausen and B¨ uhlmann (2006); Zhao et al. (2024), high dimensional classification Hastie (2009), covariance estimation Kereta and Klock (2021); Sihag et al. (2022), and testing the capital asset pricing model Sentana (2009). A key assumption underlying linear factor models is that the observed data are complete; that is, yi,,t is observed for all i ∈ [n] and t ∈ [T ]. In practice, however, this assumption is often violated due to missing observations. One contribution of this work is to relax this assumption, allowing entries to be observed only at random indices and random time points. While successful in many applications, linear factor models cannot capture nonlinear dynamics in real-world data. As an illustrative example, consider the problem of learning from comparison data, where the goal is to estimate users’ preferences over items based on observed pairwise comparisons. A widely used approach models such comparisons using probabilistic choice models, such as the Bradley–Terry–Luce model Maystre and Grossglauser (2015); Negahban et al. (2012); Sankagiri et al. (2025). In this setting, the probability that user u prefers item i over item j is given by σ(xu,i −xu,j ), where σ is the sigmoid link function . It is further assumed that users and items are embedded in a low-dimensional latent space Rr.Interpreting B as the matrix of user feature vectors and F as the matrix of item feature vectors, implies xu,i −xu,j = b⊤ 
+
+> u
+
+(fi −fj ). Consequently, the recommendation problem reduces to learning B and F by optimizing a loss function of the form 
+
+L(σ(⟨Sk, B ⊤F ⟩)), where Sk is the sampling matrix encoding the random observed comparisons Sankagiri et al. (2025). A crucial distinction in this setting is that the observations are no longer linear due to the presence of the link function. To manage this complexity, existing works typically assume that either this function is known a priori Saha (2021); Sankagiri et al. (2025) or the latent factors are observed Caner and Daniele (2025). In contrast, this work strengthens the existing literature by removing both of these assumptions. 
+
+2. Related Work Linear Factor Models. As noted earlier, linear factor models have been extensively studied in the context of covariance matrix estimation. For example, Fan et al. (2013) introduce the Principal Orthogonal Complement Thresholding (POET) estimator, which exploits a low-rank plus sparse decomposition of the covariance matrix. Caner et al. (2023) propose a node-wise regression approach for covariance 3matrix estimation and establish consistency results for precision matrix estimation under a linear factor model. An alternative is the shrinkage-based methods. Linear and nonlinear shrinkage estimators, developed by Ledoit and Wolf (2012, 2022), improve the sample covariance matrix by shrinking it toward a structured target. In the linear framework, the estimator takes the form λI + (1 − λ) ˆΣ, where λ is the shrinkage intensity. In contrast, nonlinear shrinkage estimators apply data-driven, nonlinear transformations to each eigenvalue of ˆΣ individually. Recently, Fan and Gu (2024) propose the Factor-Augmented Sparse Throughput (FAST) model, which combines latent factors with sparse idiosyncratic components for nonparametric regression. Using diversified projections to estimate the latent factors, the authors employ truncated deep ReLU networks for nonparametric factor regression. This approach, however, relies on a linear factor model assumption with known factors. Beyond estimation, there is a growing literature on the statistical properties and applications of linear factor models; see, for example, Filipovic and Schneider (2024); Fletcher (2024). Dynamic linear factor models extend static linear models by allowing factor dependence to operate through time-varying filters rather than fixed loading factors, in a manner analogous to autoregressive models Breitung and Eickmeier (2006); Altissimo et al. (2010). Such dynamic models have been applied to high-dimensional time-series data, including structural economic analysis and macro-financial modeling Barigozzi et al. (2016). 
+
+Matrix Completion & Factorization. One component of our problem, namely, recovering the factors F and loadings B from their subsampled and masked (due to the link function) product, that is, from a small subset of entries of ϕ(B⊤F ), is closely related to the matrix completion problem. Matrix completion concerns the recovery of a low-rank matrix from a small subset of its entries, potentially corrupted by noise. The low-rank structure is typically enforced either through nuclear-norm regularization (Cand` es and Recht, 2009; Candes and Plan, 2010; Negahban and Wainwright, 2012) or via an explicit matrix factorization formulation. The latter is motivated by the observation that any low-rank matrix X can be factorized as 
+
+X = U ⊤V (Mnih and Salakhutdinov, 2007). Although this reformulation leads to a nonconvex optimization problem, it is computationally more efficient and has demonstrated strong empirical performance on real-world datasets (Koren et al., 2009). This empirical success has motivated several theoretical studies on the convergence properties of the resulting nonconvex optimization problem Keshavan et al. (2010); Chen and Wainwright (2015); Sun and Luo (2016); Zheng and Lafferty (2016). A common technical ingredient across this literature is a concentration result by Cand` es and Recht (2009), which relies on two key assumptions: (i) the ground-truth matrix is incoherent, ensuring that no single row or column dominates the matrix, and (ii) the observed entries are sampled uniformly at random. Moreover, these methods require that the iterates remain incoherent throughout the optimization process. To enforce this property, prior works introduce either explicit regularization (Sun and Luo, 2016) or projection steps (Chen and Wainwright, 2015; Zheng and Lafferty, 42016; Ma et al., 2018). In this work, we adopt a similar strategy to recover the latent factors and loadings and thus rely on the same assumptions with the additional challenge of simultaneously learning the unknown link function. 
+
+Nonlinear Factor Models. To overcome the linearity assumption, Caner and Daniele (2025) consider a nonlinear factor model yt = φ(ft)+ ut (slightly different from our model in (2) ) for asset returns in large portfolios. In their model the link function φ in unknown but the responses {yt} and the factors {ft} are observed. As a result, their problem reduces to a regression task, which they solve using neural networks and prove the consistency of their solution. In fact, several works study similar formulations. For example, the multi-index model aims to recover both an unknown index space B (loading factors in our formulation) and an unknown link function from observed pairs ( yt, f t). Multi-index models have been widely used to mitigate the curse of dimensionality in high-dimensional regressions (Li and Song, 2022; Klock et al., 2021; Steffen, 2025). Notably, Klock et al. (2021) establish a connection between multi-index models and sufficient dimension reduction methods (Lee et al., 2013; Li, 2018), and propose an estimator for the index space along with sharp concentration bounds. The nonlinear factor model considered in this paper, e.g., Equation (2) has also been studied by Chen et al. (2014, 2021), with the key distinction that the nonlinear link function is assumed to be known in those works. Specifically, Chen et al. (2014) study estimation and inference in semiparametric nonlinear panel single-index models via maximum likelihood. By proposing an iterative two-step likelihood maximization procedure and showing that the objective is concave in each step, they establish convergence to a local optimum for this class of models. In contrast, Chen et al. (2021) develop an EM-type algorithm, building on Chen (2016), to jointly estimate the factors and loading factors. However, neither of these works provides theoretical guarantees for the convergence of their proposed algorithms. 
+
+Our Contributions. We study nonlinear factor models with an unknown link function and propose a projected gradient–based method that jointly learns the latent factors, loading factors, and the link function. We consider several observation settings, including complete, random, noisy, and noiseless. The random observation setting, which allows for randomly missing entries, is more realistic than even the classical linear factor model assumption of fully observed data. By assuming a nonparametric link function that lies in an RKHS with smooth and bounded kernels, and imposing mild incoherence conditions on the factors and loadings (which are standard assump-tions for handling missing data, borrowed from the matrix completion literature), we provide a theoretical analysis of the proposed algorithm. While the primary contribution of this work is to lay the foundation for learning nonlinear factor models from incomplete and noisy data, we also present experimental results that support our theoretical findings and analyze the sensitivity of the method with respect to its hyperparameters. 53. Model & Algorithm 
+
+3.1. The Data Generation Process 
+
+There is a finite number of factors, {f ∗ 
+
+> 1
+
+, ..., f ∗ 
+
+> T
+
+} and finite number of loading factors {b∗
+
+> 1
+
+, ..., b ∗
+
+> n
+
+} such that ft, b i ∈ Rr for all t ∈ [T ] and i ∈ [n] and n, T ≫ r. The date generating process is given by 
+
+yi,t = ϕ∗ (b∗ 
+
+> i
+
+)⊤f ∗
+
+> t
+
+ + ui,t , (2) where ϕ∗ : R → R is the link function and ui,t denotes the error, also referred to as the idiosyncratic component, and is assumed to be uncorrelated with the factors. Errors are distributed according to a distribution P with variance bounded by σ2.Depending on wether σ2 is positive or zero, we consider the noisy and noiseless 
+
+settings, respectively. yi,t is the observed response for the i-th individual at time t.We distinguish between two settings depending on the observation pattern: 
+
+complete observation , where yi,t is observed for all i ∈ [n] and t ∈ [T ], and random observation , where observations are available only for random subsets of [ n]×[T ]. The random observation setting is intended to model realistic scenarios with randomly missing data. To have a unified model for both complete and random observation settings, we use yk to denote the k-th observation, 
+
+yk = ϕ∗ [X∗]ik ,t k
+
+ + uk, k ∈ [M ], (3) where X∗ = ( B∗)⊤F ∗ ∈ Rn×T , B∗ = [ b1, ..., b n], and F ∗ = [ f1, ..., f T ]. In the above equation, M (≤ nT ) denotes the number of observations. Indices ik ∈ [n] and tk ∈ [T ]represent the factor and loading factor, respectively in the k-th observation. We also use Ω := {(ik, t k) : k ∈ [M ]} to denote the set of observed indices. Then, the complete observation setting is when Ω = [ n] × [T ]. 
+
+3.2. Problem Setting 
+
+In this paper, we focus on recovering ( ϕ∗, B ∗, F ∗) from the observed data {yk}
+
+and observed indices Ω. To this end, let U ∗Σ∗ 
+
+> r
+
+(V ∗)⊤ be the rank-r SVD of matrix X∗,that is U ∗ ∈ Rn×r, V ∗ ∈ RT ×r and Σ ∗ ∈ Rr×r such that ( U ∗)⊤U ∗ = ( V ∗)⊤V ∗ = Ir
+
+and Σ ∗ is a diagonal matrix with entries σ∗ 
+
+> 1
+
+≥ . . . ≥ σ∗ 
+
+> r
+
+> 0. We define Z∗ and Y ∗ as 
+
+Z∗ := 
+
+U ∗
+
+V ∗
+
+
+
+(Σ ∗ 
+
+> r
+
+)1/2 ∈R(n+T )×r,Y ∗ := Z∗(Z∗)⊤ =
+
+U ∗Σ∗(U ∗)⊤ X∗
+
+(X∗)⊤ V ∗Σ∗(V ∗)⊤
+
+
+
+.
+
+Using this notation, we can rewrite the k-th observation in (3) as follows 
+
+yk = ϕ∗ ⟨Ak, Y ∗⟩ + uk, k ∈ [M ], (4) 6where ⟨A, B ⟩ := tr (A⊤B) = P 
+
+> i,j
+
+ai,j bi,j denotes the matrix inner product and Ak is the sa mpling matrix for the pair k := ( ik, t k) ∈ Ω defined by 
+
+Ak := 
+
+0 eik ˜e⊤
+
+> tk
+
+0 0
+
+
+
+∈ R(n+T )×(n+T ), (5) where eik and ˜etk denote unit vectors in Rn and RT , respectively. In the above equation, 0 denotes matrices with all entries zero of the appropriate size. In the random observation setting, {Ak} are i.i.d. random matrices of form (5) , with the index ik being chosen uniformly at random from [ n], and tk being chosen uniformly at random from [ T ]. Given the relation between matrices X∗, Y ∗, and Z∗, estimating the ground-truth factors and loading factors is equivalent to estimating Z∗. The major advantage of this reformulation is that it reduces the number of parameters from nT in X∗ to (n + T )r in Z∗.
+
+Condition Number . We define κ := σ∗ 
+
+> 1
+
+/σ ∗ 
+
+> r
+
+as the condition number of the data. Note that κ is also the condition number of Z∗ as the singular values of Z∗ are √2σ∗ 
+
+> 1
+
+, . . . √2σ∗ 
+
+> r
+
+.
+
+Incoherence . For matrix Z∗ with n + T rows, let ∥Z∗∥2,∞ denote the maximum of the ℓ2 norm of its rows and let ∥Z∗∥F denote the Frobenius norm of Z∗. Define the 
+
+incoherence parameter of the matrix as 
+
+μ ≜ (n + T )( ∥Z∗∥22,∞/∥Z∗∥2 
+
+> F
+
+). (6) In principle, μ can take values from 1 to n + T . However, the sample complexity worsens with μ.
+
+Link Function . The unknown link function ϕ∗(·) is assumed to be monotone and to belong to a reproducing kernel Hilbert space, defined below, associated with the kernel K(·, ·). For details see Scholkopf and Smola (2018). 
+
+Definition 1. Let X be a nonempty set and let K : X × X → R be a symmetric positive semidefinite kernel. A Hilbert space (H, ⟨· , ·⟩ H) of real-valued functions on 
+
+X is called a reproducing kernel Hilbert space (RKHS) with kernel K if: i) for every x ∈ X , the function K(x, ·) ∈ H and ii) for every f ∈ H and every x ∈ X ,
+
+f (x) = ⟨f, K (x, ·)⟩H. The induced norm in this space is defined by ∥f ∥H := ⟨f, f ⟩H.
+
+Given constants ξ, Ξ > 0, we also define Hξ, Ξ ⊂ H as the subset of functions in 
+
+H with bounded derivatives, i.e., 
+
+Hξ, Ξ := {f ∈ H : 0 < ξ ≤ f ′(x) ≤ Ξ < ∞} . (7) Since this set is convex, the projection onto it is well-defined PHξ, Ξ (ϕ) := arg min f ∈H ξ, Ξ ∥f −
+
+ϕ∥H. As there is no closed form solution to this projection, a practical approach 7is to discretize the support of ϕ and impose inequality constraints to ensure that its derivative remains between ξ and Ξ. This reduces the problem to a quadratic program with box constraints. Nevertheless, our empirical study show that Algorithm 1 converges even without any projections. 
+
+Assumption 1. We assume that the true link function ϕ∗ belongs to Hξ, Ξ with bounded kernels, i.e., there exists a constant BK > 0 such that sup x∈X K(x, x ) ≤ BK .
+
+Under this assumption, the infinite-dimensional problem of estimating the link function can be reduced to a finite-dimensional one via the representer theorem Scholkopf and Smola (2018). This approach is standard in RKHS-based methods and is widely used in the machine learning literature when the parameter of interest is a continuous function. 
+
+3.3. The Loss Function 
+
+Recall that our goal is to estimate the pair ( ϕ∗, Z ∗). We do so by maximizing the log-likelihood. Equivalently, we formulate a loss function in terms of the negative log-likelihood, and minimize this function using a gradient-based method. Under the assumption that the errors are independent and identically distributed according to a sub-Gaussian distribution, the negative log-likelihood function is given by 
+
+L(ϕ, Z ) := 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+ yk − ϕ(⟨Ak, ZZ ⊤⟩)2.
+
+Tikhonov Regularization . Function ϕ belongs to H, which can have many degrees of freedom, possibly infinite. To favor smoother and simpler representations within 
+
+H, it is common to regularize the objective function using ∥ϕ∥H, also known as Tikhonov regularization Scholkopf and Smola (2018). This is because ∥ϕ∥H measures the “roughness” of ϕ, and the regularization penalizes large coefficients in the RKHS expansion of the solution, thereby encouraging smoother solutions. Another important consequence is that this regularizer enables the use of the representer theorem, which guarantees that the optimal solution is unique and can be expressed as a finite linear combination of kernels evaluated at the observed data points. 
+
+Scale Invariance . The generative model, and consequently the log-likelihood function, is invariant to a certain transformation in the Z matrix. Below, we explore such symmetry and introduce a regularizer to favor solutions that have two factors with comparable second-order magnitudes. Note that the mapping from a matrix X to its factor representation Z = [ U ; V ]is generally non-identifiable. In particular, for any invertible P ∈ Rr×r, the repa-rameterization ˜Z = [ U P ⊤; V P −1] yields the same matrix X, and therefore the same likelihood, i.e., L(ϕ, Z ) = L(ϕ, ˜Z). To distinguish “imbalanced” factorizations from “balanced” ones, we augment the loss with the regularizer ∥U ⊤U − V ⊤V ∥2 
+
+> F
+
+,8which encourages solutions in which the two factors have comparable second-order magnitudes. In compact form, this regularizer can be written as 
+
+R(Z) := ∥Z⊤DZ ∥2 
+
+> F
+
+, D := 
+
+In 00 −IT
+
+
+
+. (8) 
+
+Remark 1. Similar assumption has also been imposed in the context of linear factor models Fan et al. (2013). In particular, it is commonly assumed that the covariance matrix of the factors is diagonal and that the covariance matrix of the loading factors is the identity matrix, or vice versa. These assumptions ensure the identifiability and tractability of recovering the factors and loading factors. 
+
+Overall, the loss function that we use in this work to recover the unknown parameters is given by ˜L(ϕ, Z ) := L(ϕ, Z ) + λ
+
+4 R(Z) + α
+
+2 ∥ϕ∥2
+
+> H
+
+, (9) where λ and α are the regularization coefficients, which will be specified later. 
+
+Equivalent Solution Set . Beyond scale invariance, the problem exhibits rotational symmetry in the latent dimension. Let R ∈ Rr×r be any orthogonal matrix, i.e., 
+
+RR ⊤ = Ir. Then, ZR = [ U R ; V R ] produces exactly the same loss function, i.e., ˜L(ϕ, Z ) = ˜L(ϕ, ZR ). Hence, the true features cannot be uniquely recovered; they are determined only up to an orthogonal rotation. Accordingly, we define the equivalence class of ground-truth feature matrices as 
+
+E := Z⋆R : R ∈ Rr×r, RR ⊤ = I .
+
+Using this equivalent solution set, we can measure the ”goodness” of an arbitrary Z
+
+via ∥∆( Z)∥, where ∆( Z) := Z − Φ( Z), Φ( Z) := Z∗R(Z),R(Z) := arg min 
+
+> R:RR ⊤=I
+
+∥Z − Z∗R∥.
+
+3.4. Algorithm 
+
+As mentioned in the previous section, we apply a gradient-based method to optimize the loss function in (9) which is presented in Algorithm 1. However, for proving theoretical guarantees, we need to use projected gradient descent . Notably, two projection steps are designed: first projecting Z onto a set of ”incoherent matrices” C, defined below and then projecting ϕ onto Hξ, Ξ (defined in (7)). 
+
+C := 
+
+n
+
+Z∈ R(n+T )×r : ∥Z∥2,∞ ≤ 43
+
+r μn + T ∥Z0∥F
+
+o
+
+. (10) 9Note that this is a convex and closed set containing matrices that are nearly as incoherent as Z∗ when ∥Z0∥F ≈ ∥ Z∗∥F . For any Z, the projection of Z onto C is obtained by clipping the rows of Z as follows: 
+
+∀ j ∈ [n + T ], PC (Z)j =
+
+(Zj if ∥Zj ∥2 ≤ β,   
+
+> β
+> ∥Zj∥2
+
+Zj otherwise ,
+
+where β = (4 /3) p(μ/n + T )∥Z0∥F . As noted in Sankagiri et al. (2025), the projec-tion onto C is often unnecessary in practice; however, it is essential for deriving the theoretical guarantees. The second projection ensures that the learned link function preserve monotonicity in H.
+
+Algorithm 1: Projected BCD in RKHS 
+
+Input: Initial link function ϕ0, initial matrix Z0 ∈ R(n+T )×r, stepsizes ζ and ηZ0 ← P C (Z0)
+
+for t = 0 , ..., ¯T − 1 do 
+
+Zt+1 ← P C
+
+
+
+Zt − ζ∇Z ˜L(ϕt, Z t)
+
+
+
+ϕt+1 (·) ← P Hξ, Ξ
+
+
+
+ϕt(·) − η∇ϕ ˜L(ϕt, Z t+1 )( ·)
+
+
+
+end for Output: Z ¯T , ϕ ¯T (·)In this algorithm, the gradients are given by 
+
+∇Z ˜L(ϕ, Z ) := − 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+gkϕ′(xk)( Ak +A⊤ 
+
+> k
+
+)Z +λDZZ ⊤DZ, 
+
+∇ϕ ˜L(ϕ, Z )( ·) := − 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+gkK xk, ·+αϕ (·).
+
+where xk := ⟨Ak, ZZ ⊤⟩ and gk := yk − ϕ xk
+
+.
+
+Initialization . Let B(ϵ) := {Z : ∥∆( Z)∥2 
+
+> F
+
+≤ ϵσ ∗ 
+
+> r
+
+} denote a neighborhood around the true solution. We assume that Z0 ∈ B (ϵ) for some ϵ > 0. Following the initialization schemes in Zheng and Lafferty (2016); Sankagiri et al. (2025), we initialize Z0 via a rank-r SVD of the data matrix, with missing entries filled with zeros. 
+
+4. Theoretical Results 
+
+In this section, we present our theoretical results under different settings. We begin with the noiseless observation setting, which is further divided into complete and random cases. We then present our results for the noisy setting. 10 4.1. Noiseless Observation 
+
+Recall that in this setting, the idiosyncratic components have zero variance, i.e., 
+
+yi,t = ϕ∗(( b∗ 
+
+> i
+
+)⊤f ∗ 
+
+> t
+
+). We begin by showing the properties of the loss function. 
+
+Lemma 1. For any fixed Z, ˜L(ϕ, Z ) is α 
+
+> 2
+
+-strongly convex with respect to ϕ, i.e., for any ϕ1, ϕ 2 ∈ H ,
+
+˜L(ϕ1, Z ) ≥ ˜L(ϕ2, Z ) + ⟨∇ ϕ ˜L(ϕ2, Z ), ϕ 1 − ϕ2⟩H
+
++ α
+
+2 ∥ϕ1 − ϕ2∥2
+
+> H
+
+.
+
+This follows directly from the definition of the loss function. 
+
+Lemma 2. For any fixed Z, ˜L(ϕ, Z ) is Lϕ,α -smooth with respect to ϕ, i.e., for any 
+
+ϕ1, ϕ 2 ∈ H ,
+
+˜L(ϕ1, Z ) ≤ ˜L(ϕ2, Z ) + ⟨∇ ϕ ˜L(ϕ2, Z ), ϕ 1 − ϕ2⟩H
+
++ Lϕ,α ∥ϕ1 − ϕ2∥2
+
+> H
+
+.
+
+where Lϕ,α := p8B2 
+
+> K
+
++ 2 α2.
+
+Proof is in Appendix Appendix A.2. Next, we show that both ∇ϕ ˜L and ∇Z ˜L
+
+are Lipschitz continuous with respect to Z for any fixed ϕ. To establish this result, we assume that the kernel function itself is Lipschitz continuous and smooth. This assumption is satisfied, for example, by RKHSs induced by Gaussian kernels. 
+
+Assumption 2. We assume that for any Z1, Z 2 ∈ C and any Ak, there exist constants 
+
+LK , L K′ > 0, such that 
+
+∥K(x1k, ·)−K(x2k, ·)∥H ≤ LK |x1k − x2k|,
+
+∥∇ xK(x, ·)|x=x1k −∇ xK(x, ·)|x=x2k ∥H ≤ LK′ |x1k −x2k|,
+
+where x1k := ⟨Ak, Z 1Z⊤ 
+
+> 1
+
+⟩ and x2k := ⟨Ak, Z 2Z⊤ 
+
+> 2
+
+⟩.
+
+Lemma 3. Under Assumption 2, for any Z1, Z 2 ∈ C and any ϕ ∈ H ξ, Ξ such that 
+
+˜L(ϕ, Z 1), ˜L(ϕ, Z 2) ≤ ˜Lmax , where ˜Lmax is a constant, we have 
+
+∥∇ ϕ ˜L(ϕ, Z 1) − ∇ ϕ ˜L(ϕ, Z 2)∥H ≤ LZ→ϕ∥Z1 − Z2∥F ,
+
+where LZ→ϕ > 0 depends on LK , BK and Lmax .
+
+Proof is in Appendix Appendix A.3. In the paper, we can simply set ˜Lmax =˜L(ϕ0, Z 0) when applying Algorithm 1. 
+
+Lemma 4. Under Assumption 2, for any Z1, Z 2 ∈ C and any ϕ ∈ H ξ, Ξ such that 
+
+˜L(ϕ, Z 1), ˜L(ϕ, Z 2) ≤ ˜Lmax , there is LZ> 0 such that 
+
+∥∇ Z ˜L(ϕ, Z 1) − ∇ Z ˜L(ϕ, Z 2)∥F ≤ LZ ∥Z′ − Z∥F .
+
+11 Proof is in Appendix Appendix A.4. As noted earlier, the loss function is non-convex in Z. However, when ϕ is fixed, the subsequent results characterize its local properties, which in turn facilitate the convergence analysis of the Algorithm 1. 
+
+Lemma 5. Suppose ϕ, ϕ⋆ ∈ H ξ, Ξ and Z ∈ B (ϵ), where ϵ = ξ2/(20Ξ 2). i) Complete observation: we have 
+
+⟨∇ Z ˜L(ϕ, Z ), ∆⟩≥ μZ ∥∆∥2 
+
+> F
+
+−AZ ∥∆∥F ∥ϕ−ϕ⋆∥H, (11) 
+
+where AZ := 8Ξ 
+
+q σ∗ 
+
+> 1
+> nT
+
+BK and μZ := ξ2σ∗ 
+
+> r
+> 5nT
+
+. ii) Random observation: when the number of observations is 
+
+M ∈ O 
+
+(μrκ )2 min {n, T }
+
+ϵ2 log  n + Tδ
+
+
+
+, (12) 
+
+with probability at least 1 − δ, the above inequality holds. 
+
+Proof is in Appendix Appendix A.5. In the random observation setting, the required number of observations M given in (12) matches the order established in matrix completion results (Cand` es and Recht, 2009; Zheng and Lafferty, 2016). 
+
+Lemma 6. Under the Assumptions of Lemma 5, for i) complete observation: we have 
+
+∥∇ Z ˜L(ϕ, Z )∥2 
+
+> F
+
+≤ BZ ∥∆∥2 
+
+> F
+
++ A′ 
+
+> Z
+
+∥ϕ − ϕ∗∥2
+
+> H
+
+. (13) 
+
+where BZ := 1093Ξ 4(σ∗   
+
+> 1)2μr n2T2
+
+and A′ 
+
+> Z
+
+:= 336Ξ 4μrσ ∗  
+
+> 1BK
+> nT ξ 2
+
+. For ii) random observation: when the number of observations is as stated in Lemma 5, then with probability at least 
+
+1 − δ, the above inequality holds. 
+
+Proof is in Appendix Appendix A.6. Note that both Lemmas 5 and 6 assume that Z ∈ B (ϵ). This is ensured by the initialization assumption, i.e., Z0 ∈ B (ϵ)together with the result of Proposition 1 that ∥∆t∥F remains bounded. Using the above results and by introducing a Lyapunov potential function, see below, we establish the convergence of Algorithm 1. To define the Lyapunov function, we first introduce the ϕ-subproblem minimizer. Specifically, for any fixed Z, let 
+
+ϕ♯(Z) := arg min ϕ∈H ˜L(ϕ, Z ). Since the objective function is strongly convex with respect to ϕ, (Lemma 1), then ϕ♯(Z) is the unique stationary point of ˜L for a given 
+
+Z. Define the bias radius as 
+
+χ(Z) := ∥ϕ♯(Z) − ϕ⋆∥H ∈ [0 , ∞). (14) We do not require a closed-form expression for χ, only its existence and finiteness. But if a model-specific bound is available for χ (e.g., in terms of kernel eigenvalues and α), it can be used to tighten the final error bounds. 12 Lyapunov-based Analysis . Define the Lyapunov potential function as 
+
+Vt := Et + γD t, (15) where Et := ∥ϕt − ϕ♯(Zt)∥2 
+
+> H
+
+and Dt := ∥∆( Zt)∥2 
+
+> F
+
+. The constant γ > 0 will be chosen explicitly later. The term Dt quantifies the closeness of Zt, at iteration t, to the equivalent solution set E. The term Et measures the closeness of the t-th estimate of the link function to the subproblem minimizer corresponding to Zt. Next result shows that Dt remains bounded and Et converges to zero. 
+
+Proposition 1. The sequence Dt generated by Algorithm 1, with bounded χ(Z0) and 
+
+ξt ≤ min {1/A Z , μ Z /B Z , 1/μ Z }, remains bounded with high probability. Furthermore, the sequence Et generated by Algorithm 1 converges to zero, i.e., lim t→∞ Et = 0 .
+
+Proof is in Appendix Appendix A.7. The following convergence result establishes a recursion for the potential function, implying that when ϕt → ϕ∗, the potential function, and consequently Dt, converges to zero. 
+
+Theorem 1. Under Assumption 1 and the sample size given in Lemma 5, if the step sizes in Algorithm 1 are selected such that η ∈ O   αα+Lϕ,α 
+
+ and ζ ∈ O   min { α3√nT  
+
+> (α+Lϕ,α )2
+
+, 1},then with probability at least 1 − δ, the results of Proposition 1 holds and for all t ≥ 0,
+
+Vt ≤ ρ t V0 + Cϕ(t)
+
+where Cϕ(t) ∈ O (Pt−1 
+
+> i=0
+
+ρt−i−1χ2(Zi)) and 0 < ρ < 1.
+
+A proof including the constant terms are in Appendix Appendix A.13. 
+
+Regret Analysis . Herein, we define and bound the corresponding regret of Al-gorithm 1. Let ˜R ¯T := 1¯T
+
+P ¯Tt=1 
+
+  ˜L(ϕt, Z t) − min ϕ∈H ξ, Ξ,Z ∈C ˜L(ϕ, Z ). This quantity measures the cumulative regret of Algorithm 1 relative to the global minimum of the loss function. However, since the loss function is non-convex with respect to Z
+
+for any ϕ, convergence of the algorithm’s iterates to the global minimum cannot be guaranteed. In particular, when the initialization is closer to a local minimizer than to the global one, the algorithm may converge to such a local solution. As a result, ˜RT grows linearly with T . Therefore, we introduce the following modified notion of regret with respect to the global minimum of the loss function when Z is fixed, 
+
+R ¯T := 1¯T
+
+> ¯T
+
+X
+
+> t=1
+
+ ˜L(ϕt, Z t)− min 
+
+> ϕ∈H ξ, Ξ
+
+˜L(ϕ, Z t)
+
+
+
+. (16) Using this regret definition, we derive a sublinear regret bound for Algorithm 1 (proof in Appendix Appendix A.15). 
+
+Theorem 2. Under the step size scheme of Theorem 1 and the sample size given in Lemma 5, we have R ¯T ∈ O (1 /√ ¯T ) with probability at least 1 − δ.
+
+13 Analyzing the Stationary Points. . Let ( ϕ, Z ) be a stationary point of the ˜L(ϕ, Z ), i.e., the gradients of ˜L with respect to both ϕ and Z vanish at ( ϕ, Z ). The following result shows that, at such a point, the average residuals remain bounded and tend to zero as α decreases. Proof is in Appendix Appendix A.14. 
+
+Theorem 3. For a given regularization coefficient α, define the residual vector 
+
+eα ∈ RM at the stationary point (ϕ, Z ) by (eα)k := yk − ϕ(⟨Ak, ZZ ⊤⟩), then 
+
+∥eα∥2
+
+√M ≤ α√BK
+
+α + 2 λmin (K)∥ϕ⋆∥H.
+
+where K is the kernel Gram matrix. 4.2. Noisy Observation Setting 
+
+Recall that in this setting, the idiosyncratic components have non-zero but bounded variance. 
+
+Assumption 3. We assume that the idiosyncratic components {uk}Mk=1 are zero mean independent σ-sub-Gaussian random variables. 
+
+As the results from the noiseless setting carry over to this case with minor adjustments to account for the noise, we provide the auxiliary lemmas in Appendix Appendix B and present below only the main result for the potential function. 
+
+Theorem 4. Under the same assumptions as in Lemma 21, there exist ρ ∈ (0 , 1) ,
+
+Cϕ ≥ 0, and Cσ ≥ 0 such that with probability 1 − 2δ, for all t ≥ 0,
+
+Vt ≤ ρtV0 + Cϕ(t)1 − ρ + Cσ
+
+1 − ρ,
+
+where Cϕ(t) ∈ O (Pt−1 
+
+> i=0
+
+ρt−i−1χ2(Zi)) and 0 < ρ < 1.
+
+This result implies that when α is small enough, lim 
+
+> t→∞
+
+∥∆t∥ ∈ O (χ(Z∞) + σ), where 
+
+Z∞ is the limit point of Zt. See Appendix Appendix B.3 for details. 
+
+5. Experiments 
+
+In this section, we evaluate the performance of Algorithm 1 in both synthetic and real-world settings, study the effect of key parameters, and empirically validate our theoretical results. 
+
+5.1. Synthetic Setting. 
+
+We consider two settings: a known link function and an unknown link function. The former isolates the impact of mismatch in the link function and clarifies the role of the remaining parameters. 14 10 −4 10 −3 10 −2 10 −1 10 0
+
+σ
+
+> 10 3
+> 10 4
+> 10 5
+> 10 6
+> 10 7
+> ‖Δ t‖F/‖Δ t‖(σ = 0)
+> F
+
+Normalized Final ‖Δ t‖F vs Noise Scale      
+
+> 01000 2000 3000 4000 5000
+
+Iteration 
+
+> 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> 10 0
+> 10 1
+> 10 2
+> 10 3
+> ‖Δ t‖F
+
+‖Δ t‖F vs Iteration   
+
+> σ
+> 0
+> 0.1
+> 0.0001
+> 0.5
+> 0.001
+> 1
+> 0.005 0.01 0.05
+
+Figure 1: Left: Normalized estimation error versus the noise level after 5000 iterations. Right: Estimation error over iterations under different noise levels. The sigmoid link function is known. 0 2500 5000 7500 10000 12500 15000 17500 20000      
+
+> Iteration
+> 10 0
+> ‖Δ t‖F
+> ‖Δ t‖Fvs Iteration
+> σ
+> 0
+> 1
+> 0.01 0.05 0.1 0.25 0.5
+
+(a) 0 2500 5000 7500 10000 12500 15000 17500 20000           
+
+> Iteration
+> 10 −1
+> ‖ϕt − ϕ * ‖L2
+> ‖ϕt−ϕ*‖L2vs Iteration
+> σ
+> 0
+> 1
+> 0.01 0.05 0.1 0.25 0.5
+
+(b) 0 2500 5000 7500 10000 12500 15000 17500 20000       
+
+> Iteration
+> 10 1
+> 10 2
+> 10 3
+> t
+> tvs Iteration
+> σ
+> 0
+> 1
+> 0.01 0.05 0.1 0.25 0.5
+
+(c) 
+
+Figure 2: Performance of Algorithm 1 under varying noise levels: (a) latent factors estimation error 
+
+∥∆t∥F , (b) link function estimation error, and (c) Lyapunov function convergence. 
+
+Learning the latent factors and loadings with a known link function . In this setting, no learning of the link function is required, consequently, Algorithm 1 does not update ϕt.
+
+Effect of the noise level: We applied the algorithm only on the Z-block under varying noise levels, where the idiosyncratic terms are ui,t 
+
+i.i.d. 
+
+∼ N (0 , σ 2). For different 
+
+σ, Figure 1(right) depicts the convergence behavior for varying σ. In this experiment, the link function is known and given by the sigmoid function σ(x) := 1 /(1+ exp (−x)), with M = 500000 samples. Moreover, to illustrate the dependency between the convergence point and the noise level, the algorithm is run for a fixed number of iterations, and the resulting normalized estimation error ∥∆t∥F /(∥∆t∥F |σ=0 ), where the denominator is the final error for noiseless observation ( σ = 0), is shown in Figure 1(left). This is consistent with the prediction of Theorem 4, which implies a linear dependence of the latent factor estimation error on the noise variance when the link function is known. These results validate the tightness of the theoretical bound in the known link function setting. 
+
+Effect of the sample size: To investigate this effect, we set n = T = 1000, r = 10 15 and assume the link function is known and equal to the identity, thereby isolating any mismatch in the link. Figure 3 shows the convergence of ∥∆t∥F for varying sample sizes M ∈ { 1, 2, .., 8} × rn . This results shows that as M ≥ 3nr , the iterates converges. 0 2000 4000 6000 8000 10000      
+
+> Iteration
+> 10 −2
+> 10 −1
+> 10 0
+> 10 1
+> ‖Δ t‖F
+> ‖Δ t‖Fvs Iteration
+> M/(max(n,T)*r)
+> 1
+> 8
+> 23467
+
+Figure 3: Estimation error ∥∆t∥F versus the number of iterations for different sample sizes M .
+
+Joint learning of latent factors, loadings, and the link function . Herein, we considered the full problem and applied Algorithm 1. We examined the convergence behavior of the factors estimation error ∥∆t∥F , the link function estimation error 
+
+∥ϕt − ϕ⋆∥H, and the Lyapunov Vt across different noise levels σ and regularization parameters α. In these experiments, the shared parameters are n = T = 100 , r =3, M = 5000 , λ = 0 .5, ζ = 10 −5, η = 10 −4.
+
+Effect of the noise level: Figure 2 illustrates the estimation errors and potential function over iterations for various noise levels with α = 10 −3. Our results show that, for a fixed α, increasing the noise level σ leads to a degradation in both ∥∆t∥ and 
+
+∥ϕt − ϕ⋆∥H, while the Lyapunov potential Vt converges to a neighborhood whose radius grows with σ. In the noiseless case ( σ = 0), the limiting value of Vt provides an empirical estimate of the constant Cϕ(t) appearing in Theorem 1. For additional plots see Appendix Appendix C16 10 −4 10 −3 10 −2 10 −1 10 0 10 1 10 2 10 3 10 4     
+
+> α
+> 10 0
+> Min ‖Δ t‖F
+> Min ‖Δ t‖Fvs αFigure 4: The final estimation error ∥∆t∥Funder different α.
+
+Effect of regularization coefficient α: To further investigate the role of the α, we fix the noise level at σ = 0 .1 and vary α. Figure 4 shows the final estimation error of Algorithm 1 as function of α. The result aligns with our discussion in Appendix Appendix B.3 and highlights the practical impact of the regularization parameter in nonlinear factor recovery. 
+
+5.2. Empirical Settings. 
+
+We consider two real-world datasets in this section to demonstrate the applicability and scalability of our algorithm. Moreover, our experimental results show that the projection steps in the algorithm do not adversely affect its scalability. 
+
+MovieLens 1 uses a 610 × 9724 user-movie matrix with 5-star ratings, yielding a total of 5,931,640 entries. Among these, 100,836 ratings are observed. We use a row-stratified 10% validation split, with 91,104 ratings for training and the remainder for validation. β is used for projecting the Z matrix. We report results at the algorithms’ best checkpoints in Table 1; for example, for Id. Link, this occurs at iteration 1000. The Val RMSE and Train RMSE correspond to the validation and training Root Mean Squared Errors (RMSE), respectively. 
+
+Method Mono. ϕ Proj. Z β Iter. Time(s) Val RMSE Train RMSE Id. Link N N - 1000 2.46 0.909 0.723 Id. Z proj. N Y 2.441 1000 2.77 0.910 0.766 NL Z proj. N Y 0.496 1500 61.04 0.847 0.710 NL monotone Y Y 0.496 1525 61.06 0.847 0.718 
+
+> Table 1: Results of different learning methods on the MovieLens dataset.
+> 1MovieLens dataset link.
+
+17 Figure 5: Inferred link functions for different methods in Table 2. 
+
+Id. Link and NL. Link denote the linear factor model and our model, respectively. Z proj. method performs only projection of matrix Z while NL monotone performs both projections, as also indicated in the second and third columns. Clearly, the monotone method (which performs both projection) and Z proj. method (which only does Z projection) have similar runtimes. This further supports our analysis that projecting the link function does not impact scalability. An important observation is the advantage of link function learning that decreases the validation RMSE compared to the identity link function. Table 2 shows the range of the inferred factor-loading products, i.e., the matrix 
+
+X. For the linear model (Id. Link), the range is roughly 0 to 5, corresponding to the scale of the ratings. In contrast, for the nonlinear model, the range is much smaller, approximately [-0.2, 0.2], and the link function maps this range to the 5-star ratings through a nonlinear transformation. The inferred link functions are presented in Figure 5.            
+
+> Method min( X)max( X)Id. Link -0.83 6.06 Id. Z proj. 0.18 5.45 NL Z proj. -0.23 0.24 NL monotone -0.23 0.24
+> Table 2: Range of X, i.e., the input of the link function for various type of link functions.
+
+Jester 2 dataset dataset has 24,983 users and 100 jokes, with continuous ratings from -10 to 10. After cleaning the data, the matrix contains 2,498,300 possible user-joke entries, of which 1,810,455 are observed. We use a 10% hold-out for validation, with the remaining entries used for training. Table 3 presents the results. 
+
+> 2Jester dataset link.
+
+18 Method M. ϕ P. Z β Iter Time Val Train Id. Link N N - 1000 79.84 4.192 3.997 NL monotone Y Y 3.537 2000 1385.82 4.190 3.903 
+
+> Table 3: Results of different learning methods on the Jester dataset.
+
+6. Conclusion 
+
+We studied the problem of jointly learning the latent factors, loading factors, and the link function under several observation settings, including complete, random, noisy, and noiseless. Our proposed learning method is a projected block coordinate descent. By assuming a nonparametric link function that lies in an RKHS with smooth and bounded kernels, and imposing mild incoherence conditions on the factors and loadings, we provided a theoretical analysis of the proposed algorithm. The analysis in this work relies on several assumptions that may be relaxed, and thus represent limitations of the present study. Moreover, we conjecture that the projection steps in our algorithm are unnecessary. 
+
+References 
+
+H. I. Alshbanat, H. Benhidour, and S. Kerrache. A survey of latent factor models in recommender systems. Information Fusion , 117:102905, 2025. 2 F. Altissimo, R. Cristadoro, M. Forni, M. Lippi, and G. Veronese. New eurocoin: Tracking economic growth in real time. The review of economics and statistics , 92 (4):1024–1034, 2010. 4 M. Barigozzi. Quasi maximum likelihood estimation of high-dimensional factor models: A critical review. arXiv preprint arXiv:2303.11777 , 2023. 2 M. Barigozzi, M. Lippi, and M. Luciani. Non-stationary dynamic factor models for large datasets. Available at SSRN 2741739 , 2016. 4 S. Barratt and S. Boyd. Covariance prediction via convex optimization. Optimization and Engineering , 24(3):2045–2078, 2023. 3 A. Birnbaum, I. M. Johnstone, B. Nadler, and D. Paul. Minimax bounds for sparse pca with noisy high-dimensional data. Annals of statistics , 41(3):1055, 2013. 2 J. Breitung and S. Eickmeier. Dynamic factor models. Allgemeines Statistisches Archiv , 90(1):27–42, 2006. 4 E. Cand` es and B. Recht. Exact matrix completion via convex optimization. Founda-tions of Computational Mathematics , 9:717–772, 2009. 4, 12 19 E. J. Candes and Y. Plan. Matrix completion with noise. Proceedings of the IEEE ,98(6):925–936, 2010. 2, 4 E. J. Cand` es, X. Li, Y. Ma, and J. Wright. Robust principal component analysis? 
+
+Journal of the ACM (JACM) , 58(3):1–37, 2011. 2 M. Caner and M. Daniele. Deep learning based residuals in non-linear factor models: Precision matrix estimation of returns with low signal-to-noise ratio. Journal of Econometrics , 251:106083, 2025. 3, 5 M. Caner, M. Medeiros, and G. F. Vasconcelos. Sharpe ratio analysis in high dimensions: Residual-based nodewise regression in factor models. Journal of Econometrics , 235(2):393–417, 2023. 3 V. Chandrasekaran, S. Sanghavi, P. A. Parrilo, and A. S. Willsky. Rank-sparsity incoherence for matrix decomposition. SIAM Journal on Optimization , 21(2): 572–596, 2011. 2 M. Chen. Estimation of nonlinear panel models with multiple unobserved effects. 2016. 5 M. Chen, I. Fern´ andez-Val, and M. Weidner. Nonlinear panel models with interactive effects. arXiv preprint arXiv:1412.5647 , 2014. 5 M. Chen, I. Fern´ andez-Val, and M. Weidner. Nonlinear factor models for network and panel data. Journal of Econometrics , 220(2):296–324, 2021. 5 Y. Chen and M. J. Wainwright. Fast low-rank estimation by projected gradi-ent descent: General statistical and algorithmic guarantees. arXiv preprint arXiv:1509.03025 , 2015. 2, 4 G. De Nard, O. Ledoit, and M. Wolf. Factor models for portfolio selection in large dimensions: The good, the better and the ugly. Journal of Financial Econometrics ,19(2):236–257, 2021. 3 Y. Ding, Y. Li, and X. Zheng. High dimensional minimum variance portfolio estimation under statistical factor models. Journal of econometrics , 222(1):502– 515, 2021. 2 J. Fan and Y. Gu. Factor augmented sparse throughput deep relu neural networks for high dimensional regression. Journal of the American Statistical Association ,119(548):2680–2694, 2024. 4 J. Fan, Y. Liao, and M. Mincheva. Large covariance estimation by thresholding principal orthogonal complements. Journal of the Royal Statistical Society Series B: Statistical Methodology , 75(4):603–680, 2013. 3, 9 20 J. Fan, K. Li, and Y. Liao. Recent developments in factor models and applications in econometric learning. Annual Review of Financial Economics , 13(1):401–430, 2021. 2 D. Filipovic and P. Schneider. Fundamental properties of linear factor models. arXiv preprint arXiv:2409.02521 , 2024. 4 J. Fletcher. An examination of linear factor models in uk stock returns in the presence of dynamic trading. Review of Quantitative Finance and Accounting , 63 (3):1121–1147, 2024. 4 T. Hastie. The elements of statistical learning: data mining, inference, and prediction, 2009. 3 D. Hsu, S. M. Kakade, and T. Zhang. Robust matrix decomposition with sparse corruptions. IEEE Transactions on Information Theory , 57(11):7221–7234, 2011. 2I. M. Johnstone and A. Y. Lu. On consistency and sparsity for principal components analysis in high dimensions. Journal of the American Statistical Association , 104 (486):682–693, 2009. 2 ˇZ. Kereta and T. Klock. Estimating covariance and precision matrices along subspaces. 2021. 3 R. H. Keshavan, A. Montanari, and S. Oh. Matrix completion from a few entries. 
+
+IEEE Transactions on Information Theory , 56(6):2980–2998, 2010. 4 T. Klock, A. Lanteri, and S. Vigogna. Estimating multi-index models with response-conditional least squares. Electronic Journal of Statistics , 2021. 5 Y. Koren, R. Bell, and C. Volinsky. Matrix factorization techniques for recommender systems. Computer , 42(8):30–37, 2009. 4 P. Langley. Crafting papers on machine learning. In P. Langley, editor, Proceedings of the 17th International Conference on Machine Learning (ICML 2000) , pages 1207–1216, Stanford, CA, 2000. Morgan Kaufmann. O. Ledoit and M. Wolf. Nonlinear shrinkage estimation of large-dimensional covari-ance matrices. 2012. 4 O. Ledoit and M. Wolf. The power of (non-) linear shrinking: A review and guide to covariance matrix estimation. Journal of Financial Econometrics , 20(1):187–218, 2022. 4 21 K.-Y. Lee, B. Li, and F. Chiaromonte. A general theory for nonlinear sufficient dimension reduction: Formulation and estimation. The Annals of Statistics , pages 221–249, 2013. 5 B. Li. Sufficient dimension reduction: Methods and applications with R . Chapman and Hall/CRC, 2018. 5 B. Li and J. Song. Dimension reduction for functional data based on weak conditional moments. The Annals of Statistics , 50(1):107–128, 2022. 5 C. Ma, K. Wang, Y. Chi, and Y. Chen. Implicit regularization in nonconvex statistical estimation: Gradient descent converges linearly for phase retrieval and matrix completion. In International Conference on Machine Learning , pages 3345–3354. PMLR, 2018. 5 L. Maystre and M. Grossglauser. Fast and accurate inference of plackett–luce models. 
+
+Advances in neural information processing systems , 28, 2015. 3 N. Meinshausen and P. B¨ uhlmann. High-dimensional graphs and variable selection with the lasso. 2006. 3 A. Mnih and R. Salakhutdinov. Probabilistic matrix factorization. In Advances in Neural Information Processing Systems , volume 20, 2007. 4 S. Negahban and M. J. Wainwright. Estimation of (near) low-rank matrices with noise and high-dimensional scaling. 2011. 2 S. Negahban and M. J. Wainwright. Restricted strong convexity and weighted matrix completion: Optimal bounds with noise. The Journal of Machine Learning Research , 13(1):1665–1697, 2012. 4 S. Negahban, S. Oh, and D. Shah. Iterative ranking from pair-wise comparisons. 
+
+Advances in neural information processing systems , 25, 2012. 3 A. Saha. Optimal algorithms for stochastic contextual preference bandits. Advances in Neural Information Processing Systems , 34:30050–30062, 2021. 3 S. Sankagiri, J. Etesami, and M. Grossglauser. Recommendations from sparse comparison data: Provably fast convergence for nonconvex matrix factorization. 
+
+42nd International Conference on Machine Learning , 2025. 2, 3, 10 B. Scholkopf and A. J. Smola. Learning with kernels: support vector machines, regularization, optimization, and beyond . MIT press, 2018. 7, 8 E. Sentana. The econometrics of mean-variance efficiency tests: a survey, 2009. 3 22 S. Sihag, G. Mateos, C. McMillan, and A. Ribeiro. covariance neural networks. 
+
+Advances in neural information processing systems , 35:17003–17016, 2022. 3 M. F. Steffen. Pac-bayes estimation for high-dimensional multi-index models with unknown active dimension. Japanese Journal of Statistics and Data Science , pages 1–30, 2025. 5 R. Sun and Z.-Q. Luo. Guaranteed matrix completion via non-convex factorization. 
+
+IEEE Transactions on Information Theory , 62(11):6535–6579, 2016. 2, 4 B. Zhao, P. S. Zhai, Y. S. Wang, and M. Kolar. High-dimensional functional graphical model structure learning via neighborhood selection approach. Electronic Journal of Statistics , 18(1):1042–1129, 2024. 3 Q. Zheng and J. Lafferty. Convergence analysis for rectangular matrix comple-tion using burer-monteiro factorization and gradient descent. arXiv preprint arXiv:1605.07051 , 2016. 2, 4, 10, 12, 26, 40 23 Appendix 
+
+Appendix A. Helper Lemmas Lemma 7. For matrix A with rank r, we have 
+
+∥AA ⊤∥2 
+
+> F
+
+= X
+
+> r
+
+σ4 
+
+> r
+
+≤ (X
+
+> r
+
+σ2 
+
+> r
+
+)2 = ∥A∥4 
+
+> F
+
+.
+
+Lemma 8. For any matrices A, B, C , we have 
+
+∥ABC ∥F ≤ ∥ A∥2∥B∥2∥C∥F ,
+
+∥AB ∥F ≤ ∥ A∥2∥B∥F ≤ ∥ A∥F ∥B∥F
+
+Definition 2. We define the following empirical operator: 
+
+D(Y ) := 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+⟨Ak, Y ⟩2, G(Y ) := 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+|⟨ Ak, Y ⟩| . (A.1) 
+
+Lemma 9. For matrices A and B, we have 
+
+pD(AB ⊤)/M ≤ G (AB ⊤) ≤ pD(AB ⊤)
+
+Lemma 10. In the complete observation setting, we have 
+
+• for any matrices W, Z ,
+
+D(W Z ⊤) = 1
+
+M
+
+X
+
+> i,j
+
+⟨Wi, Z j ⟩2 ≤ 1
+
+M (X
+
+> i∈[n]
+
+∥Wi∥22)( X 
+
+> j∈[T]
+
+∥Zj ∥22) ≤ 1
+
+M ∥wb∥∞∥zf ∥1.
+
+where w := [ ∥W1∥22, ∥W2∥22, ... ] and z := [ ∥Z1∥22, ∥Z2∥22, ... ] and wb are the indices corresponding to the loading factors i ∈ [n] and zf are the ones corresponding to the factors j ∈ [T ]. Thus, 
+
+D(W Z ⊤ + ZW ⊤) ≤ 2
+
+M ∥W ∥22,∞∥Z∥2 
+
+> F
+
+. (A.2) 
+
+• Moreover, we have 
+
+D(W W ⊤) ≤ 1
+
+M wb
+
+ X 
+
+> i,j
+
+ei ˜ej
+
+
+
+w⊤ 
+
+> f
+
+≤ 1
+
+M ∥W ∥4 
+
+> F
+
+.
+
+24 Lemma 11. We have 
+
+∥Z∗∥2 
+
+> F
+
+≤ 2rσ ∗ 
+
+> 1
+
+,
+
+∥Φ∥22,∞ ≤ 2rσ ∗ 
+
+> 1
+
+μn + T ,
+
+|⟨ A, ZZ ⊤⟩| = X
+
+> i,j
+
+ai,j Z⊤ 
+
+> i
+
+Zj ≤ ∥ Z∥22,∞, ∥Z∥22,∞ ≤ 3.5μ∥Z∗∥2
+
+> F
+
+n + T ,
+
+∥∆∥22,∞ ≤ 10 μn + T ∥Z∗∥2 
+
+> F
+
+≤ 20 μrσ ∗
+
+> 1
+
+n + T .
+
+Proof. Recall the definition of Z∗. It is clear that √2σ∗ 
+
+> 1
+
+, ..., √2σ∗ 
+
+> r
+
+are the singular-values of Z∗, thus ∥Z∗∥2 
+
+> F
+
+= 2 Pri=1 σ∗ 
+
+> i
+
+≤ 2rσ ∗ 
+
+> 1
+
+.From the solution of the equivalent solution set, we have ∥Z∗∥22,∞ = ∥Z∗R(Z)∥22,∞ =
+
+∥Φ∥22,∞ and thus 
+
+∥Φ∥22,∞ ≤ μn + T ∥Z∗∥2 
+
+> F
+
+≤ 2rσ ∗ 
+
+> 1
+
+μn + T .
+
+∥∆∥22,∞ ≤ 2( ∥Z∥22,∞ + ∥Φ∥22,∞).
+
+According to the initialization assumption, we have ∥∆( Z0)∥2 ≤ ϵσ ∗ 
+
+> r
+
+and thus for small enough ϵ, we have 
+
+∥Z0∥F = ∥∆( Z0) + Φ( Z0)∥F ≤ ∥ ∆( Z0)∥F + ∥Z∗∥F ≤ pϵσ ∗ 
+
+> r
+
++ ∥Z∗∥F ≤ √2∥Z∗∥F .
+
+On the other hand, since Z ∈ C , we get 
+
+∥Z∥2,∞ ≤ 43
+
+r μn + T ∥Z0∥F ≤ 43
+
+r 2μn + T ∥Z∗∥F .
+
+Putting back the above inequalities, we conclude the result. 
+
+Appendix A.1. Concentration Results: 
+
+Herein, we present the useful lemmas for the random observation setting. 
+
+Lemma 12 (Chernoff bound) . Suppose x1, x 2, . . . , x m are i.i.d. Bernoulli random variables with parameter p and let ϵ > 0 be given. Then: 
+
+P 1
+
+m
+
+> m
+
+X
+
+> k=1
+
+xk ≥ p + ϵ
+
+!
+
+≤ exp 
+
+
+
+− mϵ 2
+
+2p(1 − p)
+
+
+
+25 Lemma 13 (Matrix Bernstein Inequality) . Consider a random matrix X of shape 
+
+n1 × n2 that satisfies: 
+
+E[X] = ¯X and ∥X∥2 ≤ L almost surely .
+
+Let b be an upper bound on the second moment of X:
+
+∥E[XX ⊤]∥2 ≤ b and ∥E[X⊤X]∥2 ≤ b. 
+
+Let XD = 1
+
+> m
+
+Pmk=1 Xk, where each Xk is an i.i.d. copy of X. Then, for all t ≥ 0,
+
+P (∥XD − ¯X∥2 ≥ t) ≤ (n1 + n2) exp 
+
+ −mt 2/2
+
+b + 2 Lt/ 3
+
+
+
+Lemma 14 (Lemma 10 Zheng and Lafferty (2016)) . Let 
+
+T := {H ∈ Rn×T : H = U ∗X⊤ + Y (V ∗)⊤ for some X, Y }.
+
+When sampling probability p = M/ (nT ) is at least cδ2    
+
+> μr log( n+T)min {n,T }
+
+, with probability at least 1 − 3( n + T )−3, uniformly for all Y ∈ T ⊂ Rn×T , we have 
+
+p(1 − δ)∥Y ∥2 
+
+> F
+
+≤ X
+
+> (i,j )∈Ω
+
+y2 
+
+> i,j
+
+≤ p(1 + δ)∥Y ∥2 
+
+> F
+
+,
+
+p−1 X
+
+> i,j ∈Ω
+
+a⊤ 
+
+> i
+
+bj − X
+
+> i,j
+
+a⊤ 
+
+> i
+
+bj ≤ δ∥A∥F ∥B∥F .
+
+Lemma 15. For M ∈ O ((μrκ )2 min {n,T } 
+
+> ω2
+
+log (n+Tδ )) , we have with probability at least 
+
+1 − δ,
+
+D(W W ⊤) ≤
+
+∥W ∥2
+
+> F
+
+4nT + 12
+
+ω∥W ∥22,∞
+
+μrκ min {n, T }
+
+
+
+∥W ∥2 
+
+> F
+
+. (A.3) 
+
+and for M ∈ O (min {n, T } log( n+Tδ )) , we have with probability at least 1 − δ,
+
+D(W Z ⊤ + ZW ⊤) ≤ 4min {n, T }∥W ∥22,∞∥Z∥2 
+
+> F
+
+. (A.4) 
+
+Proof. For any matrices W, Z , we get 
+
+D(W Z ⊤) = 1
+
+M
+
+X
+
+> i,j
+
+⟨Wi, Z j ⟩2 ≤ 1
+
+M
+
+X
+
+> i,j
+
+∥Wi∥22∥Zj ∥22 = w⊤
+
+> b
+
+ 1
+
+M
+
+X
+
+> i,j
+
+ei ˜e⊤
+
+> j
+
+
+
+zf
+
+≤ ∥ wb∥∞
+
+1
+
+M
+
+X
+
+> i,j
+
+ei ˜e⊤ 
+
+> j1
+
+∥zf ∥1
+
+26 where w = [ ∥Wi∥22]i and z = [ ∥Zj ∥22]j and wb are the indices corresponding to the loading factors i ∈ [n] and zf are the ones corresponding to the factors j ∈ [T ]. Hence, ∥w∥1 = ∥W ∥2 
+
+> F
+
+. Note that ∥A∥1 = max j
+
+P 
+
+> i
+
+|ai,j |. Using the Chernoff bound 12 we can write 
+
+P (∥ 1
+
+M
+
+X
+
+> i
+
+ei ˜e⊤ 
+
+> 1
+
+∥1 ≥ 2
+
+n) ≤ e− M 
+
+> 2n
+
+=⇒ P (max  
+
+> j
+
+∥ 1
+
+M
+
+X
+
+> i
+
+ei ˜e⊤ 
+
+> j
+
+∥1 ≥ 2
+
+n) ≤ T e − M 
+
+> 2n
+
+≤ δ
+
+2Thus, for M ≥ 2( n + T ) log(2( n + T )/δ ), we have 
+
+1
+
+M
+
+X
+
+> i,j
+
+ei ˜e⊤ 
+
+> j1
+
+≤ 2
+
+n ≤ 2min {n, T }, 1
+
+M
+
+X
+
+> i,j
+
+(ei ˜e⊤ 
+
+> j
+
+)⊤
+
+> 1
+
+≤ 2
+
+T ≤ 2min {n, T }
+
+with probability at least 1 − δ. Overall, we have 
+
+D(W Z ⊤ + ZW ⊤) ≤ 2∥wb∥∞ max 
+
+n 1
+
+M
+
+X
+
+> i,j
+
+ei ˜e⊤ 
+
+> j1
+
+, 1
+
+M
+
+X
+
+> i,j
+
+(ei ˜e⊤ 
+
+> j
+
+)⊤
+
+> 1
+
+o
+
+∥zf ∥1
+
+≤ 4min {n, T }∥W ∥22,∞∥Z∥2 
+
+> F
+
+.
+
+On the other hand, we have 
+
+D(W W ⊤) ≤ w⊤
+
+> b
+
+ 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej
+
+
+
+wf = w⊤ 
+
+> b
+
+Aw f + w⊤
+
+> b
+
+ 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A
+
+
+
+wf
+
+= w⊤
+
+> b
+
+11 ⊤
+
+nT wf + w⊤
+
+> b
+
+ 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A
+
+
+
+wf
+
+≤ w⊤
+
+> b
+
+11 ⊤
+
+nT wf + ∥wb∥2
+
+1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A 2
+
+∥wf ∥2.
+
+where A := E[ 1
+
+> M
+
+P 
+
+> i,j
+
+ei ˜e⊤ 
+
+> j
+
+] = 11 ⊤ 
+
+> nT
+
+. Note that ∥wb∥1∥wf ∥1 ≤ ∥w∥21/4 and 
+
+∥wb∥2∥wf ∥2 ≤ ∥ w∥22/2. Thus, we get 
+
+D(W W ⊤) ≤ ∥w∥21
+
+4nT + 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A 2
+
+∥w∥22
+
+2 ≤
+
+∥w∥1
+
+4nT + 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A 2
+
+∥w∥∞
+
+2
+
+
+
+∥w∥1
+
+=
+
+∥W ∥2
+
+> F
+
+4nT + 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A 2
+
+∥W ∥22,∞
+
+2
+
+
+
+∥W ∥2 
+
+> F
+
+.
+
+From the matrix Bernstein inequality 13, we have 
+
+P
+
+ 1
+
+M
+
+X
+
+> i,j
+
+ei ˜ej − A 2
+
+≥ a
+
+
+
+≤ (n + T ) exp  − M a 22min {n,T } + 4a
+
+> 3
+
+.
+
+27 By setting a = ω/ min {n, T } and M ∈ O ((μrκ )2 min {n,T } 
+
+> ω2
+
+log (n+Tδ )), we get with probability at least 1 − δ,
+
+D(W W ⊤) ≤
+
+∥W ∥2
+
+> F
+
+4nT + ω ∥W ∥22,∞
+
+2μrκ min {n, T }
+
+
+
+∥W ∥2 
+
+> F
+
+.
+
+Appendix A.2. Proof of Lemma 2: Proof. Given the equations for the gradient of ˜L with respect to ϕ and defining 
+
+zk := ⟨Ak, ZZ ⊤⟩, for any two functions in H, we have 
+
+∥∇ ϕ ˜L(Z, ϕ 1) − ∇ ϕ ˜L(Z, ϕ 2)∥2
+
+> H
+
+≤ 8
+
+M 2 ∥
+
+> M
+
+X
+
+> k=1
+
+ ϕ1(zk) − ϕ2(zk)K zk, ·∥2 
+
+> H
+
++ 2 α2∥ϕ1 − ϕ2∥2
+
+> H
+
+= 8
+
+M 2
+
+> M
+
+X
+
+> k=1
+> M
+
+X
+
+> l=1
+
+ ϕ1(zk) − ϕ2(zk)K zk, z l
+
+  ϕ1(zl) − ϕ2(zl) + 2 α2∥ϕ1 − ϕ2∥2
+
+> H
+
+≤ 8BK
+
+M 2
+
+> M
+
+X
+
+> k=1
+> M
+
+X
+
+> l=1
+
+|ϕ1(zk) − ϕ2(zk)| · | ϕ1(zl) − ϕ2(zl)| + 2 α2∥ϕ1 − ϕ2∥2
+
+> H
+
+= 8BK
+
+M 2
+
+  MX
+
+> k=1
+
+|ϕ1(zk) − ϕ2(zk)|2 + 2 α2∥ϕ1 − ϕ2∥2
+
+> H
+
+≤ 8BK
+
+M 2 (
+
+> M
+
+X
+
+> k=1
+
+pK(zk, z k)∥ϕ1 − ϕ2∥H)2 + 2 α2∥ϕ1 − ϕ2∥2 
+
+> H
+
+≤ (8 B2 
+
+> K
+
++ 2 α2)∥ϕ1 − ϕ2∥2
+
+> H
+
+.
+
+In the above, we used the fact that |ϕ1(zk) − ϕ2(zk)| ≤ pK(zk, z k)∥ϕ1 − ϕ2∥H. This can be seen by the Cauchy–Schwarz inequality in H.
+
+Appendix A.3. Proof of Lemma 3 Proof. Recall that the gradient of ˜L with respect to ϕ is given by 
+
+∇ϕ ˜L(ϕ, Z )( ·) = − 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+ yk − ϕ(zk(Z))  K(zk(Z), ·) + α ϕ (·),
+
+where zk(Z) := ⟨Ak, ZZ ⊤⟩. For fixed ϕ,
+
+∇ϕ ˜L(ϕ, Z 1) − ∇ ϕ ˜L(ϕ, Z 2)= − 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+h
+
+(yk − ϕ(x1k)) K(x1k, ·) − (yk − ϕ(x2k)) K(x2k, ·)
+
+i
+
+,
+
+28 where xik := xk(Zi). For each k, we decompose the difference as (yk − ϕ(x1k)) K(x1k, ·) − (yk − ϕ(x2k)) K(x2k, ·)=  ϕ(x2k) − ϕ(x1k)K(x1k, ·) +  yk − ϕ(x2k)  K(x1k, ·) − K(x2k, ·).
+
+We bound the two terms separately. Using |ϕ′(x)| ≤ Ξ and ∥K(x, ·)∥2 
+
+> H
+
+=
+
+K(x, x ) ≤ BK , we obtain 
+
+(ϕ(x2k) − ϕ(x1k)) K(x1k, ·) H ≤ ΞpBK |x1k − x2k|.
+
+To bound the second term, recall the objective function: ˜L(ϕ, Z ) = 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+ yk − ϕ(⟨Ak, ZZ ⊤⟩)2 + λ
+
+4 R(Z) + α
+
+2 ∥ϕ∥2
+
+> H
+
+implies 
+
+α
+
+2 ∥ϕ∥2 
+
+> H
+
+≤ ˜L(ϕ, Z ), and hence ∥ϕ∥H ≤
+
+r 2
+
+α ˜L(ϕ, Z ) ≤
+
+r 2
+
+α ˜L(ϕ0, Z 0),
+
+where the last inequality is due to the monotone decreasing of ˜L by applying Algorithm 1. On the other hand, for any x ∈ R, the bounded derivative assumption 
+
+|ϕ′(x)| ≤ Ξ implies 
+
+|ϕ(x)| ≤ | ϕ(0) | + Ξ |x|.
+
+Hence, for any k ∈ [M ] and Z ∈ C ,
+
+|yk − ϕ(⟨Ak, ZZ ⊤⟩)| ≤ | yk| +|ϕ(0) | + Ξ |⟨ Ak, ZZ ⊤⟩| ≤ max  
+
+> k
+
+|yk| + |ϕ(0) | + Ξ max  
+
+> Z∈C
+
+∥Z∥2 
+
+> F
+
+.
+
+Note that for Z ∈ C , ∥Z∥2 
+
+> F
+
+≤ (n + T )∥Z∥22,∞ ≤ 16 μ/ 9∥Z0∥2 
+
+> F
+
+, thus the above maximum is bounded. By the reproducing property of the RKHS, 
+
+|ϕ(0) | = |⟨ ϕ, K (0 , ·)⟩H| ≤ ∥ ϕ∥H ∥K(0 , ·)∥H = ∥ϕ∥H
+
+pK(0 , 0) 
+
+≤ pBK ∥ϕ∥H ≤
+
+r2BK
+
+α ˜L(ϕ0, Z 0).
+
+Hence, 
+
+|yk − ϕ(⟨Ak, ZZ ⊤⟩)| ≤ max  
+
+> k
+
+|yk| +
+
+r2BK
+
+α ˜L(ϕ0, Z 0) + Ξ max  
+
+> z∈C
+
+∥Z∥2 
+
+> F
+
+:= G (A.5) By the Lipschitz continuity of the kernels, Assumption 2, and the residual bound, 
+
+(yk − ϕ(x2k))  K(x1k, ·) − K(x2k, ·) 
+
+> H
+
+≤ GL K |x1k − x2k|.
+
+29 Combining the above bounds and summing over k yields 
+
+∥∇ ϕ ˜L(ϕ, Z 1) − ∇ ϕ ˜L(ϕ, Z 2)∥H ≤ 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+ ΞpBK + GL K
+
+ |x1k − x2k|.
+
+Finally, note that 
+
+|x1k − x2k| = |⟨ Ak, Z 1Z⊤ 
+
+> 1
+
+− Z2Z⊤ 
+
+> 2
+
+⟩| ≤ ∥ Ak∥F ∥Z1Z⊤ 
+
+> 1
+
+− Z2Z⊤ 
+
+> 2
+
+∥F .
+
+Since 
+
+∥Z1Z⊤ 
+
+> 1
+
+− Z2Z⊤ 
+
+> 2
+
+∥F ≤ (∥Z1∥F + ∥Z2∥F ) ∥Z1 − Z2∥F
+
+and ∥Ak∥F = 1 for the sampling matrices defined in (5), we conclude that 
+
+∥∇ ϕ ˜L(ϕ, Z 1) − ∇ ϕ ˜L(ϕ, Z 2)∥H ≤ 2 ( ∥Z1∥F + ∥Z2∥F ) ΞpBK + GL K
+
+∥Z1 − Z2∥F ,
+
+≤ 4 max  
+
+> Z∈C
+
+∥Z∥F
+
+ ΞpBK + GL K
+
+∥Z1 − Z2∥F
+
+which completes the proof. 
+
+Appendix A.4. Proof of Lemma 4 Proof. It suffices to prove that ∇Z ˜L(ϕ, ·) is Lipschitz on C:
+
+∥∇ Z ˜L(ϕ, Z ′) − ∇ Z ˜L(ϕ, Z )∥F ≤ LZ ∥Z′ − Z∥F , ∀Z, Z ′ ∈ C , (A.6) since (A.6) implies the stated smoothness inequality by the standard descent lemma. Write the data-fit term as F (Z) := 1
+
+> M
+
+PMk=1 fk(Z) with 
+
+fk(Z) :=  yk − ϕ(zk(Z)) 2, zk(Z) = ⟨Ak, ZZ ⊤⟩.
+
+A direct differentiation gives 
+
+∇fk(Z) = −2 gk(Z) ϕ′(zk(Z)) ∇zk(Z), gk(Z) := yk − ϕ(zk(Z)) ,
+
+and 
+
+∇zk(Z) = ( Ak + A⊤ 
+
+> k
+
+)Z. 
+
+Hence, 
+
+∇F (Z) = − 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+gk(Z)ϕ′(zk(Z))( Ak + A⊤ 
+
+> k
+
+)Z. 
+
+Fix Z, Z ′ ∈ C . For each k, let sk(Z) := gk(Z)ϕ′(zk(Z)). Then 
+
+∇fk(Z′) − ∇ fk(Z) = −2
+
+h
+
+sk(Z′)( Ak + A⊤ 
+
+> k
+
+)Z′ − sk(Z)( Ak + A⊤ 
+
+> k
+
+)Z
+
+i
+
+.
+
+30 Add and subtract sk(Z′)( Ak + A⊤ 
+
+> k
+
+)Z to get 
+
+∇fk(Z′) − ∇ fk(Z) = −2
+
+h
+
+sk(Z′)( Ak + A⊤ 
+
+> k
+
+)( Z′ − Z) + ( sk(Z′) − sk(Z))( Ak + A⊤ 
+
+> k
+
+)Z
+
+i
+
+.
+
+Taking Frobenius norms and using ∥Ak + A⊤ 
+
+> k
+
+∥F ≤ 2∥Ak∥F ≤ 2 yields 
+
+∥∇ fk(Z′) − ∇ fk(Z)∥F ≤ 4|sk(Z′)|∥ Z′ − Z∥F + 4 |sk(Z′) − sk(Z)|∥ Z∥F . (A.7) We bound |sk(Z′)| and |sk(Z′) − sk(Z)|. By the residual bound and |ϕ′| ≤ Ξ, 
+
+|sk(Z′)| = |gk(Z′)ϕ′(zk(Z′)) | ≤ G Ξ.
+
+where G follows the definition at equation A.5. Next, 
+
+sk(Z′) − sk(Z) = gk(Z′) ϕ′(zk(Z′)) − ϕ′(zk(Z))  + ϕ′(zk(Z))  gk(Z′) − gk(Z).
+
+RKHS functions satisfy 
+
+∇ϕ(x) − ∇ ϕ(x′) = ⟨ϕ, ∇xK(x, ·) − ∇ xK(x′, ·)⟩H.
+
+for any x, x ′. By applying the Cauchy-Schwarz inequality and setting x = zk(Z) and 
+
+x′ = zk(Z′), we have 
+
+|∇ ϕ(zk(Z)) − ∇ ϕ(zk(Z′)) | ≤ ∥ ϕ∥H∥∇ xK(zk(Z), ·) − ∇ xK(zk(Z′), ·)∥,
+
+≤
+
+r2Lmax 
+
+α ∥∇ xK(zk(Z), ·) − ∇ xK(zk(Z′), ·)∥.
+
+Thus, from the assumption, we get 
+
+|∇ ϕ(zk(Z)) − ∇ ϕ(zk(Z′)) | ≤ 
+
+r2Lmax 
+
+α LK′ |zk(Z′) − zk(Z)|.
+
+Using this Lipschitzness of ϕ′ and |ϕ′| ≤ Ξ, together with |gk(Z′)| ≤ G and 
+
+|gk(Z′) − gk(Z)| = |ϕ(xk(Z′)) − ϕ(zk(Z)) | ≤ Ξ |zk(Z′) − zk(Z)|,
+
+we obtain 
+
+|sk(Z′) − sk(Z)| ≤ Gϕ∥ϕ∥max LK′ |zk(Z′) − zk(Z)| + Ξ 2|zk(Z′) − zk(Z)|
+
+= Ξ2 +
+
+r2Lmax 
+
+α GϕLK′
+
+!
+
+|zk(Z′) − zk(Z)|.
+
+Finally, since 
+
+|zk(Z′) − zk(Z)| = |⟨ Ak, Z ′Z′⊤ − ZZ ⊤⟩| ≤ ∥ Ak∥F ∥Z′Z′⊤ − ZZ ⊤∥F ,
+
+31 and 
+
+∥Z′Z′⊤ − ZZ ⊤∥F ≤ (∥Z′∥F + ∥Z∥F )∥Z′ − Z∥F ≤ 2 max  
+
+> Z∈C
+
+∥Z∥F ∥Z′ − Z∥F ,
+
+we conclude 
+
+|xk(Z′) − zk(Z)| ≤ 2RZ ∥Z′ − Z∥F ,
+
+and hence 
+
+|sk(Z′) − sk(Z)| ≤ 2 max  
+
+> Z∈C
+
+∥Z∥F Ξ2 +
+
+r2Lmax 
+
+α GL K′
+
+!
+
+∥Z′ − Z∥F .
+
+Plugging these bounds into (A.7) and using ∥Z∥F ≤ RZ gives 
+
+∥∇ fk(Z′)−∇ fk(Z)∥F ≤ 4GΞ∥Z′−Z∥F +8 max  
+
+> Z∈C
+
+∥Z∥2 
+
+> F
+
+Ξ2 +
+
+r2Lmax 
+
+α GL K′
+
+!
+
+∥Z′−Z∥F .
+
+Averaging over k yields the same bound for ∥∇ F (Z′) − ∇ F (Z)∥F .Finally, the regularizer term λ 
+
+> 4
+
+R(Z) has Lipschitz gradient on C with some constant LR depending on max Z∈C ∥Z∥F and λ, hence 
+
+∥∇ Z ˜L(ϕ, Z ′)−∇ Z ˜L(ϕ, Z )∥F ≤ 4GΞ + 8 max  
+
+> Z∈C
+
+∥Z∥2 
+
+> F
+
+Ξ2 +
+
+r2Lmax 
+
+α GL K′
+
+!
+
++ LR
+
+!
+
+∥Z′−Z∥F ,
+
+which is exactly (A.6) with LZ =
+
+
+
+4GΞ + 8 max Z∈C ∥Z∥2
+
+> F
+
+
+
+Ξ2 +
+
+q2Lmax  
+
+> α
+
+GL K′
+
+
+
++ LR
+
+
+
+.This completes the proof. 
+
+Appendix A.5. Proof of Lemma 5: Proof. From the expression of ∇Z ˜L, i.e., 
+
+∇Z ˜L(Z, ϕ ) = 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+ ϕ ⟨Ak, ZZ ⊤⟩ − yk
+
+ϕ′ ⟨Ak, ZZ ⊤⟩(Ak + A⊤ 
+
+> k
+
+)Z + λDZZ ⊤DZ. 
+
+This leads to 
+
+⟨∇ Z ˜L(Z, ϕ ), ∆( Z)⟩ = 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+hk⟨(Ak + A⊤ 
+
+> k
+
+)Z, ∆( Z)⟩ + λ⟨DZZ ⊤DZ, ∆( Z)⟩,
+
+where hk = ϕ′(zk) (ϕ(zk) − yk) , z k = ⟨Ak, ZZ ⊤⟩. With slight abuse of notation, we use Φ and ∆ to denote Φ( Z) and ∆( Z), respectively. Then, we have Z = Φ + ∆. Therefore, the term ⟨(Ak + A⊤ 
+
+> k
+
+)Z, ∆⟩ can be expanded as follows: 
+
+⟨(Ak + A⊤ 
+
+> k
+
+)Z, ∆⟩ = ⟨(Ak + A⊤ 
+
+> k
+
+)Φ , ∆⟩ + ⟨(Ak + A⊤ 
+
+> k
+
+)∆ , ∆⟩
+
+= ⟨Ak + A⊤ 
+
+> k
+
+, ∆Φ ⊤⟩ + ⟨Ak + A⊤ 
+
+> k
+
+, ∆∆ ⊤⟩
+
+= ⟨Ak, ∆Φ ⊤⟩ + ⟨Ak, Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
+32 Assuming noiseless observations, i.e., yk = ϕ∗(⟨Ak, Z ∗Z∗T ⟩) yields 
+
+hk = ϕ′(zk) ϕ(zk) − ϕ(z∗ 
+
+> k
+
+) + ϕ(z∗ 
+
+> k
+
+) − ϕ∗(z∗ 
+
+> k
+
+), where z∗ 
+
+> k
+
+= ⟨Ak, Z ∗Z∗T ⟩ = ⟨Ak, ΦΦ ⊤⟩
+
+By the mean value theorem, we get 
+
+ϕ(zk) − ϕ(z∗ 
+
+> k
+
+) = ϕ′(sk)( zk − z∗ 
+
+> k
+
+) for some sk in the interval between zk and z∗
+
+> k
+
+= ϕ′(sk)  ⟨Ak, ZZ ⊤⟩ − ⟨ Ak, ΦΦ ⊤⟩
+
+= ϕ′(sk)  ⟨Ak, Φ∆ ⊤ + ∆Φ ⊤⟩ + ⟨Ak, ∆∆ ⊤⟩ (because Z = Φ + ∆) = ϕ′(sk)
+
+
+
+⟨Ak + A⊤ 
+
+> k
+
+, ∆Φ ⊤⟩ + 12⟨Ak + A⊤ 
+
+> k
+
+, ∆∆ ⊤⟩
+
+
+
+= ϕ′(sk)  ⟨Ak, ∆Φ ⊤⟩ + ⟨Ak, Φ∆ ⊤⟩ + ⟨Ak, ∆∆ ⊤⟩ .
+
+Let e∗
+
+> k
+
+(ϕ) := ϕ(z∗ 
+
+> k
+
+) − ϕ∗(z∗ 
+
+> k
+
+) and assume that |e∗
+
+> k
+
+(ϕ)| ≤ ε for all k. Putting the above equations together, we get: 
+
+hk⟨(Ak + A⊤ 
+
+> k
+
+)Z, ∆⟩
+
+= ϕ′(zk)  e∗
+
+> k
+
+(ϕ) + ϕ′(sk) ⟨Ak, ∆Φ ⊤⟩ + ⟨Ak, Φ∆ ⊤⟩ + ⟨Ak, ∆∆ ⊤⟩  ⟨Ak, ∆Φ ⊤⟩ + ⟨Ak, Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
+≥ ϕ′(zk)e∗
+
+> k
+
+(ϕ)  ⟨Ak, ∆Φ ⊤⟩ + ⟨Ak, Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
++ ϕ′(zk)ϕ′(sk)
+
+12⟨Ak, ∆Φ ⊤ + Φ∆ ⊤⟩2 − 52⟨Ak, ∆∆ ⊤⟩2
+
+
+
+.
+
+The last step uses the inequality a2 + 3 ab + 2 b2 ≥ a2 
+
+> 2
+
+− 5b2 
+
+> 2
+
+. Note that the coefficient 
+
+ϕ′(zk)ϕ′(sk) is positive. This implies 
+
+⟨∇ Z ˜L(Z, ϕ ), ∆⟩ ≥ 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+ϕ′(zk)e∗
+
+> k
+
+(ϕ)  ⟨Ak, ∆Φ ⊤ + Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
++ ξ2D(∆Φ ⊤ + Φ∆ ⊤) − 5Ξ 2D(∆∆ ⊤) + λ⟨DZZ ⊤DZ, ∆⟩,
+
+i) In the complete observation setting, M = nT and the following equation satisfies, 
+
+D(∆Φ ⊤ + Φ∆ ⊤) = 1
+
+nT ∥∆U Φ⊤ 
+
+> V
+
++ Φ U ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
+(A.8) = 1
+
+nT (∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ 2 ⟨∆U Φ⊤ 
+
+> V
+
+, ΦU ∆⊤ 
+
+> V
+
+⟩) (A.9) where Φ = (Φ U , ΦV ) and ∆ = (∆ U , ∆V ) denote the split of Φ and ∆ into the first n
+
+and last T rows. Note that 2⟨∆U Φ⊤ 
+
+> V
+
+, ΦU ∆⊤ 
+
+> V
+
+⟩ = 12⟨(Φ∆ ⊤ − DΦ∆ ⊤D)Φ , ∆⟩.
+
+33 Now using Lemma 16, we get 
+
+D(∆Φ ⊤ + Φ∆ ⊤) + λξ2 ⟨DZZ ⊤DZ, ∆⟩ = 1
+
+nT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ 2
+
+nT ⟨∆U Φ⊤ 
+
+> V
+
+, ΦU ∆⊤ 
+
+> V
+
+⟩ + λξ2 ⟨DZZ ⊤DZ, ∆⟩≥ 1
+
+nT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ λ
+
+2ξ2 ∥Φ⊤D∆∥2 
+
+> F
+
+− 7λ
+
+2ξ2 ∥∆∥4
+
+> F
+
++
+
+ λξ2 − 12nT 
+
+
+
+tr(Φ ⊤D∆Φ ⊤D∆) Setting λξ2 = 12nT yields 
+
+D(∆Φ ⊤ + Φ∆ ⊤) + λξ2 ⟨DZZ ⊤DZ, ∆⟩≥ 1
+
+nT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ 14nT ∥Φ⊤D∆∥2 
+
+> F
+
+− 74nT ∥∆∥4 
+
+> F
+
+.
+
+On the other hand, we have ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
+≥ σ∗ 
+
+> r
+
+∥∆U ∥2 
+
+> F
+
+and ∥ΦU ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
+≥ σ∗ 
+
+> r
+
+∥∆V ∥2 
+
+> F
+
+,which in combination with the above inequality gives us 
+
+D(∆Φ ⊤ + Φ∆ ⊤) + λξ2 ⟨DZZ ⊤DZ, ∆⟩ ≥ σ∗
+
+> r
+
+nT ∥∆∥2 
+
+> F
+
++ 14nT ∥Φ⊤D∆∥2 
+
+> F
+
+− 74nT ∥∆∥4
+
+> F
+
+D(∆∆ ⊤) ≤ 1
+
+nT ∥∆∥4
+
+> F
+
+Putting the above results together give us 
+
+ξ2D(∆Φ ⊤ + Φ∆ ⊤) − 5Ξ 2D(∆∆ ⊤) + λ⟨DZZ ⊤DZ, ∆⟩≥ σ∗ 
+
+> r
+
+ξ2
+
+nT ∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2 
+
+> F
+
+−
+
+ 7ξ2
+
+4nT + 5Ξ 2
+
+nT 
+
+
+
+∥∆∥4
+
+> F
+
+≥ σ∗ 
+
+> r
+
+ξ2
+
+nT ∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2 
+
+> F
+
+− ϵσ ∗
+
+> r
+
+ 7ξ2
+
+4nT + 5Ξ 2
+
+nT 
+
+
+
+∥∆∥2
+
+> F
+
+≥ 310 
+
+σ∗ 
+
+> r
+
+ξ2
+
+nT ∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2 
+
+> F
+
+.
+
+The last inequality is obtained by setting ϵ = ξ2/(10Ξ 2). It is straightforward to see that ε ≤ Bk∥ϕ − ϕ⋆∥H for all k, √2σ∗ 
+
+> 1
+
+≥ ∥ Φ∥2 ≥ max {∥ ΦU ∥2, ∥ΦV ∥2} and via 34 Lemma 9, we get 2
+
+nT 
+
+> nT
+
+X
+
+> k=1
+
+ϕ′(zk)e∗
+
+> k
+
+(ϕ)  ⟨Ak, ∆Φ ⊤ + Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
+≥ − 2
+
+nT Ξε
+
+> nT
+
+X
+
+> k=1
+
+⟨Ak, ∆Φ ⊤ + Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
+≥ − 2Ξ ε
+
+
+
+G(∆Φ ⊤ + Φ∆ ⊤) + 2 G(∆∆ ⊤)
+
+
+
+≥ − 2Ξ ε
+
+p D(∆Φ ⊤ + Φ∆ ⊤) + 2 pD(∆∆ ⊤)
+
+
+
+≥ − 2Ξ ε
+
+√nT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
++ Φ U ∆⊤ 
+
+> V
+
+∥F + 2 ∥∆∥2
+
+> F
+
+
+
+≥ − 2Ξ ε
+
+√nT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥F + ∥ΦU ∆⊤ 
+
+> V
+
+∥F + 2 ∥∆∥2
+
+> F
+
+
+
+≥ − 2Ξ ε
+
+√nT 
+
+
+
+∥∆U ∥F ∥ΦV ∥2 + ∥ΦU ∥2∥∆V ∥F + 2 ∥∆∥2
+
+> F
+
+
+
+≥ − 2Ξ ε
+
+√nT 
+
+p2σ∗ 
+
+> 1
+
+∥∆U ∥F + p2σ∗ 
+
+> 1
+
+∥∆V ∥F + 2 ∥∆∥2
+
+> F
+
+
+
+≥ − 4Ξ ε
+
+√nT 
+
+pσ∗ 
+
+> 1
+
++ ∥∆∥F
+
+
+
+∥∆∥F .
+
+Recall that Z ∈ B (ϵ), and thus ∥∆∥F ≤ √ϵσ ∗ 
+
+> r
+
+. Therefore, we get 
+
+⟨∇ Z ˜L(Z, ϕ ), ∆⟩ ≥ − 4Ξ ε
+
+√nT 
+
+pσ∗ 
+
+> 1
+
++ ∥∆∥F
+
+
+
+∥∆∥F + 3ξ2
+
+10 nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2 
+
+> F
+
+,
+
+≥ − 4Ξ ε
+
+√nT 
+
+pσ∗ 
+
+> 1
+
++ ∥∆∥F
+
+
+
+∥∆∥F + 3ξ2
+
+10 nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
+,
+
+≥ − 4Ξ 
+
+√nT 
+
+pσ∗ 
+
+> 1
+
++ ∥∆∥F
+
+
+
+BK ∥∆∥F ∥ϕ − ϕ⋆∥H + 3ξ2
+
+10 nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
+,
+
+≥ − 8Ξ 
+
+√nT 
+
+pσ∗ 
+
+> 1
+
+BK ∥∆∥F ∥ϕ − ϕ⋆∥H + 3ξ2
+
+10 nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
+.
+
+35 ii) In the random observation setting, using Lemma 14, we get 
+
+D(∆Φ ⊤ + Φ∆ ⊤) = 1
+
+M
+
+X
+
+> i,j ∈Ω
+
+([∆ U ]i[Φ V ]⊤ 
+
+> j
+
++ [Φ U ]i[∆ V ]⊤ 
+
+> j
+
+)2
+
+= 1
+
+M
+
+X
+
+> i,j ∈Ω
+
+([∆ U ]i[Φ V ]⊤ 
+
+> j
+
+)2 + 1
+
+M
+
+X
+
+> i,j ∈Ω
+
+([Φ U ]i[∆ V ]⊤ 
+
+> j
+
+)2 + 2
+
+M
+
+X
+
+> i,j ∈Ω
+
+([∆ U ]i[Φ V ]⊤ 
+
+> j
+
+)([Φ U ]i[∆ V ]⊤ 
+
+> j
+
+)
+
+≥ (1 − δ)pM
+
+X
+
+> i,j
+
+([∆ U ]i[Φ V ]⊤ 
+
+> j
+
+)2 + (1 − δ)pM
+
+X
+
+> i,j
+
+([Φ U ]i[∆ V ]⊤ 
+
+> j
+
+)2
+
++ 2pM
+
+X
+
+> i,j
+
+([∆ U ]i[Φ V ]⊤ 
+
+> j
+
+)([Φ U ]i[∆ V ]⊤ 
+
+> j
+
+) − 2pδ M ∥∆U Φ⊤ 
+
+> V
+
+∥F ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+≥ (1 − δ)
+
+nT ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ (1 − δ)
+
+nT ∥∆V Φ⊤ 
+
+> U
+
+∥2 
+
+> F
+
+− 2δnT ∥∆U Φ⊤ 
+
+> V
+
+∥F ∥ΦU ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ 2
+
+nT ⟨∆U Φ⊤ 
+
+> V
+
+, ΦU ∆⊤ 
+
+> V
+
+⟩≥ (1 − 2δ)
+
+nT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ 2
+
+nT ⟨∆U Φ⊤ 
+
+> V
+
+, ΦU ∆⊤ 
+
+> V
+
+⟩
+
+In this setting, using Lemma 16, we get 
+
+D(∆Φ ⊤ + Φ∆ ⊤) + λξ2 ⟨DZZ ⊤DZ, ∆⟩ ≥ 1 − 2δnT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ 2
+
+nT ⟨∆U Φ⊤ 
+
+> V
+
+, ΦU ∆⊤ 
+
+> V
+
+⟩ + λξ2 ⟨DZZ ⊤DZ, ∆⟩≥ 1 − 2δnT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ λ
+
+2ξ2 ∥Φ⊤D∆∥2 
+
+> F
+
+− 7λ
+
+2ξ2 ∥∆∥4
+
+> F
+
++
+
+ λξ2 − 12nT 
+
+
+
+tr(Φ ⊤D∆Φ ⊤D∆) Setting λξ2 = 12nT yields 
+
+D(∆Φ ⊤ + Φ∆ ⊤) + λξ2 ⟨DZZ ⊤DZ, ∆⟩ ≥ 1 − 2δnT 
+
+
+
+∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+
+
++ 14nT ∥Φ⊤D∆∥2 
+
+> F
+
+− 74nT ∥∆∥4 
+
+> F
+
+.
+
+On the other hand, we have ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
+≥ σ∗ 
+
+> r
+
+∥∆U ∥2 
+
+> F
+
+and ∥ΦU ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
+≥ σ∗ 
+
+> r
+
+∥∆V ∥2 
+
+> F
+
+,which in combination with the above inequality gives us 
+
+D(∆Φ ⊤ + Φ∆ ⊤) + λξ2 ⟨DZZ ⊤DZ, ∆⟩ ≥ (1 − 2δ) σ∗
+
+> r
+
+nT ∥∆∥2 
+
+> F
+
++ 14nT ∥Φ⊤D∆∥2 
+
+> F
+
+− 74nT ∥∆∥4 
+
+> F
+
+.
+
+From the concentration results in Lemma 15 and Lemma 11, and for M ∈ O ((μrκ )2 min {n,T } 
+
+> ω2
+
+log (n+Tδ )), we obtain 
+
+D(∆∆ ⊤) ≤
+
+∥∆∥2
+
+> F
+
+4nT + ω ∥∆∥22,∞
+
+2μrκ min {n, T }
+
+
+
+∥∆∥2 
+
+> F
+
+≤ ϵσ ∗
+
+> r
+
+nT ∥∆∥2
+
+> F
+
+36 The last inequality is coming from the fact that Z ∈ B (ϵ) and by letting ω = ϵ/ 20. Putting the above results together give us 
+
+ξ2D(∆Φ ⊤ + Φ∆ ⊤) − 5Ξ 2D(∆∆ ⊤) + λ⟨DZZ ⊤DZ, ∆⟩≥
+
+
+
+(1 − 2δ)σ∗ 
+
+> r
+
+ξ2
+
+nT − 7ξ2
+
+4nT ϵσ ∗ 
+
+> r
+
+− 5Ξ2ϵσ ∗
+
+> r
+
+nT 
+
+
+
+∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2
+
+> F
+
+=
+
+
+
+(1 − 2δ) − 74ϵ − 5Ξ2
+
+ξ2 ϵ
+
+| {z }
+
+> ≥1/5
+
+σ∗ 
+
+> r
+
+ξ2
+
+nT ∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2 
+
+> F
+
+.
+
+By setting δ = 1 /8 and ϵ = ξ2/(20Ξ 2), we get result. On the other hand, using Lemma 9, we have 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+ϕ′(zk)e∗
+
+> k
+
+(ϕ)  ⟨Ak, ∆Φ ⊤ + Φ∆ ⊤⟩ + 2 ⟨Ak, ∆∆ ⊤⟩
+
+≥ − 2Ξ ε
+
+
+
+G(∆Φ ⊤ + Φ∆ ⊤) + 2 G(∆∆ ⊤)
+
+
+
+≥ − 2Ξ ε
+
+p D(∆Φ ⊤ + Φ∆ ⊤) + 2 pD(∆∆ ⊤)
+
+
+
+≥ − 2Ξ ε
+
+√nT (√1 + δ∥∆U Φ⊤ 
+
+> V
+
++ Φ U ∆⊤ 
+
+> V
+
+∥F + 2 pϵσ ∗ 
+
+> r
+
+∥∆∥F )
+
+≥ − 2Ξ ε
+
+√nT (√1 + δ(∥∆U Φ⊤ 
+
+> V
+
+∥F + ∥ΦU ∆⊤ 
+
+> V
+
+∥F ) + 2 pϵσ ∗ 
+
+> r
+
+∥∆∥F )
+
+≥ − 2Ξ ε
+
+√nT (√1 + δp2σ∗ 
+
+> 1
+
+(∥∆U ∥F + ∥∆V ∥F ) + 2 pϵσ ∗ 
+
+> r
+
+∥∆∥F )
+
+≥ − 4Ξ ε
+
+√nT (√1 + δpσ∗ 
+
+> 1
+
++ 2 pϵσ ∗ 
+
+> r
+
+)∥∆∥F ≥ − 8Ξ ε
+
+√nT 
+
+pσ∗ 
+
+> 1
+
+∥∆∥F ,
+
+where we set δ = 1 /8. Recall that Z ∈ B (ϵ), and thus ∥∆∥F ≤ √ϵσ ∗ 
+
+> r
+
+. Therefore, with probability at least 1 − δ, we have 
+
+⟨∇ Z ˜L(Z, ϕ ), ∆⟩ ≥ − 8Ξ ε
+
+√nT 
+
+pσ∗ 
+
+> 1
+
+∥∆∥F + ξ2
+
+5nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
++ ξ2
+
+4nT ∥Φ⊤D∆∥2 
+
+> F
+
+,
+
+≥ − 8Ξ ε
+
+√nT 
+
+pσ∗ 
+
+> 1
+
+∥∆∥F + ξ2
+
+5nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
+,
+
+≥ − 8Ξ 
+
+√nT 
+
+pσ∗ 
+
+> 1
+
+BK ∥∆∥F ∥ϕ − ϕ⋆∥H + ξ2
+
+5nT σ∗ 
+
+> r
+
+∥∆∥2 
+
+> F
+
+.
+
+Lemma 16. For any λ′ ≥ 0, we have 
+
+12⟨(Φ∆ ⊤ − DΦ∆ ⊤D)Φ , ∆⟩ + λ′⟨DZZ ⊤DZ, ∆⟩ ≥ λ′
+
+2 ∥Φ⊤D∆∥2 
+
+> F
+
+− 7λ′
+
+2 ∥∆∥4
+
+> F
+
++
+
+
+
+λ′ − 12
+
+
+
+tr (Φ ⊤D∆Φ ⊤D∆) 37 Proof. Furthermore, we have 
+
+⟨DZZ ⊤DZ, ∆⟩ = ⟨D(ZZ ⊤ − ΦΦ ⊤)DZ, ∆⟩ + ⟨DΦΦ ⊤DZ, ∆⟩
+
+= ⟨D(ZZ ⊤ − ΦΦ ⊤)DZ, ∆⟩ + ⟨DΦΦ ⊤DΦ, ∆⟩ + ⟨DΦΦ ⊤D∆, ∆⟩.
+
+Note that Z = ∆ + Φ and Φ ⊤DΦ = 0, thus 
+
+⟨DZZ ⊤DZ, ∆⟩ = ⟨D(ZZ ⊤ − ΦΦ ⊤)DZ, ∆⟩ + ∥Φ⊤D∆∥2
+
+> F
+
+= ⟨D(∆∆ ⊤ + ∆Φ ⊤ + Φ∆ ⊤)D(∆ + Φ) , ∆⟩ + ∥Φ⊤D∆∥2
+
+> F
+
+= ∥∆⊤D∆∥2 
+
+> F
+
++ ∥Φ⊤D∆∥2 
+
+> F
+
++ 3tr(∆ ⊤DΦ∆ ⊤D∆) + tr(∆ ⊤DΦ∆ ⊤DΦ) .
+
+Using the above equation and knowing that ∆ ⊤Φ is symmetric, we get 12⟨(Φ∆ ⊤ − DΦ∆ ⊤D)Φ , ∆⟩ + λ′⟨DZZ ⊤DZ, ∆⟩
+
+= λ′∥∆⊤D∆∥2 
+
+> F
+
++ λ′∥Φ⊤D∆∥2 
+
+> F
+
++ 3 λ′tr(∆ ⊤DΦ∆ ⊤D∆) + ( λ′ − 12)tr(∆ ⊤DΦ∆ ⊤DΦ) + ∥∆⊤Φ∥2
+
+> F
+
+= λ′
+
+2 ∥Φ⊤D∆∥2 
+
+> F
+
++ ∥Φ⊤D∆ + 3∆ ⊤D∆∥2 
+
+> F
+
+− 7λ′
+
+2 ∥∆∥4 
+
+> F
+
++
+
+
+
+λ′ − 12
+
+
+
+tr(Φ ⊤D∆Φ ⊤D∆) .
+
+Appendix A.6. Proof of Lemma 6 Proof. From the proof of the previous lemma, we have 
+
+⟨∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ, H ⟩ = 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+hk⟨Ak + A⊤ 
+
+> k
+
+, HZ ⊤⟩
+
+= 2
+
+M
+
+> M
+
+X
+
+> k=1
+
+ϕ′(zk)ϕ′(sk)
+
+ e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk) + ⟨Ak + A⊤ 
+
+> k
+
+, ∆Φ ⊤⟩ + 12⟨Ak + A⊤ 
+
+> k
+
+, ∆∆ ⊤⟩
+
+  ⟨Ak + A⊤ 
+
+> k
+
+, HZ ⊤⟩ ,
+
+where 
+
+hk = ϕ′(zk)ϕ′(sk)
+
+ e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk) + ⟨Ak + A⊤ 
+
+> k
+
+, ∆Φ ⊤⟩ + 12⟨Ak + A⊤ 
+
+> k
+
+, ∆∆ ⊤⟩
+
+
+
+.
+
+Next, we invoke two inequalities which apply to any sequence of scalars ( ak)k∈[M ], (bk)k∈[M ],
+
+and ( ck)k∈[M ] with ak ≥ 0: 
+
+> M
+
+X
+
+> k=1
+
+akbkck
+
+!2
+
+≤
+
+> M
+
+X
+
+> k=1
+
+akb2
+
+> k
+
+! MX
+
+> k=1
+
+akc2
+
+> k
+
+!
+
+,
+
+> M
+
+X
+
+> k=1
+
+akb2
+
+> k
+
+!
+
+≤
+
+
+
+max  
+
+> k∈[M]
+
+ak
+
+ MX
+
+> k=1
+
+b2
+
+> k
+
+!
+
+.
+
+38 The first inequality can be viewed as a form of the Cauchy-Schwarz inequality and the second, a form of H¨ older’s inequality. Squaring both sides of the previous equation and applying these inequalities with 
+
+ak = ϕ′(zk)ϕ′(sk), b k = e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk) + ⟨Ak + A⊤ 
+
+> k
+
+, ∆Φ ⊤⟩ + 12⟨Ak + A⊤ 
+
+> k
+
+, ∆∆ ⊤⟩,ck = ⟨Ak + A⊤ 
+
+> k
+
+, HZ ⊤⟩,
+
+and observing that max k∈[M ] ak ≤ Ξ2, we get 
+
+⟨∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ, H ⟩2
+
+≤ 4Ξ 4
+
+M 2
+
+> M
+
+X
+
+> k=1
+
+( e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk) + ⟨Ak + A⊤ 
+
+> k
+
+, ∆Φ ⊤⟩ + 12⟨Ak + A⊤ 
+
+> k
+
+, ∆∆ ⊤⟩)2
+
+! MX
+
+> k=1
+
+⟨Ak + A⊤ 
+
+> k
+
+, HZ ⊤⟩2
+
+!
+
+= 4Ξ 4
+
+M 2
+
+> M
+
+X
+
+> k=1
+
+( e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk) + ⟨Ak, ∆Φ ⊤ + Φ∆ ⊤⟩ + ⟨Ak, ∆∆ ⊤⟩)2
+
+! MX
+
+> k=1
+
+⟨Ak, HZ ⊤ + ZH ⊤⟩2
+
+!
+
+≤ 12Ξ 4 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+ e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk)
+
+2
+
++ D(∆Φ ⊤ + Φ∆ ⊤) + D(∆∆ ⊤)
+
+!
+
+D(HZ ⊤ + ZH ⊤).
+
+This implies 
+
+∥∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ ∥2 
+
+> F
+
+= sup  
+
+> H, ∥H∥2
+> F=1
+
+⟨∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ, H ⟩2
+
+≤ 12Ξ 4 1
+
+M
+
+> M
+
+X
+
+> k=1
+
+ e∗
+
+> k
+
+(ϕ)
+
+ϕ′(sk)
+
+2
+
++ D(∆Φ ⊤ + Φ∆ ⊤) + D(∆∆ ⊤)
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤).
+
+i) In the complete observation setting, by assuming |e∗
+
+> k
+
+(ϕ)| ≤ ε for all k, using (A.8) and Lemma 10, we can bound the last terms as follows 
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 1
+
+nT ∥∆U Φ⊤ 
+
+> V
+
++ Φ U ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ 1
+
+nT ∥∆∥4
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤)
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 1
+
+nT ∥∆U Φ⊤ 
+
+> V
+
++ Φ U ∆⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ 1
+
+nT ∥∆∥4
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤)
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 2
+
+nT 
+
+ ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+ + 1
+
+nT ∥∆∥4
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤)
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 2σ∗
+
+> 1
+
+nT ∥∆∥2 
+
+> F
+
++ 1
+
+nT ∥∆∥4
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤).
+
+Using Lemma 11, we also have 
+
+D(HZ ⊤ + ZH ⊤) = 1
+
+nT ∥HbZ⊤ 
+
+> f
+
++ ZbH⊤ 
+
+> f
+
+∥2 
+
+> F
+
+≤ 2
+
+nT ∥Z∥22,∞∥H∥2 
+
+> F
+
+≤ 1
+
+nT 
+
+7μrσ ∗
+
+> 1
+
+n + T ∥H∥2 
+
+> F
+
+.
+
+39 On the other hand, we have 
+
+∥∇ Z ˜L(Z, ϕ )∥2 
+
+> F
+
+= ∥∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ + λDZZ ⊤DZ ∥2
+
+> F
+
+≤ 2∥∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ ∥2 
+
+> F
+
++ 2 λ2∥DZZ ⊤DZ ∥2 
+
+> F
+
+.
+
+Since Z ∈ B (ϵ), ϵ ≤ 1, we have ∥∆∥2 
+
+> F
+
+≤ σ∗ 
+
+> r
+
+≤ σ∗ 
+
+> 1
+
+. Using this bound along with the analysis in Zheng and Lafferty (2016) (Appendix C.2), we get: 
+
+∥DZZ ⊤DZ ∥2 
+
+> F
+
+≤ 6( ∥∆∥2 
+
+> F
+
++ 4 σ∗ 
+
+> 1
+
+)∥∆∥2 
+
+> F
+
+∥Z∥22 + 4 σ∗ 
+
+> 1
+
+∥Φ⊤D∆∥2
+
+> F
+
+≤ 30 σ∗ 
+
+> 1
+
+∥∆∥2 
+
+> F
+
+∥Z∥22 + 4 σ∗ 
+
+> 1
+
+∥Φ⊤D∆∥2
+
+> F
+
+≤ 180( σ∗ 
+
+> 1
+
+)2∥∆∥2 
+
+> F
+
++ 4 σ∗ 
+
+> 1
+
+∥Φ⊤D∆∥2 
+
+> F
+
+, (∥Z∥22 ≤ 6σ∗ 
+
+> 1
+
+) (A.10) The last bound can be derived using the fact that ∥Φ∥22 ≤ 2σ∗ 
+
+> 1
+
+and 
+
+∥Z∥22 = ∥Φ + ∆ ∥22 ≤ (∥Φ∥2 + ∥∆∥2)2 ≤ 2( ∥Φ∥22 + ∥∆∥22) ≤ 2(2 σ∗ 
+
+> 1
+
++ σ∗ 
+
+> 1
+
+) = 6 σ∗ 
+
+> 1
+
+.
+
+Putting all together and recalling that λξ2 = 12nT and ∥∆∥2 ≤ ϵσ ∗ 
+
+> r
+
+yield 
+
+∥∇ Z ˜L(Z, ϕ )∥2 
+
+> F
+
+≤ 24Ξ 4
+
+ εξ
+
+2
+
++ 2σ∗
+
+> 1
+
+nT ∥∆∥2 
+
+> F
+
++ 1
+
+nT ∥∆∥4
+
+> F
+
+!
+
+7μrσ ∗
+
+> 1
+
+nT (n + T )+ ξ4
+
+n2T 2
+
+
+
+90( σ∗ 
+
+> 1
+
+)2∥∆∥2 
+
+> F
+
++ 2 σ∗ 
+
+> 1
+
+∥Φ⊤D∆∥2
+
+> F
+
+
+
+≤
+
+336Ξ 4μr (σ∗ 
+
+> 1
+
+)2
+
+(nT )2(n + T ) + 90( σ∗ 
+
+> 1
+
+)2ξ4
+
+(nT )2 + 168Ξ 4μrσ ∗
+
+> 1
+
+(nT )2(n + T )∥∆∥2
+
+> F
+
+
+
+∥∆∥2
+
+> F
+
++ 168Ξ 4μrσ ∗
+
+> 1
+
+nT (n + T )ξ2 ε2 + 2ξ4σ∗
+
+> 1
+
+(nT )2 ∥Φ⊤D∆∥2
+
+> F
+
+≤
+
+504Ξ 4μr (σ∗ 
+
+> 1
+
+)2
+
+(nT )2(n + T ) + 90( σ∗ 
+
+> 1
+
+)2ξ4
+
+(nT )2
+
+
+
+∥∆∥2 
+
+> F
+
++ 168Ξ 4μrσ ∗
+
+> 1
+
+nT (n + T )ξ2 ε2
+
++ 2ξ4σ∗
+
+> 1
+
+(nT )2 ∥Φ∥22∥D∥22∆∥2
+
+> F
+
+≤ 90Ξ 4μr (σ∗ 
+
+> 1
+
+)2
+
+(nT )2
+
+ 5.6(n + T ) + ξ4
+
+Ξ4μr + 4ξ4
+
+90Ξ 4μr ∥D∥22
+
+
+
+∥∆∥2 
+
+> F
+
++ 168Ξ 4μrσ ∗
+
+> 1
+
+nT (n + T )ξ2 ε2
+
+≤ 90Ξ 4μr (σ∗ 
+
+> 1
+
+)2
+
+(nT )2 ∥∆∥2 
+
+> F
+
++ 168Ξ 4μrσ ∗
+
+> 1
+
+nT (n + T )ξ2 ε2
+
+≤ 1093Ξ 4(σ∗ 
+
+> 1
+
+)2μr n2T 2 ∥∆∥2 
+
+> F
+
++ 336Ξ 4μrσ ∗
+
+> 1
+
+nT ξ 2 ε2.
+
+The last inequality holds when 5.6(n+T ) + ξ4 
+
+> Ξ4μr
+
++ 4ξ4 
+
+> 90Ξ 4μr
+
+∥D∥22 ≤ 1 when n + T is large enough. Note that r, μ ≥ 1. 40 ii) In the random observation setting, we have: Assuming |e∗
+
+> k
+
+(ϕ)| ≤ ε. Using the concentration results, the last terms can be bounded as follows 
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 2 (1 + δ)
+
+nT 
+
+ ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+ + D(∆∆ ⊤)
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤)
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 2 (1 + δ)
+
+nT 
+
+ ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+ + ϵσ ∗
+
+> r
+
+nT ∥∆∥2
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤)
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 2 (1 + δ)
+
+nT 
+
+ ∥∆U Φ⊤ 
+
+> V
+
+∥2 
+
+> F
+
++ ∥ΦU ∆⊤ 
+
+> V
+
+∥2
+
+> F
+
+ + ϵσ ∗
+
+> r
+
+nT ∥∆∥2
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤)
+
+≤ 12Ξ 4
+
+ εξ
+
+2
+
++ 2 (1 + δ)σ∗
+
+> 1
+
+nT ∥∆∥2 
+
+> F
+
++ ϵσ ∗
+
+> r
+
+nT ∥∆∥2
+
+> F
+
+!
+
+sup  
+
+> H, ∥H∥2
+> F=1
+
+D(HZ ⊤ + ZH ⊤).
+
+From the concentration results in (A.4), we have 
+
+D(HZ ⊤ + ZH ⊤) ≤ 4min {n, T }∥Z∥22,∞∥H∥2 
+
+> F
+
+≤ 4min {n, T }
+
+3.5μrσ ∗
+
+> 1
+
+n + T ∥H∥2 
+
+> F
+
+.
+
+On the other hand, we have 
+
+∥∇ Z ˜L(Z, ϕ )∥2 
+
+> F
+
+= ∥∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ + λDZZ ⊤DZ ∥2
+
+> F
+
+≤ 2∥∇ Z ˜L(Z, ϕ ) − λDZZ ⊤DZ ∥2 
+
+> F
+
++ 2 λ2∥DZZ ⊤DZ ∥2 
+
+> F
+
+.
+
+The inequality (A.10) gives 
+
+∥DZZ ⊤DZ ∥2 
+
+> F
+
+≤ 180( σ∗ 
+
+> 1
+
+)2∥∆∥2 
+
+> F
+
++ 4 σ∗ 
+
+> 1
+
+∥Φ⊤D∆∥2 
+
+> F
+
+.
+
+Similar to the complete observation setting, and having δ = 1 /8, we obtain 
+
+∥∇ Z ˜L(Z, ϕ )∥2 
+
+> F
+
+≤ 24Ξ 4
+
+ εξ
+
+2
+
++ 9σ∗
+
+> 1
+
+4nT ∥∆∥2 
+
+> F
+
++ ϵσ ∗
+
+> r
+
+nT ∥∆∥2
+
+> F
+
+!
+
+14 μrσ ∗
+
+> 1
+
+(n + T ) min {n, T }
+
++ ξ4
+
+n2T 2
+
+
+
+90( σ∗ 
+
+> 1
+
+)2∥∆∥2 
+
+> F
+
++ 2 σ∗ 
+
+> 1
+
+∥Φ⊤D∆∥2
+
+> F
+
+
+
+≤
+
+ 1092Ξ 4(σ∗ 
+
+> 1
+
+)2μr nT (n + T ) min {n, T } + 90 ξ4(σ∗ 
+
+> 1
+
+)2
+
+n2T 2 + 4ξ4(σ∗ 
+
+> 1
+
+)2∥D∥22
+
+n2T 2
+
+
+
+∥∆∥2
+
+> F
+
++ 336Ξ 4μrσ ∗
+
+> 1
+
+ξ2(n + T ) min {n, T }ε2
+
+≤ 1093Ξ 4(σ∗ 
+
+> 1
+
+)2μr n2T 2 ∥∆∥2 
+
+> F
+
++ 336Ξ 4μrσ ∗
+
+> 1
+
+nT ξ 2 ε2.
+
+41 Appendix A.7. Proof of Proposition 1 Proof. Boundedness of Dt: we have 
+
+∥∆t+1 ∥2 
+
+> F
+
+= ∥Zt+1 − Φt+1 ∥2 
+
+> F
+
+≤ ∥ Zt+1 − Φt∥2
+
+> F
+
+= ∥P C
+
+
+
+Zt − ζt∇Z ˜L(Zt, ϕ t)
+
+
+
+− Φt∥2
+
+> F
+
+≤ ∥ Zt − ζt∇Z ˜L(Zt, ϕ t) − Φt∥2
+
+> F
+
+= ∥∆t − ζt∇Z ˜L(Zt, ϕ t)∥2
+
+> F
+
+= ∥∆t∥2 
+
+> F
+
++ ζ2 
+
+> t
+
+∥∇ Z ˜L(Zt, ϕ t)∥2 
+
+> F
+
+− 2ζt⟨∇ Z ˜L(Zt, ϕ t), ∆t⟩.
+
+The first inequality is by the definition of Φ( Zt+1 ). The second inequality is due to the projection property. From the results of Lemmas 5 and 6, with high probability, we have 
+
+⟨∇ Z ˜L(Zt, ϕ t), ∆t⟩≥ μZ ∥∆t∥2 
+
+> F
+
+− AZ ∥∆t∥F∥ϕt −ϕ⋆∥H,
+
+∥∇ Z ˜L(Zt, ϕ t)∥2 
+
+> F
+
+≤ BZ ∥∆t∥2 
+
+> F
+
++ A′ 
+
+> Z
+
+∥ϕt − ϕ∗∥2
+
+> H
+
+.
+
+It follows that 
+
+∥∆t+1 ∥2 
+
+> F
+
+≤ ∥ ∆t∥2 
+
+> F
+
++ ζ2 
+
+> t
+
+∥∇ Z ˜L(Zt, ϕ t)∥2 
+
+> F
+
+− 2ζt⟨∇ Z ˜L(Zt, ϕ t), ∆t⟩≤ (1 − 2ζtμZ + ζ2 
+
+> t
+
+BZ )∥∆t∥2 
+
+> F
+
++ ζt
+
+
+
+ζtA′ 
+
+> Z
+
+∥ϕt − ϕ∗∥H + 2 AZ ∥∆t∥F
+
+
+
+∥ϕt − ϕ∗∥H
+
+≤ (1 − ζtμZ )∥∆t∥2 
+
+> F
+
++ ζt
+
+
+
+ζtA′ 
+
+> Z
+
+∥ϕt − ϕ∗∥H + 2 AZ ∥∆t∥F
+
+
+
+∥ϕt − ϕ∗∥H,
+
+provided ζt ≤ min {1/A Z , μ Z /B Z , 1/μ Z }. Now, consider the following recursion, which captures the above dynamic of ∥∆t∥F .
+
+x2 
+
+> t+1
+
+≤  1 − bζ t
+
+x2 
+
+> t
+
++ 2 aζ tεx t + cε 2ζ2 
+
+> t
+
+,
+
+where b = μZ , a = AZ , c = A′ 
+
+> Z
+
+, and ∥ϕt − ϕ∗∥H ≤ ε. This can be further bounded as follows 
+
+x2 
+
+> t+1
+
+≤  1 − bζ t
+
+x2 
+
+> t
+
++ ( a2ζ2 
+
+> t
+
+ε2
+
+γ + x2 
+
+> t
+
+γ) + cε 2ζ2
+
+> t
+
+=  1 + γ − bζ t
+
+x2 
+
+> t
+
++ ( a2
+
+γ + c)ε2ζ2 
+
+> t
+
+.
+
+Let γ = bζ t/2. This leads to 
+
+x2 
+
+> t+1
+
+≤  1 − bζ t
+
+2
+
+x2 
+
+> t
+
++ (2 a2
+
+bζ t
+
++ c)ε2ζ2 
+
+> t
+
+=  1 − bζ t
+
+2
+
+x2 
+
+> t
+
++ (2 a2
+
+b + cζ t)ε2ζt.
+
+42 For ζt = ζ and R := (2 a2 
+
+> b
+
++ cζ t)ζtε2, we have 
+
+x2 
+
+> t+1
+
+≤ (1 − bζ 
+
+2 )tx20 + R
+
+> t−1
+
+X
+
+> i=0
+
+(1 − bζ 
+
+2 )i ≤ (1 − bζ 
+
+2 )tx20 + 2Rbζ 
+
+For bζ = 1, we have xt is bounded by √2R.
+
+Convergence of Et: To this end, we first prove the following helper lemmas. 
+
+Lemma 17 (Bounding ∥Zt+1 − Zt∥). Let cD := ζ2BZ and cE := 2 ζ2A′ 
+
+> Z
+
+. Then 
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+≤ cDDt + cE Et + cE χ2(Zt). (A.11) Proof is in Appendix Appendix A.8. 
+
+Lemma 18. If 0 < η ≤ 2α/L ϕ,α (α + Lϕ,α ), then 
+
+∥ϕt+1 − ϕ♯(Zt+1 )∥2 
+
+> H
+
+≤ qϕ ∥ϕt − ϕ♯(Zt+1 )∥2
+
+> H
+
+, (A.12) 
+
+where qϕ := 1 − ηαL ϕ,α  
+
+> α+Lϕ,α
+
+∈ (0 , 1) .
+
+Proof is in Appendix Appendix A.9. 
+
+Lemma 19. Recall that ϕ♯(Z) ∈ arg min ϕ∈K ˜L(ϕ, Z ), then for all Z, Z ′,
+
+∥ϕ♯(Z′) − ϕ♯(Z)∥H ≤ LZ→ϕ
+
+α ∥Z′ − Z∥F . (A.13) Proof is in Appendix Appendix A.10. 
+
+Proposition 2. For any δ > 0, letting A := ( LZ→ϕ/α )2,
+
+Et+1 ≤ qϕ(1 + δ)Et + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+A ∥Zt+1 − Zt∥2 
+
+> F
+
+. (A.14) Proof is in Appendix Appendix A.11. 
+
+Proposition 3. If 0 < ζ ≤ μZ /(2 BZ ), then 
+
+Dt+1 ≤ ρZ Dt + CZ←ϕ Et + CZ←ϕ χ2(Zt), (A.15) 
+
+where ρZ := 1 − ζμ Z 
+
+> 2
+
+∈ (0 , 1) , CZ←ϕ := 2 ζ2A′ 
+
+> Z
+
++ 2 ζA 2 
+
+> Z
+> μZ
+
+.
+
+43 Proof is in Appendix Appendix A.12. We are now ready to present the prove for the convergence of Et. From (A.16), we have 
+
+⟨∇ Z ˜L(ϕt, Z t), Z t+1 − Zt⟩ ≤ − 1
+
+ζ ∥Zt+1 − Zt∥2,
+
+By applying the smoothness of ˜L, Lemma 4, we obtain ˜L(Zt, ϕ t) − ˜L(Zt+1 , ϕ t) ≥ −⟨∇ Z ˜L(ϕt, Z t), Z t+1 − Zt⟩ − 12LZ
+
+∥Zt − Zt+1 ∥2
+
+≥ ( 1
+
+ζ − 12LZ
+
+)∥Zt − Zt+1 ∥2 ≥ 12ζ ∥Zt − Zt+1 ∥2.
+
+Similarly, we have ˜L(Zt+1 , ϕ t) − ˜L(Zt+1 , ϕ t+1 ) ≥ 12η ∥ϕt − ϕt+1 ∥2
+
+> H
+
+.
+
+By summing these two inequalities over t, we have ˜L(Z0, ϕ 0)− ˜L(ZT +1 , ϕ T +1 ) ≥
+
+> T
+
+X
+
+> t=0
+
+[ 12ζ ∥Zt−Zt+1 ∥2+ 12η ∥ϕt−ϕt+1 ∥2
+
+> H
+
+] ≥
+
+> T
+
+X
+
+> t=0
+
+12ζ ∥Zt−Zt+1 ∥2
+
+As a result, lim t→∞ ∥Zt+1 − Zt∥ = 0. Then, from Proposition 2, we have lim t→∞ Et =0. 
+
+Appendix A.8. Proof of Lemma 17 Proof. By first-order optimality of Zt+1 = PC (Zt − ζ∇Z ˜L(ϕt, Z t)), 
+
+⟨Zt − Zt+1 − ζ∇Z ˜L(ϕt, Z t), Z t+1 − Y ⟩ ≥ 0, ∀ Y ∈ C .
+
+When Y = Zt, we get 
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+≤ ζ⟨∇ Z ˜L(ϕt, Z t), Z t − Zt+1 ⟩ ≤ ζ∥∇ Z ˜L(ϕt, Z t)∥F ∥Zt+1 − Zt∥F , (A.16) so either ∥Zt+1 − Zt∥F = 0 (trivial) or 
+
+∥Zt+1 − Zt∥F ≤ ζ∥∇ Z ˜L(ϕt, Z t)∥F ⇒ ∥Zt+1 − Zt∥2 
+
+> F
+
+≤ ζ2∥∇ Z ˜L(ϕt, Z t)∥2 
+
+> F
+
+.
+
+By (13) , i.e., ∥∇ Z ˜L(ϕt, Z t)∥2 
+
+> F
+
+≤ BZ Dt + A′ 
+
+> Z
+
+∥ϕt − ϕ⋆∥2
+
+> H
+
+. Decompose ∥ϕt − ϕ⋆∥H ≤∥ϕt − ϕ♯(Zt)∥H + ∥ϕ♯(Zt) − ϕ⋆∥H ≤ √Et + χ, so ∥ϕt − ϕ⋆∥2 
+
+> H
+
+≤ 2Et + 2 χ2. Now, we get 
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+≤ ζ2BZ Dt + ζ2A′ 
+
+> Z
+
+(2 Et + 2 χ2),
+
+which is (A.11). 44 Appendix A.9. Proof of Lemma 18 Proof. Fix t and define 
+
+g(ϕ) := ˜L(ϕ, Z t+1 ).
+
+Let the feasible set be the cloIf sed convex set K := Hξ, Ξ and let PK denote the projection onto K. The projected gradient update reads 
+
+ϕt+1 = PK
+
+ ϕt − η∇g(ϕt). (A.17) Let ϕ♯ := ϕ♯(Zt+1 ) ∈ arg min ϕ∈K g(ϕ) be the constrained minimizer. Since ϕ♯
+
+minimizes g over K, the first-order optimality condition is 0 ∈ ∇ g(ϕ♯) + NK (ϕ♯), (A.18) where NK (ϕ♯) denotes the normal cone of K at ϕ♯. We claim that (A.18) implies the fixed-point identity 
+
+ϕ♯ = PK
+
+ ϕ♯ − η∇g(ϕ♯) for any η > 0. (A.19) To prove (A.19) , recall the characterization of projection onto a closed convex set: for any y ∈ H and any x ∈ K,
+
+x = PK (y) ⇐⇒ ⟨y − x, u − x⟩H ≤ 0, ∀u ∈ K. (A.20) Set y = ϕ♯ − η∇g(ϕ♯) and x = ϕ♯. Then y − x = −η∇g(ϕ♯), and (A.20) becomes 
+
+⟨− η∇g(ϕ♯), u − ϕ♯⟩H ≤ 0, ∀u ∈ K, 
+
+equivalently, 
+
+⟨∇ g(ϕ♯), u − ϕ♯⟩H ≥ 0, ∀u ∈ K. (A.21) Condition (A.21) is equivalent to −∇ g(ϕ♯) ∈ NK (ϕ♯), i.e., (A.18) . Hence (A.19) holds, and in particular we do not require ∇g(ϕ♯) = 0 (therefore boundary minimizers are covered). Combining (A.17) and (A.19), 
+
+ϕt+1 − ϕ♯ = PK (ϕt − η∇g(ϕt)) − P K (ϕ♯ − η∇g(ϕ♯)) .
+
+By non-expansiveness of PK ,
+
+∥ϕt+1 − ϕ♯∥H ≤ ∥ (ϕt − η∇g(ϕt)) − (ϕ♯ − η∇g(ϕ♯)) ∥H. (A.22) Squaring (A.22) and expanding yields 
+
+∥ϕt+1 − ϕ♯∥2 
+
+> H
+
+≤ ∥ (ϕt − ϕ♯) − η(∇g(ϕt) − ∇ g(ϕ♯)) ∥2
+
+> H
+
+= ∥ϕt − ϕ♯∥2 
+
+> H
+
+− 2η ⟨∇ g(ϕt) − ∇ g(ϕ♯), ϕ t − ϕ♯⟩H + η2∥∇ g(ϕt) − ∇ g(ϕ♯)∥2
+
+> H
+
+.
+
+(A.23) 45 Since g is α-strongly convex, Lemma 1, ∇g is α-strongly monotone: 
+
+⟨∇ g(ϕt) − ∇ g(ϕ♯), ϕ t − ϕ♯⟩H ≥ α∥ϕt − ϕ♯∥2
+
+> H
+
+. (A.24) Since g is Lϕ,α -smooth and convex, Lemma 2, ∇g is 1 /L ϕ,α -cocoercive: 
+
+⟨∇ g(ϕt) − ∇ g(ϕ♯), ϕ t − ϕ♯⟩H ≥ 1
+
+Lϕ,α 
+
+∥∇ g(ϕt) − ∇ g(ϕ♯)∥2
+
+> H
+
+. (A.25) Let 
+
+θ := Lϕ,α 
+
+α + Lϕ,α 
+
+, 1 − θ := αα + Lϕ,α 
+
+.
+
+Multiplying (A.24) by θ and (A.25) by (1 − θ), and adding, we obtain 
+
+⟨∇ g(ϕt) − ∇ g(ϕ♯), ϕ t − ϕ♯⟩H ≥ αL ϕ,α 
+
+α + Lϕ,α 
+
+∥ϕt − ϕ♯∥2 
+
+> H
+
+(A.26) + αLϕ,α (α + Lϕ,α )∥∇ g(ϕt) − ∇ g(ϕ♯)∥2
+
+> H
+
+.
+
+Substituting (A.26) into (A.23) yields 
+
+∥ϕt+1 − ϕ♯∥2 
+
+> H
+
+≤ ∥ ϕt − ϕ♯∥2
+
+> H
+
+− 2η
+
+ αL ϕ,α 
+
+α + Lϕ,α 
+
+∥ϕt − ϕ♯∥2 
+
+> H
+
++ αLϕ,α (α + Lϕ,α )∥∇ g(ϕt) − ∇ g(ϕ♯)∥2
+
+> H
+
+
+
++ η2∥∇ g(ϕt) − ∇ g(ϕ♯)∥2
+
+> H
+
+=
+
+
+
+1 − 2ηαL ϕ,α 
+
+α + Lϕ,α 
+
+
+
+∥ϕt − ϕ♯∥2 
+
+> H
+
+(A.27) +
+
+
+
+η2 − 2ηα Lϕ,α (α + Lϕ,α )
+
+
+
+∥∇ g(ϕt) − ∇ g(ϕ♯)∥2
+
+> H
+
+.
+
+Assume 0 < η ≤ 2αLϕ,α (α+Lϕ,α ) . Then 
+
+η2 − 2ηα Lϕ,α (α + Lϕ,α ) ≤ 0,
+
+hence the second term in (A.27) is non-positive and can be dropped: 
+
+∥ϕt+1 − ϕ♯∥2 
+
+> H
+
+≤
+
+
+
+1 − 2ηαL ϕ,α 
+
+α + Lϕ,α 
+
+
+
+∥ϕt − ϕ♯∥2
+
+> H
+
+. (A.28) Finally, since 1 − 2ηαL ϕ,α 
+
+α + Lϕ,α 
+
+≤ 1 − ηαL ϕ,α 
+
+α + Lϕ,α 
+
+=: qϕ,
+
+we obtain 
+
+∥ϕt+1 − ϕ♯(Zt+1 )∥2 
+
+> H
+
+≤ qϕ∥ϕt − ϕ♯(Zt+1 )∥2
+
+> H
+
+,
+
+which is exactly (A.12) in Lemma 7. This completes the proof. 46 Appendix A.10. Proof of Lemma 19 Proof. Write the variational optimality conditions using the normal cone NK(·): 0 ∈ ∇ϕ ˜L(ϕ♯(Z), Z ) + NK(ϕ♯(Z)) , 0 ∈ ∇ϕ ˜L(ϕ♯(Z′), Z ′) + NK(ϕ♯(Z′)) .
+
+Thus there exist v ∈ NK(ϕ♯(Z)) and v′ ∈ NK(ϕ♯(Z′)) such that 
+
+∇ϕ ˜L(ϕ♯(Z), Z ) + v = 0 , ∇ϕ ˜L(ϕ♯(Z′), Z ′) + v′ = 0 .
+
+Subtract the two relations and add–subtract ∇ϕ ˜L(ϕ♯(Z′), Z ): 
+
+ ∇ϕ ˜L(ϕ♯(Z′), Z ) − ∇ ϕ ˜L(ϕ♯(Z), Z )| {z }
+
+> =: (A)
+
++  ∇ϕ ˜L(ϕ♯(Z′), Z ′) − ∇ ϕ ˜L(ϕ♯(Z′), Z )| {z }
+
+> =: (B)
+
++ ( v′−v) = 0 .
+
+Take inner product with d := ϕ♯(Z′) − ϕ♯(Z). By strong convexity in ϕ at any fixed 
+
+Z, we get 
+
+⟨(A) , d ⟩H ≥ α∥d∥2
+
+> H
+
+.
+
+By monotonicity of the normal cone, 
+
+⟨v′ − v, d ⟩H ≥ 0.
+
+Hence, 
+
+α∥d∥2 
+
+> H
+
+≤ − ⟨ (B) , d ⟩H ≤ ∥(B) ∥H ∥d∥H.
+
+From the Lemma 3 at the point ϕ = ϕ♯(Z′), 
+
+∥(B) ∥H = ∇ϕ ˜L(ϕ♯(Z′), Z ′) − ∇ ϕ ˜L(ϕ♯(Z′), Z ) H ≤ LZ→ϕ ∥Z′ − Z∥F .
+
+If ∥d∥H = 0 we are done; otherwise divide both sides by ∥d∥H to obtain 
+
+∥d∥H ≤ LZ→ϕ
+
+α ∥Z′ − Z∥F ,
+
+which is (A.13). 
+
+Appendix A.11. Proof of Lemma 2 Proof. From Lemma 18, 
+
+∥ϕt+1 − ϕ♯(Zt+1 )∥2 
+
+> H
+
+≤ qϕ ∥ϕt − ϕ♯(Zt+1 )∥2
+
+> H
+
+.
+
+Using ( a + b)2 ≤ (1 + δ)a2 + (1 + 1 /δ )b2 with a = √Et = ∥ϕt − ϕ♯(Zt)∥H and 
+
+b = ∥ϕ♯(Zt+1 ) − ϕ♯(Zt)∥H, then applying Lemma 19, 
+
+∥ϕt − ϕ♯(Zt+1 )∥2 
+
+> H
+
+≤ (1 + δ)Et + (1 + 1 /δ )
+
+LZ→ϕ
+
+> α
+
+2
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+,
+
+which yields (A.14). 47 Appendix A.12. Proof of Lemma 3 Proof. By projection non-expansiveness and Φ t ∈ M ,
+
+∥∆t+1 ∥F = ∥Zt+1 − Φt+1 ∥F ≤ ∥ Zt+1 − Φt∥F ≤ ∥ Zt − ζ∇Z ˜L(ϕt, Z t) − Φt∥F
+
+= ∥∆t − ζ∇Z ˜L(ϕt, Z t)∥F .
+
+Square and expand: 
+
+∥∆t+1 ∥2 
+
+> F
+
+≤ ∥ ∆t∥2 
+
+> F
+
++ ζ2∥∇ Z ˜L(ϕt, Z t)∥2 
+
+> F
+
+− 2ζ⟨∇ Z ˜L(ϕt, Z t), ∆t⟩.
+
+Use (11)–(13) and Young’s inequality uv ≤ ε 
+
+> 2
+
+u2 + 12ε v2 with ε = μZ /A Z :
+
+⟨∇ Z ˜L(ϕt, Z t), ∆t⟩ ≥ μZ ∥∆t∥2 
+
+> F
+
+− AZ ∥∆t∥F ∥ϕt − ϕ⋆∥H,
+
+∥∇ Z ˜L(ϕt, Z t)∥2 
+
+> F
+
+≤ BZ ∥∆t∥2 
+
+> F
+
++ A′ 
+
+> Z
+
+∥ϕt − ϕ⋆∥2
+
+> H
+
+,
+
+2ζA Z ∥∆t∥F ∥ϕt − ϕ⋆∥H ≤ ζμ Z ∥∆t∥2 
+
+> F
+
++ ζA 2
+
+> Z
+
+μZ
+
+∥ϕt − ϕ⋆∥2
+
+> H
+
+.
+
+Therefore, we get 
+
+Dt+1 ≤  1 − ζμ Z + ζ2BZ
+
+Dt +
+
+
+
+ζ2A′ 
+
+> Z
+
++ ζA 2
+
+> Z
+
+μZ
+
+
+
+∥ϕt − ϕ⋆∥2
+
+> H
+
+.
+
+Decompose ∥ϕt −ϕ⋆∥H ≤ ∥ ϕt −ϕ♯(Zt)∥H +∥ϕ♯(Zt)−ϕ⋆∥H ≤ √Et +χ, so ∥ϕt −ϕ⋆∥2 
+
+> H
+
+≤
+
+2Et + 2 χ2, yielding (A.15). 
+
+Appendix A.13. Proof of Theorem 1 Proof. From Proposition 2 and Lemma 17, 
+
+Et+1 ≤ qϕ(1 + δ)Et + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+A (cDDt + cE Et + cE χ2(Zt)) .
+
+Proposition 3 gives us 
+
+Dt+1 ≤ ρZ Dt + CZ←ϕ Et + CZ←ϕ χ2(Zt).
+
+Multiplying the second inequality by γ and adding to the first, we obtain 
+
+Vt+1 = Et+1 + γD t+1 
+
+≤
+
+h
+
+qϕ(1 + δ) + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + γ C Z←ϕ
+
+i| {z }
+
+> aEE
+
+Et
+
++
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac D + γ ρ Z
+
+i| {z }
+
+> aDD
+
+Dt
+
++
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + γC Z←ϕ
+
+i| {z }
+
+> Cϕ
+
+χ2(Zt).
+
+(A.29) 48 Symbol Definition 
+
+qϕ 1 − ηαL ϕ,α 
+
+α + Lϕ,α 
+
+ρZ 1 − ζμ Z /2
+
+A (LZ→ϕ/α )2
+
+cD ζ2BZ
+
+cE 2ζ2A′
+
+> Z
+
+CZ←ϕ 2ζ2A′ 
+
+> Z
+
++ 2 ζA 2
+
+> Z
+> μZ
+
+δ (1 /q ϕ − 1) /2
+
+aEE qϕ(1 + δ) + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + γ C Z←ϕ
+
+aDD qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac D + γ ρ Z
+
+ρ max {aEE , a DD /γ }
+
+Cϕ qϕ(1 + 1 /δ )Ac E + 2 γC Z←ϕ
+
+C′ 
+
+> ϕ
+
+5ηαL ϕ,α /(8( α + Lϕ,α )) 
+
+Table A.4: Notations and their definitions. 
+
+49 We require both aEE < 1 and aDD /γ < 1. Refer to Table A.4 for the definitions. Below, we provide explicit recipe for having such aEE and aDD .We had 0 < η ≤ 2αLϕ,α (α+Lϕ,α ) and in order to have qϕ = 1 − ηαL ϕ,α  
+
+> α+Lϕ,α
+
+∈ (0 , 1) , we should select 
+
+η ≤ min α + Lϕ,α 
+
+2αL ϕ,α 
+
+, 2αLϕ,α (α + Lϕ,α ) = 2αLϕ,α (α + Lϕ,α ).
+
+The above equality holds since Lϕ,α ≥ α as it is given in Lemma 2. which is guaranteed by choosing η = C1αα+C2 .Let 
+
+δ := 1/q ϕ − 12 (> 0) ⇒ qϕ(1 + δ) = 1 + qϕ
+
+2 (< 1) , qϕ
+
+
+
+1 + 1
+
+δ
+
+
+
+= qϕ(1 + qϕ)1 − qϕ
+
+.
+
+(A.30) Recall that 
+
+aEE = qϕ(1 + δ) + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + γ C Z←ϕ
+
+= 1 + qϕ
+
+2 + qϕ(1 + qϕ)1 − qϕ
+
+LZ→ϕ
+
+α
+
+2
+
+(2 ζ2A′ 
+
+> Z
+
+) + γ
+
+
+
+2ζ2A′ 
+
+> Z
+
++ 2ζμZ
+
+A2
+
+> Z
+
+
+
+≤ 1 − ηαL ϕ,α 
+
+2( α + Lϕ,α ) + α + Lϕ,α 
+
+ηαL ϕ,α 
+
+LZ→ϕ
+
+α
+
+2
+
+(2 ζ2A′ 
+
+> Z
+
+) + γ
+
+
+
+2ζ2A′ 
+
+> Z
+
++ 2ζμZ
+
+A2
+
+> Z
+
+
+
+.
+
+The last inequality is using the fact that qϕ ≤ 1/2 and thus qϕ(1 + qϕ) ≤ 1. By setting γ
+
+
+
+2ζ2A′ 
+
+> Z
+
++ 2ζμZ A2
+
+> Z
+
+
+
+≤ ηαL ϕ,α  
+
+> 4( α+Lϕ,α )
+
+and ζ ≤ ηα 2Lϕ,α 
+
+> 4
+
+√A′  
+
+> ZLZ→ϕ(α+Lϕ,α )
+
+, we have 
+
+aEE ≤ 1 − ηαL ϕ,α 
+
+4( α + Lϕ,α ) + α + Lϕ,α 
+
+ηαL ϕ,α 
+
+LZ→ϕ
+
+α
+
+2
+
+2 η2α4L2
+
+> ϕ,α
+
+16 L2
+
+> Z→ϕ
+
+A′ 
+
+> Z
+
+(α + Lϕ,α )2 A′
+
+> Z
+
+!
+
+= 1 − ηαL ϕ,α 
+
+8( α + Lϕ,α ) < 1.
+
+In order to have γ
+
+
+
+2ζ2A′ 
+
+> Z
+
++ 2ζμZ A2
+
+> Z
+
+
+
+≤ ηαL ϕ,α  
+
+> 4( α+Lϕ,α )
+
+and ζ ≤ min { ηα 2Lϕ,α 
+
+> 4
+
+√A′  
+
+> ZLZ→ϕ(α+Lϕ,α )
+
+, 12μZ },we only require 
+
+γ ≤ ηαL ϕ,α μZ
+
+16( α + Lϕ,α )ζ max {A′ 
+
+> Z
+
+, A 2 
+
+> Z
+
+} ≤
+
+> ηαL ϕ,α
+> 4( α+Lϕ,α )
+
+2ζ2A′ 
+
+> Z
+
++ 2ζA 2
+
+> Z
+> μZ
+
+.
+
+Therefore, by choosing 
+
+γ = LZ→ϕμZ
+
+4α max {pA′ 
+
+> Z
+
+, A Z },
+
+50 we ensure that 
+
+γ ≤ ηαL ϕ,α μZ
+
+16( α + Lϕ,α ) ηα 2Lϕ,α 
+
+> 4
+
+√A′  
+
+> ZLZ→ϕ(α+Lϕ,α )
+
+max {A′ 
+
+> Z
+
+, A 2 
+
+> Z
+
+}
+
+given that AZ ≤ pA′ 
+
+> Z
+
+and consequently, we get aEE < 1. On the other hand, according to the definition of aDD , we have 
+
+aDD 
+
+γ = ρZ + qϕ(1 + qϕ)1 − qϕ
+
+· A c D
+
+γ = 1 − ζμ Z 
+
+> 2
+
++ qϕ(1 + qϕ)1 − qϕ
+
+· ζ2AB Z
+
+γ .
+
+To ensure aDD  
+
+> γ
+
+≤ 1 − ζμ Z 
+
+> 4
+
+, it suffices to have 
+
+qϕ(1 + qϕ)1 − qϕ
+
+· ζ2AB Z
+
+γ ≤ ζμ Z
+
+4or 
+
+ζ ≤ μZ (1 − qϕ)γ
+
+4AB Z
+
+< μZ (1 − qϕ)γ
+
+4qϕ(1 + qϕ)AB Z
+
+While A = ( LZ→ϕ/α )2 and γ = LZ→ϕμZ /(4 α max {pA′ 
+
+> Z
+
+, A Z }), we obtain 
+
+μZ (1 − qϕ) γ
+
+4 A B Z
+
+= η α 2 μ2 
+
+> Z
+
+Lϕ,α 
+
+16 max {pA′ 
+
+> Z
+
+, A Z } LZ→ϕ (α + Lϕ,α ) BZ
+
+.
+
+Therefore, by selecting 
+
+ζ ≤ η α 2 μ2 
+
+> Z
+
+Lϕ,α 
+
+16 max {pA′ 
+
+> Z
+
+, A Z } LZ→ϕ (α + Lϕ,α ) BZ
+
+,
+
+we ensure that aDD /γ < 1. The aforementioned conditions are satisfied for ζ when 
+
+ζ ∈ O 
+
+ α3
+
+(α + Lϕ,α )2(μrκ )2
+
+  ξ
+
+Ξ
+
+5
+
+√nT BK
+
+
+
+.
+
+Regarding the last term, i.e., qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + 2 γC Z←ϕ, we have 
+
+Cϕ =
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + 2 γC Z←ϕ
+
+i
+
+=
+
+hα + Lϕ,α 
+
+ηαL ϕ,α 
+
+LZ→ϕ
+
+α
+
+2
+
+(2 ζ2A′ 
+
+> Z
+
+) + 4 γ
+
+
+
+ζ2A′ 
+
+> Z
+
++ ζA Z
+
+μZ
+
+i 
+
+≤
+
+h ηαL ϕ,α 
+
+8( α + Lϕ,α ) + ηαL ϕ,α 
+
+2( α + Lϕ,α )
+
+i
+
+= 5ηαL ϕ,α 
+
+8( α + Lϕ,α ) := C′
+
+> ϕ
+
+.
+
+51 Overall, aEE ≤ 1 − ηαL ϕ,α  
+
+> 8( α+Lϕ,α )
+
+and aDD  
+
+> γ
+
+≤ 1 − ζμ Z 
+
+> 4
+
+, we have 
+
+Vt+1 ≤ ρVt + C′
+
+> ϕ
+
+χ2(Zt),
+
+where ρ = max {1 − ηαL ϕ,α  
+
+> 8( α+Lϕ,α )
+
+, 1 − ζμ Z 
+
+> 4
+
+} < 1. By telescoping over t, we can get the result. 
+
+Appendix A.14. Proof of Theorem 3 Proof. The representer theorem implies that for any fixed Z, the stationary ϕ of the regularized likelihood function has the following form 
+
+ϕ(·) = 
+
+> M
+
+X
+
+> j=1
+
+βj K(xj , ·), xj := ⟨Aj , ZZ ⊤⟩.
+
+Plugging into stationary condition and equating the coefficients of K(xk, ·) on both sides yields, 
+
+αβ k = 2  yk − (Kβ )k
+
+, k = 1 , . . . , M, (A.31) where K ∈ RM ×M is the Gram matrix Kkj := K(xj , x k). Thus (αI + 2 K) β = 2 y =⇒ β = ( αI + 2 K)−1(2 y).
+
+We define the residual vector e ∈ RM at the stationary point ( Z, ϕ ) for a given α
+
+with the following entries (eα)k := yk − ϕ(xk) = yk − (Kβ )k.
+
+Combining this definition with (A.31) yields 
+
+αβ k = 2 ek =⇒ ek = α
+
+2 βk.
+
+Rewriting the above relation in a matrix form gives us 
+
+e(α) = α
+
+2 β = α
+
+2 (αI + 2 K)−1(2 y) = α(αI + 2 K)−1y. (A.32) As K is symmetric, let K = U ΛU ⊤ be the spectral decomposition, with Λ = diag( λ1, . . . , λ M ) and λi ≥ 0. Then 
+
+e(α) = U diag 
+
+ αα + 2 λi
+
+
+
+U ⊤y. 
+
+Note that for any i, α/ (α + 2 λi) is strictly increasing function of α, at 0 it is 0, and it tends to 1 as α → ∞ . Therefore, 
+
+∥e(α)∥22 =
+
+> M
+
+X
+
+> i=1
+
+ αα + 2 λi
+
+2
+
+(U ⊤y)2
+
+> i
+
+52 is also a non-decreasing function of α. Moreover, using the RKHS point-wise bound, we have 
+
+|yk| = |ϕ⋆(x⋆k)| ≤ ∥ ϕ⋆∥H
+
+q
+
+K(x⋆k, x ⋆k) ≤ pBK ∥ϕ⋆∥H =⇒ ∥ y∥2 ≤ pM B K ∥ϕ⋆∥H,
+
+and consequently, get 
+
+∥e(α)∥2 ≤ αα + 2 λmin (K)
+
+pM B K ∥ϕ⋆∥H. (A.33) 
+
+Appendix A.15. Proof of Theorem 2 
+
+We first present a more detailed version of Theorem 2 and prove it. 
+
+Theorem 5. Let K := Hξ, Ξ ⊂ H be the feasible set for ϕ, and let C be the feasible set for Z. Let 
+
+Gϕ := sup 
+
+> (ϕ,Z )∈K×C
+
+∥∇ ϕ ˜L(ϕ, Z )∥H < ∞,
+
+then for all T ≥ 1,
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+ ˜L(ϕt, Z t) − min 
+
+> ϕ∈K
+
+˜L(ϕ, Z t)
+
+
+
+≤ Gϕ
+
+rCE
+
+T ,
+
+where 
+
+CE := a
+
+1 − a E0 + 2ζb 
+
+1 − a ˜L(ϕ0, Z 0). (A.34) 
+
+a := qϕ(1 + δ) = (1 + qϕ)/2 ∈ (0 , 1) , (A.35) 
+
+b := qϕ
+
+
+
+1 + 1
+
+δ
+
+ LZ→ϕ
+
+α
+
+2
+
+= qϕ(1 + qϕ)1 − qϕ
+
+LZ→ϕ
+
+α
+
+2
+
+. (A.36) 
+
+Proof. Fix t ≥ 1 and define the function gt : K → R by 
+
+gt(ϕ) := ˜L(ϕ, Z t).
+
+By Lemma 1, for each fixed Zt the map ϕ 7 → gt(ϕ) is α-strongly convex on H,and therefore is convex on H; in particular it is convex on the convex set K. Let 
+
+ϕ♯(Zt) ∈ arg min ϕ∈K gt(ϕ). Since gt is convex and differentiable, the first-order inequality for convex functions states that for all x, y ∈ K,
+
+gt(y) ≥ gt(x) + ⟨∇ gt(x), y − x⟩H. (A.37) Apply (A.37) with x = ϕt and y = ϕ♯(Zt). Then 
+
+gt(ϕ♯(Zt)) ≥ gt(ϕt) + ⟨∇ gt(ϕt), ϕ ♯(Zt) − ϕt⟩H.
+
+53 Rearranging terms yields 
+
+gt(ϕt) − gt(ϕ♯(Zt)) ≤ ⟨∇ gt(ϕt), ϕ t − ϕ♯(Zt)⟩H. (A.38) Now note that ∇gt(ϕt) = ∇ϕ ˜L(ϕt, Z t). By Cauchy–Schwarz, 
+
+⟨∇ ϕ ˜L(ϕt, Z t), ϕ t − ϕ♯(Zt)⟩H ≤ ∥∇ ϕ ˜L(ϕt, Z t)∥H · ∥ ϕt − ϕ♯(Zt)∥H.
+
+Using the uniform gradient bound ∥∇ ϕ ˜L(ϕt, Z t)∥H ≤ Gϕ and the definition Et =
+
+∥ϕt − ϕ♯(Zt)∥2
+
+> H
+
+, we obtain from (A.38) that ˜L(ϕt, Z t) − ˜L(ϕ♯(Zt), Z t) ≤ Gϕ
+
+pEt. (A.39) Because min ϕ∈K ˜L(ϕ, Z t) = ˜L(ϕ♯(Zt), Z t), (A.39) is exactly ˜L(ϕt, Z t) − min 
+
+> ϕ∈K
+
+˜L(ϕ, Z t) ≤ Gϕ
+
+pEt.
+
+Summing (A.39) from t = 1 to T and dividing by T gives 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+ ˜L(ϕt, Z t) − min 
+
+> ϕ∈K
+
+˜L(ϕ, Z t)
+
+
+
+≤ Gϕ
+
+T
+
+> T
+
+X
+
+> t=1
+
+pEt.
+
+Apply Cauchy–Schwarz to the vectors (1 , . . . , 1) ∈ RT and ( √E1, . . . , √ET ) ∈ RT :
+
+> T
+
+X
+
+> t=1
+
+pEt ≤ √T
+
+vuut TX
+
+> t=1
+
+Et.
+
+Therefore, 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+ ˜L(ϕt, Z t) − min 
+
+> ϕ∈K
+
+˜L(ϕ, Z t)
+
+
+
+≤ Gϕ
+
+vuut 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+Et. (A.40) By Proposition 2, with the above choice of δ we have for all t ≥ 0, 
+
+Et+1 ≤ a E t + b ∥Zt+1 − Zt∥2 
+
+> F
+
+, (A.41) where a ∈ (0 , 1) and b > 0 are defined in the lemma statement. We claim that for all T ≥ 1, TX
+
+> t=1
+
+Et ≤ a
+
+1 − a E0 + b
+
+1 − a 
+
+> T−1
+
+X
+
+> t=0
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+. (A.42) To prove (A.42), first unroll (A.41): for any t ≥ 0, repeated substitution yields 
+
+Et+1 ≤ at+1 E0 + b
+
+> t
+
+X
+
+> k=0
+
+at−k∥Zk+1 − Zk∥2 
+
+> F
+
+. (A.43) 54 Now sum (A.43) over t = 0 , 1, . . . , T − 1:  
+
+> T−1
+
+X
+
+> t=0
+
+Et+1 ≤ E0 
+
+> T−1
+
+X
+
+> t=0
+
+at+1 + b 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> k=0
+
+at−k∥Zk+1 − Zk∥2 
+
+> F
+
+.
+
+We bound the first term using the geometric series:  
+
+> T−1
+
+X
+
+> t=0
+
+at+1 = a 
+
+> T−1
+
+X
+
+> t=0
+
+at ≤ a
+
+> ∞
+
+X
+
+> t=0
+
+at = a
+
+1 − a.
+
+For the double sum, swap the order of summation. Observe that the index set is 
+
+{(k, t ) : 0 ≤ k ≤ t ≤ T − 1}, hence  
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> k=0
+
+at−k∥Zk+1 − Zk∥2 
+
+> F
+
+= 
+
+> T−1
+
+X 
+
+> k=0
+> T−1
+
+X
+
+> t=k
+
+at−k∥Zk+1 − Zk∥2 
+
+> F
+
+.
+
+For each fixed k, the inner sum is again a geometric series:  
+
+> T−1
+
+X
+
+> t=k
+
+at−k = 
+
+> T−1−k
+
+X
+
+> j=0
+
+aj ≤
+
+> ∞
+
+X
+
+> j=0
+
+aj = 11 − a.
+
+Therefore,  
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> k=0
+
+at−k∥Zk+1 − Zk∥2 
+
+> F
+
+≤ 
+
+> T−1
+
+X
+
+> k=0
+
+11 − a ∥Zk+1 − Zk∥2 
+
+> F
+
+= 11 − a 
+
+> T−1
+
+X
+
+> t=0
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+.
+
+Combining these two bounds proves (A.42) . Next, we bound PT −1 
+
+> t=0
+
+∥Zt+1 − Zt∥2
+
+> F
+
+from t = 0 to T − 1, using Lemma 20,  
+
+> T−1
+
+X
+
+> t=0
+
+ ˜L(ϕt, Z t)− ˜L(ϕt+1 , Z t+1 )
+
+
+
+≥ 
+
+> T−1
+
+X
+
+> t=0
+
+ ˜L(ϕt, Z t)− ˜L(ϕt, Z t+1 )
+
+
+
+≥ 12ζ 
+
+> T−1
+
+X
+
+> t=0
+
+∥Zt+1 −Zt∥2 
+
+> F
+
+.
+
+Hence,  
+
+> T−1
+
+X
+
+> t=0
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+≤ 2ζ
+
+ ˜L(ϕ0, Z 0) − L(ϕT , Z T )
+
+
+
+≤ 2ζ ˜L(ϕ0, Z 0). (A.44) Substituting (A.44) into (A.42) yields 
+
+> T
+
+X
+
+> t=1
+
+Et ≤ a
+
+1 − a E0 + 2ζb 
+
+1 − a ˜L(ϕ0, Z 0) =: CE ,
+
+55 which is exactly (A.35) and is independent of T . Plugging PTt=1 Et ≤ CE into (A.40) gives 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+ ˜L(ϕt, Z t) − min 
+
+> ϕ∈K
+
+˜L(ϕ, Z t)
+
+
+
+≤ Gϕ
+
+rCE
+
+T ,
+
+which completes the proof. 
+
+Lemma 20. From Lemma 4, we know that Z 7 → ˜L(ϕ, Z ) is LZ -smooth on C for any 
+
+ϕ . If 0 < ζ ≤ 1/L Z , then 
+
+˜L(ϕt+1 , Z t) − ˜L(ϕt+1 , Z t+1 ) ≥ 12ζ ∥Zt+1 − Zt∥2 
+
+> F
+
+≥ 0, ∀t. 
+
+Proof. This is the standard projected-gradient sufficient decrease. Let S := Zt+1 −Zt
+
+and g := ∇Z ˜L(ϕt+1 , Z t). From the projection optimality (choose U = Zt in the projection characterization), 
+
+⟨g, S ⟩ ≤ − 1
+
+ζ ∥S∥2 
+
+> F
+
+.
+
+By LZ -smoothness in Z,˜L(ϕt+1 , Z t+1 ) ≤ ˜L(ϕt+1 , Z t) + ⟨g, S ⟩ + LZ
+
+2 ∥S∥2 
+
+> F
+
+≤ ˜L(ϕt+1 , Z t) −
+
+ 1
+
+ζ − LZ
+
+2
+
+
+
+∥S∥2 
+
+> F
+
+.
+
+If ζ ≤ 1/L Z then (1 /ζ − LZ /2) ≥ 1/(2 ζ), concluding the claim. 
+
+Appendix B. Noisy Observation Setting with Known Variance σ2 > 0
+
+We consider the noisy observation model 
+
+yi,t = ϕ⋆ ⟨b⋆i , f ⋆t ⟩ + ui,t , (i, t ) ∈ Ω, (B.1) where Ω ⊂ [n] × [T ] is the observed index set with |Ω| = M . The noise variables 
+
+{ui,t } are i.i.d. and satisfy: 
+
+E[ui,t ] = 0 , Var( ui,t ) = σ2 (known) , ui,t is sub-Gaussian with parameter σ2.
+
+For each k = ( i, t ) ∈ Ω, define the scalar mapping zk(Z) := ⟨Ak, ZZ ⊤⟩, so that (B.1) reads yk = ϕ⋆(zk(Z⋆)) + uk.56 Appendix B.1. Algorithm and Lyapunov potential 
+
+We consider the projected BCD updates 
+
+ϕt+1 = PH
+
+ ϕt − η∇ϕ ˜L(ϕt, Z t), Zt+1 = PC
+
+ Zt − ζ∇Z ˜L(ϕt+1 , Z t), (B.2) with stepsizes 0 < η ≤ 1/(α + Lϕ,α ) and 0 < ζ ≤ 1/L Z (or a backtracking rule). We further define the Lyapunov quantities 
+
+Et := ∥ϕt − ϕ♯(Zt)∥2
+
+> H
+
+, Dt := ∥∆( Zt)∥2 
+
+> F
+
+, Vt := Et + γD t, (B.3) where γ > 0 will be specified in the main theorem. 
+
+Lemma 21. Under the Assumptions of Lemma 5 plus the assumption in 3, for any 
+
+δ ∈ (0 , 1) , with probability at least 1 − 2δ over the noise {uk}, we have 
+
+∇Z ˜L(ϕ, Z ), ∆ ≥ μZ ∥∆∥2 
+
+> F
+
+−AZ ∥∆∥F ∥ϕ− ϕ∗∥H − ε1(σ)∥∆∥F ,
+
+where AZ , μ Z are the same constants as in the noiseless case and ε1(σ) ∈ O (Ξ σplog(2 /δ )).Proof. We start from the explicit gradient expression (Appendix 4.2): 
+
+∇Z ˜L(Z, ϕ ) = 2 
+
+> M
+
+X
+
+> k=1
+
+ ϕ(zk) − yk
+
+ϕ′(zk) ( Ak + A⊤ 
+
+> k
+
+)Z + λDZZ ⊤DZ, 
+
+hence 
+
+∇Z ˜L(Z, ϕ ), ∆ = 2 
+
+> M
+
+X
+
+> k=1
+
+hk (Ak + A⊤ 
+
+> k
+
+)Z, ∆ + λ DZZ ⊤DZ, ∆ , (B.4) where hk := ϕ′(zk) ϕ(zk) − yk
+
+ and zk = ⟨Ak, ZZ ⊤⟩.Under the noisy model yk = ϕ∗(z∗ 
+
+> k
+
+) + uk, we can write 
+
+hk = ϕ′(zk) ϕ(zk) − ϕ∗(z∗ 
+
+> k
+
+) − ϕ′(zk)uk =: h(0)  
+
+> k
+
++ h(u) 
+
+> k
+
+,
+
+where h(u) 
+
+> k
+
+:= −ϕ′(zk)uk.Plugging this decomposition into (B.4) yields 
+
+∇Z ˜L(Z, ϕ ), ∆ = 2 
+
+> M
+
+X
+
+> k=1
+
+h(0)  
+
+> k
+
+(Ak + A⊤ 
+
+> k
+
+)Z, ∆ + λ DZZ ⊤DZ, ∆
+
+| {z } 
+
+> =: T0
+
+(B.5) + 2 
+
+> M
+
+X
+
+> k=1
+
+h(u) 
+
+> k
+
+(Ak + A⊤ 
+
+> k
+
+)Z, ∆
+
+| {z } 
+
+> =: Tu
+
+. (B.6) 57 The term T0 is exactly the quantity analyzed in the noiseless Appendix Appendix A.5 (after replacing yk by ϕ∗(z∗ 
+
+> k
+
+)). Therefore, by repeating the same algebraic expansions and inequalities as in the noiseless proof, we obtain the following lower bound with probability at least 1 − δ
+
+T0 ≥ μZ ∥∆∥2 
+
+> F
+
+− AZ ∥∆∥F ∥ϕ − ϕ∗∥H, (B.7) when the number of observations is 
+
+M ∈ O 
+
+(μrκ )2 min {n, T }
+
+ϵ2 log  n + Tδ
+
+
+
+.
+
+From the definition of Tu and h(u) 
+
+> k
+
+= −ϕ′(zk)uk, we have 
+
+Tu = −2
+
+> M
+
+X
+
+> k=1
+
+uk ϕ′(zk) (Ak + A⊤ 
+
+> k
+
+)Z, ∆ .
+
+Define the deterministic coefficients 
+
+sk := ϕ′(zk) (Ak + A⊤ 
+
+> k
+
+)Z, ∆ .
+
+Then Tu = −2 PMk=1 uksk. Since uk are independent mean-zero σ-sub-Gaussian, the weighted sum PMk=1 uksk is sub-Gaussian with parameter at most σ2∥s∥22. Hence, for any δ ∈ (0 , 1), with probability at least 1 − δ,
+
+> M
+
+X
+
+> k=1
+
+uksk ≤ σ∥s∥2
+
+p2 log(2 /δ ). (B.8) Using ϕ′(zk) ≤ Ξ and the identity 
+
+(Ak + A⊤ 
+
+> k
+
+)Z, ∆ = ⟨Ak, Z ∆⊤⟩ + ⟨Ak, ∆Z⊤⟩ = ⟨Ak, Z ∆⊤ + ∆ Z⊤⟩,
+
+we get 
+
+∥s∥22 =
+
+> M
+
+X
+
+> k=1
+
+s2 
+
+> k
+
+≤ Ξ2
+
+> M
+
+X
+
+> k=1
+
+⟨Ak, Z ∆⊤ + ∆ Z⊤⟩2 = Ξ 2 D(Z∆⊤ + ∆ Z⊤).
+
+Therefore, combining with (B.8), we obtain with probability at least 1 − δ:
+
+|Tu| = 2 
+
+> M
+
+X
+
+> k=1
+
+uksk ≤ 2σ∥s∥2
+
+p2 log(2 /δ ) ≤ 2σΞp2 log(2 /δ ) pD(Z∆⊤ + ∆ Z⊤).
+
+Finally, we upper bound the operator term by a Frobenius bound: since D(Y ) = PMk=1 ⟨Ak, Y ⟩2 ≤ ∥ Y ∥2 
+
+> F
+
+for the canonical sampling operators, and in any case ∥Z∆⊤ +∆Z⊤∥F ≤ 2∥Z∥F ∥∆∥F , we get 
+
+pD(Z∆⊤ + ∆ Z⊤) ≤ ∥ Z∆⊤ + ∆ Z⊤∥F ≤ 2∥Z∥F ∥∆∥F .
+
+58 Hence, with probability at least 1 − δ,
+
+Tu ≥ − 4 Ξ σ ∥Z∥F
+
+plog(2 /δ ) ∥∆∥F . (B.9) Combining (B.5) , (B.7) , (B.9) , and using the union bound, we conclude that with probability at least 1 − 2δ,
+
+∇Z ˜L(Z, ϕ ), ∆ ≥ μZ ∥∆∥2 
+
+> F
+
+− AZ ∥∆∥F ∥ϕ − ϕ∗∥H − 4 Ξ σ ∥Z∥F
+
+plog(2 /δ ) ∥∆∥F .
+
+Lemma 22. Under the same assumptions as in Lemma 21, for any δ ∈ (0 , 1) , with probability at least 1 − 2δ,
+
+∥∇ Z ˜L(ϕ, Z )∥F ≤ pBZ ∥∆∥F +pA′ 
+
+> Z
+
+∥ϕ − ϕ⋆∥H +ε2(σ),
+
+where A′ 
+
+> Z
+
+, B Z are the same constants as in the noiseless case and 
+
+ε2(σ) ∈ O 
+
+
+
+Ξ σ
+
+rM μrσ ⋆
+
+> 1
+
+n + T log  2( n + T )rδ
+
+
+
+.
+
+Proof. From the expression of ∇Z ˜L,
+
+∇Z ˜L(Z, ϕ ) = 2 
+
+> M
+
+X
+
+> k=1
+
+(ϕ(zk)−yk)ϕ′(zk)( Ak +A⊤ 
+
+> k
+
+)Z +λDZZ ⊤DZ, zk = ⟨Ak, ZZ ⊤⟩.
+
+Under yk = ϕ⋆(z⋆k ) + uk with z⋆k = ⟨Ak, ΦΦ ⊤⟩, define the noiseless surrogate gradient 
+
+g0(Z, ϕ ) := 2 
+
+> M
+
+X
+
+> k=1
+
+(ϕ(zk) − ϕ⋆(z⋆k )) ϕ′(zk)( Ak + A⊤ 
+
+> k
+
+)Z + λDZZ ⊤DZ, 
+
+and the noise term 
+
+gu(Z, ϕ ) := −2
+
+> M
+
+X
+
+> k=1
+
+uk ϕ′(zk) ( Ak + A⊤ 
+
+> k
+
+)Z. 
+
+Then ∇Z ˜L(Z, ϕ ) = g0(Z, ϕ ) + gu(Z, ϕ ), hence 
+
+∥∇ Z ˜L(Z, ϕ )∥F ≤ ∥ g0(Z, ϕ )∥F + ∥gu(Z, ϕ )∥F .
+
+By the result of Lemma 6, when the number of observation follows (12), we get 
+
+∥g0(Z, ϕ )∥F ≤ pBZ ∥∆( Z)∥F + pA′ 
+
+> Z
+
+∥ϕ − ϕ⋆∥H.
+
+with probability at least 1 − δ
+
+59 Let Bk := ( Ak + A⊤ 
+
+> k
+
+)Z and 
+
+S := 
+
+> M
+
+X
+
+> k=1
+
+uk ϕ′(zk) Bk, so that gu(Z, ϕ ) = −2S. 
+
+Let d := ( n + T )r be the number of entries of an ( n + T ) × r matrix. For each ( i, j ), 
+
+Sij =
+
+> M
+
+X
+
+> k=1
+
+ukck,ij , ck,ij := ϕ′(zk)( Bk)ij .
+
+Since uk are independent mean-zero σ-sub-Gaussian, the tail bound gives 
+
+P(|Sij | ≥ t) ≤ 2 exp 
+
+
+
+− t2
+
+2σ2 PMk=1 c2
+
+> k,ij
+
+
+
+.
+
+Let 
+
+tij := σ
+
+r
+
+2 log 
+
+2dδ
+
+vuut MX
+
+> k=1
+
+c2 
+
+> k,ij
+
+.
+
+Then P(|Sij | ≥ tij ) ≤ δ/d . A union bound implies that with probability at least 1 − δ, |Sij | ≤ tij for all ( i, j ), hence 
+
+∥S∥2 
+
+> F
+
+= X
+
+> i,j
+
+S2 
+
+> ij
+
+≤ X
+
+> i,j
+
+t2
+
+> ij
+
+= 2 σ2 log 
+
+2dδ
+
+ X 
+
+> i,j M
+
+X
+
+> k=1
+
+c2
+
+> k,ij
+
+= 2 σ2 log 
+
+2dδ
+
+ MX
+
+> k=1
+
+ϕ′(zk)2∥Bk∥2
+
+> F
+
+≤ 2σ2Ξ2 log 
+
+2dδ
+
+ MX
+
+> k=1
+
+∥Bk∥2 
+
+> F
+
+.
+
+By the structure of Ak (each observation touches at most two rows in the bipartite block), ( Ak +A⊤ 
+
+> k
+
+)Z has at most two nonzero rows, each equal to a row of Z. Therefore 
+
+∥Bk∥2 
+
+> F
+
+= ∥(Ak + A⊤ 
+
+> k
+
+)Z∥2 
+
+> F
+
+≤ 2∥Z∥22,∞,
+
+and thus PMk=1 ∥Bk∥2 
+
+> F
+
+≤ 2M ∥Z∥22,∞. Plugging into Step 3 gives (with prob. ≥ 1 − δ)
+
+∥S∥2 
+
+> F
+
+≤ 4σ2Ξ2M ∥Z∥22,∞ log 
+
+2( n + T )rδ
+
+
+
+⇒ ∥ S∥F ≤ 2Ξ σ∥Z∥2,∞
+
+r
+
+M log 
+
+2( n + T )rδ
+
+
+
+.
+
+60 Since gu = −2S and Z ∈ C ,
+
+∥gu(Z, ϕ )∥F ≤ 4Ξ σ∥Z∥2,∞
+
+r
+
+M log 
+
+2( n + T )rδ
+
+
+
+≤ 16Ξ σ
+
+3 ∥Z0∥F
+
+s
+
+μM 
+
+(n + T ) log 
+
+2( n + T )rδ
+
+
+
+=: ε2(σ).
+
+Combining Step 2 and Step 4 yields 
+
+∥∇ Z ˜L(Z, ϕ )∥F ≤ pBZ ∥∆( Z)∥F + pA′ 
+
+> Z
+
+∥ϕ − ϕ⋆∥H + ε2(σ).
+
+Proposition 4. If ζ ≤ μZ /(12 BZ ), then 
+
+Dt+1 ≤ ρZ Dt + 2 CZ←ϕEt + 2 CZ←ϕ∥ϕ♯(Zt) − ϕ⋆∥2 
+
+> H
+
++ CZ, noise ,
+
+where 
+
+ρZ := 1 − ζμ Z
+
+4 , CZ←ϕ := 3 ζ2A′ 
+
+> Z
+
++ ζA 2
+
+> Z
+
+μZ
+
+, CZ, noise := 3 ζ2ε2(σ)2 + 2ζμZ
+
+ε1(σ)2.
+
+Proof. From the previous lemma, we have the noisy curvature and smoothness bounds: 
+
+⟨∇ Z ˜L(ϕ, Z ), ∆( Z)⟩ ≥ μZ ∥∆( Z)∥2 
+
+> F
+
+− AZ ∥∆( Z)∥F ∥ϕ − ϕ⋆∥H − ε1(σ)∥∆( Z)∥F ,
+
+(B.10) 
+
+∥∇ Z ˜L(ϕ, Z )∥F ≤ pBZ ∥∆( Z)∥F + pA′ 
+
+> Z
+
+∥ϕ − ϕ⋆∥H + ε2(σ). (B.11) Let gt := ∇Z ˜L(ϕt, Z t) and ∆ t := ∆( Zt). By projection non-expansiveness 
+
+∥∆t+1 ∥F ≤ ∥ ∆t − ζg t∥F .
+
+Squaring and expanding, 
+
+Dt+1 ≤ Dt + ζ2∥gt∥2 
+
+> F
+
+− 2ζ⟨gt, ∆t⟩.
+
+By (B.10), 
+
+−2ζ⟨gt, ∆t⟩ ≤ − 2ζμ Z Dt + 2 ζA Z
+
+pDt ∥ϕt − ϕ⋆∥H + 2 ζε 1(σ)pDt.
+
+By (B.11) and ( x + y + z)2 ≤ 3x2 + 3 y2 + 3 z2,
+
+∥gt∥2 
+
+> F
+
+≤ 3BZ Dt + 3 A′ 
+
+> Z
+
+∥ϕt − ϕ⋆∥2 
+
+> H
+
++ 3 ε2(σ)2.
+
+61 Use Young’s inequality: 2ζA Z
+
+pDt ∥ϕt − ϕ⋆∥H ≤ ζμ Z Dt + ζA 2
+
+> Z
+
+μZ
+
+∥ϕt − ϕ⋆∥2
+
+> H
+
+,
+
+2ζε 1(σ)pDt ≤ ζμ Z
+
+2 Dt + 2ζμZ
+
+ε1(σ)2.
+
+Combining yields 
+
+Dt+1 ≤
+
+
+
+1 − ζμ Z
+
+2 + 3 ζ2BZ
+
+
+
+Dt +
+
+
+
+3ζ2A′ 
+
+> Z
+
++ ζA 2
+
+> Z
+
+μZ
+
+
+
+∥ϕt − ϕ⋆∥2 
+
+> H
+
++ 3 ζ2ε2(σ)2 + 2ζμZ
+
+ε1(σ)2.
+
+If ζ ≤ μZ /(12 BZ ), then 3 ζ2BZ ≤ ζμ Z /4, hence 1 −ζμ Z /2+3 ζ2BZ ≤ 1−ζμ Z /4 =: ρZ .Finally, 
+
+∥ϕt − ϕ⋆∥2 
+
+> H
+
+≤ 2∥ϕt − ϕ♯(Zt)∥2 
+
+> H
+
++ 2 ∥ϕ♯(Zt) − ϕ⋆∥2 
+
+> H
+
+= 2 Et + 2 ∥ϕ♯(Zt) − ϕ⋆∥2
+
+> H
+
+,
+
+which proves the stated inequality. 
+
+Lemma 23. We have 
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+≤ cDDt + cE Et + cE ∥ϕ♯(Zt) − ϕ⋆∥2 
+
+> H
+
++ csm ,
+
+where cD := 3 ζ2BZ , cE := 6 ζ2A′ 
+
+> Z
+
+, and csm := 3 ζ2ε2(σ)2.Proof. Let gt := ∇Z ˜L(ϕt, Z t). By optimality of the projection Zt+1 = PC (Zt − ζg t), for all Y ∈ C ,
+
+⟨Zt − Zt+1 − ζg t, Z t+1 − Y ⟩ ≥ 0.
+
+Choose Y = Zt to obtain ∥Zt+1 − Zt∥2 
+
+> F
+
+≤ ζ⟨gt, Z t − Zt+1 ⟩ ≤ ζ∥gt∥F ∥Zt+1 − Zt∥F .If ∥Zt+1 − Zt∥F = 0, we are done; otherwise divide and square: 
+
+∥Zt+1 − Zt∥2 
+
+> F
+
+≤ ζ2∥gt∥2 
+
+> F
+
+.
+
+By (22’) and ( x + y + z)2 ≤ 3x2 + 3 y2 + 3 z2,
+
+∥gt∥2 
+
+> F
+
+≤ 3BZ Dt + 3 A′ 
+
+> Z
+
+∥ϕt − ϕ⋆∥2 
+
+> H
+
++ 3 ε2(σ)2.
+
+Moreover, ∥ϕt − ϕ⋆∥2 
+
+> H
+
+≤ 2Et + 2 ∥ϕ♯(Zt) − ϕ⋆∥2
+
+> H
+
+. Substitute these two bounds to conclude the claim. 62 Appendix B.2. Proof of Theorem 4 Proof. From Proposition 2, 
+
+Et+1 ≤ qϕ(1 + δ)Et + qϕ
+
+
+
+1 + 1
+
+δ
+
+
+
+A∥Zt+1 − Zt∥2 
+
+> F
+
+.
+
+Apply Lemma 23 to bound ∥Zt+1 − Zt∥2 
+
+> F
+
+, yielding 
+
+Et+1 ≤ (qϕ(1+ δ)+ qϕ
+
+
+
+1+ 1
+
+> δ
+
+
+
+Ac E )Et+qϕ
+
+
+
+1+ 1
+
+> δ
+
+
+
+A cDDt+cE ∥ϕ♯(Zt)−ϕ⋆∥2
+
+> H
+
++3 ζ2ε2(σ)2,
+
+From Proposition 4, 
+
+Dt+1 ≤ ρZ Dt + 2 CZ←ϕEt + 2 CZ←ϕ∥ϕ♯(Zt) − ϕ⋆∥2 
+
+> H
+
++ 3 ζ2ε2(σ)2 + 2ζμZ
+
+ε1(σ)2.
+
+Multiplying the second inequality by γ and adding to the first, we obtain 
+
+Vt+1 = Et+1 + γD t+1 
+
+≤
+
+h
+
+qϕ(1 + δ) + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + 2 γ C Z←ϕ
+
+i| {z }
+
+> aEE
+
+Et
+
++
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac D + γ ρ Z
+
+i| {z } 
+
+> aDD /γ
+
+Dt
+
++
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + 2 γC Z←ϕ
+
+i| {z }
+
+> Cϕ
+
+χ2(Zt)+ 2γζ μZ
+
+ε1(σ)2 + 3 
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + γ
+
+i
+
+ζ2ε2(σ)2
+
+| {z }
+
+> Cσ
+
+,
+
+(B.12) where χ2(Zt) := ∥ϕ♯(Zt) − ϕ⋆∥2
+
+> H
+
+.We require both aEE < 1 and aDD /γ < 1. We provide explicit, non-empty feasibility. Recall that we had 0 < η ≤ 2αLϕ,α (α+Lϕ,α ) and qϕ = 1 − ηαL ϕ,α  
+
+> α+Lϕ,α
+
+∈ (0 , 1) , Let 
+
+δ := 1/q ϕ − 12 (> 0) ⇒ qϕ(1 + δ) = 1 + qϕ
+
+2 (< 1) , qϕ
+
+
+
+1 + 1
+
+δ
+
+
+
+= qϕ(1 + qϕ)1 − qϕ
+
+.
+
+(B.13) Recall that 
+
+aEE = qϕ(1 + δ) + qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + 2 γ C Z←ϕ
+
+= 1 + qϕ
+
+2 + qϕ(1 + qϕ)1 − qϕ
+
+LZ→ϕ
+
+α
+
+2
+
+(6 ζ2A′ 
+
+> Z
+
+) + γ
+
+
+
+6ζ2A′ 
+
+> Z
+
++ 2ζA 2
+
+> Z
+
+μZ
+
+
+
+≤ 1 − ηαL ϕ,α 
+
+2( α + Lϕ,α ) + α + Lϕ,α 
+
+ηαL ϕ,α 
+
+LZ→ϕ
+
+α
+
+2
+
+(6 ζ2A′ 
+
+> Z
+
+) + γ
+
+
+
+6ζ2A′ 
+
+> Z
+
++ 2ζA 2
+
+> Z
+
+μZ
+
+
+
+.
+
+63 In order to have γ(6 ζ2A′ 
+
+> Z
+
++ 2ζA 2 
+
+> Z
+> μZ
+
+) ≤ ηαL ϕ,α  
+
+> 4( α+Lϕ,α )
+
+, following the same calculus as in the proof of Theorem 1, we use ζ ≤ ηα 2Lϕ,α 
+
+> 4√3LZ→ϕ
+
+√A′  
+
+> Z(α+Lϕ,α )
+
+and select 
+
+γ = LZ→ϕμZ
+
+2α max {pA′ 
+
+> Z
+
+, A Z },
+
+we ensure that γ ≤ ηαL ϕ,α μZ 
+
+> 16( α+Lϕ,α )ηα 2Lϕ,α
+> 4√3LZ→ϕ
+
+√A′   
+
+> Z(α+Lϕ,α )
+> max {A2
+> Z,A ′
+> Z}
+
+≤ ηαL ϕ,α μZ
+
+> 16( α+Lϕ,α )ζA 2
+> Z
+
+. By set-ting γ
+
+
+
+6ζ2A′ 
+
+> Z
+
++ 2ζA 2
+
+> Z
+> μZ
+
+
+
+≤ ηαL ϕ,α  
+
+> 4( α+Lϕ,α )
+
+and ζ ≤ ηα 2Lϕ,α 
+
+> 4√3LZ→ϕ
+
+√A′  
+
+> Z(α+Lϕ,α )
+
+, we have 
+
+aEE ≤ 1 − ηαL ϕ,α 
+
+4( α + Lϕ,α ) + α + Lϕ,α 
+
+ηαL ϕ,α 
+
+LZ→ϕ
+
+α
+
+2
+
+6 η2α4L2
+
+> ϕ,α
+
+48 L2
+
+> Z→ϕ
+
+A2 
+
+> Z
+
+(α + Lϕ,α )2 A2
+
+> Z
+
+!
+
+= 1 − ηαL ϕ,α 
+
+8( α + Lϕ,α ) < 1.
+
+and consequently, we get aEE < 1. According to the definition of aDD , we have 
+
+aDD 
+
+γ = ρZ + qϕ(1 + qϕ)1 − qϕ
+
+· A c D
+
+γ = 1 − ζμ Z 
+
+> 2
+
++ qϕ(1 + qϕ)1 − qϕ
+
+· 3ζ2AB Z
+
+γ .
+
+To ensure aDD  
+
+> γ
+
+≤ 1 − ζμ Z 
+
+> 4
+
+, it suffices to have 
+
+qϕ(1 + qϕ)1 − qϕ
+
+· 3ζ2AB Z
+
+γ ≤ ζμ Z
+
+> 4
+
+i.e., 
+
+ζ ≤ μZ (1 − qϕ)γ
+
+12 AB Z
+
+< μZ (1 − qϕ)γ
+
+6qϕ(1 + qϕ)AB Z
+
+While A = ( LZ→ϕ/α )2 and γ = LZ→ϕμZ /2α max {pA′ 
+
+> Z
+
+, A Z }, we obtain 
+
+μZ (1 − qϕ) γ
+
+12 A B Z
+
+= η α 2 μ2 
+
+> Z
+
+Lϕ,α 
+
+24 max {AZ , pA′ 
+
+> Z
+
+} LZ→ϕ (α + Lϕ,α ) BZ
+
+.
+
+Therefore, by selecting 
+
+ζ ≤ η α 2 μ2 
+
+> Z
+
+Lϕ,α 
+
+24 max {AZ , pA′ 
+
+> Z
+
+} LZ→ϕ (α + Lϕ,α ) BZ
+
+, (B.14) 64 we ensure that aDD /γ < 1 and ρ = min {aEE , a DD /γ } = min {1 − ηαL ϕ,α  
+
+> 8( α+Lϕ,α )
+
+, 1 − 
+
+> ζμ Z
+> 4
+
+} < 1. This holds if 
+
+ζ ∈ O 
+
+ α3
+
+(α + Lϕ,α )2(μrκ )2
+
+  ξ
+
+Ξ
+
+5
+
+√nT BK
+
+
+
+.
+
+For Cϕ, we have 
+
+Cϕ =
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + 2 γC Z←ϕ
+
+i
+
+≤
+
+6qϕ(1 + qϕ)1 − qϕ
+
+LZ→ϕ
+
+α
+
+2
+
+ζ2A′ 
+
+> Z
+
++ ηαL ϕ,α 
+
+4( α + Lϕ,α )
+
+
+
+≤
+
+12( α + Lϕ,α )
+
+ηαL ϕ,α 
+
+LZ→ϕ
+
+α
+
+2
+
+( ηα 2Lϕ,α 
+
+4√3LZ→ϕA′ 
+
+> Z
+
+(α + Lϕ,α ))2A′ 
+
+> Z
+
++ ηαL ϕ,α 
+
+4( α + Lϕ,α )
+
+
+
+≤ ηαL ϕ,α 
+
+2( α + Lϕ,α ) := C′ 
+
+> ϕ
+
+∈ O (ηα ).
+
+The last term can be bounded as follows 
+
+Cσ = 2γζ μZ
+
+ε1(σ)2 + 3 
+
+h
+
+qϕ
+
+
+
+1 + 1
+
+> δ
+
+
+
+Ac E + γ
+
+i
+
+ζ2ε2(σ)2 ∈ O (ηασ 2)Thus, we have 
+
+Vt+1 = ρVt + C′
+
+> ϕ
+
+χ2(Zt) + Cσ.
+
+By telescoping over t, we can conclude the result. 
+
+Appendix B.3. The discussion on the effect of α
+
+From Proposition 1, we have lim t→∞ Et = 0, when ζ ≤ min {1/A Z , μ Z /B Z , 1/μ Z }.By considering Equation (B.14) and α small enough so that ζ ∈ O (ηα 2) and ζ ≤
+
+min {1/A Z , μ Z /B Z , 1/μ Z } is satisfied, we will have ρ = min {1 − ηαL ϕ,α  
+
+> 8( α+Lϕ,α )
+
+, 1 − ζμ Z 
+
+> 4
+
+} =1 − C1ηα 2 for some constant C1. As a result, lim  
+
+> t→∞
+
+Dt = C′
+
+> ϕ
+
+χ2(Z∞) + Cσ
+
+γ(1 − ρ) = O
+
+ηα 2(χ2(Z∞) + σ2)1 − (1 − ηα 2)
+
+
+
+= O(χ2(Z∞) + σ2),
+
+and consequently ∥∆t∥F ∈ O (χ(Z∞) + σ) as t → ∞ .On the other hand, when α is large so that the upper bound for Equation (B.14) is larger than min {1/A Z , μ Z /B Z , 1/μ Z }, then we will have ρ = min {1 − ηαL ϕ,α  
+
+> 8( α+Lϕ,α )
+
+, 1 − 
+
+> ζμ Z
+> 4
+
+} = 1 − C2 for some constant C2 which does not depend on α. Thus, we have lim  
+
+> t→∞
+
+Dt = C′
+
+> ϕ
+
+χ2(Z∞) + Cσ
+
+γ(1 − ρ) = O
+
+ηα 2(χ2(Z∞) + σ2)1 − (1 − C2)
+
+
+
+= O  α(χ2(Z∞) + σ2) ,
+
+65 where we used η ≤ 2αLϕ,α (α+Lϕ,α ) . It is noteworthy that when α is small, the corre-sponding ρ, i.e., 1 − C1ηα 2 is larger than when α is large, i.e., 1 − C2 leading to faster convergence, since the convergence rate is of the order (1 − ρ)t. At the same time, as discussed above, the convergence point achieves a smaller estimation error for smaller α.
+
+Appendix C. Additional Experiments 
+
+To show visually the difference between the true link function and the final esti-mation produced by Algorithm 1, herein, we present Figure C.6. In this experiment, the parameters are n = T = 100 , r = 3 , M = 5000 , σ = 0 .1, λ = 0 .5, ζ = 10 −5, η =10 −4, α = 10 −3.   
+
+> Figure C.6: The comparison of the true link function ϕ⋆and the final estimation ϕlast .
+
+Effect of different type of link function on regret: To illustrate this effect, Figure C.6 shows the regret of Algorithm 1 over iterations for different link function. 66 10 0 10 1 10 2 10 3 10 4
+
+Iteration 
+
+> 10 0
+> 10 1
+> 10 2
+> 10 3
+> RT
+
+RT vs Iteration       
+
+> ϕ*(x)
+> σ(x)σ(x) − 0.5 exex− 1
+
+Figure C.7: Regret RT of Algorithm 1 for different type of link functions ϕ⋆ when n = T = 100 , r =3, M = 5000 , α = 0 .001, and σ = 0 .1. Both axes are plotted on a log scale. 
+
+67

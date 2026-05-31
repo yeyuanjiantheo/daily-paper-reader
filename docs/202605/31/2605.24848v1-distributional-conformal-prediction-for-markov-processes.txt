@@ -1,0 +1,4090 @@
+Title: Distributional Conformal Prediction for Markov Processes
+
+URL Source: https://arxiv.org/pdf/2605.24848v1
+
+Published Time: Tue, 26 May 2026 01:02:44 GMT
+
+Number of Pages: 54
+
+Markdown Content:
+# Distributional Conformal Prediction for Markov Processes ∗
+
+## Dehao Dai 1, Kejin Wu 2, Dimitris N. Politis 11 University of California, San Diego, 2 Loyola University Chicago 
+
+Abstract 
+
+We introduce the Markov Distributional Conformal Prediction (MDCP) method that extends the distributional conformal prediction (previously developed for regression) to the setting of a strictly stationary Markov process. Instead of relying on a specific model structure to do prediction, the idea of distribu-tional conformal prediction interval aligns with the Model-Free (MF) Predic-tion Principle. In analogy to MF prediction of Markov processes, our method exploits the probability integral transform based on estimated transition dis-tribution functions to transform the Markov data to an i.i.d. dataset. We show a non-asymptotic error bound of MDCPs unconditional coverage rate under a 
+
+β-mixing condition and other standard assumptions on the kernel estimators. The asymptotic validity of the conditional prediction interval is also verified. In addition, we show that our conditional prediction interval is still asymptotically valid with Markov processes being Lp-m-approximable instead of satisfying the mixing property. Numerical simulations and real data experiments are deployed to empirically illustrate the finite-sample performance of MDCP, and compare it with the MF bootstrap prediction method. 
+
+Keywords :Conformal prediction; Model-free prediction; Non-parametric inference 
+
+> ∗
+
+DP’s research was supported by NSF grant DMS 24-13718. 
+
+1
+
+> arXiv:2605.24848v1 [stat.ME] 24 May 2026
+
+# 1 Introduction 
+
+In many applications, such as finance and engineering, it is essential to predict data based on current information. Confidence intervals based on standard L2 point predictors, as well as model-based prediction intervals, have become standard statistical tools within regression frameworks in statistics and machine learning with independent and identically distributed (i.i.d.) data. However, the i.i.d. assumption is generally invalid for time series regression estimation and prediction, in which the data dependence complicates the theoretical analysis. Classical time series modeling often relies on linear, nonlinear, or nonparametric frame-works to capture temporal dependence and structural complexity. Common examples include autoregressive (AR), autoregressive moving average (ARMA), and their nonlinear or non-parametric extensions. For example, an AR model can be fitted via ordinary least squares methods in parametric regression problems, or via kernel smoothing or spline regression in nonparametric regression; see Box et al. (2015) for the standard Box-Jenkins method of identifying, fitting, checking and predicting such models. Besides the mean model, ARCH (Engle, 1982) and GARCH (Bollerslev, 1986) are two popular models to model the variance within financial time series. Recently, many scholars have studied constructing prediction intervals (PIs) for such models, to quantify uncertainty in forecasts under temporal depen-dence. For example, Pascual et al. (2006) proposed a model-based bootstrap approach to build prediction intervals for the GARCH model; Chud` y et al. (2020) constructed long-term PIs for time-aggregated future values of univariate economic time series; see also Guo et al. (1999); Pascual et al. (2001); Chen et al. (2004); Manzan & Zerom (2008); Pan & Politis (2016a); Politis & Wu (2023); Wu & Politis (2024a). However, these methods are only valid under specific model assumptions. Having in mind the famous saying by George E. P. Box— “All models are wrong, but some are useful”, it is desired to find an approach to prediction without restrictive model assumptions. 
+
+Conformal Prediction (CP) was originally developed by Shafer & Vovk (2008) as a power-ful framework for predictive inference, offering rigorous, finite-sample unconditional coverage 
+
+guarantees for exchangeable data, which is a weaker assumption than i.i.d. The method con-structs prediction regions that achieve valid unconditional coverage with minimal assump-tions, thereby providing a practical and robust alternative to classical statistical inference. Recent developments in statistics and machine learning have expanded this framework to re-gression, classification, and high-dimensional learning problems, establishing conformal pre-2diction as a general-purpose tool for uncertainty quantification across diverse applications. Romano et al. (2019) proposed a conformalized quantile regression method that provides unconditional coverage guarantees for heteroscedastic observations, while Sesia & Romano (2021) developed conformal prediction intervals for non-parametric regression that can au-tomatically adapt to skewed data with both asymptotic marginal and conditional coverage. Some other scholars have made improvements or extensions, such as Lei et al. (2013); Lei & Wasserman (2014); Lei et al. (2018); Xu & Xie (2023); Zaffran et al. (2022), among others. In particular, CP can provide the uncertainty quantification for arbitrary prediction algo-rithms. The better the point predictor, the shorter the prediction interval will be; see Lei et al. (2018); Tibshirani (2023); Angelopoulos et al. (2024) for more discussion. The previously cited papers on CP for regression are not Model-Free (MF) as their conformity score is usually computed based on the error term once the regression model is estimated. Chernozhukov et al. (2021) introduced Distributional Conformal Prediction (DCP) applicable to MF regression. DCP exploits the local probability integral transform (PIT) taken by (Politis, 2013) to map the vector of regression responses to a vector with i.i.d. entries; then the DCP applies conformal prediction to them. An inverse transform brings this method back to the target realm of responses and their prediction. The MF Prediction Principle (Politis, 2015) has also been applied to Markov process data, where the target is one-step-ahead prediction (with prediction intervals) with restrictive time series assumptions. In this setting, Pan & Politis (2015, 2016a,b) employed the Rosenblatt transformation Rosenblatt (1952) based on estimated transition distribution functions to transform the Markov data to an (approximately) i.i.d. dataset; the latter is then amenable to resampling, leading to the MF bootstrap prediction method. In the paper at hand, we propose to perform conformal prediction to the above i.i.d. dataset that is the outcome of transforming the Markov data; an inverse transform brings us back to the Markov realm and the desired one-step-ahead prediction. We will call this new approach Markov Distributional Conformal Prediction (MDCP) because of its analogy to the DCP. We will also introduce an extension, namely Predictive MDCP (PMDCP), that employs a leave-one-out estimation approach that improves the finite-sample coverage rate of prediction intervals. 31.1 Our contributions 
+
+We summarize our contributions as follows: 1. We propose the so-called Markov Distributional Conformal Prediction (MDCP) method and its variant PMDCP, with the purpose of construction one-step-ahead Prediction Intervals (PI) for Markov data. Under a β-mixing condition and other mild assump-tions, we provide a non-asymptotic error bound for the unconditional coverage rate of the PIs from MDCP. This result helps guide the understanding of the performance of the distributional conformal prediction method with Markov processes. 2. We further show that the conditional coverage rate of MDCP PIs converges to the nominal level asymptotically under the same β-mixing assumption. Moreover, we verify that the asymptotic validity is still sustained assuming that the Markov process is Lq-m-approximable instead of mixing; see Remark 11 for a discussion on the subtle difference between these two dependence measures. Our proof technique is different from the blocking technique which was applied by Zheng & Proutiere (2024); Oliveira et al. (2024) to show the asymptotic validity of the conditional prediction interval based on the split conformal prediction method. 3. We consider a variant of the MF bootstrap prediction for forecasting Markov processes, which is motivated by the success of applying predictive residuals to alleviate the finite-sample undercoverage issue of the PIs in model-based methods (Pan & Politis, 2016a). Interestingly, the Markov Distributional Conformal Prediction with predictive residuals (PMDCP) does not seem to bring much advantage to the finite-sample coverage rate. However, as revealed by the simulation and real data studies, the lengths of PMDCP intervals conditional on different latest observations of the Markov process are more concentrated than those from MDCP, i.e., they have a smaller standard deviation. 4. We derive the uniform error bound of the conditional cumulative distribution function (CDF) estimation based on a smoothing kernel for Markovian data. This result is of independent interest and complements the standard nonparametric inference results for CDF estimation under i.i.d. data; see Theorem 1.4 in Li & Racine (2007) for the standard result. 45. We conduct a comparative study on the performance of the MF bootstrap and con-formal techniques with simulated and real datasets. Since the MF prediction principle and the conformal prediction idea were proposed, there have been various extensions in developing new forecasting methods along these two directions, especially for de-pendent data. In addition, the practical suggestions on applying these methods are provided in Section 4. The paper is organized as follows: In Section 2, we review the framework of DCP and introduce the methodology and algorithms for MDCP and PMDCP. The algorithms of MF and predictive MF prediction methods are also given. The theoretical validation of our methods is presented in Section 3. Simulation data and real data studies are conducted in Section 4. Technical proofs and additional graphs and tables are in the Appendix. 
+
+## 1.2 Notations 
+
+In this part, we introduce some notation. For a random variable X and q ≥ 1, define 
+
+∥X∥q = ( E(|X|q)) 1/q . For a vector u = ( u1, . . . , u d)⊤ ∈ Rd, define ∥u∥ = ∥u∥w =
+
+qPdj=1 u2 
+
+> j
+
+.Denote [ d] as 1 , 2, 3, . . . , d for integer sequence from 1. For two sequences of positive numbers 
+
+{an} and {bn}, define an ≲ bn if there exists some constant C > 0 such that an/b n ≤ C as 
+
+n → ∞ , and define an ≍ bn if an ≲ bn and bn ≲ an; also define an = O(bn) if there exists a positive constant C > 0 such that |an| ≤ C|bn| for all n and an = o(bn) if lim n→∞ an/b n = 0. For two random variable sequences Xn and Yn, define Xn = OP(Yn) if for any 0 < ε < 1, there exists a constant Cε such that sup n P(|Xn| ≥ Cε|Yn|) ≤ ε; and Xn = oP(Yn) if Xn/Y nP
+
+→ 0. We also use c, C, C 1, C 2, C 3, . . . to denote positive constants whose values may vary from context to context. 
+
+# 2 Distributional Conformal Prediction Method 
+
+## 2.1 Naive conformal prediction intervals 
+
+The basic idea in the conformal prediction is related to sample quantiles. Let U1, . . . , U n be i.i.d random sample. For a given significant level α ∈ (0 , 1), another i.i.d sample Un+1 
+
+P(Un+1 ≤ bq1−α) ≥ 1 − α, 
+
+5where the sample quantile bq1−α is defined by 
+
+bq1−α =
+
+
+
+U(⌈(n+1)(1 −α)⌉) if ⌈(n + 1)(1 − α)⌉ ≤ n
+
+∞ otherwise and U(1) ≤ · · · ≤ U(n) denote the order statistics of U1, . . . , U n; ⌈x⌉ represents the smallest integer that is greater than or equal to x.Lei et al. (2013)(also Lei et al. (2018)) extended this idea to a regression problem 
+
+Y = μ(X) + ε given a dataset of n i.i.d or exchangeable observations {(Xi, Y i)}ni=1 from a distribution P . They proposed the conformal prediction method, which can achieve ex-act finite-sample marginal (unconditional) validity under exchangeability. The naive 1 − α
+
+prediction interval for a new data point ( Xf , Y f ) can be defined by 
+
+bCnaive 1−α =
+
+hbμ(Xf ) − bF −1 
+
+> n
+
+(1 − α), bμ(Xf ) + bF −1 
+
+> n
+
+(1 − α)
+
+i
+
+,
+
+where bμ is an estimator of the regression function and bFn is the empirical distribution of the fitted residuals |Yi − bμ(Xi)|, i = 1 , . . . , n and bF −1 
+
+> n
+
+(1 − α) is the (1 − α)-quantile of bFn.In general, when the bFn is not invertible, the empirical quantile can also be well-defined by inf {x ∈ R : bFn(x) ≥ 1 − α}. More discussions can be seen in Lehmann & Romano (2005); Lei et al. (2013, 2018). 
+
+## 2.2 Model-free prediction principle 
+
+Naive prediction intervals rely on the regression models, which limit the relationship between 
+
+X and Y and require the distribution assumption on ε. More crucially, the coverage of the prediction intervals can not be guaranteed at the nominal level under dependent or unex-changeable data. To alleviate this problem, we will introduce the distributional conformal prediction idea, which shares a similar spirit with the Model-Free (MF) prediction principle. This MF prediction principle has motivated the prediction of financial series by leveraging a specific transformation structure (Gulay & Emec, 2018; Chen & Politis, 2019; Wu et al., 2025) and the predictions in various regression settings by involving Deep Neural Networks or assuming a specific data structure (Wang & Politis, 2022; Wu & Politis, 2024b; Wang & Politis, 2026). In particular, the MF prediction principle in Politis (2013) is based on probability integral 6transformation (PIT) to map non-i.i.d datasets to ones consisting of i.i.d variables. This framework can relax the model assumption on the dependence between X and Y , and it is our main focus throughout this paper. We begin with an assumption on the class of stochastic processes {Yt}t≥1 considered throughout this paper. A1 {Yt}t≥1 forms a strictly stationary and geometrically ergodic Markov process of order 
+
+p on ( R, B) where B is a Borel-σ algebra over R.
+
+Remark 1. We should mention that the geometrically ergodic Markov property implies that the series is geometrically β-mixing with the corresponding dependence coefficient converg-ing to 0 at least exponentially fast as the sample size converges to 0; see Remark 11 for more discussions on different dependence measures. Throughout this paper, we focus on the Markovian data, which can simplify the later transformation process utilized in the MDCP process. From Rosenblatt (1952), the transformation can be more general for non-Markovian. Therefore, the methodologies developed in this paper have the capacity to be extended to a more general scenario. 
+
+Let Xt−1 = ( Yt−1, . . . , Y t−p)⊤, given Xt−1 = x, we can define the conditional distribution of Yt as F (y|x) = P(Yt ≤ y|Xt−1 = x). Now, we consider the data pair {(Xt−1, Y t)}nt=1 using the PIT. For some positive integer i ≤ p, define the distributions with partial conditioning as Fi(y|x) = P(Yt ≤ y|X(i) 
+
+> t−1
+
+= x) where X(i) 
+
+> t−1
+
+= ( Yt−1, . . . , Y t−i)′ and x ∈ Ri. Also, we can denote the unconditional distribution as F0(y|X) = P(Yt ≤ y) which does not depend on X.A transformation from our Markov( p) dataset Y1, . . . , Y n to an i.i.d dataset V1, . . . , V n
+
+can be constructed as follows, 
+
+V1 = F0(Y1|X); V2 = F1(Y2|X(1) 1 ); · · · ; Vp = Fp−1(Yp|X(p−1)  
+
+> p−1
+
+)and Vt = F (Yt|Xt−1) for t = p + 1 , p + 2 , . . . , n. 
+
+This is the Rosenblatt transformation that is used in Ch. 8 of Politis (2015) book. Note that the transformation from the vector ( Y1, . . . , Y m) to the vector ( V1, . . . , V m) is one-to-one and invertible for any m ≤ n. It implies that V1, . . . , V n are i.i.d Uniform(0 , 1). This is also an application of Rosenblatt (1952) transformation in the case of Markov( p). To apply the transformation mentioned before, we also make the following assumption: A2 The marginal density fx of X is positive and has continuous second-order derivatives, and the conditional CDF F (y|x) has continuous second-order derivatives with respect 7to x. F is Lipschitz continuous in y for all x; the conditional density f (y|x) is positive for all y and x.Based on the PIT transformation, we define the kernel-based smoothed conditional CDF 
+
+bF (Yt|Xt−1) with the pair data {(Xt−1, Y t)}nt=p+1 by 
+
+bF (Yt|Xt−1) = 
+
+> 1
+> n−p
+
+Pni=p+1 Wh (Xi−1, Xt−1) K
+
+Yt−Yi
+
+> h0
+
+
+
+W h(Xt−1) ; (1) and the transformed data {Vt : p + 1 ≤ t ≤ n} can be calculated by Vt = bF (Yt|Xt−1); where Wh (Xi−1, Xt−1) = Qps=1 1 
+
+> hs
+
+w
+
+Xi−1,s −Xt−1,s 
+
+> hs
+
+
+
+and W h(Xt−1) = 1
+
+> n−p
+
+Pni=p+1 Wh (Xi−1,
+
+Xt−1); w(·) is a univariate, symmetric kernel density function with bounded support; Xi−1,s 
+
+and Xt−1,s are the s-th coordinate of Xi−1 and Xt−1; K is a smooth distribution function that is strictly increasing, a proper CDF; h and h0 are bandwidths. For simplicity, we take 
+
+h = h1 = h2 = · · · = hp.Besides, bootstrap, originally introduced by Efron (1992) for i.i.d data, as a nonparamet-ric method, can estimate the quantile of roots between the target and the estimated sample functional by generating a large number of samples. Under this spirit, we summarize the MF bootstrap prediction procedure from Pan & Politis (2016b) in Algorithm 1. 
+
+Remark 2. In step 8 of Algorithm 1, we could generate a larger number of V ∗ 
+
+> t
+
+in alignment with the idea of bootstrap estimation. However, we obey the procedure taken by Pan & Politis (2015, 2016b), in which the confidence interval is built for the conditional mean of the Markov process. 
+
+Remark 3. Original from Yt for t = 1 , . . . , n , we may have the transformed data V1, . . . , V n,but here we just consider full paired data (Yt, Xt−1) rather than truncated (Yt, X(i)
+
+> t−1
+
+) for i =0, . . . , p − 1. Although we lose p number of transformed variables, (Vp+1 , . . . , V n) will be more appropriate to do further predictions rather than V1, . . . , V n since the first p transformation may not be accurate. 
+
+Remark 4. M in the Algorithm 1 is the number of “padded history” in Step 4. In general, this technique is commonly used to generate a stationary time series, so-called “warm-up” or “burn-in” sequences. It also guarantees the sequence cannot be affected by the initial state. 
+
+Since Yn+1 is not observed, the above estimated conditional distribution for Yn+1 treats the pair ( Xn, Y n+1 ) as an “out-of-sample” pair. To mimic this situation in the MF set-up, 8Algorithm 1 Model-Free (MF) Bootstrap Method for Markov( p)
+
+Require: Data {(Xt−1, Y t)}nt=1 . Some large positive integer M . Bootstrap size B. Signifi-cant level α.
+
+1: Use (1) to obtain the Vt = bF (Yt|Xt−1) for t = p + 1 , . . . , n .
+
+2: Calculate bYn+1 , the predictor of Yn+1 by the sample mean 
+
+bYn+1 = 1
+
+n − p
+
+> n
+
+X
+
+> t=p+1
+
+bF −1(Vt|Xn).
+
+3: for step i ∈ { 1, . . . , B } do 
+
+4: Resample randomly with replacement the transformed data Vp+1 , . . . , V n to create the data V ∗−M , V ∗−M +1 , . . . , V ∗ 
+
+> 0
+
+, V ∗ 
+
+> 1
+
+, . . . , V ∗ 
+
+> n
+
+, V ∗
+
+> n+1
+
+.
+
+5: Draw Y ∗−M , . . . , Y ∗−M +p−1 from any consecutive p values of the dataset ( Y1, . . . , Y n); Let X∗−M +p−1 = ( Y ∗−M +p−1, . . . , Y ∗−M ). Especially, for p = 1, X∗−M = Y ∗−M is drawn from (Y1, . . . , Y n). 
+
+6: Generate Y ∗ 
+
+> t
+
+= bF −1(V ∗ 
+
+> t
+
+|X∗
+
+> t−1
+
+) for t = −M + p, . . . , n .
+
+7: Calculate the bootstrap future value Y ∗ 
+
+> n+1
+
+= bF −1(V ∗
+
+> n+1
+
+|Xn). 
+
+8: Calculate the bootstrap mean bY ∗ 
+
+> n+1
+
+= 1
+
+> n−p
+
+Pnt=p+1 bF ∗− 1(V ∗ 
+
+> t
+
+|Xn) where 
+
+bF ∗(Y |X) = 
+
+> 1
+> n−p
+
+Pnt=p+1 Wh
+
+ X∗
+
+> t−1
+
+, X K
+
+Y −Y ∗
+
+> t
+> h0
+
+
+
+W h(X) .
+
+9: Calculate the bootstrap root Y ∗ 
+
+> n+1
+
+− bY ∗
+
+> n+1
+
+.
+
+10: end for 
+
+11: The B bootstrap root replicates are collected in the form of an empirical distribution whose α-quantile is denoted q(α). 
+
+Output: The (1 − α) × 100% equal-tailed predictive interval for Yn+1 is given by 
+
+bCMF 1−α(Xn) = 
+
+h bYn+1 + q(α/ 2) , bYn+1 + q(1 − α/ 2) 
+
+i
+
+.
+
+we can use the trick of Pan & Politis (2016a), i.e., to calculate an estimate of F (Yt|Xt−1)based on a dataset that excludes the pair ( Xt−1, Y t) for t = p + 1 , · · · , n . In other words, define the “leave-one-out” estimator 
+
+bFt(Yt|Xt−1) = 
+
+> 1
+> n−p
+
+Pni=p+1 ,i ̸=t Wh (Xi−1, Xt−1) K
+
+Yt−Yi
+
+> h0
+
+fWh(Xt−1) , for t = p + 1 , . . . , n ; (2) 9where fWh(Xt−1) = P  
+
+> k=p+1 ,k ̸=t
+
+Wh(Xk−1, Xt−1) to construct the transformed data: 
+
+eVt = bFt(Yt|Xt−1) for t = p + 1 , . . . , n. 
+
+Here, the eVt serve as the analogs of the predictive residuals studied in Pan & Politis (2016a) in a nonparametric autoregression setup. Algorithm 2 tabulated the procedure to construct the Predictive Model-free Bootstrap prediction interval; see Section 6.2 of Pan & Politis (2016b). 
+
+Algorithm 2 Predictive Model-Free (PMF) Bootstrap Method for Markov( p)
+
+Require: Data {(Xt−1, Y t)}nt=1 . Some large positive integer M . Bootstrap size B. Signifi-cant level α. 
+
+> 1:
+
+Use (2) to obtain the eVt = bFt(Yt|Xt−1) for t = p + 1 , . . . , n . 
+
+> 2:
+
+Calculate bYn+1 by step 2 in Algorithm 1 with eVt series.  
+
+> 3:
+
+for step i ∈ { 1, . . . , B } do  
+
+> 4:
+
+Resample randomly with replacement the transformed data eVp+1 , . . . , eVn to create the data eV ∗−M , eV ∗−M +1 , . . . , eV ∗ 
+
+> 0
+
+, eV ∗ 
+
+> 1
+
+, . . . , eV ∗ 
+
+> n
+
+, eV ∗
+
+> n+1
+
+. 
+
+> 5:
+
+Draw eY ∗−M , . . . , eY ∗−M +p−1 from any consecutive p values of the dataset ( Y1, . . . , Y n); Let fX∗−M +p−1 = ( eY ∗−M +p−1, . . . , eY ∗−M ). Especially, for p = 1, fX∗−M = eY ∗−M is drawn from (Y1, . . . , Y n).  
+
+> 6:
+
+Calculate the bootstrap future value eY ∗ 
+
+> n+1
+
+= bF −1( eV ∗
+
+> n+1
+
+|Xn).  
+
+> 7:
+
+Calculate the bootstrap mean bY ∗ 
+
+> n+1
+
+as similar to steps 1 to 6 and step 8 in Algorithm 1 with eY ∗ 
+
+> t
+
+series.  
+
+> 8:
+
+Calculate the bootstrap root eY ∗ 
+
+> n+1
+
+− bY ∗
+
+> n+1
+
+. 
+
+> 9:
+
+end for  
+
+> 10:
+
+The B bootstrap root replicates are collected in the form of an empirical distribution whose α-quantile is denoted q(α). 
+
+Output: The (1 − α) × 100% equal-tailed predictive interval for Yn+1 is given by 
+
+bCPMF 1−α (Xn) = 
+
+h bYn+1 + q(α/ 2) , bYn+1 + q(1 − α/ 2) 
+
+i
+
+.
+
+In Section 3, we will give the technical Lemma 3.1 to verify the asymptotic validity of the MF/PMF prediction interval. In short, the crucial condition is the uniform consistency property of the conditional CDF estimator, where the mixing condition is unavoidable in the proof. However, there are no non-asymptotic results for MF bootstrap based methods. In contrast, conformal prediction enjoys exact finite-sample unconditional coverage under the i.i.d. setting, but fails once dependence is present. To bridge this gap, we integrate these 10 two approaches: using the MF idea to adapt CP to data with Markov dependence. 
+
+## 2.3 Distributional conformal prediction 
+
+We first introduce the classical CP framework in the Shafer & Vovk (2008). The framework provides a general methodology for constructing PIs with unconditional coverage guarantees under the assumption of data exchangeability. For each candidate Yf ∈ R, we construct an augmented regression estimator bμ using the augmented data {(Xt, Y t)}nt=1 ∪ (Xf , Y f ). Now define the fitted residuals 
+
+RYf ,t = |Yt − bμ(Xt)|, t = 1 , . . . , n ; RYf ,n +1 = |Yf − bμ(Xf )|,
+
+and the rank of Ry,n +1 by 
+
+π(Yf ) = 1
+
+n + 1 
+
+> n+1
+
+X
+
+> t=1
+
+1{RYf ,t ≤ RYf ,n +1 } = 1
+
+n + 1 + 1
+
+n + 1 
+
+> n
+
+X
+
+> t=1
+
+1{RYf ,t ≤ RYf ,n +1 }.
+
+By exchangeability of the data points and symmetry of bμ, the ranks π(Yf ) evaluated at Yf
+
+provides π(Yf ) is discrete uniform over {1/(n + 1) , 2/(n + 1) , . . . , 1}. The 1 − α prediction interval can be computed as 
+
+bCCP 1−α(Xf ) = {Yf ∈ R : π(Yf ) ≤ 1
+
+n + 1 ⌈(1 − α)( n + 1) ⌉} .
+
+Now we use the MF principle to adapt CP to Markov processes, resulting in a so-called Markov Distributional Conformal Prediction (MDCP), which can overcome the limitation of standard CP. For any candidate values y ∈ R, our ultimate goal is to test whether it belongs to the prediction inference of Yf conditional on a new data point Xf . In the dependent process case, we can take Xf = Xn and Yf = Yn+1 . Due to the stationarity, we denote the distribution of Yt conditional on Xt−1 by F (Yt|Xt−1) for any t. Under the distributional CP idea, based on the augmented data {(Xt−1, Y t)}nt=p ∪ (Xn, Y n+1 ), we estimate the ground-truth conditional distribution function F (·| X) by bF (Yn+1 )(·| X) with candidate Yn+1 . In practice, we can consider a Ytrial , s.t., all plausible values y ∈ Y trial are collected to make the prediction interval. Given Yn+1 := y, based on the CDF estimator (1) to get the corresponding ranks 11 { bU (Yn+1 ) 
+
+> t
+
+}n+1  
+
+> t=p+1
+
+which are just conditional CDF estimators with augmented data, i.e., 
+
+bU (Yn+1 ) 
+
+> t
+
+=
+
+bF (Yn+1 )(Yt|Xt−1) if p + 1 ≤ t ≤ n
+
+bF (Yn+1 )(Yn+1 |Xt−1) if t = n + 1 ; (3) where 
+
+bF (Yn+1 )(Yt|Xt−1) = 
+
+> 1
+> n−p+1
+
+Pni=p+1 Wh (Xi−1, Xt−1) K
+
+Yt−Yi
+
+> h0
+
+
+
++ Wh(Xn, Xt−1)K
+
+Yt−Yn+1 
+
+> h0
+
+ 
+
+> 1
+> n−p+1
+
+Pni=p+1 Wh (Xi−1, Xt−1) + Wh(Xn, Xt−1)
+
+ .
+
+Then, we can define the conformity scores as bV (Yn+1 ) 
+
+> t
+
+= | bU (Yn+1 ) 
+
+> t
+
+− 1/2|, and the p-values are obtained by 
+
+bp(Yn+1 ) = 1
+
+n − p + 1 
+
+> n+1
+
+X
+
+> t=p+1
+
+1{ bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 ) 
+
+> n+1
+
+}. (4) Then, the p-value can be used to guide the building of PI. We summarize this approach in Algorithm 3. 
+
+Algorithm 3 MDCP: Full DCP algorithm for Markov( p)
+
+Require: (a) Data {Xt−1, Y t}nt=p+1 ; (b) Significant level α ∈ (0 , 1) (c) Test values Ytrial 
+
+1: for Yn+1 ∈ Y trial do 
+
+2: Define the augmented data {Xt−1, Y t}nt=p+1 ∪ (Xn, Y n+1 ). 
+
+3: Choose optimal bandwidth h and h0 to calculate ranks defined as (3). 
+
+4: Compute bp(Yn+1 ) as in (4). 
+
+5: end for Output : Return (1 − α) PI bCMDCP 1−α (Xn) = {Yn+1 ∈ Y trial : bp(Yn+1 ) > α }.
+
+Comments: We can obtain the closed form of PI: [min( bC1−α)( Xn), max( bC1−α(Xn))]. 
+
+Remark 5 (On Bandwidth Choice) . When p = 1 , the optimal smoothing of bF (Yn+1 )(u|x) with respect to Mean Squared Error (MSE) in Li & Racine (2007) requires that h0 = OP(n−2/5)
+
+and h = OP(n−1/5). For general p, h = OP(n−1/(4+ p)) and h0 = OP(n−2/(4+ p)). In the prac-tice, we chose h and h0 through cross-validation simultaneously with R function npcdistbw 
+
+from np package. This function can also estimate h and h0 under multivariate CDFs. To simplify the technical proof, we further take h0 ≍ h.
+
+Remark 6 (Ytrial Choice) . We can choose Ytrial to be a fine grid between − max 1≤t≤n |Yt|
+
+and max 1≤t≤n |Yt|. Besides, we can get a fine grid between the training dataset of X. If |Yt|
+
+12 is bounded and satisfies Assumption A1, we can have P(|Yn+1 | ≥ max 1≤t≤n |Yt|) ≤ n−α for some α ≥ 1. Specifically, if the data is exchangeable, we can have the exact probability upper bound P(|Yn+1 | ≥ max 1≤t≤n |Yt|) ≤ n−1 (Chen et al., 2016). 
+
+We also adapt the predictive principle to “leave-one-out” estimator and construct the predictive conditional ranks based on (2) 
+
+eU (Yn+1 ) 
+
+> t
+
+=
+
+bF (Yn+1 ) 
+
+> t
+
+(Yt|Xt−1) if p + 1 ≤ t ≤ n
+
+bF (Yn+1 ) 
+
+> t
+
+(Yn+1 |Xn) if t = n + 1 
+
+, (5) where bF (Yn+1 ) 
+
+> t
+
+(Yt|Xt−1) =     
+
+> 1
+> n−p+1
+> Pn+1
+> i=p+1 ,i ̸=tWh(Xi−1,Xt−1)K
+> Yt−Yih0
+> 
+> 1
+> n−p+1
+> Pn+1
+> i=p+1 ,i ̸=tWh(Xi−1,Xt−1)
+
+. Similarly, we can obtain the 
+
+p-values bp(Yn+1 ) = 1
+
+> n−p+1
+
+Pn+1  
+
+> t=p+1
+
+1{ eV (Yn+1 ) 
+
+> t
+
+≥ eV (Yn+1 ) 
+
+> n+1
+
+} with the conformity scores eV (Yn+1 ) 
+
+> t
+
+=
+
+| eU (Yn+1 ) 
+
+> t
+
+− 1/2|. This leads to the Predictive DCP algorithm for the Markov process, the so-called PMDCP method. 
+
+Algorithm 4 Predictive MDCP (PMDCP) algorithm for Markov( p)The algorithm is identical to Algorithm 3 except that ranks change to (5). 
+
+Comments: We can obtain the closed form of PI: bCPMDCP 1−α =[min( bC1−α)( Xn), max( bC1−α(Xn))]. 
+
+# 3 Asymptotic Validity of PIs 
+
+For i.i.d case or exchangeable data {(Xt, Y t)}nt=1 ∪ (Xf , Y f ), the coverage guarantee for the naive conformal prediction (Tibshirani, 2023) provides the unconditional validity, i.e., 1 − α ≤ P(Yf ∈ bCnaive 1−α (Xf )) ≤ 1 − α + 1
+
+n + 1 ,
+
+and asymptotic conditional validity in the distributional conformal prediction style 
+
+P(Yf ∈ bCnaive 1−α (Xf )|Xf ) → 1 − α as n → ∞ ;We next investigate whether the two guarantees still hold in the case of predicting a Markov process with MDCP and PMCDP. First, we introduce some regular assumptions: 13 A3 Let N = n − p + 1, h0 ≍ h → 0, N h p → ∞ and ph 2 → 0 when n → ∞ .A4 The domains of Y and X are bounded by CM > 0, i.e., ( X, Y ) ∈ X := [ −CM , C M ]p+1 
+
+with positive CM , an arbitrarily large constant. A5 w(·) and K(·) are positive, differentiable, and bounded on their whole domains with (i) R w(v)dv = 1, R vw (v)dv = 0 and R v2w(v)dv = Cw < ∞.
+
+(ii) R K′(z)dz = 1, R zK ′(z)dz = 0 and R z2K′(z)dz = CK < ∞.
+
+Furthermore, we assume Qps=1 w(·) and K(·) satisfy Lipschitz continuity with constant 
+
+Lw and LK , respectively. 
+
+Remark 7. Assumption A4 states that the domains of Y and each dimension of X are bounded by an arbitrarily large constant CM . This is for technical convenience to simplify the proof. In fact, the kernel CDF K and density w can be allowed to the full unbounded space R. In practice, CM is chosen as max 1≤i≤n |Yi| which has been discussed in Ytrial choice from Remark 6. 
+
+The crucial step in the DCP-type method is the estimation of the CDF. Traditionally, CDF is estimated by the empirical distribution function, which is not smooth, though it has good statistical properties. The usual method for nonparametric PDF or CDF estimation is the kernel method. There is a considerable literature to study kernel-type CDF estimation. Azzalini (1981) studied univariate CDF estimation, and Jin & Shao (1999) extended the one-dimensional estimation to the multivariate case. They provided the order of convergence rate of one smoothing parameter in estimating CDF as O(n−1/3). Liu & Yang (2008) proved the smooth multivariate kernel estimator converges to the true CDF at a rate of O(n−1/2 log n) by using a diagonal bandwidth matrix. Recently, Mansouri et al. (2024) proposed the bivariate kernel CDF estimator with Birnbaum–Saunders distribution in Mombeni et al. (2021) to obtain consistent estimators free from boundary bias. We then focus on the uniform asymptotic bound for kernel-based CDF on the augmented dependent data. We first give the following key Lemma 3.1, which is the basis for showing the asymptotic validity of MF/PMF and MDCP/PMDCP prediction intervals. The proof is inspired by Theorem 6.2 of Li & Racine (2007). However, it has a fundamental difference since the data are dependent in our case, so that some concentration inequality for multi-14 variate dependent data pairs, e.g., Bernstein’s inequality, is necessary to show the uniform consistency of our smoothing kernel estimator. 
+
+Lemma 3.1. Under A1 to A5, we have 
+
+sup 
+
+> x,y
+
+| bF (y|x) − F (y|x)| = O
+
+ log N
+
+√N h p + h2
+
+
+
+,
+
+with probability at least 1 − Sn, where Sn is one appropriate sequence converges to 0; see Remark 8 for the discussion about this sequence. 
+
+Remark 8 (Discussion of sequence Sn). Denote hp = N −τ for 0 < τ < 1. From the proof of Lemma 3.1, Sn is taken as 1 − 2JnN −C9 − 2JnN −C′ 
+
+> 9
+
+, where C9 > 0 and τ < are appropriate constants s.t., p+1 2 + τ (p+2)( p+1) 2p − C9 < 0. Similarly, C′ 
+
+> 9
+
+> 0 is taken as another appropriate constant s.t., p 
+
+> 2
+
++ pτ  
+
+> 2
+
+− C′ 
+
+> 9
+
+< 0. This is possible when N h p is large enough. 
+
+We have the transformed variables bU (Yn+1 ) 
+
+> t
+
+= bF (Yn+1 )(Yt|Xt−1) for t = p+1 , . . . , n +1 , and 
+
+bV (Yn+1 ) 
+
+> t
+
+= | bU (Yn+1 ) 
+
+> t
+
+− 1/2|. On the other hand, we define the oracle variables Ut = F (Yt|Xt−1)and Vt = |Ut − 1/2|, which are Uniform(0 , 1) and Uniform(0 , 1/2) random variables, re-spectively. Now we provide the following theorem for the marginal coverage guarantee of DCP-type prediction intervals with Markov( p) data, given the nominal level 1 − α. 
+
+Theorem 3.1 (Finite sample unconditional validity) . Under A1 to A5, given α ∈ (0 , 1) ,taking 5Cδ = O
+
+ log N√N h p + h2
+
+
+
+, we have 
+
+|P(Yn+1 ∈ bCMDCP  
+
+> 1−α
+
+(Xn)) − (1 − α)| ≤ 24 Cδ + 4 exp( −8N C 2 
+
+> δ
+
+) + 2 SN ;
+
+where SN is the appropriate sequence defined in Lemma 3.1 and converges to 0 as n → ∞ .By our assumption, Cδ is o(1) .
+
+Remark 9. The bounds for the difference in Theorem 3.1 consist of three terms: the ap-proximation error Cδ in the non-conformity score distribution, and the approximation and stochastic errors between the ground truth and the estimated distribution function. The Cδ
+
+is from the proof of Lemma 3.1, which tends to zero as N tends to infinity. The second term is the exponential decay term, which becomes a polynomial decay with log-factors. The third term is related to the high probability condition in Lemma 3.1 defined in Remark 8. 
+
+15 We should mention that the unconditional and conditional coverage rates are asymptot-ically equivalent for the DCP method in the regression case when the data are i.i.d after manipulating the prediction algorithm slightly. However, at first glance, it is not straightfor-ward to extend the unconditional coverage result to the conditional case for the dependent data; see Remark 10 for a discussion. 
+
+Remark 10. We first notice that Ut = F (Yt|Xt−1) for t = p + 1 , . . . , n + 1 is independent of Xt−1. Since Vt = |Ut − 1/2|, Vn+1 is also independent of Xn and 
+
+P (G (Vn+1 ) ≤ α | Xn) = P (G (Vn+1 ) ≤ α) .
+
+Since G(·) is the distribution function of Vn+1 and is a continuous function, we have that 
+
+P (G (Vn+1 ) ≤ α) = α. Similar to the decomposition (8) in the proof of Lemma 3.1, we can define a piecewise function eG generated from ground-truth transformed random vari-able Vt, eG(v) = 1
+
+> N
+
+Pn+1  
+
+> t=p+1
+
+1{Vt < v }, we have |P
+
+
+
+Yn+1 ∈ bCMDCP  
+
+> 1−α
+
+(Xn) | Xn
+
+
+
+− 1 − α| as the error of the empirical conditional coverage rate of our MDCP prediction interval com-pared to the nominal level. If the independent data is considered here, we can take the leave-one-out idea to make transformation without Xn, so P
+
+
+
+Yn+1 ∈ bCMDCP  
+
+> 1−α
+
+(Xn) | Xn
+
+
+
+=
+
+P
+
+
+
+Yn+1 ∈ bCMDCP  
+
+> 1−α
+
+(Xn)
+
+
+
+. However, for the dependent data, the dependence can not be damp-ened by removing only one observation to do the transformation. 
+
+In the recent literature about conformal prediction, the theoretical guarantee of the con-ditional coverage rate for dependent data is developed in alignment with the split conformal prediction idea. Chernozhukov et al. (2021) first introduced and studied split distribu-tional conformal prediction for exchangeable data. Zheng & Proutiere (2024) considered the Markovian Data and created separation between the training and calibration sets so that the temporal dependence in the data can be reduced; this idea is also similar to the “Big Block – Small Block” technique described in Paradigm 9.3.1. of Politis & McElroy (2019). The block technique is also taken by Oliveira et al. (2024) to build prediction intervals for 
+
+β-mixing dataset. Xu & Xie (2023) studied conformal inference for stationary and ergodic processes by separating regression data into two parts for nonparametric estimation and obtaining prediction residuals for the prediction interval. Rather than relying on the blocking technique, we observe that the conditional prediction interval from MDCP is asymptotically valid, leveraging the definition of β-mixing. We 16 summarize this interesting finding in Proposition 3.2. 
+
+Proposition 3.2 (The asymptotic validity of prediction interval based on MDCP ) . Under the assumptions required by Theorem 3.1, the MDCP prediction interval is asymptotically valid, i.e., 
+
+|P(Yn+1 ∈ bCMDCP  
+
+> 1−α
+
+(Xn)|Xn) − (1 − α)| p
+
+→ 0 for any Xn.
+
+Next, based on another dependence measure rather than the mixing property, we apply a new technique to prove that the conditional MDCP coverage rate is also asymptotically valid. To achieve this, we add one more assumption A1 ′ as follows. A1 ′ {Yt} forms an L2-m-approximable series, which is defined in H¨ ormann & Kokoszka (2010); also the Markov order p is less than m.where the Lq-m-approximable series implies the representation, 
+
+Yt = f (εt, ε t−1, . . . ) , for each t;where the εi are i.i.d. elements taking values in a real measurable space S in the context of this paper, and f is a measurable function f : S∞ → S. Moreover, we take an independent copy 
+
+n
+
+ε(t)
+
+> k
+
+o
+
+of {εk} for each t. Then, we can consider the so-called Lq-m-approximator: 
+
+Y (m) 
+
+> t
+
+= f
+
+
+
+εt, ε t−1, . . . , ε t−m+1 , ε (t)
+
+> t−m
+
+, ε (t)
+
+> t−m−1
+
+, . . . 
+
+
+
+, which satisfies several following properties: 
+
+• The series {Y (m) 
+
+> t
+
+} are strictly stationary and m-dependent; 
+
+• Y (m) 
+
+> t
+
+is equal in distribution to Yt for each t;
+
+• P∞
+
+> m=1
+
+
+
+E|Ym − Y (m) 
+
+> m
+
+|q
+
+1/q 
+
+< ∞.Before going to the statement of our theorem, Remark 11 gives a short introduction about different types of conditions to measure the dependence. 
+
+Remark 11 (Different dependence measures) . The first and maybe most common approach to measure the dependency is mixing property, e.g., α- and β-mixing; see Section A.4 for the definition of these two mixing properties; see the relationship between different mixing conditions from Bradley (2005). Besides mixing conditions, the namely ν-stable process has been defined by Bierens (1983), sharing a similar idea with Section 21 of Billingsley (1968). Subsequently, P¨ otscher & Prucha (1997) proposed a more general Lq-Approximable 
+
+17 idea, which is more general than ν-stability. Recently, H¨ ormann & Kokoszka (2010) further generalized the previous results to obtain the Lq-m-approximable process. However, the Lq-
+
+m-approximable property is not comparable to the mixing conditions. For example, the AR(1) process Yt = ρY t−1 + εt; 0 ≤ ρ ≤ 1/2, with independent Bernoulli innovations, does not have the α-mixing property; see Andrews (1984) for the proof. In addition, Theorem 17.3.3. of Ibragimov (1975) gave a condition s.t. the Gaussian process is strongly mixing. In other words, it is likely that an AR model with normal innovation is still not strongly mixing. However, the AR(1) process with independent Bernoulli innovations is Lq-m-approximable obviously. Thus, Lq-m-approximable property does not imply the mixing conditions. On the other hand, the Lq-m-approximable property is acquired by restricting the dependent data that possesses a specific data-generating structure. Thus, the Lq-m-approximable and mixing conditions are not comparable directly. 
+
+To show the asymptotically conditional validity of MDCP with Lq-m-approximable prop-erty, we still need to quantify the “dependence” of the series with the following assumption: A6 For the series {Yt}, we denote P∞
+
+> m=1
+
+
+
+E|Ym − Y (m) 
+
+> m
+
+|q
+
+1/q 
+
+= P∞ 
+
+> m=1
+
+δ(m) < ∞. We require that δ(m) converges to 0 fast as m → ∞ s.t., δ(m) = o(hp+1 ) and m = o(n). In this paper, we consider L2-m-approximable series, and the following theorem verifies the asymptotic validity of the conditional prediction interval from MDCP. 
+
+Theorem 3.3 (Asymptotically conditional validity) . Under A 1′ and A2 to A6, given α ∈
+
+(0 , 1) , taking {Y (m) 
+
+> t
+
+} as the L2-m-approximator of the original series with the latest p values replaced with the values from the original series, we have 
+
+|P(Yn+1 ∈ bCMDCP  
+
+> 1−α
+
+(Xn)|Xn) − (1 − α)| p
+
+→ 0.
+
+Remark 12 (Discussion of {Y (m) 
+
+> t
+
+} series) . To simplify the proof, the latest p values of 
+
+{Y (m) 
+
+> t
+
+} are replaced by the values from the original series, so that the conditional prediction on two series is given the same latest information, which provides the convenience to the proof. This replacement does change the property of {Y (m) 
+
+> t
+
+}. It will still be m-dependent and strictly stationary. 
+
+Finally, we wrap up this section with a proposition. 18 Proposition 3.4 (The asymptotic equivalence between MDCP and PMDCP) . We claim that all the above theoretical results will be held with the PMDCP technique since the leave-one-out CDF estimator converges to the standard one in a deterministic way, assuming the domain of the series is compact; see more discussion of the leave-one-out non-parametric estimator from Pan & Politis (2016a); Politis & Wu (2023). 
+
+Remark 13. In general, it is impossible to obtain the conditional coverage except for some specific structure assumptions (Vovk, 2012; Foygel Barber et al., 2021). Chernozhukov et al. (2021) bridged the gap between the unknown conditional coverage guarantee and non-exchangeable data, even when the CDF estimation is misspecified. Gibbs et al. (2025) re-formulated the conditional coverage as coverage over a class of covariate shifts and obtained an explicit form of finite-sample conditional coverage. Xu & Xie (2023) established the con-ditional coverage for time series with error following different processes. In our work, we take the definition of Lq-m-approximable series to prove that the conditional and uncondi-tional coverage probabilities are asymptotically equivalent. And the Lq-m-approximator can adapt the result for some non-mixing processes. For example, for AR(1) model with i.i.d. Bernoulli innovation, it could be a non-mixing process, but it is an m-approximable series. In short, our proof covers mixing Markov processes, and it also covers the non-mixing but 
+
+m-approximable process. 
+
+# 4 Numerical Experiments 
+
+## 4.1 Simulation studies 
+
+In this section, we use Monte Carlo simulations to evaluate the performance of the conformal prediction methods proposed in this paper through average coverage level (CVR) and length (LEN). For each type of prediction method, we generate R = 1000 datasets, each with size n.To evaluate the performance of the different prediction methods, the following two models were chosen in order to generate Markov process data (of order p = 1). Model 1: Yt+1 = sin( Yt) + et+1 ; Model 2: Yt+1 = 0 .8 log(3 Y 2 
+
+> t
+
++ 1) + et+1 .In the above, the errors {et} are chosen either from i.i.d. N (0 , 1) distribution or i.i.d. Laplace distribution rescaled to variance 1. We chose sample sizes n = 50 , 100 , 250 , 500 , 1000, and 19 constructed 95% and 90% prediction intervals. We choose B = 250 to compute the predic-tion interval of MF-based methods. We used the standard normal cumulative distribution function restricted on [ −2, 2] as K and chose w(x) = 1√2π e− x22 the standard normal density. We chose bandwidths h and h0 for kernel estimators by npcdistbw function from R package 
+
+np . This npcdistbw function can accommodate multivariate data pairs ( Yt, X t−1, . . . , X t−p)under p > 1.
+
+For each generated dataset, we use the oracle model to generate S number of pseudo values of ( Yn+1 ,j , j = 1 , 2, . . . , S ). We take S = 5000 throughout our simulation studies. The number S stands for how many future pseudo values of Yn+1 ,j we use to evaluate the empirical coverage rate of different Prediction Intervals (PIs) ( Li, U i), i = 1 , 2, . . . , R . Then, the average coverage rate and prediction interval length over R replications can be computed as follows: 
+
+CV R = 1
+
+R
+
+> R
+
+X
+
+> i=1
+
+CV R i and LEN = 1
+
+R
+
+> R
+
+X
+
+> i=1
+
+LEN i; (6) where 
+
+CV R i = 1
+
+S
+
+> S
+
+X
+
+> j=1
+
+1{Yn+1 ,j ∈ [Li, U i]} and LEN i = Ui − Li. (7) For the i-th dataset of size n (where i = 1 , 2, . . . , R ), we have the prediction interval ( Li, U i)of Yn+1 given Xn = xn,i , where xn,i is the last observation from the i-th dataset. The values of these {xn,i }Ri=1 are different for each i; therefore, the above CV R in (6) is an estimate of the unconditional coverage level. Besides, we also compute the sample standard deviation of 1000 CV R i and LEN i to measure the variability of different PIs according to the coverage level and length. The CV R i from an ideal PI should be concentrated around the nominal level, and the corresponding interval length should be as small as possible. All these results across different simulation models and errors are presented in Tables 1-4. To check the conditional coverage performance of all PI candidates, we consider the two situations: n = 50 and n = 250. We present the histogram of CV R i for each 95%-PI with Model-1 and Model-2 data generated from normal in Figure 1 and Figure 2, respectively. Since the pattern is similar to that with Laplace errors, we show the graphs about the performance of different PIs according to the coverage rate and interval length with data generated by Model-1 and Model-2 with Laplace errors in Appendix B. As we see from the Figures 1-2, MDCP and PMDCP methods will “overcorrect” some prediction intervals to reach a conditional coverage rate beyond the nominal levels, especially 20 Table 1: Model 1: Yt+1 = sin( Yt) + et+1 with normal innovations. 
+
+Nominal coverage 90% Nominal coverage 95% 
+
+n = 50 CVR LEN CVR Sd LEN Sd CVR LEN CVR Sd LEN Sd MDCP 0.892 3.619 0.066 0.899 0.951 4.657 0.042 1.017 PMDCP 0.896 3.620 0.073 0.668 0.955 4.715 0.048 0.978 MF 0.860 3.220 0.078 0.574 0.909 3.742 0.065 0.652 PMF 0.911 4.087 0.067 0.587 0.955 4.991 0.048 0.879 
+
+n = 100 MDCP 0.896 3.560 0.054 0.870 0.948 4.336 0.035 0.951 PMDCP 0.894 3.479 0.074 0.545 0.945 4.244 0.059 0.677 MF 0.866 3.210 0.069 0.469 0.914 3.725 0.058 0.537 PMF 0.900 4.020 0.080 0.408 0.950 4.860 0.052 0.552 
+
+n = 250 MDCP 0.894 3.410 0.040 0.746 0.948 4.156 0.026 0.822 PMDCP 0.895 3.349 0.042 0.351 0.950 4.104 0.032 0.451 MF 0.876 3.202 0.046 0.386 0.926 3.748 0.037 0.448 PMF 0.900 3.930 0.074 0.312 0.949 4.717 0.054 0.404 
+
+n = 500 MDCP 0.894 3.367 0.032 0.711 0.946 4.080 0.023 0.834 PMDCP 0.892 3.287 0.044 0.310 0.945 3.971 0.035 0.384 MF 0.879 3.196 0.040 0.308 0.929 3.749 0.033 0.363 PMF 0.899 3.935 0.079 0.260 0.949 4.699 0.055 0.340 
+
+n = 1000 MDCP 0.892 3.283 0.026 0.472 0.945 3.989 0.018 0.681 PMDCP 0.891 3.254 0.035 0.247 0.945 3.924 0.029 0.309 MF 0.885 3.225 0.036 0.287 0.934 3.794 0.030 0.350 PMF 0.897 3.931 0.076 0.235 0.947 4.695 0.052 0.308 21 Table 2: Model 1: Yt+1 = sin( Yt) + et+1 with Laplace innovations. 
+
+Nominal coverage 90% Nominal coverage 95% 
+
+n = 50 CVR LEN CVR Sd LEN Sd CVR LEN CVR Sd LEN Sd MDCP 0.895 3.926 0.068 1.588 0.954 5.500 0.042 1.838 PMDCP 0.891 3.953 0.109 1.305 0.953 5.694 0.074 1.805 MF 0.831 3.015 0.116 0.833 0.880 3.667 0.106 1.028 PMF 0.923 4.477 0.058 1.117 0.962 5.907 0.035 1.646 
+
+n = 100 MDCP 0.894 3.815 0.057 1.681 0.948 5.121 0.038 1.884 PMDCP 0.897 3.757 0.089 1.018 0.948 5.157 0.076 1.415 MF 0.846 3.003 0.084 0.709 0.895 3.706 0.075 0.913 PMF 0.919 4.315 0.066 0.758 0.962 5.745 0.042 1.219 
+
+n = 250 MDCP 0.890 3.486 0.045 1.314 0.947 4.795 0.031 1.635 PMDCP 0.899 3.502 0.053 0.677 0.954 4.974 0.040 1.128 MF 0.865 3.047 0.052 0.562 0.915 3.811 0.042 0.728 PMF 0.912 4.085 0.066 0.472 0.959 5.382 0.038 0.788 
+
+n = 500 MDCP 0.891 3.472 0.038 1.368 0.945 4.647 0.027 1.652 PMDCP 0.895 3.388 0.053 0.535 0.949 4.664 0.047 0.886 MF 0.871 3.087 0.056 0.487 0.920 3.880 0.048 0.630 PMF 0.912 3.997 0.056 0.379 0.959 5.181 0.030 0.603 
+
+n = 1000 MDCP 0.893 3.470 0.033 1.462 0.947 4.643 0.022 1.786 PMDCP 0.894 3.332 0.050 0.471 0.947 4.480 0.045 0.703 MF 0.879 3.145 0.041 0.476 0.928 3.976 0.034 0.620 PMF 0.906 3.940 0.069 0.337 0.954 5.075 0.040 0.552 22 Table 3: Model 2: Yt+1 = 0 .8 log(3 Y 2   
+
+> t+ 1) + et+1 with normal innovations.
+
+Nominal coverage 90% Nominal coverage 95% 
+
+n = 50 CVR LEN CVR Sd LEN Sd CVR LEN CVR Sd LEN Sd MDCP 0.881 3.822 0.074 1.624 0.945 5.358 0.053 2.200 PMDCP 0.886 3.607 0.087 0.705 0.947 4.822 0.061 1.141 MF 0.852 3.234 0.091 0.639 0.903 3.765 0.076 0.733 PMF 0.922 4.023 0.065 0.797 0.962 5.066 0.046 1.396 
+
+n = 100 MDCP 0.889 3.720 0.059 1.562 0.942 4.808 0.042 2.076 PMDCP 0.889 3.473 0.072 0.563 0.943 4.286 0.055 0.741 MF 0.864 3.218 0.070 0.505 0.914 3.748 0.057 0.578 PMF 0.914 3.748 0.057 0.585 0.957 4.580 0.041 0.818 
+
+n = 250 MDCP 0.887 3.466 0.042 1.240 0.945 4.360 0.029 1.593 PMDCP 0.887 3.319 0.056 0.396 0.945 4.100 0.048 0.520 MF 0.873 3.197 0.055 0.397 0.923 3.742 0.046 0.455 PMF 0.900 3.466 0.051 0.435 0.948 4.192 0.042 0.579 
+
+n = 500 MDCP 0.888 3.385 0.036 1.102 0.943 4.213 0.025 1.553 PMDCP 0.887 3.266 0.051 0.344 0.941 3.955 0.045 0.433 MF 0.877 3.193 0.047 0.337 0.927 3.753 0.039 0.399 PMF 0.895 3.366 0.047 0.370 0.944 4.043 0.038 0.471 
+
+n = 1000 MDCP 0.886 3.290 0.028 0.892 0.942 4.041 0.019 1.248 PMDCP 0.885 3.209 0.045 0.276 0.941 3.878 0.040 0.339 MF 0.883 3.208 0.042 0.302 0.932 3.771 0.036 0.351 PMF 0.894 3.323 0.043 0.323 0.943 3.970 0.036 0.405 23 Table 4: Model 2: Yt+1 = 0 .8 log(3 Y 2   
+
+> t+ 1) + et+1 with Laplace innovations.
+
+Nominal coverage 90% Nominal coverage 95% 
+
+n = 50 CVR LEN CVR Sd LEN Sd CVR LEN CVR Sd LEN Sd MDCP 0.889 4.329 0.073 2.447 0.949 6.402 0.049 2.850 PMDCP 0.890 3.981 0.108 1.304 0.949 5.753 0.070 1.829 MF 0.832 3.055 0.106 0.877 0.881 3.678 0.092 1.055 PMF 0.923 4.466 0.071 1.261 0.960 5.991 0.044 2.022 
+
+n = 100 MDCP 0.889 4.142 0.063 2.525 0.944 5.745 0.042 2.923 PMDCP 0.887 3.757 0.110 1.114 0.940 5.125 0.094 1.531 MF 0.834 2.995 0.106 0.762 0.883 3.654 0.097 0.942 PMF 0.908 4.059 0.083 1.059 0.950 5.358 0.065 1.514 
+
+n = 250 MDCP 0.888 3.637 0.047 1.941 0.946 5.214 0.032 2.602 PMDCP 0.895 3.525 0.068 0.785 0.951 5.004 0.053 1.221 MF 0.860 3.038 0.064 0.638 0.910 3.812 0.057 0.849 PMF 0.902 3.681 0.059 0.824 0.950 4.942 0.042 1.167 
+
+n = 500 MDCP 0.891 3.621 0.041 1.969 0.946 5.038 0.027 2.630 PMDCP 0.893 3.417 0.063 0.625 0.947 4.738 0.055 1.006 MF 0.870 3.108 0.055 0.554 0.919 3.912 0.047 0.733 PMF 0.900 3.567 0.051 0.663 0.948 4.798 0.040 1.055 
+
+n = 1000 MDCP 0.891 3.526 0.035 1.959 0.945 4.782 0.024 2.394 PMDCP 0.893 3.327 0.052 0.534 0.946 4.501 0.045 0.771 MF 0.877 3.134 0.043 0.517 0.926 3.955 0.035 0.648 PMF 0.899 3.455 0.044 0.593 0.947 4.580 0.033 0.855 24 for the small sample size. This phenomenon also happens for MF and PMF PIs. When the sample size is large, the histograms of CV R i of MDCP and PMDCP are more concentrated around the assigned nominal level. If we take a closer look, the length of PI from MDCP method could be pretty large even when the sample size is large, which is not desirable in practice. This phenomenon also happens in the simulation results with Laplace errors presented in Appendix B. In addition, the histogram of CV R i of PMF reveals more high conditional coverage cases compared to CV R i of PMDCP, but results in larger PI lengths as a sacrifice. In practice, the overcovering PI may be better than the undercovering PI even with a slightly larger length. On the other hand, from the results shown in Tables 1-4, the estimated unconditional coverage rates of MDCP, PMDCP and PMF PIs are all close to the nominal level even for a small sample size. Only the PI of MF shows the undercoverage issue. Among MDCP, PMDCP and PMF methods, the MDCP has a larger prediction interval length and a corre-sponding larger sample standard deviation, which implies it is more likely to have a super wide PI, consistent with the finding from 1-2. Again, PMF PI tends to have a slightly higher coverage rate than PMDCP, but possesses a larger PI length as a sacrifice. All PIs have bet-ter performance as the sample size increases. It also validates the asymptotic theory of PIs in Section 3. From the results implied by both tables and figures, we make our suggestions for users to choose a method in practice: 
+
+• If the computational resource is limited, we recommend the MF method since it can achieve a great unconditional coverage rate when the sample size is large enough. The MDCP method could also be a candidate since it gives a satisfactory unconditional CVR, but it brings the risk of obtaining a super wide PI; see the top right subgraph of Figure 2, where the histogram of MDCP PI lengths has a fat tail, which indicates the super wide PIs. A similar phenomenon is also observed from Appendix B and real data studies in the following section. 
+
+• If the computational resource is not an issue and users prefer the overcoverage rather than the undercoverage, we recommend the PMF method since it possesses a good unconditional coverage rate and tends to give more conditional overcoverage cases. 
+
+• If the computational resource is not an issue and users prefer a balanced undercoverage and overcoverage for conditional forecasting, we recommend the PMDCP method since 25 Nominal 95% 
+
+> Unconditional CVR
+
+n = 50 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+> Count
+
+n = 50 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+> Nominal 95%
+> Unconditional CVR
+
+n = 250 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+PI Coverage over 1000 replications 
+
+> Count
+
+n = 250 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+PI Length over 1000 replications 
+
+Model−1 normal errors Figure 1: The conditional coverage rate and interval length for different 95 %-PIs with simulated data from Model 1 with normal error. 
+
+it possesses a good unconditional coverage rate and the histograms of its CV R i are more concentrated around the nominal level. 26 Nominal 95% 
+
+> Unconditional CVR
+
+n = 50 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+> Count
+
+n = 50 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+> Nominal 95%
+> Unconditional CVR
+
+n = 250 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+PI Coverage over 1000 replications 
+
+> Count
+
+n = 250 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+PI Length over 1000 replications 
+
+Model−2 normal errors Figure 2: The conditional coverage rate and interval length for different 95 %-PIs with simulated data from Model 2 with normal error. 
+
+27 4.2 Real data studies: SP 500 index 
+
+Beyond the simulations, we take the log returns of the weekly S&P 500 price index from 1 January 1988 to 31 December 1997, i.e., in total 521 observations, to compare different methods on building prediction intervals for real data 1. Revealed by Chen & Hong (2012), this returns series can be seen as a Markov(1) data. To evaluate the performance of dif-ferent PIs, we apply the rolling window prediction idea with a window size w of different quarters. For example, given the window size w = 90 and the order p of Markov process, we use the 90 previous observation pairs Dtrain = {(Xt−90 , Y t−89 ) , . . . , (Xt−1, Y t)} to pro-vide a prediction interval of Yt+1 given Xt = ( Yt−p+1 , . . . , Y t). Repeating this prediction procedure throughout the whole series, we can define the empirical rolling average coverage by CV R = 1
+
+> n−w
+
+Pnt=w+1 1{Yt ∈ [Lt, U t]}; where Lt and Ut are different lower and upper bounds in the prediction interval obtained from these models, respectively, for each rolling prediction step. In addition, the average length of the prediction interval can be defined as 
+
+LEN = 1
+
+> n−w
+
+Pnt=w+1 (Ut − Vt). Again, we compute “LEN Sd”, which represents the sample deviation of all rolling PI lengths, to measure the spread of the length of each rolling PI. All results are presented in Table 5. From there, we observe a similar pattern to the simulations. PMF and PMDCP are two superior methods. Although MDCP can return a decent coverage rate, it possesses the risk of getting wide PIs, especially for w = 250, which is implied by the largest “LEN Sd” among all methods. This phenomenon is revealed in detail by Figure 3. Therefore, we still recommend the PMF or PMDCP methods. Method Nominal coverage 90% Nominal coverage 95% 
+
+w = 100 CVR LEN LEN Sd CVR LEN LEN Sd MF 0.8575 0.0486 0.0115 0.8884 0.0583 0.0140 PMF 0.8789 0.0542 0.0131 0.9382 0.0678 0.0174 MDCP 0.8717 0.0520 0.0126 0.9335 0.0651 0.0168 PMDCP 0.8717 0.0526 0.0121 0.9335 0.0653 0.0163 
+
+w = 250 MF 0.8561 0.0458 0.0067 0.9188 0.0555 0.0092 PMF 0.8708 0.0491 0.0079 0.9299 0.0621 0.0121 MDCP 0.8708 0.0488 0.0136 0.9299 0.0619 0.0158 PMDCP 0.8635 0.0472 0.0070 0.9373 0.0610 0.0103  
+
+> Table 5: The out-of-sample prediction performance of different PIs on log-returns of S &P500 price index with 100 or 250 rolling window size.
+> 1The data can be downloaded from investing.com.
+
+28 alpha = 0.10 alpha = 0.05          
+
+> MDCP  MF  PMDCP  PMF
+> 0.025 0.050 0.075 0.100 0.125 0.025 0.050 0.075 0.100 0.125
+> 020 40 60
+> 020 40 60
+> 020 40 60
+> 020 40 60
+> length
+> count
+
+Figure 3: The histogram of length for rolling 90%- and 95%-PIs with log-returns of S &P500 price index when 
+
+w = 250 .
+
+# Disclosure Statement 
+
+The authors have no conflicts of interest to declare. 
+
+# Data Availability Statement 
+
+Data sharing is not applicable to this article as no new data were created or analyzed in this study. 
+
+# References 
+
+Andrews, D. W. (1984). Non-strong mixing autoregressive processes. Journal of Applied Probability , 21(4), 930–934. Angelopoulos, A. N., Barber, R. F., & Bates, S. (2024). Theoretical foundations of conformal prediction. arXiv preprint arXiv:2411.11824 .Azzalini, A. (1981). A note on the estimation of a distribution function and quantiles by a kernel method. Biometrika , 68(1), 326–328. 29 Bierens, H. J. (1983). Uniform consistency of kernel estimators of a regression function under generalized conditions. Journal of the American Statistical Association , 78(383), 699–707. Billingsley, P. (1968). Convergence of probability measures . John Wiley & Sons. Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. Journal of Econometrics , 31(3), 307–327. Bosq, D. (2012). Nonparametric statistics for stochastic processes: estimation and prediction ,volume 110. Springer Science & Business Media. Box, G. E., Jenkins, G. M., Reinsel, G. C., & Ljung, G. M. (2015). Time Series Analysis: Forecasting and Control . John Wiley & Sons. Bradley, R. C. (2005). Basic properties of strong mixing conditions. a survey and some open questions. Probability Surveys , 2(none), 107 – 144. Chen, B. & Hong, Y. (2012). Testing for the markov property in timeseries. Econometric Theory , 28(1), 130–178. Chen, J. & Politis, D. N. (2019). Optimal Multi-step-ahead Prediction of ARCH/GARCH Models and NoVaS Transformation. Econometrics , 7(3), 1–23. Chen, R., Yang, L., & Hafner, C. (2004). Nonparametric multistep-ahead prediction in time series analysis. Journal of the Royal Statistical Society: Series B (Statistical Methodology) ,66(3), 669–686. Chen, W., Wang, Z., Ha, W., & Barber, R. F. (2016). Trimmed conformal prediction for high-dimensional models. arXiv preprint arXiv:1611.09933 .Chernozhukov, V., W¨ uthrich, K., & Zhu, Y. (2021). Distributional conformal prediction. 
+
+Proceedings of the National Academy of Sciences , 118(48), e2107794118. Chud` y, M., Karmakar, S., & Wu, W. B. (2020). Long-term prediction intervals of economic time series. Empirical Economics , 58(1), 191–222. Efron, B. (1992). Bootstrap methods: another look at the jackknife. In Breakthroughs in statistics: Methodology and distribution (pp. 569–593). Springer. 30 Engle, R. F. (1982). Autoregressive conditional heteroscedasticity with estimates of the variance of united kingdom inflation. Econometrica: Journal of the econometric society ,(pp. 987–1007). Foygel Barber, R., Candes, E. J., Ramdas, A., & Tibshirani, R. J. (2021). The limits of distribution-free conditional predictive inference. Information and Inference: A Journal of the IMA , 10(2), 455–482. Francq, C. & Zakoian, J.-M. (2019). GARCH models: structure, statistical inference and financial applications . John Wiley & Sons. Gibbs, I., Cherian, J. J., & Cand` es, E. J. (2025). Conformal prediction with conditional guarantees. Journal of the Royal Statistical Society Series B: Statistical Methodology , (pp. qkaf008). Gulay, E. & Emec, H. (2018). Comparison of forecasting performances: Does normalization and variance stabilization method beat garch (1, 1)-type models? empirical evidence from the stock markets. Journal of Forecasting , 37(2), 133–150. Guo, M., Bai, Z., & An, H. Z. (1999). Multi-step prediction for nonlinear autoregressive models based on empirical distributions. Statistica Sinica , 9(2), 559–570. H¨ ormann, S. & Kokoszka, P. (2010). Weakly dependent functional data. Annals of Statistics ,38(3). Ibragimov, I. (1975). Independent and stationary sequences of random variables. Wolters, Noordhoff Pub. 
+
+Ibragimov, I. A. (1962). Some limit theorems for stationary processes. Theory of Probability & Its Applications , 7(4), 349–382. Jin, Z. & Shao, Y. (1999). On kernel estimation of a multivariate distribution function. 
+
+Statistics & probability letters , 41(2), 163–168. Kosorok, M. R. (2008). Introduction to empirical processes and semiparametric inference ,volume 61. Springer. Lehmann, E. L. & Romano, J. P. (2005). Testing statistical hypotheses . Springer. 31 Lei, J., G’Sell, M., Rinaldo, A., Tibshirani, R. J., & Wasserman, L. (2018). Distribution-free predictive inference for regression. Journal of the American Statistical Association ,113(523), 1094–1111. Lei, J., Robins, J., & Wasserman, L. (2013). Distribution-free prediction sets. Journal of the American Statistical Association , 108(501), 278–287. Lei, J. & Wasserman, L. (2014). Distribution-free prediction bands for non-parametric re-gression. Journal of the Royal Statistical Society Series B: Statistical Methodology , 76(1), 71–96. Li, Q. & Racine, J. S. (2007). Nonparametric econometrics: theory and practice . Princeton University Press. Liu, R. & Yang, L. (2008). Kernel estimation of multivariate cumulative distribution func-tion. Journal of Nonparametric Statistics , 20(8), 661–677. Mansouri, B., Rastin, A., & Mombeni, H. A. (2024). Nonparametric estimation of bivariate cumulative distribution function. Arabian Journal of Mathematics , 13(3), 621–632. Manzan, S. & Zerom, D. (2008). A bootstrap-based non-parametric forecast density. Inter-national Journal of Forecasting , 24(3), 535–550. Mombeni, H. A., Mansouri, B., & Akhoond, M. (2021). Asymmetric kernels for boundary modification in distribution function estimation. REVSTAT-Statistical Journal , 19(4), 463–484. Oliveira, R. I., Orenstein, P., Ramos, T., & Romano, J. V. (2024). Split conformal prediction and non-exchangeable data. Journal of Machine Learning Research , 25(225), 1–38. Pan, L. & Politis, D. N. (2015). Model-free bootstrap for markov processes. In Proceedings of the 60th World Statistics Congress–ISI2015 (pp. 26–31). Pan, L. & Politis, D. N. (2016a). Bootstrap prediction intervals for linear, nonlinear and nonparametric autoregressions. Journal of Statistical Planning and Inference , 177, 1–27. Pan, L. & Politis, D. N. (2016b). Bootstrap prediction intervals for markov processes. 
+
+Computational Statistics & Data Analysis , 100, 467–494. 32 Pascual, L., Romo, J., & Ruiz, E. (2001). Effects of parameter estimation on prediction densities: a bootstrap approach. International Journal of Forecasting , 17(1), 83–103. Pascual, L., Romo, J., & Ruiz, E. (2006). Bootstrap prediction for returns and volatilities in garch models. Computational Statistics & Data Analysis , 50(9), 2293–2312. Politis, D. N. (2013). Model-free model-fitting and predictive distributions. Test , 22(2), 183–221. Politis, D. N. (2015). Model-free prediction and regression: a transformation-based approach to inference . Springer. Politis, D. N. & McElroy, T. S. (2019). Time series: A first course with bootstrap starter .Chapman and Hall/CRC. Politis, D. N. & Wu, K. (2023). Multi-step-ahead prediction intervals for nonparametric autoregressions via bootstrap: Consistency, debiasing, and pertinence. Stats , 6(3), 839– 867. P¨ otscher, B. M. & Prucha, I. (1997). Dynamic nonlinear econometric models: Asymptotic theory . Springer Science & Business Media. Romano, Y., Patterson, E., & Candes, E. (2019). Conformalized quantile regression. Ad-vances in neural information processing systems , 32. Rosenblatt, M. (1952). Remarks on a multivariate transformation. The annals of mathe-matical statistics , 23(3), 470–472. Sesia, M. & Romano, Y. (2021). Conformal prediction using conditional histograms. Ad-vances in neural information processing systems , 34, 6304–6315. Shafer, G. & Vovk, V. (2008). A tutorial on conformal prediction. Journal of Machine Learning Research , 9(3). Tibshirani, R. (2023). Conformal prediction: Advanced topics in statistical learning (lecture note). Vovk, V. (2012). Conditional validity of inductive conformal predictors. In Asian conference on machine learning (pp. 475–490).: PMLR. 33 Wang, Y. & Politis, D. N. (2022). Model-free bootstrap for a general class of stationary time series. Bernoulli , 28(2), 744–770. Wang, Y. & Politis, D. N. (2026). Model-free bootstrap and conformal prediction in re-gression: conditionality, conjecture testing, and pertinent prediction intervals. Journal of Nonparametric Statistics , 38(1), 311–345. Wu, K., Karmakar, S., & Gupta, R. (2025). Garchx-novas: A bootstrap-based approach of forecasting for garchx models. Journal of Forecasting .Wu, K. & Politis, D. N. (2024a). Bootstrap prediction inference of nonlinear autoregressive models. Journal of Time Series Analysis , 45. Wu, K. & Politis, D. N. (2024b). Deep limit model-free prediction in regression. arXiv preprint arXiv:2408.09532 .Xu, C. & Xie, Y. (2023). Conformal prediction for time series. IEEE transactions on pattern analysis and machine intelligence , 45(10), 11575–11587. Zaffran, M., F´ eron, O., Goude, Y., Josse, J., & Dieuleveut, A. (2022). Adaptive conformal predictions for time series. In International Conference on Machine Learning (pp. 25834– 25866).: PMLR. Zheng, F. & Proutiere, A. (2024). Conformal predictions under markovian data. arXiv preprint arXiv:2407.15277 .34 A Proofs in Section 3 
+
+## A.1 Proof of Theorem 3.1 
+
+Define bG(v) = 1 /N Pn+1  
+
+> t=p+1
+
+1{ bV (Yn+1 ) 
+
+> t
+
+< v }. Notice that 
+
+P(Yn+1 ∈ bCMDCP 1−α (Xn)) = P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 )
+
+> n+1
+
+o
+
+> α 
+
+!
+
+= P
+
+
+
+1 − bG( bV (Yn+1 ) 
+
+> n+1
+
+) > α 
+
+
+
+.
+
+Denote G(·) as the true distribution function of Vn+1 . Since G(·) is a continuous function, 
+
+G(Vn+1 ) follows from Uniform(0,1) by PIT and has the probability P(G(Vn+1 ) < 1 − α) = 1 − α. We have the decomposition 
+
+|P(Yn+1 ∈ bCMDCP 1−α (Xn)) − (1 − α)| = P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1{ bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 ) 
+
+> n+1
+
+} > α 
+
+!
+
+− (1 − α)
+
+= P
+
+
+
+1 − bG( bV (Yn+1 ) 
+
+> n+1
+
+) > α 
+
+
+
+− P (1 − G(Vn+1 ) > α )
+
+≤ P(| bG( bV (Yn+1)  
+
+> n+1
+
+) − G(Vn+1 )| > 12 Cδ)+ P(|G(Vn+1 ) − (1 − α)| ≤ 12 Cδ)
+
+≤ P(| bG( bV (Yn+1)  
+
+> n+1
+
+) − G(Vn+1 )| > 12 Cδ) + 24 Cδ;(8) where the inequality in (8) is due to the inequality |P(X ≤ z) − P(Y ≤ z)| ≤ P(|X − Y | >δ) + P(|X − z| ≤ δ) for any δ > 0; Cδ ≍ log N√N h p + h2; the last equation is due to the fact that 
+
+G(Vn+1 ) follows from Uniform(0,1). Define a piecewise function eG generated from ground-truth transformed random variable 
+
+Vt,
+
+eG(v) = 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1{Vt < v }.
+
+Thus, we can have the decomposition for the first term on the r.h.s. of (8) 
+
+P(| bG( bV (Yn+1)  
+
+> n+1
+
+) − G(Vn+1 )| > 12 Cδ) ≤ P(| bG( bV (Yn+1)  
+
+> n+1
+
+) − eG( bV (Yn+1)  
+
+> n+1
+
+)| > 8Cδ)+ P(| eG( bV (Yn+1)  
+
+> n+1
+
+) − G( bV (Yn+1)  
+
+> n+1
+
+)| > 2Cδ)+ P(|G( bV (Yn+1)  
+
+> n+1
+
+) − G(Vn+1 )| > 2Cδ).
+
+35 Define the events E1 := {sup v | bG(v) − eG(v)| > 8Cδ}, E2 := {sup v | eG(v) − G(v)| > 2Cδ} and 
+
+E3 = {| G( bV (Yn+1)  
+
+> n+1
+
+) − G(Vn+1 )| > 2Cδ}.
+
+Step 1. Bound E3. Since G is the ground true distribution of V which is uniform[0,1/2], the probability of event E3 happening is equivalent to {| bV (Yn+1)  
+
+> n+1
+
+− Vn+1 | > C δ} happening. Moreover, V has similar transformations to bV , i.e., Vt = |Ut − 1/2|, so 
+
+| bV (Yn+1)  
+
+> n+1
+
+− Vn+1 | = | bU (Yn+1 ) 
+
+> n+1
+
+− 1/2| − | Un+1 − 1/2| ≤ | bU (Yn+1 ) 
+
+> n+1
+
+− Un+1 |.
+
+Lemma 3.1 provides | bU (Yn+1 ) 
+
+> n+1
+
+− Un+1 | ≤ Cδ) with Cδ = O( log N√N h p + h2) which is defined in Lemma 3.1 with probability at least 1 − SN . So P(E3) < S N .
+
+Step 2. Bound E1 and E2. Given the event E4 = {sup t | bV (Yn+1 ) 
+
+> t
+
+− Vt| < C δ}, we have 
+
+| bG(v) − eG(v)| ≤ 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+|1{ bV (Yn+1 ) 
+
+> t
+
+< v } − 1{Vt < v }| ≤ 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1{| Vt − v| ≤ Cδ} + 1
+
+N
+
+X
+
+> t
+
+1{| bV (Yn+1 ) 
+
+> t
+
+− Vt| ≥ Cδ}≤ sup 
+
+> v
+
+1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1{| Vt − v| ≤ Cδ} − P(|Vn+1 − v| ≤ Cδ) + P(|Vn+1 − v| ≤ Cδ)
+
+≤ sup 
+
+> v
+
+1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+[1{Vt ≤ v + Cδ} − 1{Vt ≤ v − Cδ}]
+
+− P(Vn+1 ≤ v + Cδ) + P(Vn+1 ≤ v − Cδ) + P(|Vn+1 − v| ≤ Cδ)
+
+≤ sup 
+
+> v
+
+eG(v + Cδ) − G(v + Cδ) − ( eG(v − Cδ) − G(v − Cδ)) 
+
++ P(|Vn+1 − v| ≤ Cδ)
+
+≤ 2 sup 
+
+> v
+
+| eG(v) − G(v)| + 4 Cδ.
+
+Since Vt is i.i.d, the Dvoretzky-Kiefer-Wolfowitz inequality implies that 
+
+P(E2) ≤ 2 exp( −8N C 2 
+
+> δ
+
+),
+
+36 then we have 
+
+P(E1) = P(E1 ∩ E4) + P(E1 ∩ Ec
+
+> 4
+
+)
+
+≤ P
+
+
+
+sup 
+
+> v
+
+| eG(v) − G(v)| ≥ 2Cδ
+
+
+
++ P(sup 
+
+> t
+
+| bV (Yn+1 ) 
+
+> t
+
+− Vt| ≥ Cδ)
+
+≤ 2 exp( −8N C 2 
+
+> δ
+
+) + SN .
+
+Step 3. Combine all bounds of Ek for k = 1 , 2, 3. We have 
+
+P(| bG( bV (Yn+1)  
+
+> n+1
+
+) − G(Vn+1 )| > 12 Cδ) ≤ 4 exp( −8N C 2 
+
+> δ
+
+) + 2 SN
+
+with Cδ ≍ log N√N h p + h2. Plugging the upper bound back (8), we have 
+
+|P(Yn+1 ∈ bCMDCP 1−α (Xn)) − (1 − α)| ≤ 24 Cδ + 4 exp( −8N C 2 
+
+> δ
+
+) + 2 SN .
+
+## A.2 Proof of Proposition 3.2 
+
+To show Proposition 3.2, we consider the β-mixing coefficients defined in A.3.1 of Francq & Zakoian (2019): 
+
+β(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) := E sup 
+
+> B∈F ∞
+> ℓ
+
+|P(B) − P(B|F j
+
+> −∞
+
+)|,
+
+where Fj 
+
+> −∞
+
+and F∞ 
+
+> ℓ
+
+are two σ-algebras. If we consider the kernel CDF estimator bFS (Y |X)with only data Yn−p−S , . . . , Y 1 where S = o(n), the resulting lower bound and upper bound of the prediction interval bLMDCP 1−α,S and bU MDCP 1−α,S are measurable functions of Yn−p−S , . . . , Y 1 and the candidate pair ( Xn, Y f ). To show the asymptotic validity of the conditional coverage, we consider the lower bound bLMDCP 1−α,S of PI, the following analysis also holds for the upper bound. By the definition of geometric β-mixing coefficients, we can eventually show 
+
+E|P(bLMDCP 1−α,S ≤ c) − P(bLMDCP 1−α,S ≤ c|Xn)| → 0, uniformly in c (9) geometrically fast as S → ∞ . To show (9), we could consider showing a stronger result, i.e., 
+
+E|P(bLMDCP 1−α,S ≤ c) − P(bLMDCP 1−α,S ≤ c|F ∞ 
+
+> n
+
+)| → 0 uniformly in c. The crucial problem comes from the dependence between bLMDCP 1−α,S and F∞ 
+
+> n
+
+since the conformal prediction interval involves the data pair ( Xn, Y f ). Thus, we consider any data pair ( xn, y f ) where yf is taken from Ytrial 
+
+and observe that bLMDCP 1−α,S and F∞ 
+
+> n
+
+are in two separate σ-algebras now. In addition, we use the 37 fact that β(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) = β(F∞ 
+
+> ℓ
+
+, Fj
+
+> −∞
+
+) which can be easily seen by considering the equivalent format of the β-mixing coefficients between two σ-algebras ( A, B) defined on an appropriate probability space: 
+
+β(A, B) := 12 sup 
+
+> I
+
+X
+
+> i=1
+> J
+
+X
+
+> j=1
+
+|P (Ai ∩ Bj ) − P (Ai) P (Bj )| ;where the supremum is taken over all pairs of finite partitions ( A1, . . . , A I ) and ( B1, . . . , B J )such that Ai ∈ A for each i and Bj ∈ B for each j. This fact implies that 
+
+E
+
+"
+
+P(bLMDCP 1−α,S ≤ c) − P(bLMDCP 1−α,S ≤ c|xn, F∞
+
+> n+1
+
+) Xn = xn
+
+#
+
+→ 0, (10) for any data pair ( xn, y f ) and c. Therefore, it still holds after taking one more expectation based on the tower property, i.e., 
+
+E
+
+"
+
+E
+
+"
+
+P(bLMDCP 1−α,S ≤ c) − P(bLMDCP 1−α,S ≤ c|xn, F∞
+
+> n+1
+
+) Xn = xn
+
+## 
+
+→ 0, (11) for any yf ∈ Y trial and c, which is equivalently to what we want 
+
+E|P(bLMDCP 1−α,S ≤ c) − P(bLMDCP 1−α,S ≤ c|Xn, F∞
+
+> n+1
+
+)| → 0.
+
+Finally, by Markov’s inequality, we obtain that P(bLMDCP 1−α,S ≤ c|Xn) p
+
+→ P(bLMDCP 1−α,S ≤ c), for any yf ∈ Y trial and c. To get the uniform convergence result, we notice that the domain of the whole series is bounded by CM , as assumed in assumption A4. Therefore, the lower and upper bounds of a PI are in the compact of [ −CM , C M ]. Subsequently, the uniform convergence result can be concluded by applying the finite covering theorem. Moreover, since 
+
+S = o(n), bLMDCP 1−α,S and bLMDCP 1−α will be asymptotically equal with n → ∞ ; where bLMDCP 1−α is the lower bound of the PI with smoothed kernel estimator based on whole original series. This convergence is in the a.s. sense. Thus, we can get P(bLMDCP 1−α ≤ c|Xn) → P(bLMDCP 1−α,S ≤ c|Xn)and P(bLMDCP 1−α,S ≤ c) → P(bLMDCP 1−α ≤ c) for any c uniformly. Finally, we can conclude that 
+
+P(bLMDCP 1−α ≤ c|Xn) p
+
+→ P(bLMDCP 1−α ≤ c) uniformly in c. This convergence result is also true for the upper bound. Thus, we conclude that the coverage rate of the conditional prediction interval from MDCP is the same as the unconditional version asymptotically. 38 A.3 Proof of Theorem 3.3 
+
+The idea to handle the effects of dependency within the data on the conditional prediction interval hinges on the Lp-m-approximator for the original series. We denote the conditional distribution estimator with L2-m-approximator {Y (m) 
+
+> t
+
+} as follows: 
+
+bF (m)(y|x) = 
+
+> 1
+> N
+
+Pn+1  
+
+> i=p+1
+
+Wh
+
+
+
+X(m) 
+
+> i−1
+
+, x
+
+
+
+K
+
+y−Y (m)
+
+> i
+> h0
+
+
+
+W (m) 
+
+> h
+
+(x)
+
+. (12) To simplify the proof, we still take h = h0. The bandwidth will be selected by cross-validation for the simulation and real-data studies. We consider the consistency between 
+
+bF (m)(y|x) and bF (y|x) for any ( x, y ) in the joint domain. Let’s denote: 
+
+bF (y|x) − bF (m)(y|x) = An − A(m)
+
+> n
+
+W h(x) + A(m)
+
+> n
+
+1
+
+W h(x) − 1
+
+W (m) 
+
+> h
+
+(x)
+
+!
+
+;where 
+
+An := 1
+
+N
+
+> n+1
+
+X
+
+> i=p+1
+
+Wh (Xi−1, x) K
+
+Yi − yh
+
+
+
+and 
+
+A(m) 
+
+> n
+
+:= 1
+
+N
+
+> n+1
+
+X
+
+> i=p+1
+
+Wh
+
+
+
+X(m) 
+
+> i−1
+
+, x
+
+
+
+K Y (m) 
+
+> i
+
+− yh
+
+!
+
+.
+
+By our assumption A5, W h(X(m) 
+
+> t−1
+
+) are non-zero. We first analyze 
+
+An − A(m) 
+
+> n
+
+:= 1
+
+N
+
+> n+1
+
+X
+
+> i=p+1
+
+Wh (Xi−1, x) K
+
+Yi − yh
+
+
+
+− Wh
+
+
+
+X(m) 
+
+> i−1
+
+, x
+
+
+
+K Y (m) 
+
+> i
+
+− yh
+
+!! 
+
+= 1
+
+N
+
+> n+1
+
+X
+
+> i=p+1
+
+∆i.
+
+In a similar analysis of (15), we have |∆i| ≤ Chp
+
+r   
+
+> Xi−1−X(m)
+> i−1
+> 2
+> +∥Yi−Y(m)
+> i∥2
+> h2
+
+with the smoothness 39 assumption on W (·) and K(·). Therefore, 
+
+|An − A(m) 
+
+> n
+
+| ≤ 1
+
+N
+
+> n+1
+
+X
+
+> i=p+1
+
+Chp
+
+vuut Xi−1 − X(m)
+
+> i−1
+> 2
+
++ ∥Yi − Y (m) 
+
+> i
+
+∥2
+
+h2 .
+
+Then, 
+
+E(|An − A(m) 
+
+> n
+
+|) ≤ E
+
+
+
+Chp
+
+vuut Xi−1 − X(m)
+
+> i−1
+> 2
+
++ ∥Yi − Y (m) 
+
+> i
+
+∥2
+
+h2
+
+
+
+≤ Chp+1 E(∥Xi−1 − X(m) 
+
+> i−1
+
+∥ + ∥Yi − Y (m) 
+
+> i
+
+∥)
+
+≤ Chp+1 (p + 1) δ(m); where δ(m) is a sequence that convergences to 0 as m → ∞ . By the assumption A6, we have δ(m) = o(hp+1 ), so that E(|An − A(m) 
+
+> n
+
+|) → 0; the first inequality is due to the strict stationarity and the last two inequalities are due to the fact √a2 + b2 ≤ | a| + |b|. Similarly, we can show E
+
+  
+
+> 1
+> Wh(x)
+
+− 1  
+
+> W(m)
+> h(x)
+
+
+
+→ 0 with δ(m) = o(hp+1 ). Finally, by the Markov’s inequality, we can conclude that | bF (y|x) − bF (m)(y|x)| p
+
+→ 0. To get the uniform consistency, we can repeat the finite covering technique used in proof of Lemma 3.1. Omitting the details, we have sup x,y | bF (y|x) − bF (m)(y|x)| p
+
+→ 0. Moreover, since 
+
+bV (Yn+1 ) 
+
+> t
+
+= bU (Yn+1 ) 
+
+> t
+
+− 1/2 , where bU (Yn+1 ) 
+
+> t
+
+= bF (Yn+1 ) (Yt | Xt−1) for t = p + 1 , . . . , n + 1. By the continuous mapping theorem, we can conclude that sup x,y | bV (Yn+1 ) 
+
+> t
+
+− bV (m,Y n+1 ) 
+
+> t
+
+| p
+
+→ 0; where 
+
+bV (m,Y n+1 ) 
+
+> t
+
+:= bU (m,Y n+1 ) 
+
+> t
+
+− 1/2 and bU (m,Y n+1 ) 
+
+> t
+
+:= bF (m,Y n+1 ) (Yt | Xt−1) which is the augmented CDF estimator with {Y (m) 
+
+> t
+
+} series. Now consider two events, 1
+
+n bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 )
+
+> n+1
+
+o
+
+and 1
+
+n bV (m,Y n+1 ) 
+
+> t
+
+≥ bV (m,Y n+1 )
+
+> n+1
+
+o
+
+, it is not hard to show 
+
+1
+
+n bV (m,Y n+1 ) 
+
+> t
+
+≥ bV (m,Y n+1 ) 
+
+> n+1
+
++ op(1) 
+
+o
+
+≤ 1
+
+n bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 )
+
+> n+1
+
+o
+
+≤ 1
+
+n bV (m,Y n+1 ) 
+
+> t
+
+≥ bV (m,Y n+1 ) 
+
+> n+1
+
+− op(1) 
+
+o
+
+for each t asymptotically. Then, by considering the summation for t = p + 1 , . . . , n + 1 and 40 taking P(·| Xn), we have 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 )
+
+> n+1
+
+o
+
+> α Xn
+
+!
+
+> p
+
+→ P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n bV (m,Y n+1 ) 
+
+> t
+
+≥ bV (m,Y n+1 )
+
+> n+1
+
+o
+
+> α Xn
+
+!
+
+.
+
+Subsequently, we apply the MDCP method with {Y (m) 
+
+> t
+
+} series but ignore the latest 
+
+m + p + 1 values. More specifically, we make the transformation functions without the latest 
+
+m + p + 1 values and then determine the prediction interval in a conformal way. Since 
+
+m + p + 1 = o(n), ignoring the latest m + p + 1 values does not influence the asymptotic property of bF (m)(y|x). So we have 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n bV (m,Y n+1 ) 
+
+> t
+
+≥ bV (m,Y n+1 )
+
+> n+1
+
+o
+
+> α Xn
+
+!
+
+> p
+
+→ P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n eV (m,Y n+1 ) 
+
+> t
+
+≥ eV (m,Y n+1 )
+
+> n+1
+
+o
+
+> α Xn
+
+!
+
+;where eV (m,Y n+1 ) 
+
+> t
+
+is the variant of bV (m,Y n+1 ) 
+
+> t
+
+after deleting latest m + p + 1 values. Lastly, to show the asymptotic conditional validity, we note that eV (m,Y n+1 ) 
+
+> t
+
+depends on (Xn, Y f ), and we handle this dependence as follows. For any fixed pair ( xn, y f ) with yf ∈Ytrial , the conformity score eV (m,y f ) 
+
+> n+1
+
+is a deterministic function of ( xn, y f ). Moreover, eV (m,y f )
+
+> t
+
+for t = p + 1 , . . . , n − m − p is measurable with respect to Fn−m−pp+1 , while Xn ∈ F nn−p+1 .Since {Y (m) 
+
+> t
+
+} is m-dependent and the time gap between Fn−m−pp+1 and Fnn−p+1 is m + 1 > m ,these two σ-algebras are strictly independent. By the fact that the m-dependence implies geometrically β-mixing, following the same argument as in the proof of Proposition 3.2, we have 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n eV (m,Y n+1 ) 
+
+> t
+
+≥ eV (m,Y n+1 )
+
+> n+1
+
+o
+
+> α Xn = xn
+
+!
+
+→ (1 − α).
+
+Since m + p + 1 = o(n), the truncated version is asymptotically equivalent to the full version, and hence 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n bV (m,Y n+1 ) 
+
+> t
+
+≥ bV (m,Y n+1 )
+
+> n+1
+
+o
+
+> α Xn = xn
+
+!
+
+→ (1 − α)41 for any fixed xn. We can then conclude that 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+1
+
+n bV (Yn+1 ) 
+
+> t
+
+≥ bV (Yn+1 )
+
+> n+1
+
+o
+
+> α Xn
+
+!
+
+− (1 − α) p
+
+−→ 0,
+
+which is exactly what we want to prove. 
+
+## A.4 Technical Lemmas 
+
+Lemma A.1 (Dvoretzky-Kiefer-Wolfowitz inequality (Kosorok, 2008)) . Consider i.i.d sam-ple X1, . . . , X n from a distribution with CDF F (x), and let 
+
+bFn(x) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+1{Xi ≤ x}
+
+denote the usual empirical distribution function. Then, 
+
+P
+
+
+
+sup 
+
+> x∈R
+
+n√n bFn(x) − F (x)
+
+o
+
+> ϵ 
+
+
+
+≤ 2e−2ϵ2
+
+for all ϵ > 0.
+
+Definition A.1 (Strong ( α-)mixing condition) . Suppose {Xi}i∈Z is a sequence of random variables on a given probability space (Ω , F, P). For −∞ ≤ j ≤ ℓ ≤ ∞ , let Fℓj denote the 
+
+σ-field of events generated by the random variables Xk, j ≤ k ≤ ℓ(k ∈ Z). For any two 
+
+σ-fields Fj 
+
+> −∞
+
+and F∞ 
+
+> ℓ
+
+, define the “measure of dependence” 
+
+α(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) := sup 
+
+> A∈F j
+> −∞ ,B ∈F ∞
+> ℓ
+
+|P(A ∩ B) − P(A)P(B)|.
+
+For the given random sequence {Xi}, for any positive integer n, define the dependence coef-ficient 
+
+α(n) = α(X, n ) := sup 
+
+> j∈Z
+
+α  Fj
+
+> −∞
+
+, F∞
+
+> j+n
+
+ .
+
+In the case where the given sequence X is strictly stationary, the dependent coefficient has a simpler form 
+
+α(n) = α(X, n ) := α  F0
+
+> −∞
+
+, F∞
+
+> n
+
+ .
+
+Definition A.2 (β-mixing condition) . Suppose the same settings in Definition A.1. For 
+
+42 any two σ-fields Fj 
+
+> −∞
+
+and F∞ 
+
+> ℓ
+
+, define the β-mixing coefficients: 
+
+β(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) := E sup 
+
+> B∈F ∞
+> ℓ
+
+|P(B) − P(B|F j
+
+> −∞
+
+)|.
+
+For the given random sequence {Xi}, we have similar definitions for β(n).
+
+Claim 1 (The relationship between α- and β-mixing conditions) . For any two σ-fields Fj
+
+> −∞
+
+and F∞ 
+
+> ℓ
+
+, these measures of dependence satisfy 
+
+0 ≤ α(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) ≤ 1/4, 0 ≤ β(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) ≤ 1
+
+and 
+
+α(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+) ≤ 1/2β(Fj
+
+> −∞
+
+, F∞ 
+
+> ℓ
+
+).
+
+Thus, if a process Xt is β-mixing, it implies Xt is also α-mixing. 
+
+Lemma A.2 (Davydov’s and Billingsley’s inequality frome Lemma 1.1 and 1.2 of Ibragimov (1962)) . Let {Xi}i∈Z be a strictly stationary series which satisfies above β-mixing condition. If random variable ξ is measurable w.r.t. Fj 
+
+> −∞
+
+and η is measurable w.r.t. F∞
+
+> j+n
+
+, and if 
+
+E|ξ|r < ∞, E|η|s < ∞, with r > 1, s > 1, 1 
+
+> r
+
++ 1 
+
+> s
+
+= 1 then 
+
+|Cov( ξ, η )| ≤ 2( β(n)) 1/r ∥X∥r∥Y ∥s.
+
+If {Xi}i∈Z is a strictly stationary series which satisfies above α-mixing condition, and if 
+
+|ξ| < C 1, |η| < C 2 for some constants C1 and C2, then 
+
+|Cov( ξ, η )| ≤ 4α(n)C1C2.
+
+Lemma A.3 (Theorem 1.3 of Bosq (2012)) . Let {Xt}t∈Z be a zero-mean real-valued strictly stationary bounded process satisfying α-mixing condition. Then for each integer q ∈ 1, n
+
+> 2
+
+
+
+and each ε > 0, we have 
+
+P
+
+> n
+
+X
+
+> t=1
+
+Xt > nε 
+
+!
+
+≤ 4 exp 
+
+
+
+− ε2
+
+8v2(q) q
+
+
+
++ 22 
+
+
+
+1 + 4∥X0∥∞
+
+ε
+
+1/2
+
+q α 
+
+ n
+
+2q
+
+ 
+
+,
+
+43 where 
+
+v2(q) = 2( n 
+
+> 2q
+
+)2 Var 
+
+ ⌊ n 
+
+> 2q
+
+⌋+1 
+
+X
+
+> t=1
+
+Xt
+
+
+
++ ε∥X0∥∞
+
+2 ,
+
+and α
+
+j n
+
+> 2q
+
+k 
+
+is the strong mixing coefficient of order 
+
+j n
+
+> 2q
+
+k
+
+. For simplicity, we denote 
+
+Var 
+
+ P⌊ n 
+
+> 2q
+
+⌋+1  
+
+> t=1
+
+Xt
+
+
+
+by σ2(q).
+
+A.4.1 Proof of Lemma 3.1 
+
+Proof of Lemma 3.1. The proof is motivated by Proof of Theorem 1.4 in Li & Racine (2007). Throughout this proof, C1, . . . C 12 represent different constants. We consider the decompo-sition sup 
+
+> x,y
+
+| bF (y|x) − F (y|x)| = sup 
+
+> x,y
+
+1
+
+W h(x)( bF (x, y ) − W h(x)F (y|x)) 
+
+= sup 
+
+> x,y
+
+1
+
+W h(x)( bF (x, y ) − E bF (x, y ) + E bF (x, y ) − E(W h(x)F (y|x)) + E(W h(x)F (y|x)) − W h(x)F (y|x)) 
+
+≤ C1 · sup 
+
+> x,y
+
+bF (x, y ) − E bF (x, y ) + E bF (x, y ) − E(W h(x)F (y|x)) + E(W h(x)F (y|x)) − W h(x)F (y|x)
+
+≤ C1 · [sup 
+
+> x,y
+
+| bF (x, y ) − E bF (x, y )| + sup 
+
+> x,y
+
+|E bF (x, y ) − E(W h(x)F (y|x)) |
+
++ sup 
+
+> x,y
+
+|E(W h(x)F (y|x)) − W h(x)F (y|x)|]= C1 · (Q1 + Q2 + Q3) ; (13) where 
+
+Q1 := sup 
+
+> x,y
+
+| bF (x, y ) − E bF (x, y )|,Q2 := sup 
+
+> x,y
+
+|E bF (x, y ) − E(W h(x)F (y|x)) |,Q3 := sup 
+
+> x,y
+
+|E(W h(x)F (y|x)) − W h(x)F (y|x)|.
+
+Then, we will analyze the order of Q1, Q 2 and Q3 one by one. 44 Step 1. Consider the bound of Q1. Under Assumption A4, the domain of X and Y is a compact set [ −CM , C M ]p+1 . Define the space S := [ −CM , C M ]p+1 which can be covered by a finite number Jn cubes Ξ k with centers ( xk,n , y k,n ) for k = 1 , . . . , J n ; Jn is a constant which depends on the dimension p + 1, the constant CM , and the length of the cube ln. Then, we have sup 
+
+> x×y∈S
+
+| bF (x, y ) − E bF (x, y )| = max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+| bF (x, y ) − E bF (x, y )|≤ max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+bF (x, y ) − bF (xk,n , y k,n )
+
++ max 
+
+> 1≤k≤Jn
+
+bF (xk,n , y k,n ) − E bF (xk,n , y k,n )
+
++ max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+E bF (xk,n , y k,n ) − E bF (x, y )
+
+:= V1 + V2 + V3.
+
+(14) 
+
+Step 1.1 Derive the term V1. Denote G(Xt−1, Y t, x, y ) = Wh(Xt−1, x)K
+
+y−Yt
+
+> h0
+
+
+
+and 
+
+N = n − p + 1. Thus, we have the upper bound of V1 by max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+bF (x, y ) − bF (xk,n , y k,n )
+
+= max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+G(Xt−1, Y t, x, y ) −
+
+> n+1
+
+X
+
+> t=p+1
+
+G(Xt−1, Y t, xk,n , y k,n )
+
+≤ C2
+
+N h p max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+> n+1
+
+X
+
+> t=p+1
+
+q
+
+L2 
+
+> w
+
++ L2
+
+> K
+
+s
+
+∥x − xk,n ∥2
+
+h2 + (y − yk,n )2
+
+h20
+
+≤ C3
+
+ph20 + h2
+
+hp+1 h0
+
+ln;(15) where the first equality is due to the definition of kernel estimator; in the second equality, w
+
+in Wh is Lw-Lipschitz continuous, K is LK -Lipschitz continuous on the closed domains from Assumption A4, w and K are bounded on their whole domain from Assumption A5 and the basic inequality 
+
+|f (x1)g(y1) − f (x2)g(y2)| ≤ 
+
+q
+
+M 2 
+
+> f
+
+L2 
+
+> g
+
++ M 2 
+
+> g
+
+L2 
+
+> f
+
+· p(x1 − x2)2 + ( y1 − y2)2,
+
+if f is Lf -Lipschitz continuous and bounded by Mf and g is Lg-Lipschitz continuous and 45 bounded by Mg; and the last inequality is due to the finite cover of the space S; C3 is constant independent of ln, h, h0 and p.
+
+Step 1.2 Derive the upper bound of V3.
+
+For the term V3 := max 1≤k≤Jn sup x×y∈S∩ Ξk E
+
+ bF (xk,n , y k,n )
+
+
+
+− E( bF (x, y )) , we have: max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+E
+
+ bF (xk,n , y k,n )
+
+
+
+− E( bF (x, y )) 
+
+≤ max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+E
+
+h bF (xk,n , y k,n ) − bF (x, y )
+
+i
+
+≤ max 
+
+> 1≤k≤Jn
+
+E
+
+
+
+sup 
+
+> x×y∈S∩ Ξk
+
+bF (xk,n , y k,n ) − bF (x, y )
+
+
+
+≤ C3
+
+ph20 + h2
+
+hp+1 h0
+
+ln;(16) where the last inequality is due to the inequality (15). 
+
+Step 1.3 Derive the upper bound of V2. For 
+
+V2 := max 
+
+> 1≤k≤Jn
+
+bF (xk,n , y k,n ) − E
+
+ bF (xk,n , y k,n )
+
+
+
+,
+
+we can define a function Ψn(x, y ) := bF (x, y ) − E bF (x, y )= 1
+
+N
+
+" n+1 X
+
+> t=p+1
+
+Wh(Xt−1, x)K
+
+y − Yt
+
+h0
+
+
+
+− EWh(Xt−1, x)K
+
+y − Yt
+
+h0
+
+#
+
+:= 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+ψt,n .
+
+Then, for any η > 0, we can write 
+
+P (V2 > η ) = P
+
+
+
+max 
+
+> 1≤k≤Jn
+
+bF (xk,n , y k,n ) − E
+
+ bF (xk,n , y k,n )
+
+
+
+> η 
+
+
+
+= P
+
+
+
+max 
+
+> 1≤k≤Jn
+
+|Ψn (xk,n , y k,n )| > η 
+
+
+
+≤ P
+
+
+
+|Ψn (x1,n , y 1,n )| > η [ |Ψn (x2,n , y 2,n )| > η [ · · · | Ψn (xJn,n , y Jn,n )| > η 
+
+
+
+≤ Jn max 
+
+> 1≤k≤Jn
+
+P (|Ψn(xk,n , y k,n )| > η ) .
+
+(17) The following proof works for any ( xk,n , y k,n ). Denote C4 := sup x | Qps=1 w(xs)|. Denote that |G(Xt−1, Y t, x, y )| ≤ b := C4h−p. So, ψn,t ≤ C5h−p. Moreover, by our assumption, there 46 exist γ > 0 and ρ ∈ (0 , 1) such that α(k) ≤ 1/2β(k) ≤ γ/ 2ρk for k ≥ 1. By the definition of 
+
+ψn,t , we have Var( ψn,t ) = Var( G(Xt−1, Y t, x, y )) = E(G2(Xt−1, Y t, x, y )) − E2(G(Xt−1, Y t, x, y )) .
+
+For simplification, denote G(Xt−1, Y t, x, y ) by G. By the definition of G, we consider the second moment E[G2]
+
+E[G2] = 1
+
+h2p
+
+Z Z p
+
+Y
+
+> s=1
+
+w2
+
+us − xs
+
+h
+
+
+
+K2
+
+y − vh0
+
+
+
+fX,Y (u, v )dudv 
+
+= 1
+
+hp
+
+Z Z p
+
+Y
+
+> s=1
+
+w2(u′
+
+> s
+
+)K2
+
+y − vh0
+
+
+
+fX,Y (xh + u′, v )du ′dv = O
+
+ 1
+
+hp
+
+
+
+and first moment E[G]
+
+E[G] = 1
+
+hp
+
+Z Z p
+
+Y
+
+> s=1
+
+w
+
+us − xs
+
+h
+
+
+
+K
+
+y − vh0
+
+
+
+fX,Y (u, v )dudv 
+
+=
+
+Z Z p
+
+Y
+
+> s=1
+
+w(u′
+
+> s
+
+)K
+
+y − vh0
+
+
+
+fX,Y (xh + u′, v )du′dv = O (1) .
+
+Using Davydov’s inequality mentioned in Lemma A.2 with r = 1 /2 and s = 1 /2, we have 
+
+|Cov( ψi,n , ψ j,n )| ≤ 4β(|i − j|)1/2∥ψi,n ∥2∥ψj,n ∥2 ≤ C6ρ−| i−j|/2γ/h p.
+
+Therefore, by taking q = √N h − p 
+
+> 2
+
+, for n large enough, s.t., q ∈ 1, N
+
+> 2
+
+, we have 
+
+v2(q) = 8q2
+
+N 2 σ2(q) + A6η
+
+2hp .
+
+47 Without loss of generality, we assume k := 
+
+j N
+
+> 2q
+
+k
+
+is an integer, then we have 
+
+σ2(q) = 
+
+> k+1
+
+X
+
+> t=1
+
+Var ( ψt,n ) + 2 X
+
+> 1≤i<j ≤k+1
+
+Cov ( ψi,n , ψ j,n )
+
+≤ O
+
+ khp
+
+
+
++ 2 
+
+> k
+
+X
+
+> i=1
+> k+1 −i
+
+X
+
+> l=1
+
+|Cov ( ψi,n , ψ l+i,n )|≤ O
+
+ khp
+
+
+
++ O(h−pkX
+
+> i=1
+
+(k + 1 − i)ρ−i/ 2)
+
+≤ O
+
+ khp
+
+
+
++ O(kh −p
+
+> ∞
+
+X
+
+> i=1
+
+ρ−i/ 2) = O(kh −p).
+
+With the η chosen as below, the above inequality implies that v2(q) = O  A6ηhp
+
+ . Hence by Lemma A.3, we have, 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+ψt,n > η 
+
+!
+
+≤ 4 exp 
+
+
+
+− η2
+
+8v2(q)q
+
+
+
++ 22 
+
+
+
+1 + 4A5h−p
+
+η
+
+1/2 qγ 
+
+2 ρ[ N 
+
+> 2q]
+
+,
+
+which implies 
+
+P 1
+
+N
+
+> n+1
+
+X
+
+> t=p+1
+
+ψn,t > η 
+
+!
+
+≤ 4 exp( −C7(N h p)1/2η) + C8N 1/2h−pη−1/2ρ[ N 
+
+> 2q]
+
+;By setting η = log N√N h p , we obtain the bound 4N −C7 + C8N 3/4h−3p/ 4(log N )−1/2ρ√N h p
+
+≲ N −C9 ,
+
+which tends to zero for some C9 when N h p is sufficiently large. The above inequality can be seen by writing 
+
+C8N 3/4h−3p/ 4(log N )−1/2ρ√N h p
+
+= Ce 34 log N · e− 34 log hp
+
+· (log N )−1/2 · e√N h p log ρ
+
+= C8e34 log Nhp · (log N )−1/2 · e−C10 
+
+> √N h p
+
+= C8(log N )−1/2 · e34 log Nhp −C10 
+
+> √N h p
+
+.
+
+Let hp = N −τ , where 0 < τ < 1 so the assumption N h p → ∞ satisfies and N 1−τ − 2τp −C9 → 0. 48 Then, we have CN 3/4h−3p/ 4(log N )−1/2ρ√N h p
+
+= C8(log N )−1/2 · e34 log N 1+ τ −C10  
+
+> √N1−τ
+
+, which converges to 0 as exponentially fast rate. All in all, we have P(V2 > η ) ≤ 2Jn  
+
+> NC9
+
+.
+
+Step 1.4. Combine all terms V1, V 2 and V3. To incorporate all terms V1, V 2 and V3
+
+together, we can take h0 ≍ h for simplicity and ln = log( N ) ( hp+2 /N )1/2. Then, inequalities (15) and (16) satisfy 
+
+V1 := max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+bF (x, y ) − bF (xk,n , y k,n ) ≤ C11 
+
+hp+1 ln = C11 log N
+
+ 1
+
+N h p
+
+1/2
+
+;
+
+V3 := max 
+
+> 1≤k≤Jn
+
+sup 
+
+> x×y∈S∩ Ξk
+
+E
+
+ bF (xk,n , y k,n )
+
+
+
+− E( bF (x, y )) ≤ C11 
+
+hp+1 ln = C11 log N
+
+ 1
+
+N h p
+
+1/2
+
+.
+
+(18) Without loss of generality, we assume that C12 is a large value such that C12 > max ( C11 , 1). Combining the inequalities in V2 and (18), we can obtain the upper bound for Q1 with probability at least 1 − 2JnN −C9 ,
+
+Q1 := sup 
+
+> x×y∈S
+
+| bF (x, y ) − E( bF (x, y )) | ≤ V1 + V2 + V3 ≤ 3C12 log N
+
+ 1
+
+N h p
+
+1/2
+
+; (19) where Jn ≍ 1
+
+> lp+1
+> n
+
+.
+
+Step 2. Consider the bound of Q3. For Q3 := sup x,y |E(W h(x)F (y|x)) −W h(x)F (y|x)|,we have sup 
+
+> x,y
+
+|E(W h(x)F (y|x)) − W h(x)F (y|x)| ≤ sup 
+
+> x
+
+|W h(x) − E(W h(x)) |;then, with probability at least 1 − 2J′
+
+> n
+
+N −C′ 
+
+> 9
+
+, we have 
+
+Q3 := sup 
+
+> x,y
+
+|E(W h(x)F (y|x)) − W h(x)F (y|x)| ≤ 3C′
+
+> 12
+
+log N
+
+√N h p ; (20) where C′ 
+
+> 9
+
+and C′ 
+
+> 12
+
+are constants similar to C9 and C12 above, respectively, by taking l′ 
+
+> n
+
+=
+
+O
+
+
+
+log( N ) ( hp/N )1/2
+
+.
+
+Step 3. Consider the bound of Q2. At first, a third-order differentiable f (x) has a second-order p-dimensional Taylor expansion at xf (x + ∆) = f (x) + ∇f (x)⊤∆ + 12∆⊤∇2f (x + t∆)∆; 49 where t ∈ (0 , 1) p. Now we will use the definition of expectation for multivariate functions to discuss E bF (x, y ). For 
+
+E bF (x, y ) = 1
+
+N h pn+1 X
+
+> t=p+1
+
+E
+
+" p
+
+Y
+
+> s=1
+
+w
+
+Xt−1,s − xs
+
+h
+
+
+
+K
+
+y − Yt
+
+h0
+
+#
+
+,
+
+we have 
+
+E bF (x, y ) = 1
+
+hp
+
+Z Z p
+
+Y
+
+> s=1
+
+w
+
+us − xs
+
+h
+
+
+
+K
+
+y − uy
+
+h0
+
+
+
+fX,Y (u, u y)dudu y
+
+=
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+fX,Y (x + hv, u y)dvdu y
+
+> (a)
+
+=
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+·
+
+
+
+fX,Y (x, u y) + hv⊤∇xfX,Y (x, u y)+ 12h2v⊤∇2
+
+> x
+
+fX,Y (ξ, u y)vdvdu y
+
+
+
+=
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+fX,Y (x, u y)dvdu y
+
++
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+hv⊤∇xfX,Y (x, u y)dvdu y
+
++ 12
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+h2v⊤∇2
+
+> x
+
+fX,Y (ξ, u y)vdvdu y
+
+> (b)
+
+=
+
+> p
+
+Y
+
+> s=1
+
+Z
+
+w(vs)dv s
+
+Z
+
+K
+
+y − uy
+
+h0
+
+
+
+fX,Y (x, u y)du y
+
++ 12h2
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+v⊤∇2
+
+> x
+
+fX,Y (ξ, u y)vdvdu y
+
+= fX (x)
+
+Z
+
+K
+
+y − uy
+
+h0
+
+
+
+fY |X (uy|x)du y
+
++ 12h2
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)K
+
+y − uy
+
+h0
+
+
+
+v⊤∇2
+
+> x
+
+fX,Y (ξ, u y)vdvdu y
+
+> (c)
+
+= fX (x)F (y|x) + 12h2
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)v⊤∇2
+
+> x
+
+fX,Y (ξ, u y)vdvdu y + O(h2); where in (a), for each s, ξs in ξ = ( ξ1, . . . , ξ p) ξs is between xs and xs + hv s; (b) is derived 50 from R vw (v)dv = 0 in Assumption A5; and (c) is derived from 
+
+Z
+
+K
+
+y − uy
+
+h0
+
+
+
+fY |X (uy|x)du y
+
+= K
+
+y − uy
+
+h0
+
+
+
+F (uy|x)|+∞−∞ −
+
+Z
+
+F (uy|x)
+
+
+
+− 1
+
+h0
+
+k
+
+y − uy
+
+h0
+
+ 
+
+du y
+
+= 1
+
+h0
+
+Z
+
+F (uy|x)k
+
+y − uy
+
+h0
+
+
+
+du y =
+
+Z
+
+F (y − h0z|x)k(z)dz 
+
+=
+
+Z
+
+F (y|x)k(z)dz −
+
+Z
+
+h0zf (y|x)k(z)dz + 12h20
+
+Z
+
+z2f ′(ξy|x)k(z)dz 
+
+= F (y|x) + O(h2); where R zk (z)dz = 0, R z2k(z)dz < ∞, and sup x,y |f ′(y|x)| < ∞.And for EW h(x)F (y|x), we have 
+
+E(W h(x)F (y|x)) = F (y|x) · 1
+
+hp
+
+Z p
+
+Y
+
+> s=1
+
+w
+
+us − xs
+
+h
+
+
+
+fx(us)du 
+
+= F (y|x)
+
+Z p
+
+Y
+
+> s=1
+
+w(vs)fx(x + hv)dv
+
+= F (y|x)
+
+Z p
+
+Y
+
+> s=1
+
+w(vs)
+
+
+
+fx(x) − hv⊤∇xfx(x) + 12h2v⊤∇2
+
+> x
+
+fx(ξ′)v
+
+
+
+dv
+
+= F (y|x)fX (x) + h2
+
+2 F (y|x)
+
+Z p
+
+Y
+
+> s=1
+
+w(vs)v⊤∇2
+
+> x
+
+fX (ξ′)vdv.
+
+(21) Thus, 
+
+Q2 := sup 
+
+> x,y
+
+|E( bF (x, y ) − E(W h(x)F (y|x)) |
+
+= h2
+
+2 sup 
+
+> x,y
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)v⊤∇2
+
+> x
+
+fX,Y (ξ, u y)vdvdu y
+
+− F (y|x)
+
+Z p
+
+Y
+
+> s=1
+
+w(vs)v⊤∇2
+
+> x
+
+fX (ξ′)vdv + O(h2)
+
+≤ h2
+
+2 sup 
+
+> x,y
+
+|Mx,y + F (y|x) · Mx|
+
+Z Z p
+
+Y
+
+> s=1
+
+w(vs)v⊤vdv ≤ O(h2); where Mx,y := sup x,y |∇ 2
+
+> x
+
+fX,Y (x, y )|, Mx := sup x |∇ 2
+
+> x
+
+fX (x)|.51 Step 4. Combine the terms Q1, Q 2, Q 3. With Fr´ echet inequalities, we have sup 
+
+> x,y
+
+| bF (y|x) − F (y|x)| ≤ C1(Q1 + Q2 + Q3) ≤ O
+
+ log N
+
+√N h p + h2
+
+
+
+with probability at least 1 − 2JnN −C9 − 2JnN −C′ 
+
+> 9
+
+. By the choice of C9 and τ , we can write 1−2JnN −C9 −2JnN −C′ 
+
+> 9
+
+as a sequence 1 −SN which converge to 1 in an appropriate rate. 
+
+# B Additional Graphs 
+
+52 Nominal 95% 
+
+> Unconditional CVR
+
+n = 50 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+> Count
+
+n = 50 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+> Nominal 95%
+> Unconditional CVR
+
+n = 250 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+PI Coverage over 1000 replications 
+
+> Count
+
+n = 250 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+PI Length over 1000 replications 
+
+Model−1 laplace errors Figure 4: The conditional coverage rate and interval length for different 95 %-PIs with simulated data from Model 1 with laplace error. 
+
+53 Nominal 95% 
+
+> Unconditional CVR
+
+n = 50 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+> Count
+
+n = 50 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+> Nominal 95%
+> Unconditional CVR
+
+n = 250 
+
+0.4 0.6 0.8 1.0 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+0100 200 300 
+
+PI Coverage over 1000 replications 
+
+> Count
+
+n = 250 
+
+> MDCP  MF  PMDCP  PMF
+
+0.0 2.5 5.0 7.5 10.0 12.5 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+050 100 150 200 250 
+
+PI Length over 1000 replications 
+
+Model−2 laplace errors Figure 5: The conditional coverage rate and interval length for different 95 %-PIs with simulated data from Model 2 with laplace error. 
+
+54

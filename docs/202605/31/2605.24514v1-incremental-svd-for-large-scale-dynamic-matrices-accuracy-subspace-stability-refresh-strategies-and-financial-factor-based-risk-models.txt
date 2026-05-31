@@ -1,0 +1,1025 @@
+Title: Incremental SVD for Large-Scale Dynamic Matrices: Accuracy, Subspace Stability, Refresh Strategies, and Financial Factor-Based Risk Models
+
+URL Source: https://arxiv.org/pdf/2605.24514v1
+
+Published Time: Tue, 26 May 2026 00:39:41 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# INCREMENTAL SVD FOR LARGE -S CALE DYNAMIC MATRICES :ACCURACY , S UBSPACE STABILITY , R EFRESH STRATEGIES , AND 
+
+# FINANCIAL FACTOR -B ASED RISK MODELS 
+
+Stilyan Staykov 
+
+Department of Mathematics and Computer Science Eindhoven University of Technology 
+
+s.staykov@student.tue.nl 
+
+# ABSTRACT 
+
+Return panels, covariances, and large feature matrices evolve one observation or one entry at a time, yet downstream models require an up-to-date low-rank factorization At ≈ UtΣtV ⊤ 
+
+> t
+
+on every tick—a regime where full SVD is prohibitive and existing alternatives sacrifice either singular vectors, singular values, or long-horizon stability. We present a practical, metric-driven study of Brand-style 
+
+incremental SVD , built around a unified engine that handles row appends, column appends, rank-1 entry updates, and metrics tracking within a single framework, with two core contributions. For rank-1 entry updates, we derive an explicit projection-based rule U ′Σ′(V ′)⊤ = PU ( bA + δ e ie⊤ 
+
+> j
+
+)PV that keeps rank fixed while discarding only the out-of-subspace remainder in a quantifiable way, turning Brand’s rank-suppression heuristic into an operational scheme. We then treat refresh scheduling as a first-class design axis, systematically comparing periodic, error-threshold, angle-threshold, and adaptive-rank policies on the accuracy–latency frontier. A unified framework tracks error ratios, principal angles, explained variance, and per-update runtime on long synthetic streams and a multi-asset ETF factor model for covariance and portfolio-risk estimation. With a sensible rank and refresh cadence, incremental SVD matches full-SVD accuracy within a few percent at a fraction of the cost, scaling to high-frequency regimes where batch SVDs are infeasible. 
+
+# 1 Introduction and Background 
+
+1.1 Problem 
+
+Many data matrices of interest are not static objects but evolving streams. In recommender systems, user–item rating matrices change continually as new users arrive, new items are added, and existing users update their feedback. In quantitative finance, time ×asset return panels grow one row at a time as markets generate new observations and the cross-sectional universe of tradable instruments shifts. In both settings, downstream tasks—such as rating prediction or risk modeling—are often built on top of a low-rank representation of the data, for example via a truncated singular value decomposition (SVD) or a closely related matrix factorization. We briefly review SVD and low-rank approximation, setting up notation used throughout the paper. For a matrix A ∈ Rm×n the singular value decomposition (SVD) writes A = U ΣV ⊤, where U ∈ Rm×m and 
+
+V ∈ Rn×n are orthogonal, and Σ = diag( σ1, . . . , σ r ) ∈ Rm×n contains the singular values σ1 ≥ σ2 ≥ · · · ≥ σr > 0
+
+with r = rank( A). The truncated SVD of rank k keeps only the leading k singular values and vectors, Ak = UkΣkV ⊤ 
+
+> k
+
+,
+
+with Uk ∈ Rm×k, Vk ∈ Rn×k, and Σk ∈ Rk×k. Throughout the paper, ∥ · ∥ denotes the two norm and ∥ · ∥ F the Frobenius norm. By the Eckart–Young–Mirsky theorem, Ak is the best rank– k approximation to A in any unitarily invariant norm, in particular in the Frobenius norm, 
+
+Ak ∈ argmin 
+
+> rank( B)≤k
+
+∥A − B∥F . (1) 
+
+> arXiv:2605.24514v1 [math.NA] 23 May 2026
+
+A PREPRINT - M AY 26, 2026 The squared Frobenius norm decomposes as ∥A∥2 
+
+> F
+
+= Pri=1 σ2 
+
+> i
+
+and the residual error of Ak equals ∥A − Ak∥2 
+
+> F
+
+=
+
+Pri=k+1 σ2 
+
+> i
+
+. This naturally leads to the explained variance ratio (EVR), defined by EVR( k) = ∥Ak ∥2
+
+> F
+> ∥A∥2
+> F
+
+=  
+
+> Pki=1 σ2
+> iPri=1 σ2
+> i
+
+=1 − ∥A−Ak ∥2
+
+> F
+> ∥A∥2
+> F
+
+, which measures how much of the total variability is captured by the leading k singular values. In static settings one typically chooses k such that EVR( k) exceeds a target (e.g. 90 –95% ), or by inspecting the decay of σi.In our work, SVD and its truncation play two roles. First, the truncated SVD UtΣtV ⊤ 
+
+> t
+
+of a dynamic matrix At is the model we maintain incrementally. Second, the full SVD of At provides an oracle baseline : its truncation A⋆t,k 
+
+defines the optimal rank– k error against which we compare the incremental approximation. Section 2.5 formalizes these metrics. 
+
+1.2 Motivation 
+
+Recomputing a full SVD after every update is typically infeasible in systems that operate under latency and throughput constraints. This motivates incremental or online SVD methods [ 5], that update a rank-k approximation At ≈ UtΣtV ⊤
+
+> t
+
+as the matrix At evolves, for example via row/column appends or rank-1 entry updates. A concrete instance arises in equity and multi-asset finance. One constructs log returns rt,i = log( Pt,i / P t−1,i )
+
+from asset prices Pt,i , yielding a matrix RT ∈ RT ×N of T days across N assets. PCA—equivalent to SVD on mean-centered returns—is a standard tool for extracting systematic risk factors: the leading right singular vectors of 
+
+RT give cross-sectional factors, while the associated singular values determine their variance contribution. Low–rank factor models underlie many portfolio construction and risk management workflows: a rank-k factorization 
+
+RT ≈ FT B⊤ (with FT = UkΣk and B = Vk) yields a low-rank-plus-diagonal covariance that can be propagated through portfolio weights to estimate volatility and Value-at-Risk. Modern trading and risk systems operate online: returns arrive continuously and covariance and factor estimates must be updated under tight latency constraints. 
+
+1.3 State of the Art 
+
+When new rows, columns, or localized updates arrive over time, recomputing a full SVD is often too expensive, motivating incremental, online, and streaming variants. Brand [ 5, 4 ] gives efficient update formulas for augmenting a (possibly truncated) SVD by a row, column, or low-rank perturbation: the update is expressed in the current singular-vector basis, producing a small “core” matrix whose SVD captures the change to the spectrum. Complementary update backbones have since been developed: projection-based partial-SVD updates via Rayleigh–Ritz procedures in the LSI setting [ 21 ]; fast truncated-SVD updates for large sparse matrices in representation learning [ 8]; subspace-tracking with explicit attention to canonical angles and long-horizon stability [ 17 ]; and recent “SVD-type” streaming updates that revisit accuracy–throughput trade-offs via related factorizations [ 6]. More recent projection-based schemes refine this idea by constructing approximation subspaces that match the leading singular vectors of the augmented matrix, offering improved accuracy on latent semantic indexing and recommender-system datasets [14]. In finance specifically, existing online approaches—rolling-window PCA, dynamic conditional correlation (DCC) models, Kalman filter-based state-space methods—mostly recompute PCA per window or model covariance dynamics parametrically; few directly study exact incremental SVD updates on the growing returns matrix. 
+
+1.4 Limitations of the State of the Art 
+
+Despite this rich literature, several practical challenges remain under-explored: (i) how approximation error and subspace drift accumulate over long streams; (ii) how to choose and adapt the working rank k in a streaming regime; and (iii) how to design policies for refreshing the model, i.e., when to pay the cost of recomputing a full SVD in order to re-align with the current “true” low-rank structure. These questions are particularly acute in applications where the latent factors themselves have a semantic interpretation, such as user/item embeddings in recommenders or risk factors and covariance structures in finance. More broadly, most works either focus on theoretical guarantees under idealized noise, or present small empirical examples without tracking how error, drift, and runtime evolve over long streams; the design of refresh policies —when to recompute a full SVD to rebaseline—is usually left implicit. Classical SVD and PCA provide the optimal low–rank approximation in static settings, and finance relies heavily on low-rank factor models. Incremental and online SVD methods exist, but practical aspects such as error accumulation, 2A PREPRINT - M AY 26, 2026 subspace drift, rank choice, and refresh policies are rarely analyzed systematically in the context of online risk models. This motivates our metric–driven study of incremental SVD for dynamic matrices in Sections 2–5. 
+
+1.5 Contributions 
+
+Our work takes a complementary empirical view: given a concrete Brand-style implementation, we study how rank choice and refresh strategies affect accuracy, stability, and runtime in synthetic and applied settings. This paper takes a deliberately practical view on incremental SVD for dynamicmatrices, with an emphasis on accuracy, stability, and refresh strategies insettings motivated by recommender systems and financial factor models. Our main contributions are: 1. Unified incremental SVD engine for dynamic matrices. We implement and analyze a single incremental SVD framework that supports three fundamental update types for a time-varying matrix At: row appends (new users or new time steps), column appends (new items or new assets), and rank-1 entry updates (individual ratings or returns). The updates are exact up to rank-k truncation , and can be combined with periodic “refresh” steps that recompute a truncated SVD of the current matrix. This yields a flexible engine that mirrors the operations encountered in realistic recommender and finance pipelines. 2. Metric-driven framework for accuracy and subspace stability. We propose a unified set of metrics to evaluate incremental SVD: Frobenius reconstruction error versus the optimal rank-k error (from a full SVD), error gap and error ratio, principal angles between the maintained subspace and (i) its initial basis and (ii) the current optimal basis, explained variance ratio, and runtime statistics for both incremental updates and full SVD recomputations. This framework makes it possible to quantify not only how well the approximation tracks the best rank-k SVD, but also how the latent subspace drifts over time and what computational trade-offs different policies incur. 3. Refresh and rank-selection policy design space. Building on this engine and metric set, we formalize and study a small but expressive design space of policies for controlling drift and model complexity. These include simple periodic refresh, error-based refresh (triggered by an increase in error ratio), angle-based refresh (triggered by principal-angle thresholds), and EVR- or residual-based adaptive rank rules. Our synthetic streaming experiments systematically explore how these knobs interact with the underlying dynamics of the matrix, and when they succeed or fail in keeping the subspace close to optimal while maintaining low latency. 4. Application case study in finance. Finally, we instantiate the framework on a representative application. On a panel of multi-asset exchange-traded funds, we interpret the SVD as an online factor model, and evaluate how well incremental SVD tracks the leading eigenmodes of the return covariance and the associated portfolio risk for test portfolios. This case study illustrates how the same incremental machinery can be used for factor-based risk modeling in a way that is compatible with standard datasets and data providers. Our finance experiments build a returns matrix for a universe of liquid ETFs, maintain an incremental SVD as new days arrive, and compare the resulting low-rank covariance and portfolio risk estimates to full-SVD recomputation; the same pipeline extends to institutional sources such as WRDS (e.g. CRSP or TAQ). 
+
+1.6 Paper Overview 
+
+Section 2 formalizes the dynamic matrix setting, describes the incremental update rules for rows, columns, and rank-1 entry updates, and defines the error and subspace metrics we use throughout. Section 3 introduces refresh and adaptive rank policies. Section 4 presents synthetic streaming experiments that probe accuracy, subspace drift, and runtime scaling. Section 5 applies the framework to a multi-asset ETF return panel. Finally, Sections 6 and 7 conclude the paper and discuss limitations and directions for future work. 
+
+# 2 Incremental SVD Framework 
+
+Now we formalize the dynamic matrix setting, derive the incremental update rules implemented in our IncrementalSVD 
+
+engine, and define the error and subspace–drift metrics that will be used throughout the experiments. The goal is to make explicit what the algorithm does for each type of update (rows, columns, and single entries), how it interacts with periodic full-SVD “refreshes”, and what quantities we monitor to quantify accuracy and stability. Our framework builds on the deterministic Brand-style updates [ 5, 4 ], which maintain an exact rank-k factorization after each append or rank-1 perturbation. We refer to [ 1] for a unified survey of streaming PCA and subspace-tracking algorithms, organized by algebraic and geometric perspectives and reviewing both asymptotic and non-asymptotic 3A PREPRINT - M AY 26, 2026 guarantees, which complements the algorithm-by-algorithm comparison below. Alternative online paradigms include 
+
+randomized SVD [13 ], which is efficient for batch recomputation but does not natively support incremental updates; 
+
+matrix sketching methods such as Frequent Directions [ 16 , 11 ], which absorb streaming rows but do not maintain explicit singular vectors or support entry-level updates; and stochastic subspace trackers like Oja’s rule [ 18 ] and GROUSE [ 2], which scale to high dimensions but offer only asymptotic guarantees and do not produce singular values. The Brand-style approach produces a full (U, Σ, V ) triple at every step, which is essential for our metric-driven evaluation; we revisit these trade-offs in Section 6. 
+
+2.1 Problem Setting and Notation 
+
+We consider a real-valued matrix At ∈ Rmt×nt that evolves over time for t = 0 , 1, 2, . . . , where rows and columns may be appended and individual entries may be modified. At any time t we maintain a rank-k truncated singu-lar value decomposition At ≈ UtΣtV ⊤ 
+
+> t
+
+, where Ut ∈ Rmt×k and Vt ∈ Rnt×k have orthonormal columns, and 
+
+Σt = diag( σt, 1, . . . , σ t,k ) ∈ Rk×k contains non-increasing singular values. Depending on the policy chosen at implementation time, the dimensions (mt, n t) may be kept static—so that newly arriving information is absorbed into a fixed-size representation—or grown dynamically according to a criterion that decides when an actual size increase is warranted. We discuss and experiment with both regimes in this paper. We explicitly model three types of updates: 1. Row append (new “user” / new time point). A new row x⊤ ∈ R1×nt arrives and the matrix becomes 
+
+At+1 =
+
+At
+
+x⊤
+
+
+
+∈ R(mt+1) ×nt . (2) 2. Column append (new “item” / new asset). A new column y ∈ Rmt arrives and the matrix becomes 
+
+At+1 = [ At y] ∈ Rmt×(nt+1) .
+
+3. Single entry modification (rank-1 update). A single entry at position (i, j ) is modified by δ,
+
+At+1 = At + δ e ie⊤ 
+
+> j
+
+, (3) where ei and ej are standard basis vectors. The core of our framework is an incremental algorithm described by [ 4], [ 5] that updates (Ut, Σt, V t) after each such operation, while keeping the working rank bounded by a user-specified k. In addition, we allow occasional full refreshes ,where a truncated SVD of the current matrix is recomputed from scratch. These refreshes serve both as a numerical “reset” and as a reference for measuring drift. Algorithm 1 gives the engine control flow; detailed pseudocode for each update primitive appears in Appendix A (Algorithms A1–A3). Note, in Sections 2.2 and 2.3 we discuss the mathematical logic behind the algorithm. In the synthetic experiments of Section 4 we work with dense matrices and measure error in the full Frobenius norm. 
+
+2.2 Incremental Row and Column Updates 
+
+We first describe how we update the SVD when appending a new row. Our implementation follows the small-core update pattern of Brand-style algorithms [ 4]: the effect of the new row is compressed into a (k + 1) × (k + 1) matrix, on which we compute an exact SVD. Column additions are handled with the transpose trick. Related projection-based truncated-SVD updating schemes, particularly in latent semantic indexing, provide a comple-mentary Rayleigh–Ritz viewpoint and strategies for reducing the dimension of the update subspace [21]. 
+
+2.2.1 Row Append 
+
+Assume we have a rank-r truncated SVD At ≈ U ΣV ⊤, U ∈ Rm×r , V ∈ Rn×r . We append a new row x⊤ ∈ R1×n to make matrix of the form 
+
+A′ =
+
+At
+
+x⊤
+
+
+
+∈ R(m+1) ×n.
+
+The algorithm proceeds in three steps: 4A PREPRINT - M AY 26, 2026 
+
+Algorithm 1 IncrementalSVD engine (high level). Detailed update routines are in Appendix A. 
+
+Require: Initial matrix A0, target rank k, tolerance tol , refresh rule π
+
+1: (U, Σ, V ⊤) ← TruncatedSVD (A0, k )
+
+2: A ← A0
+
+3: for t = 1 , 2, . . . do 
+
+4: Receive update event Et
+
+5: if Et = RowAppend (x⊤) then 
+
+6: Append x⊤ to A as the bottom row 7: (U, Σ, V ⊤) ← RowAppendUpdate (U, Σ, V ⊤, x ⊤; tol )
+
+8: else if Et = ColAppend (y) then 
+
+9: Append y to A as the right-most column 10: (U, Σ, V ⊤) ← ColAppendUpdateViaTranspose (U, Σ, V ⊤, y ; tol )
+
+11: else if Et = RankOne (i, j, δ ) then 
+
+12: Ai,j ← Ai,j + δ
+
+13: (U, Σ, V ⊤) ← RankOneUpdate (U, Σ, V ⊤, i, j, δ )
+
+14: end if 
+
+15: Truncate: keep the top-k singular values and corresponding vectors 16: if π(t, metrics ) = TRUE then 
+
+17: (U, Σ, V ⊤) ← TruncatedSVD (A, k ) ▷ refresh from scratch 18: end if 
+
+19: end for 
+
+Step 1: projection onto current right-singular subspace. We decompose the new row into a part that lies in the span of V and an orthogonal residual. Let 
+
+p = x⊤V, z = x⊤ − p V ⊤, ρ = ∥z∥. (4) Define the unit vector ˆz, where tol is a small numerical threshold 
+
+ˆz =
+
+z/ρ, ρ > tol ,
+
+0, otherwise .
+
+In exact arithmetic, if the new row already lies in span( V ) then z = 0 and hence ρ = 0 , so there is no meaningful new direction to append to the right singular subspace. In finite precision, however, ρ may be nonzero but extremely small due to roundoff; normalizing z/ρ would then amplify numerical noise and inject an essentially arbitrary direction into V ′. We therefore treat ρ ≤ tol as zero and set ˆz = 0 , which keeps the update effectively rank-preserving in this near-dependent case and improves numerical stability. 
+
+Step 2: small core SVD. Consider the block matrix 
+
+K =
+
+Σ 0
+
+p ρ
+
+
+
+∈ R(r+1) ×(r+1) .
+
+We compute a full SVD K = UK Σ′V ⊤ 
+
+> K
+
+, where Σ′ = diag( σ′
+
+> 1
+
+, . . . , σ ′
+
+> r+1
+
+).
+
+Step 3: update singular vectors. The left singular vectors of the augmented matrix are obtained by “lifting” UK to the original dimension: 
+
+U ′ =
+
+U 00 1
+
+
+
+UK ∈ R(m+1) ×(r+1) ,
+
+while the right singular vectors become V ′ = V ˆz⊤ VK ∈ Rn×(r+1) . The updated singular values are the diagonal entries of Σ′.If the working rank k is smaller than r + 1 , we truncate to the top k singular values of Σ′ and the corresponding columns of U ′ and V ′. This yields a new truncated SVD of A′ at rank at most k.The per-update cost is dominated by the SVD of the (r + 1) × (r + 1) core matrix K, which is O(r3), plus the cost of the projections xV and the subsequent updates of U and V , roughly O(nr 2 + mr 2). For small fixed k this is essentially linear in m + n, in contrast to a full recomputation of the SVD, which costs O(mn min {m, n }).5A PREPRINT - M AY 26, 2026 
+
+2.2.2 Column Append via Transpose 
+
+Appending a new column y ∈ Rm is handled symmetrically by working on A⊤ 
+
+> t
+
+.A column append in At corresponds to a row append in A⊤ 
+
+> t
+
+. In implementation, we conceptually form the SVD of the transpose, apply the row-append routine described above with the new row y⊤, and transpose back to obtain updated factors (U ′, Σ′, V ′) for the augmented matrix. Finally we truncate back to rank k if needed. This “transpose trick” reuses exactly the same algebra and implementation as the row case, and ensures that rows and columns are treated in a mathematically symmetric way. 
+
+2.3 Incremental Rank-1 Entry Updates 
+
+The third operation updates a single entry (i, j ) by a small increment δ, as occurs when a user edits a rating or a single return is revised. Our algorithm follows that Brand-style one [ 5 ]. At the matrix level this is the rank-1 perturbation of the form (3). Assume again that we have a rank-r truncated SVD A ≈ U ΣV ⊤. Let s⊤ 
+
+> u
+
+= Ui, : ∈ R1×r , s v = V ⊤ 
+
+> j, :
+
+∈ Rr×1 denote the i-th row of U and the j-th column of V (i.e., the coordinates of ei and ej in the current latent bases), expressed in the current latent subspace. The update rule used in our implementation operates directly on the small r × r core. It forms the small core K = Σ + δ s us⊤ 
+
+> v
+
+, computes its SVD K = UK Σ′V ⊤ 
+
+> K
+
+, and updates the factors via U ′ = U U K ,
+
+V ′ = V V K and Σ′ = Σ ′.This update is exact within the current subspace in the following explicit sense. Let bA := U ΣV ⊤ denote the current rank-r approximation, and define the orthogonal projectors onto the maintained left/right subspaces by PU := U U ⊤
+
+and PV := V V ⊤ (since U and V have orthonormal columns). Writing su = U ⊤ei and sv = V ⊤ej , the updated reconstruction produced by Steps 1–3 is 
+
+U ′Σ′(V ′)⊤ = U (UK Σ′V ⊤ 
+
+> K
+
+)V ⊤ = U KV ⊤ = U (Σ + δ s us⊤ 
+
+> v
+
+) V ⊤ = bA + δ (U s u)( V s v )⊤.
+
+Using 
+
+U s u = U (U ⊤ei) = ( U U ⊤) ei = PU ei V s v = ( V V ⊤) ej = PV ej ,
+
+we obtain 
+
+U ′Σ′(V ′)⊤ = bA + δ (PU ei)( PV ej )⊤ = PU ( bA + δ e ie⊤ 
+
+> j
+
+) PV , (5) which makes precise that we are applying the rank-1 perturbation and then projecting it back onto span( U ) × span( V ).Any component of δe ie⊤ 
+
+> j
+
+outside the maintained subspaces is intentionally discarded to keep rank fixed, matching the truncation viewpoint discussed by Brand, who explicitly notes that rank-increasing components can be suppressed by ignoring the part of an update that lies outside the current subspace [ 5]. To this end, we proposed this rank suppression method. The computational cost is dominated by the SVD of the r × r core K, i.e., O(r3), plus the multiplications U U K and 
+
+V V K , which cost O(mr 2 + nr 2).In practice we combine all three operations—row append, column append, and rank-1 perturbations—into a single incremental engine that supports heterogeneous update streams. 
+
+2.4 Refreshes and Subspace Drift 
+
+Because we truncate back to rank k after each update, incremental operations inevitably introduce drift between the maintained subspace and the “optimal” subspace one would obtain by recomputing a full SVD of the current matrix. Our framework makes this drift explicit and allows us to study different refresh strategies. This viewpoint aligns with classical subspace-tracking formulations, where drift is measured geometrically and stability over long streams is a central concern [17]. Alternative approaches handle drift differently: stochastic trackers such as GROUSE [ 2 ] implicitly correct drift at every step via gradient projections but lack a mechanism to reset accumulated rounding errors, while Frequent Directions [ 16 , 11 ] maintains a provably near-optimal sketch but does not retain an explicit U basis. Our refresh-based strategy occupies a middle ground, combining low per-update cost of deterministic Brand-style algebra with periodic batch recomputation to control accumulated error. 
+
+2.4.1 Refresh Operation 
+
+The refresh operation recomputes a truncated SVD of the current matrix: At = U full Σfull (V full )⊤, and then keeps only the top k components by setting Ut ← U full (: , 1: k), Σt ← diag( σfull  
+
+> 1
+
+, . . . , σ full  
+
+> k
+
+) , and Vt ← V full (: , 1: k).
+
+6A PREPRINT - M AY 26, 2026 We also maintain the scalar Nt := ∥At∥2 
+
+> F
+
+incrementally for use in the explained variance ratio (Section 2.5), so that EVR can be evaluated without recomputing a full spectrum after each update. In addition, the implementation can optionally store the current left singular vectors as a reference subspace , Uref ← Ut,
+
+which serves as the origin for measuring future subspace drift. When refresh(store_initial_subspace = True) 
+
+is called, subsequent calls to subspace_principal_angle report the angle between Uref and the current Ut.In the experiments we consider both time-based refreshes (e.g., every R updates) and no-refresh baselines, and we later discuss more adaptive strategies. 
+
+2.4.2 Subspace Angles 
+
+Given two matrices Q1, Q 2 ∈ Rm×k with orthonormal columns, the principal angles between their column spaces are defined via the singular values of Q⊤ 
+
+> 1
+
+Q2. By [ 3, 12 ], the singular values of Q⊤ 
+
+> 1
+
+Q2 are precisely the cosines of these principal angles, and since principal angles lie in [0 , π 
+
+> 2
+
+] by definition, every singular value satisfies σℓ(Q⊤ 
+
+> 1
+
+Q2) ∈ [0 , 1] 
+
+for ℓ = 1 , . . . , k . Let 
+
+Q⊤ 
+
+> 1
+
+Q2 = W diag( μ1, . . . , μ k) Z⊤, 1 ≥ μ1 ≥ · · · ≥ μk ≥ 0.
+
+Then the principal angles θℓ satisfy cos θℓ = μℓ, θ ℓ ∈ [0 , π 
+
+> 2
+
+].
+
+We focus on the largest principal angle, which corresponds to the smallest singular value: 
+
+θmax (Q1, Q 2) = arccos  min  
+
+> ℓ
+
+μℓ
+
+ = arccos  σmin (Q⊤ 
+
+> 1
+
+Q2). (6) In our implementation we track two related quantities: • Drift relative to a fixed reference subspace. With Q1 = Uref and Q2 = Ut, we define 
+
+θref (t) = θmax (Uref , U t). (7) This measures how far the current approximation has moved from the subspace established at the last refresh (or at initialization). • Angle to the optimal subspace. In the synthetic experiments we can also compute the full SVD of At and obtain the optimal rank-k subspace U opt  
+
+> t
+
+. We then define 
+
+θopt (t) = θmax (U opt  
+
+> t
+
+, U t), (8) which we record as angle_to_opt . This directly quantifies how close our incremental subspace is to the best possible one at time t.These angles are central to our analysis of subspace stability and serve as natural candidates for future adaptive refresh triggers (e.g., refresh whenever θopt or θref exceeds a threshold). 
+
+2.5 Error Metrics and Computational Complexity 
+
+For each state At and its truncated SVD UtΣtV ⊤ 
+
+> t
+
+we monitor several scalar metrics. All of them are implemented in the current codebase and reused across experiments. 
+
+2.5.1 Frobenius Error and Optimal Baseline 
+
+The basic approximation error is the Frobenius norm Einc (t) = ∥At − bAt∥F , bAt := UtΣtV ⊤ 
+
+> t
+
+.
+
+In synthetic settings we can also compute the optimal rank-k approximation using a full SVD of At. Let At =
+
+U full Σfull (V full )⊤, and define the best rank-k approximation Aopt  
+
+> t
+
+= U full  
+
+> (: ,1: k)
+
+diag( σfull  
+
+> 1
+
+, . . . , σ full  
+
+> k
+
+) ( V full 
+
+> (: ,1: k)
+
+)⊤. Having 
+
+bAt := UtΣtV ⊤ 
+
+> t
+
+, we compute 
+
+Einc (t) = ∥At − bAt∥F , Eopt (t) = ∥At − Aopt  
+
+> t
+
+∥F , (9) Our metrics then include frob_error (t) := Einc (t), frob_opt (t) := Eopt (t), and frob_gap (t) := Einc (t) − Eopt (t),
+
+frob_ratio (t) = Einc (t) / E opt (t). (10) It is also worth noting that Einc (t) ≥ Eopt (t).
+
+7A PREPRINT - M AY 26, 2026 
+
+Why Einc (t) ≥ Eopt (t). By (1) , the best rank-k approximation minimizes the Frobenius error over all rank-k matrices. Since bAt also has rank at most k, it follows that Eopt (t) = ∥At − Aopt  
+
+> t
+
+∥F ≤ ∥ At − bAt∥F = Einc (t).
+
+When Eopt (t) is numerically zero we treat the ratio as undefined and record it as NaN. These quantities directly show how much accuracy we lose, if any, by updating incrementally instead of recomputing a full SVD at every step. 
+
+2.5.2 Explained Variance Ratio 
+
+We also report an explained variance ratio (EVR), defined as 
+
+EVR( k; t) = 
+
+Pkℓ=1 σ2
+
+> t,ℓ
+
+Prt
+
+> ℓ=1
+
+ σfull 
+
+> t,ℓ
+
+2 = ∥ bAt∥2
+
+> F
+
+∥At∥2
+
+> F
+
+, (11) where bAt = UtΣtV ⊤ 
+
+> t
+
+is the current maintained rank-k approximation, σt,ℓ are its singular values, σfull  
+
+> t,ℓ
+
+are the singular values of the full matrix At, and rt is the numerical rank of At.The singular-value form makes the interpretation explicit: the numerator sums the squared singular values retained in the current truncated model, while the denominator sums the squared singular values of the full matrix and therefore represents its total variance, equivalently its total Frobenius energy. Thus, EVR measures how much of the total matrix energy is retained by the rank-k approximation currently maintained. The equivalent Frobenius-norm form in (11) is especially convenient in practice. Since Ut and Vt have orthonormal columns, we have ∥ bAt∥2 
+
+> F
+
+= ∥Σt∥2 
+
+> F
+
+= Pkℓ=1 σ2
+
+> t,ℓ
+
+, so the numerator is available directly from the maintained factors. For the denominator, we maintain the scalar Nt := ∥At∥2 
+
+> F
+
+incrementally. If a row x⊤ is appended, then Nt+1 = Nt + ∥x∥2;if a column y is appended, then Nt+1 = Nt + ∥y∥2; and if a single entry is modified by At+1 = At + δe ie⊤ 
+
+> j
+
+, then only the (i, j ) entry changes, from (At)ij to (At)ij + δ, so Nt+1 = Nt + (( At)ij + δ)2 − (At)2 
+
+> ij
+
+= Nt + 2 δ(At)ij + δ2.Hence, ∥At∥2 
+
+> F
+
+can be tracked exactly without recomputing a full SVD. In synthetic experiments with repeated refreshes, EVR remains close to 1 and mainly reflects rank-k truncation rather than incremental drift. In the finance application, EVR also provides a useful diagnostic of whether the chosen rank is sufficient to capture the dominant structure in the data. 
+
+2.5.3 Runtime and Scaling 
+
+Finally, the streaming simulator records the runtime spent per incremental update ( update_time ) and, when applicable, the runtime spent computing the optimal baseline ( opt_time ). We use these to study how latency scales with • the matrix size (mt, n t), and • the working rank k,and to quantify the computational benefit of incremental updates versus full SVD recomputation. The complexity of each incremental operation is dominated by SVDs of small (k + 1) × (k + 1) or k × k core matrices (for row/column and entry updates respectively), plus linear-in-size updates to the factors. In contrast, a full SVD of At
+
+scales as O(mtnt min {mt, n t}), which rapidly becomes prohibitive in the streaming, large-scale regimes of interest. Taken together, this framework provides a clean separation between (i) the algebraic core of the incremental SVD updates (Sections 3.2–3.3), (ii) the refresh mechanism and subspace drift diagnostics (Section 3.4), and (iii) the metrics and complexity used to evaluate accuracy and stability (Section 3.5). The next section instantiates this framework on controlled synthetic streams, while later sections apply the same engine to financial datasets. 
+
+# 3 Refresh and Rank-Selection Policies 
+
+The row/column append updates in Section 2.2 are exact up to rank-k truncation at each step, while the rank-1 entry update in Section 2.3 performs an exact in-subspace correction at fixed rank. Over long streams two effects emerge: (i) approximation error can accumulate, and (ii) the “intrinsic” rank and dominant subspace of the underlying matrix may change. In practice one therefore needs policies that decide when to recompute a fresh SVD (“refresh”) and how large 
+
+the maintained rank k should be. Related streaming approaches that update low-rank structure via alternative factorizations likewise emphasize the need for occasional re-alignment to maintain accuracy and numerical stability over long streams [6]. 8A PREPRINT - M AY 26, 2026 This section formalizes a design space of such policies, expressed directly in terms of the metrics defined in Sec-tion 2.5: reconstruction error frob_error , optimal error frob_opt , error ratio frob_ratio , subspace angles angle 
+
+and angle_to_opt , explained-variance ratio EVR( k), and runtime measures update_time and opt_time . In the synthetic and application experiments (Sections 4– 5) we instantiate several of these policies and compare their behaviour. 
+
+3.1 Periodic Refresh 
+
+The simplest policy is to refresh on a fixed schedule. Let t denote the number of updates processed so far (rank-1, row, or column updates), and fix an integer refresh period Trefresh ≥ 1. A periodic refresh policy is defined by refresh at time t ⇐⇒ t ≡ 0 (mod Trefresh ). (12) Operationally, a refresh recomputes a truncated SVD of the current matrix At and replaces (Ut, Σt, V t) by the top-k
+
+singular triplets returned by the full SVD routine. In practice, we call the same refresh() routine that is used for sanity checks in our implementation. This policy exposes an intuitive trade-off: • Between refreshes the algorithm uses only cheap incremental updates with per-step cost update_time .• At refresh steps it pays a one-off cost opt_time to recompute the SVD. On long streams, small Trefresh (frequent refreshes) improves numerical fidelity at the expense of more full SVD calls, whereas large Trefresh reduces the number of full SVDs but allows more drift to accumulate. Section 4 evaluates this trade-off in a controlled rank-1 streaming setting. 
+
+3.2 Error-Based Refresh 
+
+While periodic refresh uses time as the only signal, our framework also provides direct error measurements via the baseline metrics. Whenever a full SVD of At is available, we can evaluate the optimal rank-k baseline error Eopt (t) from (9) ; by (1) , this is the minimum Frobenius error over all rank-k approximations. We then monitor the relative degradation through the ratio frob_ratio (t) defined in (10) , where bAt denotes the current incremental approximation and Aopt  
+
+> t
+
+the best rank-k truncation from the full SVD. An error-based refresh policy triggers whenever the incremental error drifts too far from the optimal baseline: refresh at time t ⇐⇒ frob_ratio (t) > γ. (13) for some tolerance γ > 1 (e.g. γ ∈ [1 .1, 1.2] ). To avoid excessive chattering, it is natural to combine this with a minimum spacing constraint Tmin : we only allow refreshes for t satisfying t − tlast ≥ Tmin , where tlast is the time of the most recent refresh. In synthetic experiments we can compute frob_opt (t) exactly at every step and therefore treat error-based refresh as an “oracle” policy. In real systems, recomputing a full SVD at each step defeats the purpose of being incremental. There, error-based strategies can still be approximated by: (i) computing frob_opt only on a coarse schedule (e.g. once per hour), or (ii) using cheaper surrogates for the optimal error, such as tracking the residual norm of new rows or monitoring changes in the spectrum of Σt over time. 
+
+3.3 Angle-Based Refresh 
+
+Reconstruction error focuses on values in the matrix. For applications such as latent-factor modelling, the geometry of the subspace spanned by the top singular vectors is equally important. Our metrics therefore include two principal-angle based measures: • angle (t): the principal angle between the current subspace Ut = span( Ut) and the initial subspace U0. This captures cumulative drift since initialization. • angle_to_opt (t): the principal angle between Ut and the optimal rank-k subspace U⋆t = span( U ⋆t (: , 1 : k)) 
+
+obtained from the full SVD of At. This measures how far the incremental subspace is from the best possible one at time t.9A PREPRINT - M AY 26, 2026 Our angular diagnostics are based on the largest principal angle in (6) ; in particular, we monitor the quantities in (7) -(8) .An angle-based refresh policy declares the current subspace outdated once the misalignment exceeds a user-specified threshold: refresh at time t ⇐⇒ angle_to_opt (t) > θ max ,
+
+for some θmax ∈ (0 , π 
+
+> 2
+
+]. Compared to pure error-based triggers, angle-based policies are more directly tied to subspace tracking and are less sensitive to global rescaling of the matrix. As for error-based refresh, computing angle_to_opt (t) requires access to the optimal subspace and is therefore mainly feasible in synthetic or diagnostic settings. However, the same idea can be approximated in practice without a full SVD by using local angular signals. For example: • New-row angle: when a new row x⊤ 
+
+> t
+
+arrives, we can decompose it as shown in (4) , then the angle between xt
+
+and its projection pt, or equivalently the ratio ∥zt∥ / ∥xt∥, serves as a measure of how “novel” this observation is relative to the current subspace. Large values indicate concept drift. • Subspace-change per update: the angle between successive subspaces span( Ut−1) and span( Ut) is cheap to compute and can signal instability if it becomes consistently large. In Section 6 we interpret such angular signals as a form of concept-drift detector for dynamic matrices. 
+
+3.4 Adaptive Rank Selection 
+
+So far we have treated the target rank k as fixed. In many applications, however, the intrinsic dimensionality of the data changes over time. Our framework therefore supports adaptive rank selection through the explained-variance ratio in (11), the residual quantities from (4), and principal-angle diagnostics derived from (6). 
+
+EVR-based rule. Given singular values σ1(t) ≥ · · · ≥ σr (t) of At, the explained-variance ratio defined in (11) gives a natural rule is to choose the smallest k such that EVR( k; t) ≥ τEVR for some target level (e.g. τEVR = 0 .9 or 0.95 ). In practice we enforce bounds kmin ≤ kt ≤ kmax and update kt only when EVR( kt; t) drifts significantly away from the target to avoid oscillations 
+
+kt = min {k ∈ [kmin , k max ] : EVR( k; t) ≥ τEVR } . (14) 
+
+Novelty- and residual-based rules. EVR captures global retained energy, but in streaming settings it is also useful to react to local novelty in newly arriving data. For a newly appended row x⊤ 
+
+> t
+
+, the decomposition in (4) provides a natural signal: the residual component zt measures the part of the new observation that lies outside the current right-singular subspace. Consequently, the relative residual ∥zt∥ / ∥xt∥ quantifies how poorly the current rank-k model explains the incoming row. A simple adaptive rule is therefore to increase the maintained rank when this novelty signal exceeds a prescribed threshold. Concretely, we use 
+
+∥zt∥ > η ∥xt∥ =⇒ kt+1 ← min( kt + 1 , k max ), (15) where η ∈ (0 , 1) controls the sensitivity of the trigger and kmax is a user-specified upper bound on the admissible rank. This rule complements the EVR-based criterion: while EVR indicates whether the maintained approximation retains enough total matrix energy overall, the residual test reacts to directions that are new relative to the current subspace, even when the global energy ratio remains high. In this sense, EVR captures global adequacy, whereas the residual-based rule captures local subspace novelty. 
+
+Interaction with refresh. Adaptive rank selection and refresh policies are complementary. A refresh step may: (i) recompute a rank-kt SVD with the current adaptive rank, or (ii) temporarily compute a higher-rank SVD to reassess 
+
+EVR and update kt. In Section 4 we illustrate this interaction on synthetic streams where the true latent rank changes over time. 
+
+3.5 Summary of Policy Design Space 
+
+Table 1 summarizes the main policy families discussed above. All policies are expressed in terms of the metrics produced by our implementation (Section 2.5), and can be plugged into the same incremental SVD engine without modifying its core updates. The experimental sections will compare representative instances of these policies in terms of accuracy, subspace drift, and runtime. 10 A PREPRINT - M AY 26, 2026 Table 1: Overview of refresh and rank-selection policies. Each policy is defined in terms of the metrics from Section 2.5. Policy type Signal(s) used Pros / cons Periodic refresh Time index t; period Trefresh Simple, predictable cost; ignores actual error or drift. Error-based refresh frob_ratio (t), optional Tmin Direct control of approximation error; re-quires (approximate) baseline. Angle-based refresh angle (t), angle_to_opt (t), new-row an-gles Targets subspace drift; aligns with factor in-terpretations; requires angular estimates. Adaptive rank EVR( k; t), residual norms, novelty angles Adjusts model complexity to data; introduces extra hyperparameters ( τEVR , k min , k max ). 
+
+# 4 Synthetic Experiments 
+
+We now evaluate the incremental SVD framework on controlled synthetic streams generated from known low-rank models. The goals are to measure: (i) accuracy of the incremental approximation relative to the optimal rank-k baseline; (ii) subspace drift and its control via refresh policies; (iii) sensitivity to the truncation rank k; (iv) behaviour under structural growth; and (v) runtime scaling. All experiments use the ground-truth generators and metrics defined in streaming_simulator.py , and the incre-mental engine from IncrementalSVD.py . At each logged step we compute a full SVD of the current dense matrix, yielding the optimal rank-k error ( frob_opt ) and optimal subspace for comparison. 
+
+4.1 Rank-1 Streaming: Tracking and Drift 
+
+We begin with a 50 × 40 matrix of true rank 5 and perform 10 ,000 random rank-1 updates of size δ ∼ N (0 , 0.05 2). We compare no refresh with the periodic refresh policy (12) using Trefresh = 1000 .Figure 1a shows the error ratio frob_ratio (t) from (10) . Without refresh, the incremental approximation drifts to roughly 1.12 , while periodic refresh keeps the ratio extremely close to 1. Figure 1b shows the angle to the optimal rank-5 subspace, namely angle_to_opt (t) from (8) : between refreshes the angle grows slowly, then resets to nearly zero, forming the characteristic “sawtooth” pattern. This confirms that incremental updates accumulate moderate drift, but periodic refresh tightly controls the alignment to the true subspace.     
+
+> (a) Error ratio frob_ratio (t)from (10) . Refresh keeps the ratio near 1.
+> (b) Angle to the optimal subspace, angle_to_opt (t)
+> from (8). Refresh repeatedly realigns the basis.
+
+Figure 1: Rank-1 streaming: drift diagnostics under different refresh policies. Left: relative Frobenius error ratio. Right: angle to the optimal rank-5 subspace. 
+
+4.2 Effect of Truncation Rank 
+
+We repeat rank-1 streaming for k ∈ { 5, 8, 12 }. Figure 2 reports the error ratio. Larger k provides only modest improvements once k reaches the true latent dimension (5), consistent with classical low-rank perturbation theory. 11 A PREPRINT - M AY 26, 2026 We next study how the truncation rank k interacts with incremental drift. We repeat the rank-1 streaming experiment from Subsection 4.1 for k ∈ { 5, 8, 12 } and plot the error ratio frob_ratio (t) from (10) in Figure 2. The vertical resets correspond to periodic refreshes. At first glance the figure looks counter-intuitive: the curves for larger k sit slightly above the curves for smaller k,so the error ratio appears to increase with k. This does not mean that higher rank makes the approximation worse. In fact, the absolute Frobenius errors in (9) decrease with k, as expected. To interpret the ratio, let E(k) 
+
+> inc
+
+(t) and 
+
+E(k) 
+
+> opt
+
+(t) denote the quantities in (9) for working rank k, and write E(k) 
+
+> inc
+
+(t) = E(k) 
+
+> opt
+
+(t) + δk(t) with δk(t) ≥ 0. Then 
+
+frob_ratio (t, k ) = 1 + δk(t) / E (k) 
+
+> opt
+
+(t).As k increases, the optimal rank-k error E(k) 
+
+> opt
+
+(t) shrinks rapidly, especially once k reaches the true latent rank (here 
+
+5). The incremental gap δk(t) also decreases, but it does not vanish as quickly as the optimal error. Consequently, the fraction δk(t) / E (k) 
+
+> opt
+
+(t) can grow with k even though both numerator and denominator become smaller in absolute terms. There is also a modelling aspect. For k larger than the true rank, the additional singular directions mainly capture high–frequency noise. The full SVD re–estimates these noise directions from scratch at each step and therefore achieves the best possible rank– k fit. The incremental method, by contrast, tries to track these rapidly changing, low–energy directions using small Brand-style updates; this is inherently harder and contributes to a small but non–negligible gap 
+
+δk(t). From a practical point of view, this suggests that increasing k well beyond the intrinsic rank offers little benefit: it reduces the optimal error, but mainly on noisy components that are difficult for any incremental scheme to track, and it raises both computational cost and the relative error ratio. The incremental update time, shown in Figure 3a, increases with k in line with the O(k3) cost of the core update. This highlights the practical speed–accuracy trade-off. 
+
+Figure 2: Effect of k on error ratio ( k = 5 , 8, 12 ). Gains saturate once k matches the true rank.     
+
+> (a) Mean incremental update time vs. k. Runtime grows super-linearly, matching the small-core O(k3)
+> SVD.
+> (b) Scaling with truncation rank k. Runtime grows super-linearly in k.
+
+Figure 3: Runtime scaling with truncation rank k in two synthetic settings. Both panels show the expected super-linear growth in k, consistent with the small-core SVD cost. 12 A PREPRINT - M AY 26, 2026 
+
+4.3 Structural Growth: Rows and Columns 
+
+We next consider expanding matrices. New rows or columns are sampled from a rank-6 model with additive noise. We track a rank-4 approximation and refresh every 50 additions. Figure 4 shows the error ratio for both row and column streaming. In both cases, no-refresh gradually drifts away from the optimal error, while periodic refresh maintains frob_ratio (t) from (10) close to 1.0–1.02. This demonstrates that the incremental engine remains robust under changing matrix dimensions, and that refresh policies remain effective in the structurally growing setting. 
+
+Figure 4: Structural growth (left: rows, right: columns): error ratio under no refresh vs. refresh every 50 steps. Refresh maintains near-optimal error. 
+
+4.4 Mixed Streaming 
+
+We combine row additions, column additions, and rank-1 perturbations. Figure 5 shows the error ratio frob_ratio (t)
+
+from (10) . We see that the unrefreshed method accumulates more than 10% error relative to the optimal baseline, while refresh every 200 steps keeps the ratio very close to 1. This is consistent with the more complex drift patterns induced by the heterogeneous stream, and highlights the importance of periodic realignment. 
+
+Figure 5: Mixed streaming: error ratio. Without refresh, drift compounds across update types; refresh stabilizes the approximation. 
+
+4.5 Efficiency and Scaling 
+
+Finally, incremental update time scales roughly linearly with matrix size mn for fixed k, while Figure 3b confirms the super-linear dependence on k. Both trends align with the complexity discussion in Section 2.5 and with the small-core update structure in Sections 2.2–2.3. The absolute runtimes remain below a millisecond for the problem sizes considered. 13 A PREPRINT - M AY 26, 2026 Across all scenarios, incremental SVD updates remain accurate, stable, and computationally efficient. Periodic refresh policies consistently bound drift relative to the optimal subspace, and the engine adapts robustly to structural growth in matrix dimensions. 
+
+# 5 Financial Factor and Covariance Modeling 
+
+In our application we treat incremental SVD as an online equity factor model : each new trading day adds a row of returns, and we update a low–rank approximation of the return matrix in real time. From a quant perspective this corresponds to maintaining PCA–style systematic risk factors and a low–rank covariance matrix used for portfolio construction and risk management. The standard approaches for online covariance estimation in finance include rolling-window PCA, dynamic conditional correlation models (DCC-GARCH) [ 9], shrinkage estimators [ 15 ], and thresholded factor models such as POET [ 10 ]. DCC-GARCH directly models time-varying correlations but scales quadratically in the number of assets; recent work unifies the DCC and shrinkage lines into a single DCC-NL framework augmented with intraday OHLC information, scaling to universes of N ≥ 1000 assets for Markowitz portfolio selection [ 7]. Shrinkage and POET produce well-conditioned covariance matrices but are typically applied in batch on a rolling window. A concurrent streaming alternative is to combine a factor model with a knowledge-based sketch trained on historical data, yielding direct covariance recovery from sketched streaming returns and demonstrating competitive portfolio-allocation performance against POET [ 20 ]; this is closely related to our approach but relies on offline-trained sketches rather than incremental SVD updates. Incremental SVD offers a complementary approach: it updates the factor structure itself one observation at a time, yielding an explicit low-rank covariance at every step without re-estimating on the full window. 
+
+5.1 Data and Preprocessing 
+
+We construct a multi–asset universe of N = 60 liquid US–listed ETFs, covering broad equity indices, sector and style funds, credit and rates ETFs, and a few commodity proxies. 1 For each asset we download daily adjusted close prices and align them on the intersection of trading days. After removing days with any missing prices we obtain a panel of about T ≈ 1,640 trading days, i.e. roughly six to seven years of history. From prices Pt,i we build log-returns rt,i = log( Pt,i / P t−1,i ), stacked into a returns matrix R ∈ RT ×N (time ×
+
+assets). Before running SVD we perform causal de–meaning (Option A) to avoid look-ahead bias in the online setting. For each asset i we maintain an expanding mean 
+
+μt,i := 1
+
+> t
+
+Pts=1 rs,i , R(t, i ) := rt,i − μt,i ,
+
+so that each return is centered using only information available up to (and including) time t. In a streaming implementa-tion this is updated online via the standard recurrence 
+
+μt = μt−1 + 1
+
+> t
+
+ rt − μt−1
+
+, Rt = rt − μt,
+
+where μt, r t ∈ RN denote the cross-sectional mean and return vectors at day t, and Rt is the centered row appended to the matrix. For readability we keep the notation R for this causally centered returns matrix throughout the remainder of Section 5. This is standard in factor modeling: the sample covariance of centered returns is then 
+
+Σfull (t) = 1 
+
+> t−1
+
+R⊤ 
+
+> 1: t
+
+R1: t, (16) and the right singular vectors of R1: t coincide with the eigenvectors of Σ( t). We deliberately do not standardize by individual volatilities; the low-rank model works directly with covariance in return units, which is what a risk engine needs. A common alternative in live risk systems is to center returns using an exponentially weighted mean (Option B), which discounts older data and adapts more quickly under regime changes: 
+
+μEW  
+
+> t
+
+= (1 − α) μEW  
+
+> t−1
+
++ αr t, Rt = rt − μEW  
+
+> t
+
+,
+
+with a forgetting factor α ∈ (0 , 1) (often specified via a half-life). Like Option A, this update is fully causal and can be applied online with O(N ) state. In this paper we use the expanding-mean centering (Option A) for the main results because it is parameter-free; Option B is a drop-in replacement when faster adaptation is desired. 
+
+> 1Data are downloaded from Yahoo Finance using a small Python script; the exact ticker list is available with the code.
+
+14 A PREPRINT - M AY 26, 2026 Note that using a full-sample mean (centering by T −1 PTs=1 rs,i ) would introduce look-ahead information; the causal centering above avoids this while preserving the online nature of the experiment. Although we use Yahoo data for convenience, the pipeline only requires a clean time ×asset returns matrix. The same incremental SVD code would plug directly into institutional data sources such as WRDS/CRSP by replacing the data loading step. 
+
+5.2 Online Factor Model via Incremental SVD 
+
+We interpret the columns of Vt ∈ RN ×k in the SVD R1: t ≈ UtΣtV ⊤ 
+
+> t
+
+as k orthogonalized factor portfolios (PCA factors), and the rows of UtΣt as time series of factor returns. To mimic a live deployment we split the history into • an initial window of T0 = 250 trading days (roughly one year) used to compute a dense SVD and initialize the incremental model, and • a streaming phase where we append one new row of returns per day and update the truncated SVD. We focus first on a fixed truncation rank k = 5 , which is a very common dimension for PCA–style equity factor models (one “market mode” plus a handful of sector/curve/style directions). For the streaming phase, we compare three refresh policies, instances of (12): • no_refresh : pure incremental SVD, never recomputing a full SVD after T0;• refresh_100 : periodic refresh every 100 trading days (roughly quarterly); • refresh_20 : aggressive refresh every 20 trading days (approximately monthly). Every few days we also compute the optimal rank– k SVD of the same causally centered matrix R1: t and use it as an oracle baseline. This is not something a production system would do, but it allows us to quantify how well the incremental SVD tracks the best possible factor subspace. Figure 6 shows the principal angle between the incremental factor subspace and the oracle subspace introduced in (8) as a function of time. With no refresh, the angle drifts steadily, approaching values near π 
+
+> 2
+
+radians: the incremental factors eventually become almost orthogonal to the current optimal PCA factors. Periodic refresh every 100 days keeps the angle bounded and produces visible “sawtooth” patterns: drift accumulates between refreshes and is reset when we recompute the SVD. Refreshing every 20 days keeps the factor subspace essentially locked onto the oracle, with angles staying at or below a few degrees throughout the sample. From a quant perspective this means that the incremental model continues to capture the dominant systematic risk directions (market, sectors, rates, etc.) even as the return structure evolves. 
+
+Figure 6: Finance application: k = 5 : angle between incremental and oracle factor subspaces over time for different refresh policies. 
+
+5.3 Covariance and Portfolio Risk Approximation 
+
+Given the causally centered returns matrix R1: t we define the sample covariance as in (16) . Let R1: t = UtΣtV ⊤ 
+
+> t
+
+be the full SVD. Then 
+
+Σfull (t) = 1 
+
+> t−1
+
+(UtΣtV ⊤ 
+
+> t
+
+)⊤(UtΣtV ⊤ 
+
+> t
+
+) = 1 
+
+> t−1
+
+Vt Σ2 
+
+> t
+
+V ⊤ 
+
+> t
+
+. (17) 15 A PREPRINT - M AY 26, 2026 Thus, R⊤ 
+
+> 1: t
+
+R1: t has eigendecomposition VtΣ2 
+
+> t
+
+V ⊤ 
+
+> t
+
+: its eigenvectors are the right singular vectors of R1: t and its eigenvalues are σ2 
+
+> i
+
+(t). Therefore, Σfull (t) has eigenvalues σ2 
+
+> i
+
+(t) / (t − 1) .Let Vk, full be the first k right singular vectors with singular values σ1: k(t). The oracle low-rank covariance is 
+
+bΣfull ,k (t) = 1 
+
+> t−1
+
+Vk, full · diag( σ21 (t), . . . , σ 2
+
+> k
+
+(t)) · V ⊤
+
+> k, full
+
+,
+
+bΣinc ,k (t) = 1 
+
+> t−1
+
+Vk, inc · diag( eσ21 (t), . . . , eσ2
+
+> k
+
+(t)) · V ⊤
+
+> k, inc
+
+. (18) and we analogously form bΣinc ,k (t) from the incremental SVD. This is the object that would feed into a Markowitz or risk–parity engine. 
+
+Covariance error. We measure covariance quality via a relative Frobenius error 
+
+err Σ(t) = ∥bΣinc ,k (t) − bΣfull ,k (t)∥F
+
+∥bΣfull ,k (t)∥F
+
+. (19) Figure 7(a) shows err Σ(t) for k = 5 . Without refresh the relative error gradually climbs to around 7–8% by the end of the sample. In other words, the low–rank covariance implied by the incremental factors eventually deviates meaningfully from the best rank–5 covariance. A quarterly refresh (every 100 days) caps the error at a few percent and regularly brings it back down after each recomputation. Monthly refreshes keep the error at the sub–percent level throughout, with final relative errors around 5 · 10 −4 in our grid experiments. This matches the subspace picture: tighter alignment of factor loadings translates directly into a more accurate covariance surface. A notable feature in Figure 7(a) is the sharp spike in covariance error around measurement index t ≈ 500 . In our sample this corresponds to the onset of the 2020 COVID market crash, where cross–asset correlations and volatilities jumped abruptly over a few trading days. This kind of regime break is effectively a structural shock to the covariance matrix, and neither an incremental model nor an oracle rank– k approximation can “predict” it ex ante. What we see instead is that all low-rank models incur a transient bump in error when the new regime arrives. The key difference is in recovery: with periodic refresh (especially refresh_20 ) the incremental SVD quickly re-aligns to the new eigenstructure, bringing covariance errors back to the sub–percent range, whereas no_refresh continues to drift as the market environment evolves after the shock. 
+
+Portfolio risk. For trading and risk management, what matters is the impact on portfolio risk, not the Frobenius norm of the covariance matrix. Given a portfolio weight vector w ∈ RN we define the oracle and incremental volatilities 
+
+σfull (t) = 
+
+p
+
+w⊤ bΣfull ,k (t)w, σinc (t) = 
+
+p
+
+w⊤ bΣinc ,k (t)w, (20) and track the relative error 
+
+err risk (t) = |σinc (t) − σfull (t)|
+
+σfull (t) . (21) Figure 7(b) reports this quantity for an equal–weight long–only portfolio weq = 1/N . The picture is striking: even when the covariance Frobenius error for no_refresh reaches several percent, the corresponding relative error in portfolio volatility stays below 5 · 10 −4 (roughly 0.05% ). Periodic refreshes reduce this by another order of magnitude or more; for example, with k = 5 and refresh every 30 or 20 trading days, final relative risk errors are in the 10 −6–10 −5 range for the equal–weight portfolio. Experiments with random long–only portfolios (drawn from a Dirichlet distribution) show a very similar pattern: portfolio risk errors remain tiny as long as the factor subspace is kept aligned via periodic refresh. The same phenomenon appears in Figure 7(b) as a small hump in risk error around t ≈ 500 . This is again the COVID crash episode: realized volatilities and correlations spiked so quickly that a rank– k model calibrated on the pre–crash regime underestimates risk for a short period. Importantly, the relative error even during this stress window remains on the order of 10 −4–10 −3 for diversified portfolios, and the incremental SVD with refresh re-calibrates within a few weeks. From a trading and risk perspective this is exactly what one would expect: extreme tail events are not forecast by a Gaussian factor model, but an online low-rank engine can adapt quickly once the new regime is observed. 
+
+Rank–refresh trade–off. To explore the interaction between truncation rank and refresh cadence we run a small grid over k ∈ { 3, 5, 8, 12 , 20 } and refresh_every ∈ { None , 30 , 50 , 100 }. For each configuration we record the final–day angle between factor subspaces, covariance error, portfolio risk error, and mean update time. The equal–weight risk errors are summarized in Figure 8a. A few patterns emerge: 16 A PREPRINT - M AY 26, 2026  
+
+> (a) Covariance relative error vs time. (b) Equal–weight portfolio risk error vs time.
+
+Figure 7: Finance application: k = 5 : covariance and risk approximation for different refresh cadences. Errors are measured against the oracle rank– k model obtained from a full SVD of R1: t.• With no_refresh , increasing k reduces both covariance and risk errors, but even at k = 20 there is still noticeable factor drift (angles of 0.5–0.8 radians). • For periodic refreshes, moderate ranks k = 5 or k = 8 combined with a monthly or 30–day refresh already deliver extremely small risk errors (down to O(10 −6)) and covariance errors well below 0.1% .• Very frequent refreshes yield diminishing accuracy returns while increasing runtime; in this ETF universe the sweet spot is around k ∈ [5 , 8] with refresh every 20–50 days. From a quant point of view, this means that a compact low–rank factor model with a handful of factors and occasional re-baselining is sufficient to keep risk estimates for diversified portfolios extremely accurate.        
+
+> (a) Final relative risk error of the equal–weight port-folio as a function of truncation rank kand refresh policy. Periodic refresh plus moderate kyields very small errors.
+> (b) Mean incremental update time vs. rank kfor dif-ferent refresh policies. Runtime increases approxi-mately linearly with k, while more frequent refresh shifts the curves upward by a modest amount.
+
+Figure 8: Finance application, rank–refresh trade-off across truncation ranks and refresh cadences: (a) accuracy of the equal-weight risk estimate; (b) per-update runtime cost. 
+
+5.4 Runtime Comparison 
+
+Finally, we examine runtime, measured in wall-clock seconds per incremental update, i.e. per new trading day. For k = 5 ,the mean update time ranges from roughly 1 · 10 −4 s for no_refresh to 3.7 · 10 −4 s for refresh_30 , corresponding to only a few tenths of a millisecond per day. Figure 8b shows how this cost scales with the working rank k and the refresh cadence. In all cases, runtime grows approximately linearly with k, while more frequent refreshes shift the curves upward by a nearly constant amount. The near-linear trend in Figure 8b is consistent with the small-core update structure discussed in Sections 2.2 and 2.3, 17 A PREPRINT - M AY 26, 2026 together with the overall complexity discussion in Section 2.5. In practical terms, this means that increasing the refresh frequency improves accuracy and stability, but only at a moderate computational cost. At this scale, a one-off full SVD of the final 1,643 × 60 returns matrix is also very fast (well below a second in our NumPy implementation), but this comparison is misleading. A single offline decomposition solves only one static problem, whereas a live risk system must absorb new observations continuously. Recomputing a full SVD every time new data arrive would multiply that cost by the number of updates and would quickly become prohibitive as either the asset universe or the update frequency grows. By contrast, the incremental SVD approach has a small and predictable per-update cost, while periodic refresh offers a practical mechanism for trading off speed against statistical fidelity. Combined with a reasonable refresh schedule, the method therefore delivers near-oracle covariance and portfolio-risk estimates while remaining suitable for genuinely streaming environments, scaling naturally to high–frequency updates .
+
+# 6 Discussion 
+
+6.1 Summary of Findings 
+
+Across synthetic and real-data experiments, our results paint a consistent picture of when incremental SVD is accurate, stable, and computationally attractive. On synthetic streams (Section 4), the incremental updates behave exactly as the linear algebra suggests. In the rank-1 streaming setting, no-refresh runs accumulate reconstruction error and principal-angle drift over long horizons, while periodic refreshes (every 10 3 and 5 · 10 3 updates) keep both the error ratio frob_ratio(t) from (10) and the angle to the optimal subspace angle_to_opt defined in (8) tightly bounded. This is a direct consequence of the update structure: each rank-1 perturbation is projected back into a fixed rank-k subspace, so any energy that repeatedly falls outside that subspace must eventually be “forgotten” unless we realign with a full SVD. The experiments also confirm the expected trade-off in the truncation rank k: for k ∈ { 5, 8, 12 } with true rank 5, larger k reduces both reconstruction error and subspace misalignment, but increases the per-update cost roughly as predicted by the small-core SVD runtime. Row and column growth experiments show that Brand-style updates remain numerically stable as the matrix shape changes, provided k is not too small relative to the intrinsic rank. Scaling experiments underline that incremental update time grows roughly linearly with mn and superlinearly with k, while full SVD quickly becomes dominant for larger matrices. In the financial application (Section 5), we treat daily log returns of a 60-ETF universe as a time–asset matrix and use incremental SVD as an online factor model and low-rank covariance engine . Starting from an initial window T0 of 250 days and then streaming about 1,400 additional days, we compare periodic refresh policies and truncation ranks 
+
+k ∈ { 3, 5, 8, 12 , 20 }. For moderate ranks ( k = 5 –12 ) and refresh periods around 30 trading days, the incremental factors remain extremely close to the full-SVD factors: the final principal angle between subspaces is on the order of 
+
+10 −2 radians, the relative covariance error is O(10 −3), and ex-ante portfolio-risk errors (for equal-weight and random long-only portfolios) are typically between 10 −4 and 10 −3. No-refresh runs and very small ranks ( k = 3 ) exhibit noticeably larger subspace drift and risk mis-estimation, while very aggressive refreshing improves accuracy at the cost of more full-SVD calls. A notable feature is the spike in risk approximation error around the 2020 market crash: an abrupt volatility regime shift creates large, correlated moves that neither full nor incremental low-rank models can forecast from pre-crash data; in our metrics this appears as a transient blow-up in relative risk error, after which the incremental model quickly re-learns as more post-crash data arrives. Overall, the experiments confirm that: (i) incremental SVD can closely track the optimal rank-k structure under moderate drift, (ii) principal-angle and error-ratio metrics give interpretable diagnostics of when the approximation is degrading, and (iii) with sensible choices of k and refresh frequency, the method provides a practical accuracy–latency trade-off in financial settings. 
+
+6.2 Refresh Policies and Adaptive Rank 
+
+Section 3 introduced a design space of refresh and rank-selection policies; the experiments instantiate part of this space and support several qualitative conclusions. First, periodic refresh is empirically robust and easy to reason about. In synthetic rank-1 and mixed streams, refreshing every 10 3–5 × 10 3 updates keeps frob_ratio close to 1 and prevents the principal angle to the optimal subspace from drifting towards π 
+
+> 2
+
+. In the ETF experiments, refreshing every 20–100 trading days offers a clean bias–variance trade-off: short refresh periods (e.g. 20–30 days) deliver almost indistinguishable factors and covariances compared to full SVD at every date, while less frequent refreshes (e.g. 100 days or never) gradually accumulate subspace error but save full-SVD 18 A PREPRINT - M AY 26, 2026 calls. These behaviours match the intuition that refreshes act as occasional “re-projections” onto the true dominant subspace, resetting the error that incremental updates cannot correct within a fixed-rank approximation. Second, although our main experiments focus on periodic policies, the recorded metrics directly enable more sophisti-cated strategies. The error ratio frob_ratio(t) (10) compares the incremental reconstruction error to the optimal rank-k error and therefore serves as a natural trigger: once frob_ratio(t) exceeds a tolerance γ > 1, a refresh would be justified. Similarly, the principal-angle metrics angle (vs. the initial basis) and angle_to_opt (vs. the instantaneous optimal subspace, when available in synthetic experiments) behave like concept-drift indicators . In both synthetic and financial streams we observe a tight coupling between large jumps in these angles and periods of structural change (e.g. accumulated noise, regime shifts). This suggests angle-based refresh rules of the form “refresh when angle_to_opt exceeds a threshold” or, in real systems where the optimal subspace is not available, “refresh when the angle between successive bases or between new observations and their projections becomes too large.” Third, the experiments illustrate how truncation rank k interacts with refresh. In synthetic tests we choose k around the true rank (5, 8, 12) to probe under- and over-parameterisation. In the financial setting we sweep k ∈ { 3, 5, 8, 12 , 20 } to span from very compact factor structures (3 factors, reminiscent of market/size/value-style models) to more saturated ones. Higher rank systematically reduces subspace and covariance errors but with diminishing returns beyond 8–12 factors, and at the cost of increased per-update time. Taken together, these results motivate adaptive rank rules based on explained-variance thresholds (EVR) or residual “novelty” signals: increase k when the residual energy or new-row angle repeatedly exceed a tolerance, and decrease k when EVR is far above the target and trailing singular values remain negligible. We do not fully implement learned or fully adaptive policies in this work, but the metrics and behaviours we observe are precisely the signals a controller would need to automatically decide when to refresh and how to adjust rank in a production system. 
+
+6.3 Comparison with Alternative Approaches 
+
+Our Brand-style incremental SVD is one of several paradigms for online low-rank modelling; each occupies a different point in the accuracy–efficiency–generality design space. Randomized SVD [ 13 ] is the method of choice when a full matrix snapshot is available and a fast batch recomputation suffices. In our setting it serves naturally as the “refresh” primitive; between refreshes, however, it offers no mechanism for absorbing individual updates. Frequent Directions [ 16 , 11 ] provides deterministic, space-optimal streaming sketches with provable spectral guarantees, but produces a sketch matrix rather than an explicit (U, Σ, V ) decomposition, making it less suited for applications that require singular vectors (e.g. factor loadings in risk models) or entry-level updates. Stochastic subspace trackers 
+
+such as GROUSE [ 2] and Oja’s rule [ 18 ] are highly scalable and handle incomplete observations, but converge only asymptotically and do not yield singular values, limiting their use for covariance estimation or explained-variance diagnostics; see [ 1 ] for a unified survey of these subspace-tracking paradigms. For the financial covariance application specifically, the main alternatives are parametric models such as DCC-GARCH [ 9 ], which directly model time-varying correlations but scale quadratically in the number of assets, and shrinkage estimators [ 15 ] or thresholded factor models (POET) [ 10 ], which produce well-conditioned covariance matrices but are typically applied in a rolling-window batch fashion rather than updated incrementally. Our experiments show that incremental SVD with periodic refresh achieves near-oracle covariance and risk accuracy while remaining fully incremental; a systematic empirical comparison with these alternatives on larger asset universes is an interesting direction for future work. 
+
+6.4 Limitations and Scope 
+
+Our study has several limitations that we view as opportunities for future work. 
+
+Scale and sparsity. All experiments use a dense implementation of SVD and incremental updates. This is deliberate, as it allows us to measure errors exactly and to run full-SVD baselines at each step in synthetic settings, but it restricts us to moderate matrix sizes. Real recommender systems and factor models operate on sparse and extremely large matrices; extending our framework to sparse, GPU-accelerated, or randomized SVD variants is an important next step. Recent work shows that truncated-SVD updates can be implemented efficiently in the sparse regime while preserving representation quality [ 8]. Complementarily, projection-based updating schemes that reduce the dimension of the update subspace suggest a practical route to handling larger update blocks more efficiently [21]. 
+
+Data modelling choices. In the financial application, we work with daily log returns of a 60-ETF universe over a few years. This is realistic enough to exhibit volatility regimes (e.g. the 2020 crash) but far from high-frequency order-book 19 A PREPRINT - M AY 26, 2026 data or cross-sectional universes with thousands of stocks; we also ignore transaction costs, constraints, and turnover, focusing solely on ex-ante risk. 
+
+Policy space coverage. We instantiate mainly periodic refresh policies and fixed ranks, with a grid of 
+
+(k, refresh_every ) combinations in the ETF experiments. Error-based and angle-based refresh strategies, as well as truly adaptive rank selection, are discussed conceptually and supported by our metrics, but not explored exhaustively. Likewise, we do not attempt to learn refresh or rank policies from data (e.g. via reinforcement learning or bandit-style adaptation). 
+
+Theoretical analysis. Our work is primarily empirical and algorithmic; we do not provide new bounds on error accumulation or subspace drift under streaming updates. The observed coupling between principal angles, error ratios, and refresh decisions suggests that such bounds may be achievable for certain stochastic models, but we leave this for future theoretical work. Recent work in a different domain (continual learning of classifiers from pre-trained features) proves via a recurrence relation that continually truncating an appropriate fraction of SVD factors keeps error bounded over long task sequences [ 19 ], suggesting that similar truncation-based bounds may be achievable for streaming row/column updates as well. Despite these limitations, the experiments demonstrate that a relatively simple incremental SVD engine, combined with a metric-rich monitoring layer, already provides actionable insights and performance guarantees that are relevant for dynamic recommender systems and online factor/risk models. 
+
+# 7 Conclusion 
+
+We studied incremental SVD as a practical tool for maintaining low-rank approximations of dynamic matrices that evolve through row additions, column additions, and rank-1 entry updates. Starting from a Brand-style algebraic core, we built an incremental engine that supports bounded-rank updates, optional refreshes via full SVD, and a suite of diagnostics that quantify reconstruction error, subspace drift, and computational cost over time. On the methodological side, the paper contributes: (i) a unified incremental SVD framework covering heterogeneous update types; (ii) a metric-based evaluation layer combining error ratios, principal angles, explained-variance ratios, and runtime; and (iii) a refresh and rank-selection design space including periodic, error-based, and angle-based policies, as well as EVR- and novelty-driven rank adaptation. On the empirical side, synthetic streaming experiments isolate the roles of rank, drift, and refresh frequency; a financial case study demonstrates that a low-rank incremental factor model can track full-SVD covariances and portfolio risks in an online, time-series setting. A recurring theme across these domains is that monitoring the right quantities is as important as the update formulas themselves. Principal angles provide an interpretable notion of subspace drift and concept shift; error ratios benchmark the incremental approximation against the best possible rank-k model; and simple timing metrics expose the regimes where incremental updates remain competitive relative to full recomputation. Our experiments indicate that, with sensible choices of rank and refresh frequency, incremental SVD offers a useful accuracy–latency trade-off in financial applications and that it scales naturally to high-frequency updates in scenarios where repeated full SVDs are infeasible. There are several promising directions for future work. On the algorithmic side, extending the framework to sparse settings, and combining it with randomized or streaming SVD variants, would make the method directly applicable to industrial-scale enterprise risk engines. On the policy side, learning refresh and rank strategies from data—for example via reinforcement learning or online convex optimisation—could turn our metric signals into fully automated controllers. Finally, applying the same ideas to other dynamic-matrix domains (e.g. sensor networks, robotics, digital-twin environments, or high-frequency limit-order books) would further test the robustness and usefulness of incremental SVD as a general-purpose building block for online low-rank modelling. 
+
+# References 
+
+[1] L. Balzano, Y. Chi, and Y. M. Lu. Streaming PCA and subspace tracking: the missing data case. Proc. IEEE ,106(8):1293–1310, 2018. [2] L. Balzano, R. Nowak, and B. Recht. Online identification and tracking of subspaces from highly incomplete information. In 48th Annual Allerton Conference on Comm., Contr., and Comp. , pages 704–711, 2010. [3] Å. Björck and G. H. Golub. Numerical methods for computing angles between linear subspaces. Math. Comp. ,27(123):579–594, 1973. 20 A PREPRINT - M AY 26, 2026 [4] M. Brand. Incremental Singular Value Decomposition of Uncertain Data with Missing Values. In ECCV , volume 2350, pages 707–720, 2002. [5] M. Brand. Fast low-rank modifications of the thin singular value decomposition. Linear Algebra Appl. , 415(1):20– 30, 2006. [6] J. J. Brust and M. A. Saunders. Fast and accurate SVD-type updating in streaming data, 2025. arXiv:2509.02840. [7] G. De Nard, R. F. Engle, O. Ledoit, and M. Wolf. Large dynamic covariance matrices: enhancements based on intraday data. J. Bank. Financ. , 138:106426, 2022. [8] H. Deng, Y. Yang, J. Li, C. Chen, W. Jiang, and S. Pu. Fast updating truncated SVD for representation learning with sparse matrices. In ICLR , 2024. [9] R. Engle. Dynamic conditional correlation: a simple class of multivariate generalized autoregressive conditional heteroskedasticity models. J. Bus. Econ. Stat. , 20(3):339–350, 2002. [10] J. Fan, Y. Liao, and M. Mincheva. Large covariance estimation by thresholding principal orthogonal complements. 
+
+J. R. Stat. Soc. Ser. B , 75(4):603–680, 2013. [11] M. Ghashami, E. Liberty, J. M. Phillips, and D. P. Woodruff. Frequent directions: simple and deterministic matrix sketching. SIAM J. Comput. , 45(5):1762–1792, 2016. [12] G. H. Golub and H. Zha. Perturbation analysis of the canonical correlations of matrix pairs. Linear Algebra Appl. ,210:3–28, 1994. [13] N. Halko, P. G. Martinsson, and J. A. Tropp. Finding structure with randomness: probabilistic algorithms for constructing approximate matrix decompositions. SIAM Rev. , 53(2):217–288, 2011. [14] V. Kalantzis, G. Kollias, S. Ubaru, A. N. Nikolakopoulos, L. Horesh, and K. Clarkson. Projection techniques to update the truncated SVD of evolving matrices with applications. In Proceedings of the 38th International Conference on Machine Learning (ICML) , volume 139, pages 5236–5246, 2021. [15] O. Ledoit and M. Wolf. A well-conditioned estimator for large-dimensional covariance matrices. J. Multivar. Anal. , 88(2):365–411, 2004. [16] E. Liberty. Simple and deterministic matrix sketching. In Proceedings of the 19th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pages 581–588, 2013. [17] M. Moonen, P. Van Dooren, and J. Vandewalle. A singular value decomposition updating algorithm for subspace tracking. SIAM J. Matrix Anal. Appl. , 13(4):1015–1038, 1992. [18] E. Oja. Simplified neuron model as a principal component analyzer. J. Math. Biol. , 15:267–273, 1982. [19] L. Peng, J. Elenter, J. Agterberg, A. Ribeiro, and R. Vidal. LoRanPAC: low-rank random features and pre-trained models for bridging theory and practice in continual learning, 2025. arXiv:2410.00645. [20] X. Tan, Z. Wang, H. Qian, J. Zhou, P. Duan, D. Shen, M. Wang, and B. Wang. Factor model-based large covariance estimation from streaming data using a knowledge-based sketch matrix. In Proc. 33rd ACM Int. Conf. Inf. Knowl. Manag. (CIKM) , pages 2210–2219, 2024. [21] E. Vecharynski and Y. Saad. Fast updating algorithms for latent semantic indexing. SIAM J. Matrix Anal. Appl. ,35(3):1105–1131, 2014. 
+
+# A Detailed Incremental Update Routines 
+
+This appendix expands Algorithm 1 by giving detailed pseudocode for each update primitive used by the 
+
+IncrementalSVD engine. 21 A PREPRINT - M AY 26, 2026 
+
+Algorithm A1 RowAppendUpdate (detailed). 
+
+Require: U, Σ, V ⊤ (rank r ≤ k), new row x⊤, tolerance tol 
+
+1: p ← x⊤V
+
+2: z ← x⊤ − pV ⊤, ρ ← ∥ z∥2
+
+3: ˆz ← z/ρ if ρ > tol else 0
+
+4: K ←   
+
+> Σ0
+> pρ
+> 
+
+5: (UK , Σ′, V ⊤ 
+
+> K
+
+) ← SVD (K)
+
+6: U ′ ←   
+
+> U001
+> 
+
+UK
+
+7: V ′⊤ ← V ⊤  
+
+> K
+> V⊤
+> ˆz
+> 
+
+8: return (U ′, Σ′, V ′⊤ ) (then truncate to k if needed) 
+
+Algorithm A2 ColAppendUpdateViaTranspose (detailed). 
+
+Require: U, Σ, V ⊤, new column y, tolerance tol 
+
+1: Treat as row-append on A⊤: eU ← V , eΣ ← Σ, eV ⊤ ← U ⊤
+
+2: ( eU ′, Σ′, eV ′⊤ ) ← RowAppendUpdate ( eU , eΣ, eV ⊤, y ⊤; tol )
+
+3: Transpose back: U ′ ← ( eV ′⊤ )⊤, V ′⊤ ← ( eU ′)⊤
+
+4: return (U ′, Σ′, V ′⊤ ) (then truncate to k if needed) 
+
+Algorithm A3 RankOneUpdate (detailed). 
+
+Require: U, Σ, V ⊤ (rank r ≤ k), index (i, j ), increment δ
+
+1: su ← Ui, :, sv ← (V ⊤):,j 
+
+2: K ← Σ + δ s us⊤
+
+> v
+
+3: (UK , Σ′, V ⊤ 
+
+> K
+
+) ← SVD (K)
+
+4: U ′ ← U U K , V ′⊤ ← V ⊤ 
+
+> K
+
+V ⊤
+
+5: return (U ′, Σ′, V ′⊤ ) (rank preserved; truncate if needed) 
+
+22

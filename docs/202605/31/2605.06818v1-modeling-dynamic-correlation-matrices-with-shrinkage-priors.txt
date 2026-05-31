@@ -1,0 +1,5161 @@
+Title: Modeling Dynamic Correlation Matrices with Shrinkage Priors
+
+URL Source: https://arxiv.org/pdf/2605.06818v1
+
+Published Time: Mon, 11 May 2026 00:07:25 GMT
+
+Number of Pages: 88
+
+Markdown Content:
+# Modeling Dynamic Correlation Matrices with Shrinkage Priors 
+
+## Daniel Andrew Coulson 
+
+## dac382@cornell.edu 
+
+## David S. Matteson & Martin T. Wells 
+
+## dm484@cornell.edu & mtw1@cornell.edu 
+
+## Department of Statistics and Data Science, Cornell University 
+
+Abstract 
+
+Estimating time-varying correlation matrices is challenging because existing meth-ods may adapt slowly to structural changes, impose insufficient regularization, or produce diffuse posterior uncertainty. In moderate dimensions, an additional diffi-culty is summarizing the estimated evolving dependence structure for downstream decision-making tasks. We propose a Bayesian approach based on a low-rank fac-tor representation, with latent states evolving under a dynamic shrinkage prior and observation errors following a multivariate factor stochastic volatility model. This spec-ification allows locally adaptive regularization of the estimated correlation structure over time and informative uncertainty quantification. We establish, to our knowledge, a first-of-its-kind posterior contraction result for dynamically regularized Bayesian models, showing contraction around the true model parameters at an explicit rate under averaged Hellinger distance. To summarize the estimated correlation matrices, we build on the information-theoretic concept of total correlation to obtain a scalar measure of cross-sectional dependence. Simulation studies show improved accuracy and responsiveness relative to competing methods in a range of challenging scenarios. We then apply our method to monitoring the correlation evolution of equity portfolios during periods of financial market stress, providing an ex post framework for assessing the changing benefits of diversification in backtesting analyses. 
+
+Keywords: Bayesian time series, dynamic shrinkage prior, posterior contraction, financial risk management, backtesting 1
+
+> arXiv:2605.06818v1 [stat.ME] 7 May 2026
+
+# 1 Introduction 
+
+Existing non-Bayesian methods for estimating time-varying correlation matrices include rolling window and exponentially weighted estimators, regularized estimators, and multi-variate GARCH-based dynamic correlation models [ 2, 3, 14 ]. Rolling and exponentially weighted estimators remain popular because of their simplicity and ease of implementation, but their reliance on moving windows can smooth over abrupt changes and therefore may adapt only gradually when dependence changes quickly. In moderate dimensions, such estimators may also be noisy, since each window contains limited information relative to the number of pairwise dependence parameters to be estimated. Regularization, including shrinkage and sparsity-inducing penalties, can substantially improve stability of the estima-tors, but stability alone does not guarantee adequate adaptation to temporal changes in dependence, particularly when those changes are heterogeneous and abrupt. Parameterized dynamic correlation models, including standard Dynamic Conditional Cor-relation (DCC) specifications [ 6] and extensions such as asymmetric DCC [ 4], achieve tractability through structured low-dimensional dynamic formulations. Although these models are often parsimonious, they can be restrictive for multivariate financial time series in which dependence evolves differently across assets and may change sharply during periods of market stress. Uncertainty assessments for such procedures can be obtained using asymptotic or bootstrap methods. However, these methods are typically approximate, do not provide a unified probabilistic characterization of the full time-evolving correlation process, and can be empirically miscalibrated in challenging settings, as illustrated in our simulation studies. Bayesian methods provide a unified probabilistic framework for inference on time-varying 2correlation matrices, allowing uncertainty quantification for latent states, model parameters, and derived quantities through the posterior distribution. Existing Bayesian approaches to modeling dynamic correlation matrices include matrix evolution models based on Wishart-type priors, factor stochastic volatility models, and Cholesky-based multivariate stochastic volatility specifications, in some cases supplemented with hierarchical shrinkage to stabilize estimation in higher dimensions [ 1, 5, 9, 11 , 19 , 20 , 22 ]. However, computational tractability is often achieved through structural assumptions, such as low-rank factor dependence, recursive decompositions, or specific matrix evolution laws, which may be restrictive when dependence changes unevenly across variables or exhibits sudden local shifts. Moreover, when shrinkage is imposed in existing approaches, it is often static, so that the strength of regularization does not adapt over time. This can lead to poorer estimation accuracy during periods of rapid change in the dependence structure, because such changes may be overshrunk toward the prior center instead of accommodated through a temporary increase in latent state innovation variance. This is especially relevant in settings where dependence changes suddenly, such as periods of market stress in financial time series. We propose a dynamic correlation model with a factor specification in the conditional mean and a low-rank multivariate factor stochastic volatility structure for the joint observation error vector. We place the dynamic shrinkage prior (DSP) introduced by Kowal et al. [13] on the innovations in the time-varying parameter processes. This allows the degree of regularization to adapt over time, strongly shrinking small innovations while permitting larger movements when supported by the data. Because the parameters evolve separately, the model can accommodate heterogeneous changes across variables rather than imposing a common pattern of evolution throughout the system. The resulting model specification 3retains a parsimonious structure for tractability while allowing locally adaptive changes in the correlation dynamics. In addition, we show that the proposed Bayesian model satisfies a posterior contraction property. The posterior contraction property is not theory for its own sake, but a principled theoretical justification of a Bayesian method. It ensures that, as the sample size increases, the posterior distribution contracts around the true data-generating parameters, thereby formalizing the notion that the posterior optimally learns from the data. DSP-type priors, such as the dynamic horseshoe, are widely used in many areas, including time-varying parameter regression, change-point analysis, and stochastic volatility models [10 , 12 , 13 , 23 ]. However, relatively little is known about the theoretical properties of such hierarchical priors. To our knowledge, no posterior contraction results exist for DSP-type priors; our theorem provides the first such guarantee. Because a time-varying N × N correlation matrix contains N (N − 1) /2 distinct pairwise correlations at each time point, even moderate-dimensional systems can quickly become a case of not seeing the forest for the trees. For example, a financial portfolio with 1,000 assets yields 499,500 pairwise correlation series to track over time. Visual inspection then becomes impractical and posterior analysis cumbersome when inference is based on thousands of Monte Carlo draws, since the total number of pairwise correlation series can easily grow into the hundreds of millions. To address this, we summarize each correlation matrix by a single scalar score that measures the overall strength of dependence in the system rather than any individual pairwise association. The score is 0 under an identity correlation matrix and increases toward 1 as co-movement strengthens, reflecting a loss of effective dimension. This scalar summary 4provides a compact and interpretable way to track system-wide dependence over time, and it forms the central object of study in this paper rather than individual pairwise correlations. In quantitative portfolio management, researchers often develop predictive signals for a large universe of assets, and these signals must be combined into a trading strategy while controlling overall portfolio risk. A key consideration in portfolio construction is the dependence structure of asset returns, since highly correlated positions can weaken diversification benefits, increase portfolio variance, and heighten vulnerability to large drawdowns by increasing the likelihood of simultaneous losses across holdings. For this reason, it is important not only to forecast returns, but also to assess how portfolio co-movement evolves over time. Because our method is retrospective, it can be applied to backtested returns across portfolio assets to determine whether a proposed strategy would historically have exhibited periods of elevated dependence and, hence, greater fragility. As discussed above, large portfolios generate hundreds of thousands of pairwise correlation series, and our scalar score provides the portfolio manager with a convenient summary measure of overall correlation at each time point in the backtest period. This paper makes three main contributions. First, we develop a Bayesian method for estimating time-varying correlation matrices that combines dynamic shrinkage priors with a multivariate factor stochastic volatility model. Second, we establish the first posterior contraction result for this class of dynamic shrinkage models, providing asymptotic consistency and frequentist justification. Third, we introduce a scalar summary that provides an information-theoretically grounded measure of overall dependence. Taken together, these results advance both the theory and application of Bayesian dynamic shrinkage methods for modeling time-varying dependence. 5The remainder of this paper is organized as follows. In Section 2, we specify the observation equation and prior distribution. Section 3 introduces the proposed scalar summary measure. In Section 4, we establish a posterior contraction result and provide a proof sketch. Section 5 presents the results of simulation studies and real-world applications. Section 6 concludes. 
+
+# 2 Model for returns 
+
+## Terminology and notation 
+
+We consider an equity portfolio consisting of N assets indexed by a ∈ { 1, . . . , N }. Let Pa,t 
+
+denote the adjusted closing price of asset a on day t ≤ T , where T ∈ N. The simple return on asset a at time t is 
+
+Ra,t = Pa,t − Pa,t −1
+
+Pa,t −1
+
+.
+
+Financial theory posits the existence of a risk-free asset, such as a short-term U.S. Treasury bill, with one-period risk-free rate μ∗ 
+
+> t
+
+. The excess return on asset a is then ra,t := Ra,t − μ∗ 
+
+> t
+
+.In addition, we denote the excess return of a whole market portfolio by rM,t .A common modeling framework for excess returns is the multivariate linear factor model. Let rt = ( r1,t , . . . , r N,t )′
+
+. The multivariate linear factor model is given by 
+
+rt = β0,t + β1,t F1,t + · · · + βz,t Fz,t + ϵt, ϵt = ( ϵ1,t , . . . , ϵ N,t )′
+
+.
+
+The variables F1,t , . . . , F z,t are called factors and are often observed, although some models allow for latent factors. We specify our factor structure in Section 2.1.2. The vectors 
+
+β1,t , . . . , βz,t are unknown parameters referred to as factor loadings. Finally, ϵt denotes the 6vector of idiosyncratic errors, whose components need not be independent and identically distributed. We discuss our distributional specification for ϵt in Section 2.1.2. 
+
+## 2.1 Model 
+
+We model the time-varying coefficients using dynamic shrinkage priors (DSP) of Kowal et al. [13] , which extend global-local shrinkage priors by introducing a time-local component. This allows the degree of shrinkage to vary across both parameters and time, so that coefficient innovations are strongly regularized during stable periods but can adapt to abrupt changes when supported by the data. DSP can be expressed as normal mean-scale mixtures, which provide a flexible class of shrinkage priors. This representation induces heavy-tailed prior distributions, so the prior can place substantial mass near zero while still allowing occasional large signals. For the observation errors, we use a multivariate factor stochastic volatility (MFSV) model. This imposes a low-rank structure on the time-varying covariance matrix by assuming the residual dependence is driven by a small set of common latent factors, yielding a parsimonious and computationally tractable model for cross-asset dependence. 72.1.1 Observation equation 
+
+Our observation equation is a time-varying version of the Capital Asset Pricing Model (CAPM) [15–17, 21]. In particular, 
+
+ra,t = αa,t + βa,t rM,t + ϵa,t ,rM,t = exp {hM,t 
+
+2 }ϵM,t , ϵ M,t ∼ N (0 , 1) ,
+
+ϵt = ( ϵ1,t , ..., ϵ N,t )′
+
+|(Λ , f t, ¯Σt) ∼ NN (Λ f t, ¯Σt) where f t| ˜Σt ∼ Nr(0r, ˜Σt).
+
+The excess asset returns ra,t and market return rM,t are observed. The time-varying coefficients αa,t and βa,t , the error vector ϵt, the factor loadings Λ, the latent factors f t,and the stochastic volatility processes ¯Σt and ˜Σt are unobserved. The number of latent factors is denoted by r.The model allows each asset’s excess return to depend on a time-varying intercept and a time-varying market exposure, while permitting the unexplained component of returns to exhibit both cross-sectional dependence and time-varying volatility. At time t, αa,t 
+
+captures abnormal performance, whereas βa,t measures the contemporaneous exposure of asset a to the market factor. The error term ϵa,t represents the residual variation that is not explained by the market return. The factor stochastic volatility formulation provides a parsimonious way to model large, time-varying covariance matrices: a small number of latent factors captures the dominant common movements in residual returns, while the stochastic volatility components allow both common and asset-specific uncertainty to evolve over time. Moreover, because the errors are conditionally Gaussian under a scale-mixture representation, the resulting marginal joint distribution is heavy-tailed, which is important 8for accommodating shocks observed in financial return data. From the observation equation one can then construct the time-varying covariance matrix, and hence the correlation matrix. In particular, 
+
+cov (rt) = var (αt) + var (rM,t )E[βtβ′
+
+> t
+
+] + cov (ϵt).
+
+The expression follows from mutual independence and the mean zero specification for rM,t 
+
+and then standardization yields the correlation matrix. 
+
+2.1.2 Prior Specification 
+
+The evolution of {βa,t }1≤t≤T is modeled by the prior stochastic process given by: 
+
+βa,t +1 = βa,t + ωβa,t , ωβa,t |τa, 0τβa , {λβa,s } ∼ N (0 , τ 2
+
+> a, 0
+
+τ 2 
+
+> βa
+
+λ2
+
+> βa,t
+
+),hβa,t = log( τ 2
+
+> a, 0
+
+τ 2 
+
+> βa
+
+λ2
+
+> βa,t
+
+), hβa,t = μβa + ϕβa (hβa,t −1 − μβa ) + ηβa,t ,τa, 0 ∼ C+(0 , 1
+
+√T ), τ βa ∼ C+(0 , 1) , η βa,t ∼ Z(12, 12, 0, 1) , ϕβa + 1 2 ∼ Beta (10 , 2) ,hM,t +1 = μM + ϕM (hM,t − μM ) + σM ηt, η t ∼ N (0 , 1) 
+
+μM ∼ N (0 , 100) , ϕM + 1 2 ∼ Beta (10 , 3) , σ 2 
+
+> M
+
+∼ Ga (12, 12).
+
+The prior specification of {αa,t }1≤t≤T for a given asset a ∈ { 1, . . . , N } is the same as with {βa,t }1≤t≤T , but with βa subscripts replaced by αa subscripts. The random walk evolution provides a simple and interpretable benchmark for gradual parameter drift. The accompanying global-local shrinkage structure is introduced because unrestricted random-walk innovations can lead to excessive variation in the state paths. The global component, 9τa, 0, controls the overall degree of time-variation, the coefficient specific components, ταa and 
+
+τβa , allow the parameters to exhibit different levels of instability, and the local components, 
+
+λαa,t and λβa,t permit isolated periods of pronounced movement. We place stochastic volatility priors on the innovation variances because the amount of parameter instability is itself unlikely to be constant over time. Allowing the innovation variances to evolve dynamically means that the model can distinguish stable periods, in which coefficients are nearly constant, from turbulent periods, in which larger parameter movements are more plausible. This is important for asset return data, where return volatility and the stability of risk exposures can change substantially across market conditions. We model the observation error covariance process using the following prior process with 
+
+i = 1 , . . . , N and j = 1 , . . . , r :
+
+¯Σt = diag (exp( ¯ht, 1), ..., exp( ¯ht,N )) , ˜Σt = diag (exp( ˜ht, 1), ..., exp( ˜ht,r )) ,
+
+¯ht,i ∼ N (¯ μi + ¯ψi(¯ht−1,i − ¯μi), ¯σ2 
+
+> i
+
+), ˜ht,j ∼ N (˜ μj + ˜ψj (˜ht−1,j − ˜μj ), ˜σ2 
+
+> j
+
+)Λi,j |τ 2 
+
+> i,j
+
+∼ N (0 , τ 2 
+
+> i,j
+
+), τ 2 
+
+> i,j
+
+|λ2 
+
+> i
+
+∼ Ga (0 .1, 0.1λ2
+
+> i
+
+2 ), λ 2 
+
+> i
+
+∼ Ga (1 , 1) ,
+
+¯σi ∼ Ga (12, 12), ˜σj ∼ Ga (12, 12), ¯μi ∼ N (0 , 10) , ˜μj ∼ N (0 , 10) ,
+
+¯ψi + 1 2 ∼ Beta (10 , 3) , ˜ψj + 1 2 ∼ Beta (10 , 3) .
+
+The factor stochastic volatility prior is motivated by the well known features of financial returns: cross-sectionally dependent, heteroskedastic, and often heavy-tailed. A fully unrestricted time-varying covariance matrix would be prohibitively parameterized in panels with many assets. The factor structure provides a parsimonious alternative: a small number 10 of latent factors captures the dominant common variation in residual risk, while asset-specific stochastic volatilities account for idiosyncratic movements. The priors on the persistence parameters are weakly informative but encode the empirically standard belief that volatility processes are persistent. By centering prior mass on persistent yet stationary dynamics, we allow substantial temporal dependence without permitting explosive behavior. To sample from the joint posterior distribution, the MCMC algorithm relies on the multi-variate dynamic shrinkage process sampler of Kowal et al. [13] , the univariate stochastic volatility sampler of Hosszejni and Kastner [11] , and the multivariate factor stochastic volatility sampler of Hosszejni and Kastner [11] . We refer to this combination of observation model and prior specification as the DSP-MFSV-CAPM model. The R code used to implement the MCMC algorithm is available in a GitHub repository at the following link: 
+
+Modeling-Dynamic-Correlation-Matrices-with-Shrinkage-Priors .We set the number of latent factors to r = 3 to provide a parsimonious low-rank specification for the time-varying covariance matrix of the observation errors. In initial empirical analysis, we found the model is not sensitive to the number of latent factors. Thus, r = 3 was adopted as a balance between flexibility, parsimony, and computational tractability. 
+
+2.1.3 Limitations 
+
+The main limitation of DSP-MFSV-CAPM is computational rather than statistical. It is a large latent-variable state-space model estimated by MCMC, so each iteration must update many unknowns at every time point. The DSP component introduces asset-specific time-varying regression parameters and local shrinkage variables, so the latent dimension grows on the order of N × T . The MFSV component avoids the infeasible task of estimating 11 an unrestricted N × N time-varying covariance matrix by imposing a low-rank factor structure. But posterior sampling still requires updating factor trajectories, stochastic volatility paths for both factor and idiosyncratic variances, and the N × r loading matrix. As a result, computational cost and mixing worsen as T and N increase. In this paper we therefore focus on panels of moderate size with N = 30 and T ≤ 1257 , where the model remains practically estimable while retaining its main advantages: locally adaptive shrinkage for time-varying exposures and a parsimonious, interpretable representation of time-varying dependence. A natural direction for future work is to scale this framework to larger cross sections by introducing cross-sectional structure with more scalable posterior approximations. For example, one could allow a sectoral hierarchy in both the DSP and MFSV component, with sector specific blocks and a small global component, with the DSP blocks sharing higher level hyperparameters across assets in the same sector. This would induce a conditional block structure in which inference is parallel across blocks given a small set of global objects such as market volatility, global and block specific factors, and their loadings. On the computational side, structured variational inference that preserves temporal dependence within blocks while factorizing across weakly coupled blocks, or sequential Monte Carlo methods, could provide scalable alternatives to full high-dimensional MCMC. Using only a small set of observed factors, as is typical in the CAPM style model, has an important limitation. If the chosen factors are incomplete or misspecified, residuals may still contain substantial systematic co-movement, for example from sectoral shocks, which can affect inference on regression coefficients through omitted factor effects. In our model, however, a parsimonious observed-factor specification remains well justified 12 because the market factor typically explains a large share of equity co-movement while the remaining dependence is modeled directly through the MFSV structure in ϵt. Keeping the observed factor dimension small is also computationally important. Adding many observed factors would introduce additional time-varying parameter processes and shrinkage paths, increasing computational cost and potentially slowing mixing. The low-rank latent covariance Λ ˜ΣtΛ′
+
++ ¯Σt absorbs the residual variation without an explosion in parameter dimension. As seen in Table 3 in Section 5.1 our model achieves strong performance compared to competing methods despite incomplete factors. Our use of continuous shrinkage priors reflects a trade-off between regularization and exact sparsity. Relative to spike-and-slab priors, continuous shrinkage strongly regularizes small innovations while still allowing occasional large moves. It also avoids the discrete model selection step that often produces highly multimodal posteriors and poor MCMC mixing. On the other hand, continuous shrinkage does not produce exact posterior zeros; for example, exact zero correlations have posterior probability zero. If the primary goal is explicit variable selection, spike-and-slab priors, or thresholded variants of our model, may be preferable despite their greater computational cost. Our focus here is on the overall correlation dynamics rather than on selecting individual pairwise correlations. Although the observation errors and state innovations are conditionally Gaussian, they are not marginally Gaussian after integrating over latent scale components. A stochastic volatility model yields a scale mixture of normally distributed returns given log-volatility, but mixing over the log volatilities gives a heavy tailed distribution. The Horseshoe prior is conditionally Gaussian, but upon mixing is also a scale mixture of normals yielding heavy-tailed marginal behavior for state innovations. A Student-t distribution could offer 13 an additional layer of protection against outliers not captured by volatility dynamics, at the cost of introducing further latent scale parameters in an already high-dimensional setting. More broadly, the model is designed for retrospective inference on how portfolio dependence evolves over time rather than for out-of-sample prediction. This makes it well suited to backtesting analysis, especially the evaluation of portfolio diversification, while predictive assessment lies outside the scope of the present paper. 
+
+# 3 Summary of correlation matrices 
+
+Once we have an estimated covariance matrix, we can derive the associated correlation matrix by standardization. However, for correlation matrices of even moderate dimension, it is not obvious how to extract a useful summary for portfolio allocation. The common practice is to plot the time series of the estimated pairwise correlations. However, having plots of multiple estimated pairwise correlation series can become cumbersome and ultimately uninformative, particularly in understanding the overall level of correlation in a portfolio. To compress a correlation matrix Rt into a single scalar measuring overall correlation, we first need a definition of ’overall correlation’. Rather than averaging pairwise entries, we view overall correlation as the strength of joint dependence in the portfolio; that is, how far the joint excess return distribution is from what it would look like if all assets were independent. Under this interpretation, a correlation matrix with stronger comovement, as in a crisis period, corresponds to a joint distribution that is increasingly constrained to fewer effective directions, implying a larger departure from independence and reduced 14 diversification. We summarize Rt by the dimension normalized log determinant score score (Rt) = 1 − det( Rt) 1 
+
+> N
+
+= 1 − exp { 1
+
+N log(det( Rt)) } ∈ [0 , 1] . (1) If R = IN , then score (R) = 0 . At the opposite extreme, if R = 1N 1′ 
+
+> N
+
+, a singular boundary case corresponding to perfect comovement, then det (R) = 0 and score (R) = 1 . For the equicorrelation matrix R(ρ) = (1 − ρ)IN + ρ1N 1′ 
+
+> N
+
+, positive semidefiniteness requires 
+
+ρ ≥ − 1/(N − 1) . At the boundary ρmin = −1/(N − 1) , the matrix is singular, so 
+
+det( R(ρmin )) = 0 and hence score (R(ρmin )) = 1 .The score also has an information-theoretic interpretation in terms of total correlation, denoted by T C (·), which is a form of mutual information. Consider X ∼ NN (0 N , R ) with correlation matrix R, where X1, . . . , X N have unit variance. Let f (x) = ϕp(x; 0 , R ) and 
+
+g(x) = N∏
+
+> i=1
+
+ϕ1(xi; 0 , 1) . By Pardo [18] , the Kullback-Leibler divergence between f and g is given by DKL (f || g) = −12 log ( det (R)) . Then I(R) := 1 
+
+> N
+
+T C (X) = − 12N log (det (R)) is the dimension-normalized total correlation, with score (R) = 1 − exp (−2I(R)) . Also, score (R)
+
+measures how much the correlation structure compresses the joint return cloud relative to independence: stronger comovement corresponds to smaller effective volume, and hence a larger score. See Section A of the supplementary material for more details. 
+
+# 4 Posterior Contraction 
+
+In this section, we state the posterior contraction result, outline the proof, and discuss its implications. We provide the full proof in Section B of the supplementary material. Posterior contraction is important for several reasons. First, it provides a frequentist justification for 15 Bayesian inference by establishing consistency and guarding against misleading conclusions in the large-sample limit. Second, the contraction rate quantifies statistical efficiency; when it matches the minimax-optimal rate, it shows that the Bayesian procedure attains optimal statistical performance. Third, posterior contraction underpins the calibration of Bayesian credible sets. Under suitable conditions, they can also serve as valid frequentist confidence sets. Finally, the contraction result illuminates the role of the prior, clarifying how prior specification balances flexibility and regularization in determining posterior behavior. In hierarchical shrinkage models, such results are especially informative because they verify that the regularization induced by the prior does not asymptotically overwhelm the likelihood. Our contraction result provides a theoretical justification for the use of DSP-MFSV-CAPM by showing that the model yields consistent estimation and hence supports reliable inference. The proof is based on Theorem 3 of [ 8]. To apply this theorem, we establish the existence of consistent hypothesis tests for our model (Proposition 2) and a prior mass condition (Proposition 3). To this end, we define a family of sieves Θn ⊆ Θ, Θ is the parameter space and a set of latent states Hn ⊆ H, H is the set of latent states. Let θ denote the vector consisting of all the parameters in the model. For θ ∈ Θ and a latent state path 
+
+s ∈ H, we consider the conditional experiment Q(n) 
+
+> θ,sn
+
+(·) := Pθ(r1: n ∈ ·| sn, rM, 1: n), where 
+
+sn denotes the latent states up to time n, r1: n = ( r1, . . . , rn) and rM, 1: n = ( rM, 1, . . . , r M,n ).By conditional independence, 
+
+Q(n) 
+
+> θ,sn
+
+=
+
+> n⊗
+> t=1
+
+Qθ,sn,t , q (n) 
+
+> θ,sn
+
+(x(n)) = 
+
+> n∏
+> t=1
+
+qθ,sn,t (xt), where qθ,sn,t (·) = ϕN (·; μt(θ), Σt(θ)) (2) is the Gaussian density with mean vector μt(θ) and covariance matrix Σt(θ). This product-16 measure structure allows us to establish the existence of consistent tests under a Hellinger-type metric. We then remove the conditioning in our final posterior contraction result by a standard total-expectation argument. We define with respect to Lebesgue measure, 
+
+d2 
+
+> n, sn
+
+(θ, θ′) := 1
+
+n
+
+> n∑
+> t=1
+
+h2 
+
+> t
+
+(θ, θ′), h 2 
+
+> t
+
+(θ, θ′) = 
+
+> ∫
+
+(√qθ,sn,t − √qθ′,sn,t )2dλ N (x), x ∈ RN .
+
+We also define 
+
+Bn(θ0, ϵ n; k) := {θ ∈ Θ : K(Q(n) 
+
+> θ0,sn
+
+, Q (n) 
+
+> θ,sn
+
+) ≤ nϵ 2
+
+> n
+
+, V k, 0(Q(n) 
+
+> θ0,sn
+
+, Q (n) 
+
+> θ,sn
+
+) ≤ nk 
+
+> 2
+
+ϵkn},
+
+where K(f, g ) = ∫ f log (f /g )dμ and Vk, 0(f, g ) = ∫ f | log (f /g ) − K(f, g )|kdμ, k > 1 are defined with respect to a measure μ. Unconditionally, Πn denotes the prior measure; conditional on r1: n, it denotes the posterior measure, as seen in Theorem 5. We first prove the following metric entropy result, where N (a, b, c ) denotes the covering number of the set 
+
+b by c-balls of radius a.
+
+Proposition 1. sup 
+
+> sn∈Hn
+
+sup 
+
+> ϵ>ϵ n
+
+log (N ( ϵ 
+
+> 36
+
+, {θ ∈ Θn : dn, sn (θ, θ0) ≤ ϵ}, d n, sn )) ≤ nϵ 2
+
+> n
+
+, where 
+
+ϵn := cϵn− 12+ cθ , cϵ > 0 is a constant and cθ is the number of parameters in the model. 
+
+The proof first establishes that, uniformly over latent states sn ∈ Hn, the covariance map 
+
+θ → Σt(θ) satisfies a polynomial-logarithmic Lipschitz bound on Θn, while the mean is fixed conditional sn. For suitable functions of n, mn and Mn, we establish the bounds 
+
+mnIN ⪯ Σt(θ) ⪯ MnIN . This yields a quadratic bound on the Gaussian Kullback–Leibler divergence. Hence dn, sn (θ1, θ2) ≲ ˜Ln|| θ1 − θ2|| for some ˜Ln. Therefore, any dn, sn -ball of radius ϵ can be covered by Euclidean balls of radius δ = ϵ/ 36 ˜Ln. This implies that the metric entropy is bounded by the Euclidean covering number of Θn. Let cθ denote the 17 number of parameters in the model. Since Θn lies in a cθ-dimensional box with side lengths 
+
+O( log (n)) , the covering number is at most (C log (n)/δ )cθ for some constant C > 0. Taking logarithms and choosing cϵ sufficiently large yields the result. 
+
+Proposition 2. Let Sn,j := {θ ∈ Θn : jϵ n < d n, sn (θ, θ0) ≤ 2jϵ n}. Then, for every sn ∈ Hn,there exists a sequence of tests ϕn, sn and a constant K > 0 such that sup 
+
+> sn∈Hn
+
+Q(n) 
+
+> θ0,sn
+
+ϕn, sn → 0
+
+and for every j ≥ 2, sup 
+
+> sn∈Hn
+
+sup 
+
+> θ∈Sn,j
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn, sn ) ≤ e−Kj 2nϵ 2 
+
+> n
+
+.
+
+To prove this proposition, we apply Proposition 1 to each shell Sn,j with ϵ = 2 jϵ n to obtain a dn, sn -cover of Sn,j by at most exp (nϵ 2
+
+> n
+
+) balls of radius jϵ n/18 . Then Lemma 2 of [ 8] yields, for each center, a local test with both type I and type II errors bounded by exp {− (1 /2) j2nϵ 2
+
+> n
+
+}. Taking the maximum over finitely many local tests in the shell preserves the type II bound uniformly over Sn,j , while a union bound yields shellwise type I error bound of at most exp {− (j2/4) nϵ 2
+
+> n
+
+}. Finally, taking the supremum over j ≥ 2 yields a global test. Since nϵ 2 
+
+> n
+
+→ ∞ , the sum of the shellwise type I errors vanishes, whereas the type II error on each shell remains exponentially small in j2nϵ 2
+
+> n
+
+.
+
+Proposition 3. For k = 2 , j ∈ N, and any 0 < K < 12 , we have 
+
+Πn(θ ∈ Θn : jϵ n < d n, sn (θ, θ0) < 2jϵ n)Πn(Bn(θ0, ϵ n; k)) ≤ exp {12Knϵ 2
+
+> n
+
+j2}.
+
+Since the numerator is bounded above by 1, it suffices to lower bound the denominator by constructing the Euclidean ball Un = {|| θ − θ0|| ≤ cϵ n}, for some constant c > 0, on which both KL n(θ0, θ) and V2,0(θ0, θ) are of order O(nϵ 2
+
+> n
+
+). Hence Un ⊂ Bn(θ0, ϵ n; 2) . We then lower bound Πn(Un) by intersecting coordinatewise neighborhoods around θ0. Each scalar parameter contributes at least a constant multiple of n− 12 ϵn, while Λ contributes at least 18 a constant multiple of ϵN r n . Therefore, Πn(Bn(θ0, ϵ n; 2)) ≥ Πn(Un) ≳ (mn − 12 ϵn)cθ for some constant m > 0. Taking reciprocals and using the definition of ϵn, the logarithm of this bound is of order O(log( n)) , which is dominated by nϵ 2
+
+> n
+
+, yielding the stated result. 
+
+Proposition 4. Pθ0 (Hcn) → 0.
+
+Let Hn = AM,n ∩ Aα,n ∩ Aβ,n ∩ A˜h,n ∩ A¯h,n . By a union bound, it suffices to show that each complement has vanishing probability. For the Gaussian AR(1) log-volatility processes 
+
+(hM , ˜h, ¯h), stationary Gaussian tail bounds together with a union bound over t imply maxima of order log (n) with probability tending to one. For the Z-innovation AR(1) process hαa,t , the moment generating function M (t) = sec (πt ) yields exponential tails via Chernoff bounds, which again implies vanishing tail probability. Finally, for βi,t we first control the latent log-variance path hβi on a high-probability event Gn, which bounds the conditional variance of βa,t − βa,t, 0, and then Gaussian tail bounds together with a union bound show that the complement has vanishing probability. We now state the main result. 
+
+Theorem 5. Πn(θ ∈ Θn : dn, S0,n (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) Pθ0
+
+−−→ 0.
+
+Conditional on any fixed latent path sn, Theorem 3 of [ 8] implies that the posterior mass outside the dn, sn -ball of radius Mnϵn has vanishing expectation uniformly over Hn. Since this posterior mass is bounded in [0 , 1] , Markov’s inequality then yields conditional convergence in probability uniformly over sn ∈ Hn. To pass from fixed sn to the random true path S0,n ,we decompose according to the event Hn. On Hn, the conditional error is controlled by the uniform bound, while on Hcn it is bounded by Pθ0 (Hcn) → 0. Since both terms vanish, posterior contraction follows in Pθ0 -probability. Theorem 5 establishes posterior contraction for DSP-MFSV-CAPM. It shows that as the 19 sample size increases, DSP-MFSV-CAPM can consistently recover the true parameters. This provides theoretical support for using DSP-MFSV-CAPM to model stock portfolios. Aside from the observation equation and the prior specification, the theorem imposes no additional structural assumptions. The result concerns posterior contraction around the true parameter θ0. Under model misspecification, however, θ0 should instead be interpreted as the pseudo-true value rather than as the data-generating truth. 
+
+# 5 Numerical Results 
+
+## 5.1 Simulation study 
+
+We consider five distinct simulation designs to evaluate DSP-MFSV-CAPM and to com-pare its performance with that of competing methods. In each design, we simulate the excess returns of N = 30 assets over T = 1000 time points. For each of the 100 seeds, we compute performance metrics over the full time series and then average these seed-specific summaries to obtain scenario-level results. We report the root mean squared error (RMSE) of the estimated score path relative to the truth, the mean interval width (width), and the empirical interval coverage (coverage). Together, these metrics assess both point estimation and uncertainty quantification: lower RMSE indicates more ac-curate recovery of the underlying dynamics, shorter intervals indicate greater sharpness, and empirical coverage close to the nominal 95% level indicates better calibration. In-terval performance should be assessed jointly through coverage and width. An interval spanning the entire parameter space would trivially attain 100% coverage but would be uninformative. Conversely, a narrow interval with low empirical coverage would be poorly calibrated. All code is available in a GitHub repository at the following link: 20 Modeling-Dynamic-Correlation-Matrices-with-Shrinkage-Priors .In Scenario 4, we report the mean absolute error (MAE). In the remaining scenarios, we report two MAE-based summaries. The first is the steady-state MAE (MAE1), defined as the MAE over time points 21–70 after a breakpoint; this measures how accurately a method estimates the correlation once the new regime has stabilized. The second is the transient MAE (MAE2), defined as the MAE over the first 50 post-break time points; this measures how accurately a method tracks the correlation immediately following a regime change. Because the rolling methods do not produce estimates for the first 59 time points, all reported metrics are computed over time points 60–1000. In Scenarios 1–3 and 5, we further report the mean response lag, defined as the number of periods after a break until the estimated score moves by at least 50% of the true jump in the correct direction relative to its pre-break level. We also report the mean settling lag, defined as the number of periods after a break until the estimated score first enters a tolerance band equal to 10% of the jump size around the truth and remains within that band for five consecutive periods. If the thresholds are not reached within the observed post-break period MAE1 and MAE2 are reported as ∞.Scenario 1 studies abrupt structural breaks in asset dependence within a standard one-factor return model. Returns are generated as ra,t = αa + βarM,t + ϵa,t , where αa ∼ N (0 , 0.03 2),
+
+βa ∼ Unif (0 .7, 1.4) , rM,t ∼ N (0 , σ 2
+
+> M,t
+
+), and ϵt ∼ NN (0N , Σϵ,t ), with Σϵ,t calibrated so the implied asset correlation matrix follows the desired regime-specific pattern. We impose four 250-period regimes, with breaks at t = 250 , 500 , and 750 , and market-factor standard deviations (0 .80 , 2.20 , 1.10 , 1.60) , corresponding, respectively, to low equicorrelation (ρ =0.10) , a crisis jump to high equicorrelation ( ρ = 0 .70 ), a reversion to moderate equicorrelation 21 (ρ = 0 .25 ), and a final three-block dependence structure with 10 assets per block, within-block correlation 0.65 , and between-block correlation 0.35 . Each asset’s standard deviation is drawn once, σa ∼ Unif (1 .20 , 2.00) , for a = 1 , . . . , N , and is then scaled by the regime-specific multipliers (1 , 1.35 , 1.10 , 1.25) .Scenario 2 studies sparse, time-varying asset dependence with repeated crisis clustering. Re-turns are generated from the same one-factor model, ra,t = αa+βarM,t +ϵa,t , αa ∼ N (0 , 0.03 2),
+
+βa ∼ Unif (0 .7, 1.4) , rM,t ∼ N (0 , σ 2
+
+> M,t
+
+), σa ∼ Unif (1 .20 , 2.00) , and ϵt ∼ NN (0N , Σϵ,t ), with 
+
+Σϵ,t calibrated so that the implied asset correlation matrix follows the desired regime-specific pattern. The assets are partitioned into three groups of 10. During calm periods, the asset correlation matrix is sparse: within-group correlation is 0.20, while all between-group correlations are 0. Then three crisis episodes are introduced over periods 251–350, 601– 700, and 851–925. During these crisis windows, within-group correlation rises to 0.75, the between-group correlation between groups 1 and 2 increases to 0.35, and all other between-group correlations are set to 0.05. Market volatility also rises from 0.80 in calm periods to 2.20 in crises, and asset standard deviations are scaled by 1.00 in calm periods and 1.25 in crises. For each state, the target asset covariance matrix is constructed from the corresponding regime-specific correlations and volatilities. Scenario 3 studies abrupt changes in latent factor dimension and loading structure within a multi-factor return model. Returns are generated as 
+
+ra,t = αa + βarM,t + γaz2,t + δaz3,t + ηaz4,t + θaz5,t + κaz6,t + ea,t ,
+
+with αa ∼ N (0 , 0.03 2), βa ∼ Unif (0 .7, 1.4) , rM,t ∼ N (0 , σ 2
+
+> M,t
+
+), zj,t ∼ N (0 , σ 2
+
+> j,t
+
+), et ∼
+
+NN (0N , D 2 
+
+> t
+
+), and baseline idiosyncratic standard deviations σe,a ∼ Unif (0 .70 , 1.20) , where 22 D2 
+
+> t
+
+= c2 
+
+> t
+
+diag (σ2
+
+> e, 1
+
+, . . . , σ 2
+
+> e, 30
+
+), with ct ∈ { 1, 1.35 , 1.10 } corresponding to three different regimes. We consider three groups, G1, G 2, G 3, of 10 assets and impose three regimes of lengths 300, 400, and 300. In particular, γa ∼ 1{a ∈ G1 ∪ G2} max {0, N (0 .75 , 0.08 2)},
+
+δa ∼ 1{a ∈ G1} max {0, N (0 .90 , 0.08 2)}, ηa ∼ 1{a ∈ G2} max {0, N (0 .80 , 0.08 2)}, θa ∼
+
+1{a ∈ G3} max {0, N (0 .80 , 0.08 2)}, κa ∼ max {0, N (0 .65 , 0.08 2)}. The first regime is a calm one-factor regime in which only the market factor is active and σM,t = 0 .80 . The second regime is a severe six-factor regime with σM,t = 2 , in which z2,t , z 3,t , z 4,t , z 5,t , and z6,t become active with standard deviations (1.10, 0.95, 0.85, 0.80, 0.75), respectively. The final regime is a milder two-factor period where only rM,t and z2,t remain active, with standard deviations 1.20 and 0.65, respectively, and the sector loading is reduced to 70% of its regime 2 value. Scenario 4 studies smoothly evolving dependence under a correctly specified DCC model with heavy-tailed innovations. Let wt = ( rM,t , r 1,t , . . . , r N,t )′
+
+denote the joint vector of the observed market return and excess asset returns. We generate wt = μ + Dzt, where zt|F t−1
+
+follows a multivariate Student-t distribution with 8 degrees of freedom and conditional correlation matrix Rt. Then Rt evolves according to a DCC(1,1) recursion with parameters 
+
+(a, b ) = (0 .03 , 0.95) . The unconditional joint correlation target is calibrated so that the long-run market-asset correlation is 0.35 and the long-run asset-asset correlation follows an equicorrelation structure with ρ = 0 .15 . Marginal scales are heterogeneous, with market standard deviation 1.20 , asset standard deviations drawn independently from Unif (0 .80 , 1.40) , and asset-specific means αa ∼ N (0 , 0.03 2). After a burn-in of 300 observations, we retain 1000 time points for analysis. Scenario 5 preserves the four-regime dependence design of Scenario 1, but allows the factor-model coefficients to evolve over time. Specifically, each asset’s αa,t and βa,t follow 23 persistent Gaussian AR(1) processes around asset-specific long-run means ¯αa ∼ N (0 , 0.03 2)
+
+and ¯βa ∼ Unif (0 .7, 1.4) . The persistence parameters are ϕα = ϕβ = 0 .995 . The innovation standard deviations are 0.004 for αa,t and 0.012 for βa,t in calm periods and are scaled by regime-dependent multipliers (1 .0, 3.0, 1.2, 1.8) . The market factor variance also follows a stochastic volatility process, so dependence changes reflect both abrupt regime shifts and smoother variation in factor exposures and market risk. For model comparison, we benchmark DSP-MFSV-CAPM against eight alternative specifi-cations. The first is a multivariate factor stochastic volatility (MFSV) model fit directly to the return panel and estimated using 3 latent factors, 12,000 MCMC draws, 1,500 burn-in iterations, and a thinning rate of 4. The second is an exponentially weighted rolling covariance estimator (Rolling) based on a 60-period window with decay factor 0.94. The third is a rolling Ledoit-Wolf shrinkage estimator (Ledoit-Wolf), also based on a 60-period window. The fourth through sixth benchmarks are multivariate GARCH-based dynamic correlation models with constant-mean univariate sGARCH(1,1) margins and DCC(1,1)-type correlation dynamics: a Gaussian DCC model (DCC), a Student-t DCC model (DCC-t), and an asymmetric DCC (ADCC) model. The seventh benchmark is a Bayesian Cholesky stochastic volatility model (Chol-SV), implemented as a VAR(1) with stochastic volatility and a horseshoe prior on the Cholesky coefficients, using 12,000 MCMC draws, 1,500 burn-in iterations, and a thinning rate of 4. The eighth benchmark is a hard-thresholded rolling correlation estimator (Rolling-threshold), which constructs a 60-period rolling sample correlation matrix, sets off-diagonal entries with absolute value below 0.10 to zero, and projects the result to the nearest positive definite correlation matrix. For DSP-MFSV-CAPM, we use 3 latent factors and retain 3,000 posterior draws after 1,500 burn-in iterations, and a thinning rate of 4. For the non-Bayesian rolling and 24 Table 1: Results for Scenario 1 Model RMSE width coverage response lag MAE1 settling lag MAE2 MFSV 0.061 0.360 0.981 1.530 0.042 15.20 0.061 Rolling 0.292 0.381 0.531 1.130 0.239 177.0 0.255 Ledoit-Wolf 0.126 0.553 0.766 26.00 0.125 57.30 0.246 DCC 0.193 0.144 0.004 21.40 0.204 730.0 0.231 DCC-t 0.203 0.139 0.001 17.60 0.205 ∞ 0.227 ADCC 0.195 0.146 0.017 20.80 0.198 556.0 0.225 Chol-SV 0.197 0.220 0.327 3.860 0.138 352.0 0.150 Rolling-threshold 0.272 0.357 0.531 34.10 0.202 94.30 0.222 DSP-MFSV-CAPM 0.057 0.217 0.952 1.040 0.040 14.10 0.057 Table 2: Results for Scenario 2 Model RMSE width coverage response lag MAE1 settling lag MAE2 MFSV 0.059 0.345 0.957 0.505 0.030 8.530 0.046 Rolling 0.363 0.383 0.292 0.000 0.287 219.0 0.329 Ledoit-Wolf 0.201 0.541 0.708 29.50 0.158 59.20 0.319 DCC 0.231 0.164 0.000 13.90 0.251 ∞ 0.267 DCC-t 0.235 0.156 0.000 2.550 0.255 ∞ 0.268 ADCC 0.232 0.171 0.000 31.00 0.248 ∞ 0.264 Chol-SV 0.212 0.258 0.101 2.110 0.191 ∞ 0.203 Rolling-threshold 0.437 0.622 0.292 31.00 0.444 231.0 0.495 DSP-MFSV-CAPM 0.064 0.187 0.929 0.562 0.039 11.70 0.056 DCC-based competitors, interval estimates are obtained by a moving-block bootstrap with 200 resamples and block length 20, whereas uncertainty for the Bayesian procedures is derived from posterior output, using 95% credible intervals for DSP-MFSV-CAPM, and normal approximations for MFSV and Chol-SV. The tables report metrics averaged over 100 seeds. Overall, DSP-MFSV-CAPM performs strongly in designs with abrupt, nonstationary changes in dependence and remains competitive in the smooth-dynamics design. In Scenario 1, it has the lowest RMSE, the smallest MAE summaries, the shortest response lag, and the shortest settling lag. Its interval estimates are also well calibrated, with empirical 25 Table 3: Results for Scenario 3 Model RMSE width coverage response lag MAE1 settling lag MAE2 MFSV 0.054 0.402 0.996 3.340 0.036 28.60 0.044 Rolling 0.191 0.246 0.425 26.90 0.158 65.60 0.165 Ledoit-Wolf 0.070 0.275 0.740 27.70 0.066 83.10 0.117 DCC 0.109 0.084 0.039 4.590 0.083 339.0 0.092 DCC-t 0.115 0.082 0.040 2.210 0.079 327.0 0.085 ADCC 0.109 0.084 0.029 3.580 0.083 384.0 0.092 Chol-SV 0.084 0.206 0.758 1.330 0.043 121.0 0.053 Rolling-threshold 0.130 0.235 0.441 57.60 0.112 39.90 0.129 DSP-MFSV-CAPM 0.049 0.202 0.954 4.060 0.033 27.50 0.042 Table 4: Results for Scenario 4 Model RMSE width coverage MAE MFSV 0.146 0.046 0.271 0.139 Rolling 0.402 0.184 0.000 0.401 Ledoit-Wolf 0.053 0.222 0.813 0.041 DCC 0.016 0.100 0.710 0.015 DCC-t 0.024 0.106 0.767 0.023 ADCC 0.017 0.100 0.718 0.016 Chol-SV 0.120 0.245 0.784 0.114 Rolling-threshold 0.582 0.301 0.000 0.579 DSP-MFSV-CAPM 0.117 0.259 0.670 0.109 coverage near the nominal 95% level and substantially smaller interval width than those of competing methods, indicating a favorable tradeoff between coverage and interval width. The DCC-type methods produce narrow intervals in this setting but with very low coverage. In Scenario 2, which emphasizes sparse and localized correlation changes rather than broader market-wide changes in correlation, DSP-MFSV-CAPM no longer ranks first on every metric; MFSV performs slightly better in RMSE and the MAE summaries. Even so, DSP-MFSV-CAPM remains competitive overall. In Scenario 3, DSP-MFSV-CAPM again has the lowest RMSE, the smallest MAE measures, and narrow intervals with coverage near the nominal level. Although a few competitors have smaller raw response lags in this design, 26 Table 5: Results for Scenario 5 Model RMSE width coverage response lag MAE1 settling lag MAE2 MFSV 0.065 0.375 0.987 1.710 0.044 21.80 0.075 Rolling 0.297 0.389 0.531 19.70 0.225 86.30 0.231 Ledoit-Wolf 0.135 0.570 0.694 30.60 0.146 63.80 0.281 DCC 0.207 0.149 0.000 33.60 0.217 ∞ 0.243 DCC-t 0.219 0.147 0.000 36.30 0.217 ∞ 0.235 ADCC 0.207 0.151 0.000 28.10 0.213 697.0 0.239 Chol-SV 0.211 0.274 0.316 2.020 0.149 382.0 0.160 Rolling-threshold 0.290 0.389 0.530 37.90 0.195 97.20 0.211 DSP-MFSV-CAPM 0.064 0.226 0.947 1.730 0.044 22.20 0.074 those gains do not translate into better overall estimation accuracy or interval performance. Scenario 4 is a less favorable setting for the proposed method because the data are generated from a correctly specified heavy-tailed DCC process with smooth dynamics and no breaks; accordingly, the DCC family and Ledoit-Wolf perform best in this setting. Even in that setting, however, DSP-MFSV-CAPM improves on MFSV and Chol-SV in both RMSE and MAE, outperforms the rolling-based estimators, and provides better interval coverage. In Scenario 5, DSP-MFSV-CAPM again performs competitively: achieving the lowest RMSE, the smallest MAE measures, and shortest interval coverage close to the nominal 95% 
+
+level while maintaining substantially sharper intervals than competing procedures. These results indicate that DSP-MFSV-CAPM performs well across the break-driven environments with broad changes in correlation that motivate the proposed method, while remaining competitive in the smooth setting that favors competing models. 27 5.2 Real-world examples 
+
+5.2.1 U.S. subprime mortgage crisis 
+
+The U.S. subprime mortgage crisis, which unfolded between 2007 and 2010, originated in the collapse of the U.S. housing bubble. In particular, the securitization of mortgages and their inclusion in collateralized debt obligations (CDOs) played a central role in the crisis, as these instruments, despite receiving high ratings, proved substantially riskier than those ratings suggested. We consider two portfolios, each consisting of 30 stocks. The first portfolio comprises large technology-oriented stocks from the period. The second is more diversified, comprising stocks from 10 different sectors and spanning a range of firm sizes. We compute excess asset returns using data downloaded from Yahoo Finance and the Fama-French data library [ 7]. We then fit DSP-MFSV-CAPM to returns from 4 January 2006 to 31 December 2009. This yielded 3,000 posterior draws of the score series. Figure 1 shows the posterior mean score time series of both portfolios, and Figure 2 shows the posterior mean score for the diversified portfolio with 95% highest density intervals (HDIs) and the VIX index. 
+
+Figure 1: Posterior mean score time series for the technology portfolio (vermilion) and the diversified portfolio (black). 28 Figure 2: Posterior mean score time series for the diversified portfolio (black) with 95% HDIs and the VIX index (red). Figure 1 shows that the technology portfolio exhibits a higher overall correlation level than the diversified portfolio. For example, in mid-2006, the correlation of the technology portfolio is higher than that of the diversified portfolio. This pattern changes in 2007; for example, in the first quarter of 2007, both portfolios exhibit a spike in correlation, with the diversified portfolio reaching a higher correlation than the technology portfolio. Overall, the correlation dynamics are similar across the crisis period. The series culminate in pronounced spikes, reaching peaks on 10 November 2008 and 12 November 2008 for the technology and diversified portfolios, respectively. Figure 2 shows several spikes, including one in June–July 2006, a period that coincided with an increase in the federal funds rate and emerging difficulties in the CDO market, including growth in credit default swaps linked to CDOs. The series then shows a noticeable spike in March 2007, which may coincide with growing warnings about an impending crisis; for example, a speech by Ben Bernanke discussing systemic risk associated with Fannie Mae and Freddie Mac. After this period, the series shows a prolonged increase in correlation that began around June 2007 and continued into 2008. The diversified portfolio correlation 29 begins to rise from approximately 0.372 on 1 May 2008. The correlation rises rapidly during September 2008, such as the government takeover of Fannie Mae and Freddie Mac and the bankruptcy of Lehman Brothers, reaching 0.614 on 15 September 2008, according to the estimated score. The series exhibits minor fluctuations in correlation, although it remains elevated, reaching a peak of 0.766 on 12 November 2008. This may reflect the aftermath of these events and uncertainty surrounding the policy response to the crisis, including government lending and refinancing measures. 
+
+5.2.2 2020 COVID-19 pandemic 
+
+The COVID-19 pandemic began in Wuhan, China, in December 2019. It quickly spread, prompting widespread public-health restrictions and substantial economic disruption, which had a large negative economic impact. We consider two portfolios, each consisting of 30 stocks. The first portfolio comprises large technology-oriented stocks from the period. The second is more diversified, comprising stocks from 10 different sectors and spanning a range of firm sizes. We compute excess asset returns using data downloaded from Yahoo Finance and the Fama-French data library [7]. We use daily data from 3 January 2019 to 28 December 2023. We then fit DSP-MFSV-CAPM to the data and obtain 3,000 posterior draws of the score series. Figure 3 shows the posterior mean score time series of both portfolios, and Figure 4 shows the posterior mean score for the diversified portfolio, with 95% HDIs, together with the VIX index. Figure 3 shows a large spike in the correlation series for the technology and diversified portfolios on 10 March 2020 and 11 March 2020, respectively, with nationwide lockdowns across the globe beginning soon after, including in the United Kingdom, parts of Europe, and some U.S. states, and with the World Health Organization declaring a pandemic on 30 Figure 3: Posterior mean score time series for the technology portfolio (vermilion) and the diversified portfolio (black). 
+
+Figure 4: Posterior mean score time series for the diversified portfolio (black) with 95% HDIs and the VIX index (red). 31 11 March 2020. At the start of the period, the diversified portfolio has a lower correlation than the technology portfolio, but both series exhibit similar spikes in correlation. Figure 4 shows several spikes. One early spike reaches a correlation of 0.536 on 19 August 2019. This increase may be associated with several developments, including recently announced U.S. tariffs on Chinese goods, global signs of an economic downturn, and a reduction in interest rates by the U.S. Federal Reserve announced at the end of July 2019. This was the first Federal Reserve rate cut since 2008 and may have signaled growing concern about economic conditions. This period also coincided with other signs of possible economic weakness, including an inverted U.S. Treasury yield curve. Other international stresses were also present, such as the sharp decline in the Argentine stock market on 12 August 2019. The series increased in early 2020, following reports of COVID-19 in late 2019, with the World Health Organization declaring the COVID-19 outbreak a public health emergency of international concern on 30 January 2020, by which point the estimated correlation had already reached 0.386. The subsequent increase coincides with several major developments in February, including rising death counts internationally and a large decline in international stock markets from 24 to 28 February. The Federal Reserve then reduced interest rates on 3 March in response to growing concern about COVID-19, and the U.S. stock market saw a large decline on 9 March 2020. The largest spike in Figure 4 occurs on 11 March 2020, with a correlation of 0.767. Although the estimated score peaks on 11 March 2020, the VIX peaks later, on 16 March 2020. Both examples show that, in a retrospective backtesting setting, the correlation score can serve as a portfolio-level indicator of financial stress, closely tracking and, in some cases, preceding spikes in the VIX. This suggests that the score captures changes in portfolio-wide 32 correlation before they are fully reflected in broader market measures, providing a more portfolio-specific view of market instability. The examples also suggest that simple stock diversification offered little protection, with the diversified portfolio affected similarly to the technology portfolio during downturns. These results suggest that the method may be useful for portfolio managers as a backtesting tool to assess how diversification strategies would have performed under crisis conditions and to identify when alternative approaches to diversification may have been warranted. The method may also be useful for economic historians by providing a portfolio-level complement to the VIX for characterizing episodes of financial stress and their correspondence with contemporaneous events. 
+
+# 6 Conclusion 
+
+We proposed a novel approach for estimating the evolution of the overall correlation over time. To do so, we developed an information-theoretically grounded score to summarize a given correlation matrix, and we constructed a Bayesian hierarchical model with dynamic shrinkage to model time-varying correlation matrices. Through a posterior contraction result, we established theoretical support for the model. Across five simulation scenarios, our approach achieved strong performance relative to competing methods. In two real-world examples, we showed how our model can be used in practice to provide novel insights for investors and economic historians. Future work could build on the theoretical results in this paper, for example by considering alternative separation metrics or modes of stochastic convergence. Another direction is to explore computational approaches for extending the hierarchical model to higher dimensions. 33 Supplementary Material 
+
+# Section A 
+
+Let x ∈ RN be the vector of standardized returns with R ∈ SN
+
+> ++
+
+, the set of symmetric 
+
+N × N positive definite matrices. Consider the quadratic form QR(x) = x′
+
+R−1x and the set ER(c) := {x ∈ RN : x′
+
+R−1x ≤ c}. Notice that on ER(c), x′
+
+R−1x = x′
+
+R− 12 R− 12 x =
+
+|| R− 12 x|| 22 ≤ c, where || · || 2 denotes the Euclidean norm. Let u = c− 12 R− 12 x which yields the transformed constraint || u|| 22 ≤ 1. Clearly, ER(c) is the image of the unit ball 
+
+BN = {u : || u|| 2 ≤ 1} under the linear map u → √cR 12 u. Then the Jacobian determinant is given by | det( √cR 12 )| = cp 
+
+> 2
+
+det( R)12 . Therefore, Vol (ER(c)) = Vol (√cR 12 BN ) = | det( √cR 12 )|Vol (BN ) = cp 
+
+> 2
+
+det( R)12 Vol (BN ).
+
+Then, Vol (ER(c)) 
+
+Vol (EIp (c)) = cp 
+
+> 2
+
+det( R)12 Vol (BN )
+
+cp 
+
+> 2
+
+det( IN )12 Vol (BN ) = det( R)12 .
+
+By Hadamard’s inequality, det (R) ≤ N∏
+
+> i=1
+
+Rii = 1 . Note that equality occurs iff R = IN .So, we have det (R)12 ≤ 1. This means ER(c) has the largest volume when assets are uncorrelated. Observe that 
+
+( Vol (ER(c)) 
+
+Vol (EIN (c)) ) 2 
+
+> N
+
+= det( R) 1 
+
+> N
+
+=⇒ score (R) = 1 − ( Vol (ER(c)) 
+
+V ol (EIN (c)) ) 2 
+
+> N
+
+.
+
+34 Section B 
+
+Using the notions in Section 4, the sieve construction assumes: 
+
+Θn = {θ ∈ Θ : |μM | ≤ log( n), |ϕM | ≤ √
+
+1 − 1log(log( n)) , σ 2 
+
+> M
+
+≤ log( n)0.5, || Λ|| F ≤ log( n),
+
+max  
+
+> 1≤k≤r
+
+|˜μk| ≤ log( n), max  
+
+> 1≤k≤r
+
+| ˜ϕk| ≤ √
+
+1 − 1log(log( n)) , max  
+
+> 1≤k≤r
+
+˜σ2 
+
+> k
+
+≤ log( n)0.5, max  
+
+> 1≤i≤N
+
+|¯μi| ≤ log( n),
+
+max  
+
+> 1≤i≤N
+
+| ¯ϕi| ≤ √
+
+1 − 1log(log( n)) , max  
+
+> 1≤i≤N
+
+¯σ2 
+
+> i
+
+≤ log (n)0.5, max  
+
+> 1≤i≤N
+
+|μαi | ≤ log (n4), max  
+
+> 1≤i≤N
+
+|μβi | ≤
+
+log( n4),
+
+max  
+
+> 1≤i≤N
+
+|ϕβi | ≤ √
+
+1 − 1log(log( n)) , max  
+
+> 1≤i≤N
+
+|ϕαi | ≤ √
+
+1 − 1log(log( n)) }.We also assume the following on the set of latent states: 
+
+Hn = {sn : max  
+
+> 1≤t≤n
+
+|hM,t −1| ≤ | μM | + p log (n), max  
+
+> 1≤i≤N, 1≤t≤n−1
+
+|hαi,t −1 | ≤ | μαi | + c log( n)+log(2 k(s))  
+
+> s
+
+,
+
+max  
+
+> 1≤i≤N, 1≤t≤n
+
+|βi,t −1| ≤ 
+
+√
+
+(κ + 1) C4nα log( n), max  
+
+> 1≤k≤r, 1≤t≤n
+
+|˜hk,t −1| ≤ | ˜μk| + p log( n), and 
+
+max  
+
+> 1≤i≤N, 1≤t≤n
+
+|¯hi,t −1| ≤ | ¯μi| + p log( n)} for constants p, α, c, ξ > 0.
+
+For θ ∈ Θ and s ∈ H define the conditional experiment, from (2), as follows: 
+
+Q(n) 
+
+> θ,sn
+
+(·) := Pθ(r1: n ∈ ·| sn, rM, 1: n), r1: n = ( r1, . . . , rn) and rM, 1: n = ( rM, 1, . . . , r M,n ).
+
+Now note that sn denotes the latent states up to time n. By conditional independence 
+
+Q(n) 
+
+> θ,sn
+
+=
+
+> n
+
+⊗
+
+> t=1
+
+Qθ,sn,t , q (n) 
+
+> θ,sn
+
+(x(n)) = 
+
+> n
+
+∏
+
+> t=1
+
+qθ,sn,t (xt), and qθ,sn,t (·) = ϕN (·; μt(θ), Σt(θ)) 
+
+is the Gaussian probability density function with mean vector μt(θ) and covariance matrix 35 Σt(θ). Finally, define 
+
+d2 
+
+> n, sn
+
+(θ, θ′) := 1
+
+n
+
+> n
+
+∑
+
+> t=1
+
+h2 
+
+> t
+
+(θ, θ′), h 2 
+
+> t
+
+(θ, θ′) = 
+
+∫
+
+(√qθ,sn,t − √qθ′,sn,t )2dλ N (x), x ∈ RN .
+
+## Proof of Proposition 1 
+
+Proof. First we establish Lipschitz-type bounds on the mean vector and covariance matrix on Θn.Consider a fixed sn ∈ Hn. Recall for fixed a ∈ { 1, . . . , N }, μa,t = αa,t + rM,t βa,t . Then 
+
+∂θμ(θ) = 0 since for a fixed latent state vector, the mean does not depend on the parameters. Recall, 
+
+cov (rt)ij |θ, sn =
+
+> r
+
+∑
+
+> k=1
+
+Λik Λjk exp {˜μk + ˜ϕk(˜hk,t −1 − ˜μk) + 12 ˜σ2
+
+> k
+
+}
+
++ δij exp {¯μi + ¯ϕi(¯hi,t −1 − ¯μi) + 12 ¯σ2 
+
+> i
+
+}.
+
+Now we compute the relevant partial derivatives. For Λ, suppressing the conditioning set 
+
+(θ, sn) for clarity, we have: 
+
+∂cov (rt)ij 
+
+∂Λik 
+
+= exp {˜μk + ˜ϕk(˜hk − ˜μk) + 12 ˜σ2
+
+> k
+
+}Λjk 
+
+= exp {˜μk} exp { ˜ϕk(˜hk − ˜μk)} exp {12 ˜σ2
+
+> k
+
+}Λjk 
+
+≤ exp {| ˜μk|} exp {| ˜ϕk|| ˜hk| + | ˜ϕk|| ˜μk|} exp {12 ˜σ2
+
+> k
+
+}| Λjk |≤ exp {log( n)} exp {log( n) + p log( n) + log( n)} exp {12 log( n)0.5} log( n)
+
+≤ nn 2+ pn log( n) = n4+ p log( n), since n ∈ N,
+
+36 with an additional factor of 2 if i = j. Likewise, 
+
+∂cov (rt)ij 
+
+∂ ˜μk
+
+= Λ ik Λjk exp { ˜ϕk ˜hk,t −1} exp {12 ˜σ2
+
+> k
+
+}(1 − ˜ϕk) exp {(1 − ˜ϕk)˜ μk}≤ log( n)2 exp {(p log( n) + log( n)) } exp {12 log( n)0.5}× (1 + 1) exp {(1 + 1) log( n)}≤ 2 log( n)2 exp {log( np+1 )} exp {12 log( n)0.5} exp {2 log( n)}≤ 2 log( n)2np+1 nn 2 = 2 log( n)2np+4 , since n ∈ N.
+
+In addition, 
+
+∂cov (rt)ij 
+
+∂ ˜ϕk
+
+= Λ ik Λjk exp {˜μk + 12 ˜σ2
+
+> k
+
+}(˜hk,t −1 − ˜μk) exp { ˜ϕk(˜hk,t −1 − ˜μk)}≤ (log( n)) 2 exp {log( n) + 12 log( n)0.5}(p log( n) + 2 log( n)) 
+
+× exp {(p log( n) + 2 log( n)) }≤ log( n)2 exp {log( n)} exp {12 log( n)0.5}(p + 2) log( n) exp {log( n2+ p)},
+
+≤ log( n)2n2(p + 2) log( n)n2+ p = log( n)3(p + 2) n4+ p, since n ∈ N.
+
+Furthermore, 
+
+∂cov (rt)ij 
+
+∂ ˜σ2
+
+> k
+
+= Λ ik Λjk exp {˜μk + ˜ϕk(˜hk,t −1 − ˜μk)}12 exp {12 ˜σ2
+
+> k
+
+}≤ 12 log( n)2 exp {log( n) + ( p log( n) + 2 log( n)) } exp {12 log( n)0.5}≤ 12 log( n)2 exp {log( n3+ p)} exp {12 log( n)0.5},
+
+≤ 12 log( n)2n3+ pn = 12 log( n)2n4+ p, since n ∈ N.
+
+37 Antepenultimately, 
+
+∂cov (rt)ij 
+
+∂ ¯μi
+
+= δij exp { ¯ϕi¯hi,t −1 + 12 ¯σ2 
+
+> i
+
+}(1 − ¯ϕi) exp {¯μi(1 − ¯ϕi)}≤ exp {(log( n) + p log( n)) + 12 log( n)0.5}× (1 + 1) exp {log( n)(1 + 1) }≤ 2 exp {log( n1+ p)} exp {12 log( n)0.5} exp {2 log( n)},
+
+≤ 2n1+ pnn 2 = 2 n4+ p, since n ∈ N.
+
+Penultimately, 
+
+∂cov (rt)ij 
+
+∂ ¯ϕi
+
+= δij exp {¯μi + 12 ¯σ2 
+
+> i
+
+}(¯hi,t −1 − ¯μi) exp { ¯ϕi(¯hi,t −1 − ¯μi)}≤ exp {log( n) + 12 log( n)0.5}(p log( n) + 2 log( n)) 
+
+× exp {(p log( n) + 2 log( n)) }≤ exp {log( n)} exp {12 log( n)0.5}(2 + p) log( n) exp {log( np+2 )}≤ (2 + p) log( n)nnn p+2 = (2 + p) log( n)n4+ p, since n ∈ N.
+
+Finally, 
+
+∂cov (rt)ij 
+
+∂ ¯σ2
+
+> i
+
+= δij exp {¯μi + ¯ϕi(¯hi,t −1 − ¯μi)}12 exp {12 ¯σ2 
+
+> i
+
+}≤ exp {log( n) + ( p log( n) + 2 log( n)) }12 exp {12 log( n)0.5}≤ 12 exp {log( n3+ p)} exp {12 log( n)12 }≤ 12n3+ pn = 12n4+ p, since n ∈ N.
+
+38 Then, 
+
+|Σt,i,j (θ) − Σt,i,j (θ′)| = |∇ θΣt,i,j (ηi,j )′(θ − θ′)|, η i,j = θ′ + sij (θ − θ′), s ij ∈ (0 , 1) 
+
+≤ ||∇ θΣt,i,j (ηi,j )|| 2|| θ − θ′|| 2
+
+≤ Ln|| θ − θ′|| 2, L n = c1nc2 log (n)c3 , c 1, c 2, c 3 > 0.
+
+Combining these terms to calculate the Frobenius norm, we have 
+
+|| Σt(θ) − Σt(θ′)|| 2 
+
+> F
+
+=
+
+> N
+
+∑
+
+> i,j =1
+
+|Σt,i,j (θ) − Σt,i,j (θ′)|2
+
+≤
+
+> N
+
+∑
+
+> i,j =1
+
+L2
+
+> n
+
+|| θ − θ′|| 22
+
+= N 2L2
+
+> n
+
+|| θ − θ′|| 22.
+
+That is, 
+
+|| Σt(θ) − Σt(θ′)|| F ≤ N L n|| θ − θ′|| 2.
+
+Recall that h2(P, Q ) ≤ 2KL (P, Q ) and 
+
+KL (N (μ1, Σ1), N (μ2, Σ2)) = 12[tr (Σ −12 Σ1−IN )−log(det(Σ −12 Σ1))+( μ1−μ2)′Σ−12 (μ1−μ2)] .
+
+Note that since sn is fixed μt(θ1) − μt(θ2) = 0N .
+
+Now, let X := Σ t(θ2)− 12 Σt(θ1)Σ t(θ2)− 12 . Then 
+
+KL t(θ1, θ2) = 12[tr (X) − log(det( X)) − N ].
+
+39 Since X is symmetric, it is diagonalizable, X = SDS −1 where S is some invertible matrix and D is a diagonal matrix consisting of the eigenvalues of X. Then it follows that tr (X)tr (SDS −1) = tr (DSS −1) = tr (D) = 
+
+> N∑
+> i=1
+
+λi.
+
+Similarly, 
+
+log(det( X)) = log(det( SDS −1)) = log(det( D)) = log( 
+
+> N∏
+> i=1
+
+λi) = 
+
+> N∑
+> i=1
+
+log( λi).
+
+Then the difference of these terms in the KL distance is tr (X) − log(det( X)) − N =
+
+> N∑
+> i=1
+
+λi −
+
+> N∑
+> i=1
+
+log( λi) −
+
+> N∑
+> i=1
+
+1=
+
+> N∑
+> i=1
+
+(λi − log( λi) − 1) =
+
+> N∑
+> i=1
+
+f (λi), f (x) = x − log( x) − 1.
+
+Since Λ ˜ΣtΛ′
+
++ ¯Σt ⪰ 0, and Σt(θ) ⪰ ¯Σt. So, 
+
+λmin (Σ t(θ)) ≥ λmin ( ¯Σt) = min  
+
+> 1≤i≤N
+
+(exp {¯μi + ¯ϕi(¯hi,t −1 − ¯μi) + 12 ¯σ2 
+
+> i
+
+}).
+
+Note that 
+
+exp {¯μi + ¯ϕi(¯hi,t −1 − ¯μi) + 12 ¯σ2 
+
+> i
+
+} ≥ exp {− log( n) − log( n) − p log( n) − log( n)}
+
+= exp {− (3 + p) log( n)}
+
+= n−(3+ p).
+
+40 Thus 
+
+λmin (Σ t(θ)) ≥ n−(3+ p).
+
+Now we need to upper bound. 
+
+λmax (Σ t(θ)) ≤ λmax ( ¯Σt) + λmax (Λ ˜ΣtΛ′).
+
+Note 
+
+λmax ( ¯Σt) ≤ exp {log( n) + (2 + p) log( n) + 12 log( n)12 }
+
+= exp {(3 + p) log( n) + 12 log( n)12 }
+
+= n3+ pe12 (log( n)) 12
+
+≤ n4+ p.
+
+Similarly, 
+
+λmax (Λ ˜ΣtΛ′) ≤ || Λ|| 2 
+
+> F
+
+λmax ( ˜Σt)
+
+≤ (log( n)) 2 exp {log( n) + (2 + p) log( n) + 12 log( n)12 }
+
+= (log( n)) 2 exp {(3 + p) log( n) + 12 log( n)12 }≤ log( n)2n4+ p.
+
+So that, 
+
+λmax (Σ t(θ)) ≤ n4+ p + log( n)2n4+ p.
+
+41 That is 
+
+λmin (Σ t(θ)) ≥ mn and λmax (Σ t(θ)) ≤ Mn,
+
+where 
+
+mn := n−(3+ p)
+
+Mn := n4+ p + (log( n)) 2n4+ p.
+
+Then 
+
+mnIN ⪯ Σt(θ1) ⪯ MnIN and mnIN ⪯ Σt(θ2) ⪯ MnIN .
+
+Then, 
+
+X = Σ t(θ2)− 12 Σt(θ1)Σ t(θ2)− 12 ⪰ Σt(θ2)− 12 mnIN Σt(θ2)− 12 = mnΣt(θ2)−1.
+
+We know 
+
+Σt(θ2) ⪯ MnIN ⇐⇒ Σ−1 
+
+> t
+
+(θ2) ⪰ 1
+
+Mn
+
+IN .
+
+Therefore, we have 
+
+X ⪰ mnΣ−1 
+
+> t
+
+(θ2) ⪰ mn
+
+Mn
+
+IN .
+
+Similarly 
+
+X = Σ t(θ2)− 12 Σt(θ1)Σ t(θ2)− 12 ⪯ Σt(θ2)− 12 (MnIN )Σ t(θ2)− 12 = MnΣ−1 
+
+> t
+
+(θ2).
+
+with 
+
+Σt(θ2) ⪰ mnIN ⇐⇒ Σ−1 
+
+> t
+
+(θ2) ⪯ 1
+
+mn
+
+IN .
+
+42 This implies 
+
+X ⪯ MnΣt(θ2)−1 ⪯ Mn
+
+mn
+
+IN .
+
+Hence 
+
+mn
+
+Mn
+
+IN ⪯ Σ− 12 
+
+> t
+
+(θ2)Σ t(θ1)Σ t(θ2)− 12 ⪯ Mn
+
+mn
+
+IN .
+
+Thus 
+
+mn
+
+Mn
+
+≤ λi(X) ≤ Mn
+
+mn
+
+, i = 1 , . . . , N. 
+
+Now, observe that 
+
+|f ′(x)| = |1 − 1
+
+x| ≤ 1 + 1
+
+x ≤ 1 + Mn
+
+mn
+
+.
+
+By Taylor’s theorem, ∃ci between 1 and x such that 
+
+f (x) = f (1) + f ′(1)( x − 1) + 12f ′′ (ci)( x − 1) 2
+
+= 12f ′′ (ci)( x − 1) 2
+
+= 12c2
+
+> i
+
+(x − 1) 2.
+
+Observe, 
+
+1
+
+c2
+
+> i
+
+≤ sup     
+
+> u∈[mn Mn ,Mn mn ]
+
+1
+
+u2 = ( Mn
+
+mn
+
+)2,
+
+so that 
+
+|f (λi(X)) | ≤ 12(Mn
+
+mn
+
+)2(λi(X) − 1) 2.
+
+Then, tr (X) − log(det( X)) − N ≤ 12(Mn
+
+mn
+
+)2
+
+> N
+
+∑
+
+> i=1
+
+(λi(X) − 1) 2.
+
+43 Since X is symmetric, we have for orthogonal QX − IN = Qdiag (λ1(X) − 1, . . . , λ N (X) − 1) Q′
+
+.
+
+Observe, 
+
+|| X − IN || 2 
+
+> F
+
+= || QDQ ′|| 2
+
+> F
+
+= tr (QDQ ′QDQ ′)= tr (QD 2Q′)= tr (D2Q′Q)= tr (D2)=
+
+> N∑
+> i=1
+
+(λi(X) − 1) 2.
+
+So that, tr (X) − log(det( X)) − N ≤ 12(Mn
+
+mn
+
+)2|| X − IN || 2 
+
+> F
+
+.
+
+44 Then, 
+
+|| X − IN || F = || Σt(θ2)− 12 Σt(θ1)Σ t(θ2)− 12 − IN || F
+
+= || Σt(θ2)− 12 (Σ t(θ1) − Σt(θ2))Σ t(θ2)− 12 || F
+
+≤ || Σt(θ2)− 12 || 2 
+
+> OP
+
+|| Σt(θ1) − Σt(θ2)|| F
+
+= || Σt(θ2)−1|| OP || Σt(θ1) − Σt(θ2)|| F
+
+= 1
+
+λmin (Σ t(θ2)) || Σt(θ1) − Σt(θ2)|| F
+
+≤ 1
+
+mn
+
+|| Σt(θ1) − Σt(θ2)|| F .
+
+So tr (X) − log(det( X)) − N ≤ 12(Mn
+
+mn
+
+)2|| Σt(θ1) − Σt(θ2)|| 2
+
+> F
+
+1
+
+m2
+
+> n
+
+= C′
+
+> n
+
+|| Σt(θ1) − Σt(θ2)|| 2 
+
+> F
+
+, C ′ 
+
+> n
+
+= 12(Mn
+
+mn
+
+)2 1
+
+m2
+
+> n
+
+≤ C′
+
+> n
+
+N 2L2
+
+> n
+
+|| θ1 − θ2|| 22, B n = C′
+
+> n
+
+N 2L2
+
+> n
+
+.
+
+Then 
+
+KL t(θ1, θ2) ≤ 12Bn|| θ1 − θ2|| 22.
+
+45 So 
+
+d2 
+
+> n, sn
+
+(θ1, θ2) = 1
+
+n
+
+> n
+
+∑
+
+> t=1
+
+h2 
+
+> t
+
+(θ1, θ2)
+
+≤ 2
+
+n
+
+> n
+
+∑
+
+> t=1
+
+KL t(θ1, θ2)
+
+≤ 2
+
+n
+
+> n
+
+∑
+
+> t=1
+
+12(Bn)|| θ1 − θ2|| 22
+
+= Bn|| θ1 − θ2|| 22.
+
+That is, 
+
+dn,s n (θ1, θ2) ≤ Γn|| θ1 − θ2|| 2, Γn := 
+
+√
+
+Bn
+
+≤ c4nc5 log( n)c6 || θ1 − θ2|| 2, c 4, c 5, c 6 > 0= ˜Ln|| θ1 − θ2|| 2, ˜Ln = c4nc5 log( n)c6 .
+
+Let ϵ > ϵ n and set δ := ϵ/ 36 ˜Ln. If || θ − θ′|| 2 < δ , then by above 
+
+sup 
+
+> sn∈Hn
+
+dn, sn (θ, θ′) < ˜Lnϵ
+
+36 ˜Ln
+
+= ϵ
+
+36 .
+
+Therefore, for every sn ∈ Hn,
+
+N ( ϵ
+
+36 , {θ ∈ Θn : dn, sn (θ, θ0) ≤ ϵ}, d n, sn ) ≤ N (δ, Θn, || · || 2).
+
+Now we just need to bound N (δ, Θn, || · || 2). From the definition of Θn, Θn ⊂ d∏
+
+> j=1
+
+[aj , b j ], d =
+
+cθ, L j := bj − aj ≤ 8 log (n). Split each coordinate interval into pieces of length h = δ/ √cθ.46 Then the number of subintervals needed in coordinate j is at most 
+
+⌈Lj
+
+h ⌉ ≤ Lj
+
+h + 1 ≤ 8 log( n)
+
+> δ√cθ
+
++ 1 = 8√cθ log( n)
+
+δ + 1 .
+
+So the whole rectangle is partitioned into at most 
+
+> d∏
+> j=1
+
+(8√cθ log( n)
+
+δ + 1) = ( 8√cθ log( n)
+
+δ + 1) cθ small boxes .
+
+A box with side length h has Euclidean diameter at most √cθh = √cθ · δ/ √cθ = δ. So each small box can be covered by one δ-ball in || · || 2. Therefore 
+
+N (δ, Θn, || · || 2) ≤ (8√cθ log( n)
+
+δ + 1) cθ
+
+≤ (c7 log( n)
+
+δ )cθ , c 7 > 0.
+
+Taking logs gives 
+
+log( N (δ, Θn, || · || 2)) ≤ cθ[log( c7 log( n)) + log( 1
+
+δ )] .
+
+Substituting δ = ϵ/ 36 ˜Ln gives 
+
+log( N (δ, Θn, || · || 2)) ≤ cθ[log( c7 log( n)) + log(36) + log( ˜Ln) + log( 1
+
+ϵ )] .
+
+47 Note 
+
+log( ˜Ln) = log( c4nc5 log( n)c6 )= log( c4) + c5 log( n) + c6 log(log( n)) .
+
+Similarly, since ϵ > ϵ n,
+
+log( 1
+
+ϵ ) ≤ log( 1
+
+ϵn
+
+)= log( 1
+
+cϵn− 12+ cθ
+
+)= log(1) − log( cϵn− 12+ cθ )= − log( cϵ) − log( n− 12+ cθ )= − log( cϵ) − (− 12 + cθ
+
+) log( n)= − log( cϵ) + 12 + cθ
+
+log( n).
+
+Therefore 
+
+log( N (δ, Θn, ||·|| 2)) ≤ cθ[log( c7 log( n))+log(36)+log( c4)+ c5 log( n)+ c6 log(log( n)) −log( cϵ)+ 12 + cθ
+
+log( n)] 
+
+So that, 
+
+sup 
+
+> sn∈Hn
+
+sup 
+
+> ϵ>ϵ n
+
+log( N ( ϵ
+
+36 , {θ ∈ Θn : dn, sn (θ, θ0) ≤ ϵ}, d n, sn )) ≤ A log( n) + B log(log( n)) + D, 
+
+for some finite positive constants A, B, and D. For sufficiently large cϵ, A log (n) + 
+
+48 B log log( n) + D ≤ nϵ 2
+
+> n
+
+. Hence, 
+
+sup 
+
+> sn∈Hn
+
+sup 
+
+> ϵ>ϵ n
+
+log( N ( ϵ
+
+36 , {θ ∈ Θn : dn, sn (θ, θ0) ≤ ϵ}, d n, sn )) ≤ nϵ 2
+
+> n
+
+.
+
+## Proof of Proposition 2 
+
+Proof. Fix sn ∈ Hn and j ≥ 2. Since 
+
+Sn,j ⊂ { θ ∈ Θn : dn, sn (θ, θ0) ≤ 2jϵ n},
+
+Proposition 1, applied with ϵ = 2 jϵ n gives 
+
+log( N (2jϵ n
+
+36 , S n,j , d n, sn )) ≤ nϵ 2
+
+> n
+
+.
+
+That is 
+
+log( N (jϵ n
+
+18 , S n,j , d n, sn )) ≤ nϵ 2
+
+> n
+
+.
+
+Choose a dn, sn −cover of Sn,j by balls of radius jϵ n/18 with centers, 
+
+θj, 1, . . . , θj,M n,j ∈ Sn,j , M n,j := N (jϵ n
+
+18 , S n,j , d n, sn ).
+
+Then 
+
+Sn,j ⊂
+
+> Mn,j
+
+⋃
+
+> ℓ=1
+
+Bdn, sn (θj,ℓ , jϵ n
+
+18 ), log( Mn,j ) ≤ nϵ 2
+
+> n
+
+.
+
+49 Now fix one center θj,ℓ . Since θj,ℓ ∈ Sn,j ,
+
+dn, sn (θ0, θj,ℓ ) > jϵ n.
+
+Because Q(n) 
+
+> θ,sn
+
+is a product measure and dn, sn is the average Hellinger distance, then Lemma 2 of [8] applies. Hence there exists a test ϕn,j,ℓ, sn such that 
+
+Q(n) 
+
+> θ0,sn
+
+ϕn,j,ℓ, sn ≤ exp {− 12nd 2 
+
+> n, sn
+
+(θ0, θj,ℓ )} ≤ e− 12 j2nϵ 2
+
+> n
+
+and 
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn,j,ℓ, sn ) ≤ exp {− 12nd 2 
+
+> n, sn
+
+(θ0, θj,ℓ )} ≤ e− 12 j2nϵ 2 
+
+> n
+
+,
+
+for every θ satisfying 
+
+dn, sn (θ, θj,ℓ ) ≤ 118 dn, sn (θ0, θj,ℓ ).
+
+Therefore 
+
+sup    
+
+> θ∈Bdn, sn(θj,ℓ ,jϵn
+> 18 )
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn,j,ℓ, sn ) ≤ exp {− 12j2nϵ 2
+
+> n
+
+}.
+
+Define 
+
+ϕn,j, sn := max 
+
+> 1≤ℓ≤Mn,j
+
+ϕn,j,ℓ, sn
+
+and observe that 
+
+{ϕn,j, sn = 1 } = { max 
+
+> 1≤ℓ≤Mn,j
+
+ϕn,j,ℓ, sn }
+
+= {∃ ℓ ∈ { 1, . . . , M n,j } such that ϕn,j,ℓ, sn = 1 }
+
+=
+
+> Mn,j
+
+⋃
+
+> ℓ=1
+
+{ϕn,j,ℓ, sn = 1 }.
+
+50 Therefore it follows that 
+
+Q(n) 
+
+> θ0,sn
+
+(ϕn,j, sn = 1) = Q(n) 
+
+> θ0,sn
+
+({ϕn,j, sn = 1 })= Q(n) 
+
+> θ0,sn
+
+(
+
+> Mn,j
+
+⋃
+
+> ℓ=1
+
+{ϕn,j,ℓ, sn = 1 })
+
+≤
+
+> Mn,j
+
+∑
+
+> ℓ=1
+
+Q(n) 
+
+> θ0,sn
+
+(ϕn,j,ℓ, sn = 1) 
+
+≤ Mn,j exp {− 12j2nϵ 2
+
+> n
+
+}≤ exp {nϵ 2
+
+> n
+
+} exp {− 12j2nϵ 2
+
+> n
+
+}
+
+= exp {nϵ 2 
+
+> n
+
+− 12j2nϵ 2
+
+> n
+
+}
+
+= exp {(1 − j2
+
+2 )nϵ 2
+
+> n
+
+}
+
+= exp {− (j2
+
+2 − 1) nϵ 2
+
+> n
+
+}.
+
+Since j ≥ 2, (j2/2) − 1 ≥ j2/4. Hence 
+
+Q(n) 
+
+> θ0,sn
+
+(ϕn,j, sn = 1) ≤ exp {− j2nϵ 2
+
+> n
+
+4 }.
+
+Again consider θ ∈ Sn,j . Since 
+
+Sn,j ⊂
+
+> Mn,j
+
+⋃
+
+> ℓ=1
+
+Bdn, sn (θj,ℓ , jϵ n
+
+18 ),
+
+∃ℓ, called ℓ(θ) such that 
+
+dn, sn (θ, θj,ℓ (θ)) < jϵ n
+
+18 .
+
+Then 
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn,j,ℓ (θ),sn ) ≤ e− 12 j2nϵ 2 
+
+> n
+
+.
+
+51 Note that ϕn,j, sn ≥ ϕn,j,ℓ (θ),sn . Therefore, 
+
+1 − ϕn,j, sn ≤ 1 − ϕn,j,ℓ (θ),sn .
+
+So 
+
+Q(n)
+
+θ,sn (1 − ϕn,j, sn ) ≤ Q(n)
+
+θ,sn (1 − ϕn,j,ℓ (θ),sn ).
+
+Hence 
+
+Q(n)
+
+θ,sn (1 − ϕn,j, sn ) ≤ Q(n)
+
+θ,sn (1 − ϕn,j,ℓ (θ),sn ) ≤ e− 12 j2nϵ 2 
+
+> n
+
+.
+
+Then, taking the supremum over θ ∈ Sn,j gives 
+
+sup 
+
+θ∈Sn,j 
+
+Q(n)
+
+θ,sn (1 − ϕn,j, sn ) ≤ e− 12 j2nϵ 2 
+
+> n
+
+.
+
+Finally define ϕn, sn := sup 
+
+j≥2
+
+ϕn,j, sn . Therefore, 
+
+Q(n)
+
+θ0,sn (ϕn, sn = 1) = Q(n)
+
+θ0,sn ( ⋃
+
+j≥2
+
+{ϕn,j, sn = 1 })
+
+≤
+
+∞∑
+
+j=2 
+
+Qθ0,sn (ϕn,j, sn = 1) 
+
+≤
+
+∞∑
+
+j=2 
+
+e− j2nϵ 2 
+
+> n
+> 4
+
+.
+
+Observe that 
+
+nϵ 2
+
+n = nc 2
+
+ϵ n− 22+ Cθ = c2
+
+ϵ n1− 22+ cθ = c2
+
+ϵ n cθ 
+
+> 2+ cθ
+
+.
+
+so that 
+
+an := c2
+
+ϵ
+
+4 n cθ 
+
+> 2+ cθ
+
+→ ∞ 
+
+52 and therefore it follows that 
+
+Q(n) 
+
+> θ0,sn
+
+(ϕn, sn = 1) ≤
+
+> ∞
+
+∑
+
+> j=2
+
+e−anj2
+
+≤
+
+> ∞
+
+∑
+
+> j=2
+
+e−2anj , since j2 > 2j for j ≥ 2,
+
+= e−4an
+
+1 − e−2an
+
+→ 0.
+
+Clearly, ϕn, sn ≥ ϕn,j, sn . So 1 − ϕn, sn ≤ 1 − ϕn,j, sn . Fix j ≥ 2, sn ∈ Hn and θ ∈ Sn,j . By monotonicity of measure, 
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn, sn ) ≤ Q(n) 
+
+> θ,sn
+
+(1 − ϕn,j, sn ).
+
+Then taking the supremum gives 
+
+sup 
+
+> θ∈Sn,j
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn, sn ) ≤ sup 
+
+> θ∈Sn,j
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn,j, sn ) ≤ e− 12 j2nϵ 2 
+
+> n
+
+.
+
+We can also take the supremum over Hn,
+
+sup 
+
+> sn∈Hn
+
+Q(n) 
+
+> θ0,sn
+
+ϕn, sn → 0 and sup 
+
+> sn∈Hn
+
+sup 
+
+> θ∈Sn,j
+
+Q(n) 
+
+> θ,sn
+
+(1 − ϕn, sn ) ≤ e− 12 j2nϵ 2 
+
+> n
+
+.
+
+Note that any K < 12 would work, e.g. K = 14 .53 Proof of Proposition 3 
+
+Proof. We can trivially upper bound the numerator by one. Therefore, it remains to lower bound the denominator. To lower bound the denominator, we will show that the set 
+
+Bn(θ0, ϵ n; k) is a superset of some other set in view of (2.5) from [ 8], and then lower bound the denominator by the probability of this subset using monotonicity of measure. Let R(n) = (r1, ..., rn) with ra,t = αa,t + rM,t βa,t + ϵa,t . Then, rt|θt ∼ NN (αt +
+
+rM,t βt, Σt), where 
+
+Σt = Λ ˜ΣtΛT + ¯Σt. Since Q(n) 
+
+> θ,sn
+
+(r(n)|θ) = n∏
+
+> t=1
+
+P (rt|θ), the log-likelihood is given by 
+
+Ln(θ) = log( 
+
+> n
+
+∏
+
+> t=1
+
+P (rt|θ)) = 
+
+> n
+
+∑
+
+> t=1
+
+log( P (rt|θ)) = 
+
+> n
+
+∑
+
+> t=1
+
+Lt(θ).
+
+Note, 
+
+Lt(θ) = log[(2 π)− N 
+
+> 2
+
+det(Σ t)− 12 exp {− 12(rt − μt)T Σ−1 
+
+> t
+
+(rt − μt)}]= −12(log((2 π)N ) + log(det(Σ t)) + ( rt − μt)T Σ−1 
+
+> t
+
+(rt − μt)) .
+
+We will now bound the KL divergence between Qθ,sn and Qθ0,sn . Let 
+
+U = {θ ∈ Θ : || θ − θ0|| 2 ≤ δ}
+
+for some δ > 0 and latent state path s. From the proof of Proposition 1, 
+
+KL t(θ0, θ1) = 12(tr (At) − log(det( At)) − N ), A t = Σ − 12 
+
+> θ,t
+
+Σθ0,t Σ− 12 
+
+> θ,t
+
+, θ ∈ U. 
+
+54 Then from the proof of Proposition 1, 
+
+KL t(θ0, θ) = 12
+
+> N
+
+∑
+
+> i=1
+
+(λi,t − 1 − log( λi,t )) ,
+
+where λ1,t , . . . , λ N,t are the eigenvalues of At. Like the proof of Proposition 1, define 
+
+mt := inf  
+
+> θ∈U
+
+λmin (Σ θ,t ) > 0.
+
+Then, 
+
+|| Σ− 12 
+
+> θ,t
+
+|| 2 
+
+> OP
+
+= || Σ−1 
+
+> θ,t
+
+|| OP ≤ m−1 
+
+> t
+
+, θ ∈ U. 
+
+Therefore, 
+
+|| At − I|| F ≤ m−1 
+
+> t
+
+|| Σθ,t − Σθ0,t || F .
+
+Similarly to the proof of proposition 1, 
+
+|| Σt(θ) − Σt(θ0)|| F ≤ Gt|| θ − θ0|| 2, θ ∈ U, 
+
+for some Gt. Therefore 
+
+|| At − I|| F ≤ m−1 
+
+> t
+
+Gt|| θ − θ0|| 2.
+
+Similarly define 
+
+Mt := sup 
+
+> θ∈U
+
+λmax (Σ θ,t ) < ∞.
+
+So that 
+
+mt
+
+Mt
+
+I ⪯ At ⪯ Mt
+
+mt
+
+I. 
+
+55 By a similar argument to the proof of proposition 1, 
+
+KL t(θ0, θ) ≤ 14(Mt
+
+mt
+
+)2
+
+> N
+
+∑
+
+> i=1
+
+(λi(At) − 1) 2
+
+= 14(Mt
+
+mt
+
+)2|| At − I|| 2
+
+> F
+
+≤ M 2 
+
+> t
+
+G2
+
+> t
+
+4m4
+
+> t
+
+|| θ − θ0|| 22.
+
+Define 
+
+c1 = sup 
+
+> t≥1
+
+M 2 
+
+> t
+
+G2
+
+> t
+
+4m4
+
+> t
+
+.
+
+Then ∀θ ∈ U ,
+
+KL t(θ0, θ) ≤ c1|| θ − θ0|| 22.
+
+Hence 
+
+KL n(θ0, θ) = 
+
+> n
+
+∑
+
+> t=1
+
+KL t(θ0, θ) ≤ c1n|| θ − θ0|| 22 ≤ c1nδ 2.
+
+Now, 
+
+Vk, 0(Qθ0,sn , Q θ,sn ) = 
+
+∫
+
+Qθ0,sn | log( Qθ0,sn
+
+Qθ,sn
+
+) − KL (Qθ0,sn , Q θ,sn )|kdx 
+
+= Eθ0 [| log( Qθ0,sn
+
+Qθ,sn
+
+) − KL (Qθ0,sn , Q θ,sn )|k]= Eθ0 [| log( Qθ0,sn
+
+Qθ,sn
+
+) − Eθ0 [log( Qθ0,sn
+
+Qθ,sn
+
+)] |k
+
+≤ Eθ0 [( | log( Qθ0,sn
+
+Qθ,sn
+
+)| + |Eθ0 [log( Qθ0,sn
+
+Qθ,sn
+
+)] |)k]
+
+≤ Eθ0 [2 k−1(| log( Qθ0,sn
+
+Qθ,sn
+
+)|k + |Eθ0 [log( Qθ0,sn
+
+Qθ,sn
+
+)] |k)] , (a + b)k ≤ 2k−1(ak + bk), a, b ≥ 0.
+
+56 Then, 
+
+Vk, 0(Qθ0,sn , Q θ,sn ) ≤ Eθ0 [2 k−1(| log( Qθ0,sn
+
+Qθ,sn
+
+)|k + |Eθ0 [log( Qθ0,sn
+
+Qθ,sn
+
+)] |k)] 
+
+≤ Eθ0 [2 k−1(| log( Qθ0,sn
+
+Qθ,sn
+
+)|k + Eθ0 [| log( Qθ0,sn
+
+Qθ,sn
+
+)|k])] , by Jensen’s inequality. 
+
+= 2 kEθ0 [| log( Qθ0,sn
+
+Qθ,sn
+
+)|k], k ≥ 1.
+
+If Xt ∼ N (μt, Σt), then ℓθ(x) = log {(2 π)− N 
+
+> 2
+
+det(Σ t)− 12 exp {− 12(xt − μt)′
+
+Σ−1 
+
+> t
+
+(xt − μt)}} 
+
+= −N
+
+2 log(2 π) − 12 log(det(Σ t)) − 12(xt − μt)′
+
+Σ−1 
+
+> t
+
+(xt − μt).
+
+Then it follows that 
+
+log( Qθ0,sn,t 
+
+Qθ,sn,t 
+
+) = log( Qθ0,sn,t ) − log( Qθ,sn,t )= −N
+
+2 log(2 π) − 12 log(det(Σ θ0,t )) − 12(xt − μ0,t )′
+
+Σ−1
+
+> θ0,t
+
+(xt − μ0,t ) + N
+
+2 log(2 π)+ 12 log(det(Σ θ,t )) + 12(xt − μθ,t )′
+
+Σ−1 
+
+> θ,t
+
+(xt − μθ,t )= 12(xt − μθ,t )′
+
+Σ−1 
+
+> θ,t
+
+(xt − μθ,t ) + 12 log(det(Σ θ,t )) 
+
+− 12 log(det(Σ θ0,t )) − 12(xt − μ0,t )′Σ−1
+
+> θ0,t
+
+(xt − μ0,t )= 12{(xt − μθ,t )′
+
+Σ−1 
+
+> θ,t
+
+(xt − μθ,t ) − (xt − μ0,t )′
+
+Σ−1
+
+> θ0,t
+
+(xt − μ0,t )} + 12 log( |Σθ,t ||Σθ0,t |).
+
+57 Let ηt = Xt − μθ0,t , then 
+
+ℓt(θ) = 12{(xt − μθ,t )′
+
+Σ−1 
+
+> θ,t
+
+(xt − μθ,t ) − η′
+
+> t
+
+Σ−1
+
+> θ0,t
+
+ηt + log( |Σθ,t ||Σθ0,t |)}.
+
+Therefore, (xt − μθ,t ) = ηt + μθ0,t − μθ,t = ηt − ∆μt, where ∆μt = μθ,t − μθ0,t = 0, for fixed sn ∈ Hn so that 
+
+ℓt(θ) = 12{(ηt − ∆μt)′
+
+Σ−1 
+
+> θ,t
+
+(ηt − ∆μt) − η′
+
+> t
+
+Σ−1
+
+> θ0,t
+
+ηt + log( |Σθ,t ||Σθ0,t |)}.
+
+Noting that 
+
+(ηt − ∆μt)′
+
+Σ−1 
+
+> θ,t
+
+(ηt − ∆μt) = η′
+
+> t
+
+Σ−1 
+
+> θ,t
+
+ηt.
+
+It follows that 
+
+ℓt(θ) = 12{log( |Σθ,t ||Σθ0,t |)} + 12{η′
+
+> t
+
+Σ−1 
+
+> θ,t
+
+ηt − η′
+
+> t
+
+Σ−1
+
+> θ0,t
+
+ηt}
+
+= Cθ,t + 12η′
+
+> t
+
+Σ−1 
+
+> θ,t
+
+ηt − 12η′
+
+> t
+
+Σ−1
+
+> θ0,t
+
+ηt
+
+= Cθ,t + 12η′
+
+> t
+
+(Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)ηt, C θ,t = 12{log( |Σθ,t ||Σθ0,t |)}.
+
+Since ηt ∼ N (0, Σθ0,t ), then 
+
+Eθ0 [η′
+
+> t
+
+(Σ −1 
+
+> θ,t
+
+−Σ−1
+
+> θ0,t
+
+)ηt] = Eθ0 [η′
+
+> t
+
+Σ−1 
+
+> θ,t
+
+ηt]−Eθ0 [η′
+
+> t
+
+Σ−1 
+
+> θ0,t
+
+ηt] = tr (Σ −1 
+
+> θ,t
+
+Σθ0,t )−tr (Σ −1
+
+> θ0,t
+
+Σθ0,t ) = tr (Σ −1 
+
+> θ,t
+
+Σθ0,t )−N. 
+
+This implies that 
+
+Eθ0 [ℓt(θ)] = Cθ,t + 12tr (Σ −1 
+
+> θ,t
+
+Σθ0,t ) − N
+
+2 .
+
+58 Let Yt = ℓt(θ) − Eθ0 [ℓt(θ)] which is equal to 
+
+Cθ,t + 12η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − Cθ,t − 12tr (Σ −1
+
+θ,t Σθ0,t ) + N
+
+2= 12{η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − tr (Σ −1
+
+θ,t Σθ0,t )} + N
+
+2= 12{η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − tr (Σ −1
+
+θ,t Σθ0,t ) + tr (Σ −1
+
+θ0,t Σθ0,t )}
+
+= 12[η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − [tr (Σ −1
+
+θ,t Σθ0,t ) − tr (Σ −1
+
+θ0,t Σθ0,t )]] = 12[η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − tr (Σ −1
+
+θ,t Σθ0,t − Σ−1
+
+θ0,t Σθ0,t )] .
+
+Therefore, 
+
+Eθ0 [Yt] = 12[Eθ0 [η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt] − tr ((Σ −1
+
+θ,t − Σ−1
+
+θ0,t )Σ θ0,t )] = 12[tr ((Σ −1
+
+θ,t − Σ−1
+
+θ0,t )Σ θ0,t − tr ((Σ −1
+
+θ,t − Σ−1
+
+θ0,t )Σ θ0,t )] = 0 .
+
+Now we have that Var (Yt) = Var (12{η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − tr ((Σ −1
+
+θ,t − Σ−1
+
+θ0,t )Σ θ0,t )}
+
+= Var θ0 (12{η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt − tr ((Σ −1
+
+θ,t − Σ−1
+
+θ0,t )Σ θ0,t )})= 14Var θ0 (η′
+
+t(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )ηt)= 12tr ([(Σ −1
+
+θ,t − Σ−1
+
+θ0,t )Σ θ0,t ]2).
+
+59 Observe that, 
+
+tr ([(Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)Σ θ0,t ]2) = tr ((Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)Σ θ0,t (Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)Σ θ0,t )
+
+≤ || (Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)Σ θ0,t || 2 
+
+> F
+
+≤ || (Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)|| 2 
+
+> F
+
+|| Σθ0,t || 2 
+
+> F
+
+.
+
+By the Mean Value Theorem there ∃ϵij = θ0 + sij (θ − θ0), s ij ∈ (0 , 1) such that 
+
+Σij,t (θ) − Σij,t (θ0) = ∇θΣij,t (ϵij )′
+
+(θ − θ0).
+
+This implies |Σij,t (θ) − Σij,t (θ0)| ≤ ||∇ θΣij,t (ϵij )|| 2|| θ − θ0|| 2.
+
+From the proof of Proposition 1, we found that all the partial derivatives are continuous. Since U is a compact set, we have that ||∇ θΣij,t (ϵ′)|| 2 is bounded by some constant, say 
+
+Lij = sup 
+
+> t≥1
+
+max  
+
+> θ∈U
+
+||∇ θΣij,t (ϵ′)|| 2 < ∞, by the extreme value theorem. Therefore, 
+
+|| Σt(θ) − Σt(θ0)|| 2 
+
+> F
+
+≤ L21|| θ − θ0|| 22, L 1 = ( 
+
+> N
+
+∑
+
+> i,j =1
+
+L2 
+
+> ij
+
+)12 .
+
+Observe that 
+
+|| Σ−1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+|| F = || Σ−1 
+
+> θ,t
+
+(Σ θ0,t − Σθ,t )Σ −1
+
+> θ0,t
+
+|| F
+
+≤ || Σ−1 
+
+> θ,t
+
+|| F || Σθ0,t − Σθ,t || F || Σ−1
+
+> θ0,t
+
+|| F .
+
+60 Since Σθ,t ≻ 0 on U which is compact, λ∗ := inf  
+
+> t≥1
+
+min  
+
+> θ∈U
+
+λmin (Σ θ,t ) > 0. Then 
+
+|| Σ−1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+|| F ≤ Nλ2
+
+> ∗
+
+|| Σθ0,t − Σθ,t || F
+
+≤ Nλ2
+
+> ∗
+
+L1|| θ − θ0|| 2
+
+= c2L1|| θ − θ0|| 2, c 2 := Nλ2
+
+> ∗
+
+.
+
+This implies 
+
+tr ([(Σ −1 
+
+> θ,t
+
+− Σ−1
+
+> θ0,t
+
+)Σ θ0,t ]2) ≤ c22L21|| θ − θ0|| 22|| Σθ0,t || 2 
+
+> F
+
+≤ c22L21δ2|| Σθ0,t || 2 
+
+> F
+
+.
+
+Therefore, Var (Yt) ≤ 12c22L21δ2|| Σθ0,t || 2 
+
+> F
+
+≤ 12c22L21δ2cF , c F := sup 
+
+> t≥1
+
+|| Σθ0,t || 2 
+
+> F
+
+.
+
+Let 
+
+δ = ϵn
+
+√
+
+max {c1, 12 c22L21cF }.
+
+so that 
+
+V2,0(Qθ0,sn , Q θ,sn ) = Var θ0 (
+
+> n
+
+∑
+
+> t=1
+
+Yt)=
+
+> n
+
+∑
+
+> t=1
+
+Var (Yt)
+
+≤ n · 12c22L21δ2cF
+
+≤ nϵ 2
+
+> n
+
+.
+
+61 Then 
+
+Un = {θ ∈ Θ : || θ − θ0|| 2 ≤ ϵn
+
+√
+
+max {c1, 12 c22L21cF }}.
+
+On Un we have shown KL n(θ0, θ) ≤ nϵ 2 
+
+> n
+
+and V2,0(θ0, θ) ≤ nϵ 2
+
+> n
+
+. Therefore ,
+
+Un ⊆ Bn(θ0, ϵ n, 2) which implies Πn(Bn(θ0, ϵ n; 2)) ≥ Πn(Un).
+
+To lower bound the denominator, we can lower bound the probability of Un. Let cθ denote the number of parameters in the model (see the definition of Θn). The required probability is given by 
+
+Πn(Un) = P(θ ∈ Θ : || θ − θ0|| 2 ≤ ϵn
+
+c3
+
+), where c3 =
+
+√
+
+max {c1, 12c22L21cF }.
+
+Note for the parameters excluding Λ 
+
+> cθ−N r
+
+⋂
+
+> j=1
+
+{| θ(j) − θ(j)0 | ≤ ϵn
+
+c4
+
+} ⊆ {|| θ − θ0|| 2 ≤ ϵn
+
+c3
+
+}, c 4 := c3
+
+√cθ.
+
+Similarly, define 
+
+AΛ 
+
+> n
+
+:= 
+
+> N
+
+⋂
+
+> i=1
+> r
+
+⋂
+
+> j=1
+
+{| Λij − Λ0,ij | ≤ ϵn
+
+c4
+
+}.
+
+This implies 
+
+Πn(|| θ − θ0|| 2 ≤ ϵn
+
+c3
+
+) ≥ Πn(AΛ 
+
+> ncθ−N r
+
+⋂
+
+> j=1
+
+{| θ(j) − θ(j)0 | ≤ ϵn
+
+c4
+
+})= Π n(AΛ 
+
+> n
+
+) 
+
+> cθ−N r
+
+∏
+
+> j=1
+
+Πn(|θ(j) − θ(j)0 | ≤ ϵn
+
+c4
+
+)= Π n(AΛ 
+
+> n
+
+) 
+
+> cθ−N r
+
+∏ 
+
+> j=1
+> θ0+ϵn c4
+
+∫ 
+
+> θ0−ϵn c4
+
+fθj (x)dx. 
+
+62 Now we just need to compute or lower bound these integrals. For the mean parameters in the Z-distributed AR(1) processes 
+
+μ = log( τ 20 τ 21 ), τ 0 ∼ C+(0 , 1
+
+√n), τ 1 ∼ C+(0 , 1) .
+
+The probability density function of a half Cauchy distribution with scale σ is 
+
+2
+
+πσ 
+
+11 + y2
+
+> σ2
+
+= 2σπ(σ2 + y2).
+
+Let X = τ 2, then, 
+
+fX (x) = fτ (√x) ddx (√x) = 2σπ(σ2 + x)12√x = σ
+
+√x(σ2 + x)π .
+
+Now, let U = log( X) so that 
+
+fU (u) = fX (eu)eu = σe u
+
+√eu(σ2 + eu)π = σe 12 u
+
+(σ2 + eu)π .
+
+Further let μ = U0 + U1 so that, 
+
+fμ(m) = 
+
+> ∞
+
+∫
+
+> −∞
+
+fU0 (t)fU1 (m − t)dt 
+
+=
+
+> ∞
+
+∫
+
+> −∞
+
+S0
+
+πe t
+
+> 2
+
+(S20 + et)
+
+S1
+
+πe(m−t)2
+
+em−t + S21
+
+dt 
+
+= S0S1em
+
+> 2
+
+π2
+
+> ∞
+
+∫
+
+> ∞
+
+1(S20 + et)( em−t + S21 )dt. 
+
+63 Let x = et so then, 
+
+> ∞
+
+∫
+
+> −∞
+
+1(et + S20 )( em−t + S21 )dt =
+
+> ∞
+
+∫
+
+> 0
+
+1
+
+x(x + S20 )( em 
+
+> x
+
++ S21 )dx 
+
+=
+
+> ∞
+
+∫
+
+> 0
+
+1(x + S20 )( em + S21 x)dx. 
+
+Note that 
+
+1(x + a)( b + cx ) = 1
+
+b − ac ( 1
+
+x + a − cb + cx ).
+
+Therefore, the integral with such an integrand is equal to 
+
+1
+
+b − ac [log( x + a) − log( x + cx )] ∞ 
+
+> 0
+
+= 1
+
+b − ac log( bac ).
+
+Therefore, ∞∫
+
+> 0
+
+1(x + S20 )( em + S21 x)dx = m + log( n)
+
+em − 1
+
+> n
+
+.
+
+This implies 
+
+fμ(m) = S0S1em
+
+> 2
+
+π2
+
+m + log( n)
+
+em − 1
+
+> n
+
+= em
+
+> 2
+
+√nπ 2
+
+m + log( n)
+
+em − 1
+
+> n
+
+.
+
+Suppose, μ0̸ = − log( n), then the factor 
+
+em
+
+> 2
+
+√nπ 2
+
+is strictly positive and continuous everywhere on R. Then, 
+
+m + log( n)
+
+em − 1
+
+> n
+
+64 is the quotient of two functions that are continuous at μ0 and have non-zero values when 
+
+μ0̸ = − log( n). Therefore the quotient is continuous at μ0. We also know that sign (m + log( n)) = sign (em − 1
+
+n).
+
+Then 
+
+m + log( n)
+
+em − 1
+
+> n
+
+> 0.
+
+Therefore lim m→μ0
+
+fμ(m) = fμ(μ0) > 0. When μ0 = − log (n) we may get 00 which is undefined. However, fμ extends continuously and positively through this point. Let g(m) = m + log (n) and h(m) = em − 1 
+
+> n
+
+, A (m) = e m 
+
+> 2
+> √nπ 2
+
+, and B(m) = g(m) 
+
+> h(m)
+
+. Now, apply L’Hôpital’s rule, 
+
+lim   
+
+> m→− log( n)
+
+B(m) = lim  
+
+> m→− log( n)
+
+g′(m)
+
+h′(m) = elog( n) = n. 
+
+Further, 
+
+lim   
+
+> m→− log( n)
+
+A(m) = e− log( n)2
+
+√nπ 2 = n− 12
+
+√nπ 2 = 1
+
+nπ 2 .
+
+This implies 
+
+lim   
+
+> m→− log( n)
+
+fμ(m) = lim   
+
+> m→− log( n)
+
+A(m)B(m) = 1
+
+π2 .
+
+So, defining fμ(− log( n)) := 1 
+
+> π2
+
+makes fμ continuous and positive at m = − log( n).
+
+Define gn(x) := √nf μ,n (x), x ∈ R. Then gn is continuous and strictly positive on R. Since 
+
+Iμ := [ μ0 − cϵ/4, μ 0 + cϵ/4] is compact, bμ,n := min 
+
+> x∈Iμ
+
+gn(x) > 0, n ∈ N. Now choose N0 ∈ N
+
+such that 
+
+log( n) + μ0 − cϵ
+
+c4
+
+≥ 1, n ≥ N0.
+
+65 For n ≥ N0 and x ∈ Iμ. Then x ≤ μ0 + cϵ/c 4 and x ≥ μ0 − cϵ/c 4. Hence, 
+
+x + log( n) ≥ μ0 − cϵ
+
+c4
+
++ log( n) ≥ 1,
+
+exp {x
+
+2 } ≥ exp {μ0 − cϵ
+
+> c4
+
+2 },
+
+and 
+
+ex − 1
+
+n ≤ ex ≤ exp {μ0 + cϵ
+
+c4
+
+}.
+
+Therefore 
+
+gn(x) = ex
+
+> 2
+
+π2
+
+x + log( n)
+
+ex − 1
+
+> n
+
+≥ exp {12 (μ0 − cϵ 
+
+> c4
+
+)}
+
+π2 exp {μ0 + cϵ 
+
+> c4
+
+} =: cμ > 0.
+
+Since this holds for every x ∈ Iμ, b μ,n ≥ cμ > 0, n ≥ N0. Now define bμ := min {bμ, 1, . . . , b μ,N 0−1, c μ} > 0. Then if 1 ≤ n ≤ N0, by the definition of bμ, bμ,n ≥ bμ. If 
+
+n ≥ N0. If n ≥ N0, bμ,n ≥ cμ, and bμ ≤ cμ. Therefore bμ,n ≥ bμ. Thus bμ,n ≥ bμ, ∀n ∈ N.Since bμ,n = min 
+
+> x∈Iμ
+
+gn(x), it follows that for every n ∈ N and every x ∈ Iμ, gn(x) ≥ bμ.Equivalently 
+
+fμ,n ≥ bμn− 12 , x ∈ Iμ, n ∈ N.
+
+Since ϵn/c 4 ≤ cϵ/c 4,
+
+[μ0 − ϵn
+
+c4
+
+, μ 0 + ϵn
+
+c4
+
+] ⊆ Iμ.
+
+Hence, for every n ∈ N, 
+
+> μ0+ϵn c4
+
+∫ 
+
+> μ0−ϵn c4
+
+fμ,n (x)dx ≥ 
+
+> μ0+ϵn c4
+
+∫ 
+
+> μ0−ϵn c4
+
+bμn− 12 dx = 2bμ
+
+c4
+
+n− 12 ϵn = aμn− 12 ϵn, a μ := 2bμ
+
+c4
+
+.
+
+66 Let Y = ϕ+1 2 , then fY (y) = 1 
+
+> B(a,b )
+
+ya−1(1 − y)b−1. Observe that ϕ = g(Y ) = 2 Y − 1 so that 
+
+Y = g−1(ϕ) = ϕ+1 2 , so that fϕ(ϕ) = fY (g−1(x)) | ddx g−1(x)| = fY (ϕ+1 2 )12 . We set 
+
+fϕ(ϕ) = 12B(a, b )(ϕ + 1 2 )a−1(1 − ϕ + 1 2 )b−1
+
+= 12a+b−1B(a, b )(ϕ + 1) a−1(1 − ϕ)b−1, where |ϕ| < 1.
+
+Define 
+
+δϕ := 12(1 − | ϕ0|) > 0 and ρϕ,n := min {ϵn
+
+c4
+
+, δ ϕ}.
+
+Then for every n ∈ N, 0 < ρ n < ϵ n/c 4 and [ϕ0 −ρn, ϕ 0 +ρn] ⊂ (−1, 1) . Since fϕ is continuous and strictly positive on the compact interval [ϕ0 − ρn, ϕ 0 + ρn] the extreme value theorem implies 
+
+bϕ,n := min 
+
+> |x−ϕ0|≤ ρn
+
+fϕ(x) > 0.
+
+Therefore, ϕ0+ ϵn c4∫ 
+
+> ϕ0−ϵn c4
+
+fϕ(x)dx ≥
+
+> ϕ0+ρn
+
+∫
+
+> ϕ0+ρn
+
+fϕ(x)dx ≥
+
+> ϕ0+ρn
+
+∫
+
+> ϕ0−ρn
+
+bϕ,n dx = 2 ρnbϕ,n .
+
+Since 
+
+−12 − 12 + cθ
+
+< 0,
+
+it follows that 
+
+n− 12 − 12+ cθ ≤ 1.
+
+Hence n− 12 ϵn ≤ cϵ. This implies 
+
+δϕ
+
+cϵ
+
+n− 12 ϵn ≤ δϕ.
+
+67 Since n− 12 ≤ 1,
+
+ϵn
+
+c4
+
+≥ 1
+
+c4
+
+n− 12 ϵn.
+
+So 
+
+ρn ≥ min { 1
+
+c4
+
+n− 12 ϵn, δϕ
+
+cϵ
+
+n− 12 ϵn} = min { 1
+
+c4
+
+, δϕ
+
+cϵ
+
+}n− 12 ϵn.
+
+Consider the interval 
+
+Iϕ = [ ϕ0 − Rϕ, ϕ 0 + Rϕ] with Rϕ := min { cϵ
+
+c4
+
+, 1 − | ϕ0|
+
+2 }.
+
+Then 
+
+bϕ := min 
+
+> x∈Iϕ
+
+fϕ(x) > 0.
+
+Since ρn ≤ Rϕ, [ϕ0 − ρn, ϕ 0 + ρn] ⊆ Iϕ. Therefore bϕ,n ≥ bϕ.Define 
+
+aϕ := { 1
+
+c4
+
+, δϕ
+
+cϵ
+
+}bϕ.
+
+Hence ϕ0+ ϵn c4∫ 
+
+> ϕ0−ϵn c4
+
+fϕ(x) ≥ aϕn− 12 ϵn.
+
+Now consider a generic parameter X ∼ N (μ, σ 2) with true value x0 ∈ R. As ϵn is decreasing, 68 ϵn ≤ ϵ, ∀n ∈ N. Now take any x such that |x − x0| ≤ ϵn/c 4. Then 
+
+|x − μ| = |(x − x0) + ( x0 − μ)|≤ | x − x0| + |x0 − μ|≤ ϵn
+
+c4
+
++ |x0 − μ|≤ ϵ1
+
+c4
+
++ |x0 − μ|.
+
+Therefore 
+
+(x − μ)2 ≤ ( ϵ1
+
+c4
+
++ |x0 − μ|)2.
+
+Hence 
+
+−(x − μ)2
+
+2σ2 ≥ − ( ϵ1 
+
+> c4
+
++ |x0 − μ|2
+
+2σ2 .
+
+So that 
+
+fX (x) = 1
+
+√2πσ exp {− (x − μ)2
+
+2σ2 } ≥ 1
+
+√2πσ exp {− (ϵ1 
+
+> 4
+
++ |x0 − μ|)2
+
+2σ2 }.
+
+Now define 
+
+bx = 1
+
+√2πσ exp {− ( ϵ1 
+
+> c4
+
++ |x0 − μ|)2
+
+2σ2 } > 0.
+
+Then for every x ∈ [x0 − ϵn 
+
+> c4
+
+, x 0 + ϵn 
+
+> c4
+
+], f X (x) ≥ bx. Therefore,  
+
+> x0+ϵn c4
+
+∫ 
+
+> x0−ϵn c4
+
+fX (x)dx ≥ 2bx
+
+c4
+
+ϵn ≥ 2bx
+
+c4
+
+n− 12 ϵn = axn− 12 ϵn, a x := 2bx
+
+c4
+
+.
+
+Now consider the Gamma distributed random variables. Consider generic Z ∼ Ga (α, β ).Then 
+
+f (z) = βαzα−1e−βz 
+
+Γ( α) .
+
+69 Define 
+
+ρn := min {ϵn
+
+c4
+
+, z0
+
+2 }.
+
+Then, 0 ≤ ρn ≤ ϵn/c 4 and 
+
+z0 − ρn ≥ z0 − z0
+
+2 = z0
+
+2 > 0.
+
+Hence [z0 − ρn, z 0 + ρn] ⊂ (0 , ∞). Then by the extreme value theorem 
+
+bΓ,n := min 
+
+> |z−z0|≤ ρn
+
+f (z) > 0.
+
+Since 
+
+[z0 − ρn, z 0 + ρn] ⊂ [z0 − ϵn
+
+c4
+
+, z 0 + ϵn
+
+c4
+
+]
+
+we have ∀n ∈ N 
+
+> z0+ϵn c4
+
+∫ 
+
+> z0−ϵn c4
+
+f (z)dz ≥
+
+> z0+ρn
+
+∫
+
+> z0−ρn
+
+f (z)dz ≥
+
+> z0+ρn
+
+∫
+
+> z0−ρn
+
+bΓ,n dz = 2 ρnbΓ,n ≥ 2bΓ
+
+C4
+
+n− 12 ϵn = aσn− 12 ϵn, a σ := 2bΓ
+
+c4
+
+.
+
+Note 
+
+fΛij |τ 2 
+
+> ij
+
+(x|t) = 1
+
+√2πt exp {− x2
+
+2t }, t > 0,fτij |λ2 
+
+> i
+
+(t|ℓ) = (0 .05 ℓ)0.1
+
+Γ(0 .1) t−0.9e−0.05 ℓt , t > 0, ℓ > 0,
+
+and 
+
+fλ2 
+
+> i
+
+(ℓ) = e−ℓ, ℓ > 0.
+
+Define 
+
+Ei := {λ2 
+
+> i
+
+∈ [1 , 2] , τ 2 
+
+> ij
+
+∈ [1 , 2] , ∀j = 1 , . . . , r }.
+
+70 For ℓ ∈ [1 , 2] ,
+
+fλ2 
+
+> i
+
+(ℓ) = e−ℓ ≥ e−2.
+
+Hence 
+
+Π( λ2 
+
+> i
+
+∈ [1 , 2]) = 
+
+> 2
+
+∫
+
+> 1
+
+e−ℓdℓ = e−1 − e−2 > 0.
+
+For ℓ ∈ [1 , 2] and t ∈ [1 , 2] , fτ 2  
+
+> ij |λ2
+> i
+
+is bounded below by 
+
+cτ := (0 .05) 0.1
+
+Γ(0 .1) 2−0.9e−0.2 > 0.
+
+Therefore, 
+
+Π( τ 2 
+
+> ij
+
+∈ [1 , 2] |λ2 
+
+> i
+
+= ℓ) = 
+
+> 2
+
+∫
+
+> 1
+
+fτ 2  
+
+> ij |λ2
+> i
+
+(t|ℓ)dt ≥ cτ .
+
+Since conditional on λ2 
+
+> i
+
+, the variables τ 2
+
+> i1
+
+, . . . , τ 2 
+
+> ir
+
+are independent, which implies 
+
+Π( τ 2 
+
+> ij
+
+∈ [1 , 2] , ∀j|λ2 
+
+> i
+
+= ℓ) ≥ crτ .
+
+Integrating over ℓ gives, 
+
+Π( Ei) = 
+
+> 2
+
+∫
+
+> 1
+
+Π( τ 2 
+
+> ij
+
+∈ [1 , 2] , ∀j|λ2 
+
+> i
+
+= ℓ)fλ2 
+
+> i
+
+(ℓ)dℓ ≥ (e−1 − e−2)crτ .
+
+So that 
+
+Π( Ei) ≥ cE,i , c E,i := ( e−1 − e−2)crτ > 0.
+
+Now fix i and j. On Ei we have τij ∈ [1 , 2] . Also for every n ∈ N, ϵ n/c 4 ≤ cϵ/c 4. Then if 
+
+|x − Λ0,ij | ≤ ϵn/c 4 then |x − Λ0,ij | ≤ cϵ/c 4. Hence for t ∈ [1 , 2] and |x − Λ0,ij | ≤ cϵ/c 4, fΛij |τ 2
+
+> ij
+
+71 is bounded below by 
+
+cij := 1
+
+√4π exp {− (|Λ0,ij | + R)2
+
+2 } > 0.
+
+Therefore, whenever t ∈ [1 , 2] Π( |Λij − Λ0,ij | ≤ ϵn
+
+c4
+
+|τ 2 
+
+> ij
+
+= t) =   
+
+> Λ0,ij +ϵn c4
+
+∫  
+
+> Λ0,ij −ϵn c4
+
+fΛij |τ 2 
+
+> ij
+
+(x|t)dx ≥ 2ϵn
+
+c4
+
+cij .
+
+Define 
+
+Ai,n := 
+
+> r
+
+⋂
+
+> j=1
+
+{| Λij − Λ0,ij | ≤ ϵn
+
+c4
+
+}.
+
+Conditional on τ 2
+
+> i1
+
+, . . . , τ 2
+
+> ir
+
+, the variables Λi1, . . . , Λir are independent, so on the event Ei,
+
+Π( Ai,n |τ 2
+
+> i1
+
+, . . . , τ 2
+
+> ir
+
+, λ 2 
+
+> i
+
+) = 
+
+> r
+
+∏
+
+> j=1
+
+Π( |Λij − Λ0,ij | ≤ ϵn
+
+c4
+
+|τ 2 
+
+> ij
+
+) ≥
+
+> r
+
+∏
+
+> j=1
+
+(2 ϵn
+
+c4
+
+cij ).
+
+Thus, 
+
+Π( Ai,n ) ≥ E[1{Ei}Π( Ai,n |τ 2
+
+> i1
+
+, . . . , τ 2
+
+> ir
+
+, λ 2 
+
+> i
+
+)] ≥ Π( Ei)(2 ϵn
+
+c4
+
+)rr∏
+
+> j=1
+
+cij .
+
+Using the bound for Π( Ei),
+
+Π( Ai,n ) ≥ (e−1 − e−2)crτ (2 ϵn
+
+c4
+
+)rr∏
+
+> j=1
+
+cij .
+
+So for each row i,
+
+Π( Ai,n ) ≥ aΛ,i (ϵn
+
+c4
+
+)r,
+
+where 
+
+aΛ,i := 2 r(e−1 − e−2)crτr∏
+
+> j=1
+
+cij > 0.
+
+72 Now define 
+
+AΛ 
+
+> n
+
+:= 
+
+> N
+
+⋂
+
+> i=1
+
+Ai,n =
+
+> N
+
+⋂
+
+> i=1
+> r
+
+⋂
+
+> j=1
+
+{| Λij − Λ0,ij | ≤ ϵn
+
+c4
+
+}.
+
+Because the prior is independent across rows i, the events A1,n , . . . , A N,n are independent. Hence, 
+
+Π( AΛ 
+
+> n
+
+) = 
+
+> N
+
+∏
+
+> i=1
+
+Π( Ai,n ) ≥
+
+> N
+
+∏
+
+> i=1
+
+aΛ,i (ϵn
+
+c4
+
+)r.
+
+Therefore, 
+
+Π( 
+
+> N
+
+⋂
+
+> i=1
+> r
+
+⋂
+
+> j=1
+
+{| Λij − Λ0,ij | ≤ ϵn
+
+c4
+
+}) ≥ ˜aΛϵN r n , ˜aΛ := aΛc−N r  
+
+> 4
+
+> 0.
+
+Since n− 12 ≤ 1 for every n ∈ N, every parameter bound of the form aiϵn is lower bounded by ain− 12 ϵn. Thus, for the cθ − N r scalar parameters 
+
+aiϵn ≥ ain− 12 ϵn.
+
+Also 
+
+˜aΛϵN r n ≥ ˜aΛn− N r  
+
+> 2
+
+ϵN r n .
+
+Now define 
+
+m := min {˜a 1 
+
+> N r
+> Λ
+
+, a 1, . . . , a cθ −N r } > 0.
+
+73 Then, 
+
+Πn(Bn(θ0, ϵ n, 2)) ≥ Πn(Un)
+
+≥ ˜aΛϵN r ncθ −N r ∏
+
+i=1 
+
+aiϵn
+
+≥ ˜aΛn− N r  
+
+> 2
+
+ϵN r ncθ −N r ∏
+
+i=1 
+
+ain− 12 ϵn
+
+≥ mN r n− N r  
+
+> 2
+
+ϵN r ncθ −N r ∏
+
+i=1 
+
+mn − 12 ϵn
+
+= ( mn − 12 ϵn)cθ .
+
+Thus, we need to verify that 
+
+1(mn − 12 ϵn)cθ
+
+≤ exp {Knϵ 2
+
+nj2
+
+2 }⇐⇒ 1(mn − 12 cϵn− 12+ cθ )cθ
+
+≤ exp {Kc 2
+
+ϵ j2
+
+2 n cθ 
+
+> 2+ cθ
+
+}⇐⇒ ncθ 
+
+> 2
+
++ cθ
+
+> 2+ cθ
+
+(mc ϵ)cθ
+
+≤ exp {Kc 2
+
+ϵ j2
+
+2 n cθ 
+
+> 2+ cθ
+
+}⇐⇒ (cθ
+
+2 + cθ
+
+2 + cθ
+
+) log( n) − cθ log( mc ϵ) ≤ Kc 2
+
+ϵ j2
+
+2 n cθ 
+
+> 2+ cθ
+
+.
+
+Now choose cϵ ≥ 1/m. Then −cθ log( mc ϵ) ≤ 0. So it is enough to require 
+
+(cθ
+
+2 + cθ
+
+2 + cθ
+
+) log( n) ≤ Kc 2
+
+ϵ j2
+
+2 n cθ 
+
+> 2+ cθ
+
+.
+
+Observe 
+
+cθ
+
+2 + cθ
+
+log( n) = log( n cθ 
+
+> 2+ cθ
+
+) ≤ 1
+
+e n cθ 
+
+> 2+ cθ
+
+.
+
+74 Hence 
+
+log( n) ≤ 2 + cθ
+
+ec θ
+
+n cθ 
+
+> 2+ cθ
+
+.
+
+Then it follows that 
+
+(cθ
+
+2 + cθ
+
+2 + cθ
+
+)2 + cθ
+
+ec θ
+
+≤ Kc 2 
+
+> ϵ
+
+j2
+
+2
+
+⇐⇒ 4 + cθ
+
+2e ≤ Kc 2 
+
+> ϵ
+
+j2
+
+2 .
+
+Note we are free to choose cϵ. Any choice of cϵ which is sufficiently large in view of Proposition 1 and satisfies 
+
+max { 1
+
+m,
+
+√
+
+4 + cθ
+
+Ke } ≤ cϵ
+
+would suffice. 
+
+## Proof of Proposition 4 
+
+Proof. Define 
+
+AM,n := { max  
+
+> 1≤t≤n
+
+|hM,t −1| ≤ | μM, 0| + p log( n)},Aα,n := { max  
+
+> 1≤i≤N, 1≤t≤n−1
+
+|hαi,t −1| ≤ | μαi,0| + c log( n) + log(2 Kα,i (s)) 
+
+s },Aβ,n := { max  
+
+> 1≤i≤N, 1≤t≤n
+
+|βi,t −1| ≤ 
+
+√
+
+(κ + 1) C4nα log( n)},A˜h,n := { max  
+
+> 1≤k≤r, 1≤t≤n
+
+|˜hk,t −1| ≤ | ˜μk, 0| + p log( n)},A¯h,n := { max  
+
+> 1≤i≤N, 1≤t≤n
+
+|¯hi,t −1| ≤ | ¯μi, 0| + p log( n)}.
+
+75 Then 
+
+Hn = AM,n ∩ Aα,n ∩ Aβ,n ∩ A˜h,n ∩ A¯h,n .
+
+Then by the union bound 
+
+Pθ0 (Hcn) ≤ Pθ0 (AcM,n ) + Pθ0 (Acα,n ) + Pθ0 (Acβ,n ) + Pθ0 (Ac
+
+> ˜h,n
+
+) + Pθ0 (Ac
+
+> ¯h,n
+
+).
+
+For the Gaussian AR(1) log-volatility processes, first consider a generic process of the form 
+
+xt = μ0 + ϕ0(xt−1 − μ0) + σ0ηt, η t ∼ N (0 , 1) , |ϕ0| < 1.
+
+Then 
+
+xt − μ0 =
+
+> ∞
+
+∑
+
+> j=0
+
+ϕj
+
+> 0
+
+σ0ηt−j .
+
+This means 
+
+xt − μ0 ∼ N (0 , σ20
+
+1 − ϕ20
+
+).
+
+So for u ∈ R,
+
+Eθ0 [exp {u(xt − μ0)}] = exp { σ20
+
+2(1 − ϕ20)u2}.
+
+Then by Chernoff’s bound 
+
+Pθ0 (xt − μ0 > y ) ≤ exp { σ20 u2
+
+2(1 − ϕ20) − uy }.
+
+Similarly 
+
+Pθ0 (xt − μ0 < −y) ≤ exp { σ20 u2
+
+2(1 − ϕ20) − uy }.
+
+76 Minimizing in u, with minimum u = (1 − ϕ20)y/σ 20 yields 
+
+Pθ0 (|xt − μ0| > y ) ≤ 2 exp {− (1 − ϕ20)y2
+
+2σ20
+
+}.
+
+Then let y = p log( n), so 
+
+Pθ0 (|xt − μ0| > p log( n)) ≤ 2 exp {− (1 − ϕ20)p2 log 2(n)2σ20
+
+}.
+
+For hM,t ,
+
+Pθ0 (|hM,t | > |μM, 0| + p log( n)) ≤ Pθ0 (|hM,t − μM, 0| > p log( n)) 
+
+≤ 2 exp {− (1 − ϕ2
+
+> M, 0
+
+)p2 log 2(n)2σ2
+
+> M, 0
+
+}.
+
+By the union bound 
+
+Pθ0 (AcM,n ) ≤ 2n exp {− (1 − ϕ2
+
+> M, 0
+
+)p2 log 2(n)2σ2
+
+> M, 0
+
+} → 0.
+
+For each fixed k,
+
+Pθ0 (|˜hk,t | > |˜μk, 0| + p log( n)) ≤ 2 exp {− (1 − ˜ϕ2
+
+> k, 0
+
+)p2 log 2(n)2˜ σ2
+
+> k, 0
+
+}.
+
+Therefore, 
+
+Pθ0 (Ac
+
+> ˜h,n
+
+) ≤
+
+> r
+
+∑
+
+> k=1
+> n
+
+∑
+
+> t=1
+
+Pθ0 (|˜hk,t −1| > |˜μk, 0| + p log( n)) 
+
+≤ 2rn max  
+
+> 1≤k≤r
+
+exp {− (1 − ˜ϕ2
+
+> k, 0
+
+)p2 log 2(n)2˜ σ2
+
+> k, 0
+
+} → 0.
+
+77 Similarly, for each fixed i,
+
+Pθ0 (|¯hi,t | > |¯μi, 0| + p log( n)) ≤ 2 exp {− (1 − ¯ϕ2
+
+> i, 0
+
+)p2 log 2(n)2¯ σ2
+
+> i, 0
+
+}.
+
+Hence 
+
+Pθ0 (Ac
+
+> ¯h,n
+
+) ≤ 2N n max  
+
+> 1≤i≤N
+
+exp {− (1 − ¯ϕ2
+
+> i, 0
+
+)p2 log 2(n)2¯ σ2
+
+> i, 0
+
+} → 0.
+
+Now consider the Z-innovation AR(1) process. Consider a generic process 
+
+xt = μ0 + ϕ0(xt−1 − μ0) + ϵt, |ϕ0| < 1, ϵ t ∼ Z(12, 12, 0, 1) .
+
+Before proceeding we first need to derive the moment generating function of the four-parameter Z-distribution. The moment generating function of X ∼ Z(12 , 12 , 0, 1) is 
+
+M (t) = E[etx ] = 
+
+> ∞
+
+∫
+
+> −∞
+
+etx f (x)dx = 1
+
+π
+
+> ∞
+
+∫
+
+> −∞
+
+e(t+ 12 )x
+
+1 + ex dx. 
+
+By the change of variables u = ex it follows that 
+
+M (t) = 1
+
+π
+
+> ∞
+
+∫
+
+> 0
+
+ut+ 12
+
+1 + udu u = 1
+
+π
+
+> ∞
+
+∫
+
+> 0
+
+ut− 12
+
+1 + udu. 
+
+Letting a = t + 12
+
+M (t) = 1
+
+π
+
+> ∞
+
+∫
+
+> 0
+
+ua−1
+
+1 + udu. 
+
+78 Another change of variables with v = u 
+
+> 1+ u
+
+gives 
+
+M (t) = 1
+
+π
+
+> 1
+
+∫
+
+> 0
+
+va−1(1 − v)−(a−1) (1 − v) 1(1 − v)2 dv = 1
+
+π
+
+> 1
+
+∫
+
+> 0
+
+va−1(1 − v)−(a−1) (1 − v)−1dv 
+
+= 1
+
+π
+
+> 1
+
+∫
+
+> 0
+
+va−1(1 − v)−adv = 1
+
+π
+
+> 1
+
+∫
+
+> 0
+
+va−1(1 − v)(1 −a)−1dv = 1
+
+π B(a, 1 − a)= 1
+
+π B(t + 12, 12 − t) = 1
+
+π
+
+Γ( t + 12 )Γ( 12 − t)Γ(1) = 1
+
+π Γ( t + 12)Γ( 12 − t).
+
+With z = t + 12 , M (t) = 1 
+
+> π
+
+Γ( z)Γ(1 − z) = 1 
+
+> ππsin (πz )
+
+= 1 
+
+> sin (πz )
+
+by Euler’s reflection formula. Thus, M (t), has the convenient form M (t) = 1   
+
+> sin (π(t+12))
+
+= 1   
+
+> sin (πt +π
+> 2)
+
+= 1 
+
+> cos (πt )
+
+= sec (πt ).For a centered autoregressive process of order 1 with Z-distributed innovations 
+
+Xt =
+
+> ∞
+
+∑
+
+> j=0
+
+ϕj ϵt−j which implies MX (s) = 
+
+> ∞
+
+∏
+
+> j=0
+
+sec (πϕ j s).
+
+For fixed s ∈ (0 , 0.5) the infinite product converges. For such an s we have 
+
+|πϕ j s| = π|ϕ|j s ≤ πs < π
+
+2 .Therefore, πϕ j s ∈ (−π
+
+2 , π
+
+2 ). Consider 
+
+> ∞
+
+∑
+
+> j=1
+
+log( sec (πϕ j s)) 
+
+where by Taylor expansion we see log( sec (x)) = x2
+
+2 + O(x4).This implies 
+
+log( sec (πϕ j s)) = π2ϕ2j s2
+
+2 + O(ϕ4j ).Observe lim  
+
+> j→∞
+> 12
+
+π2s2ϕ2( j+1) + O(ϕ4j ) 
+
+> 12
+
+π2s2ϕ2j + O(ϕ4j ) = ϕ2, with |ϕ2| < 1.
+
+Therefore, by the ratio test the sum is absolutely convergent. Therefore the product converges, 
+
+> ∞
+
+∏
+
+> j=0
+
+sec (πϕ j s) = exp {
+
+> ∞
+
+∑
+
+> j=0
+
+log( sec (πϕ j s)) } < ∞.
+
+79 Therefore, for each fixed s ∈ (0 , 1/2) ,
+
+Eθ0 [exp {s(xt − μ0)}] = 
+
+> ∞
+
+∏
+
+> j=0
+
+sec( πϕ j
+
+> 0
+
+s) =: K(s) < ∞.
+
+Then by Chernoff’s bound, 
+
+Pθ0 (xt − μ0 > y ) ≤ K(s)e−sy and Pθ0 (xt − μ0 < −y) ≤ K(s)e−sy .
+
+Thus 
+
+Pθ0 (|xt − μ0| > y ) ≤ 2K(s)e−sy .
+
+For each i, choose 
+
+y(αi) 
+
+> n
+
+:= c log( n) + log(2 Kα,i (s)) 
+
+s .
+
+Then 
+
+Pθ0 (|hαi,t − μαi,0| > y (αi) 
+
+> n
+
+) ≤ 2Kα,i (s) exp {− sy (αi) 
+
+> n
+
+} = n−c.
+
+Hence 
+
+Pθ0 (|hαi,t | > |μαi,0| + y(αi) 
+
+> n
+
+) ≤ n−c.
+
+80 Therefore 
+
+Pθ0 (Acα,n ) ≤
+
+> N
+
+∑
+
+> i=1
+> n−1
+
+∑
+
+> t=1
+
+Pθ0 (|hαi,t −1| > |μαi,0| + y(αi) 
+
+> n
+
+)
+
+≤ N (n − 1) n−c
+
+= N (n − 1
+
+nc )= N ( nnc − 1
+
+nc )= N (1 − 1
+
+n)n1−c
+
+→ N · 1 · 0 = 0 , since c > 1.
+
+Now we will derive a bound on the β−process. Define the auxiliary event 
+
+Gn := { max  
+
+> 1≤i≤N, 1≤t≤n
+
+|hβi,t −1 | ≤ | μβi,0| + c log( n) + log(2 Kβi (s)) 
+
+s }.
+
+By the same argument as above 
+
+Pθ0 (Gcn) ≤ N nn −c = N n 1−c → 0, since c>1 .
+
+Now fix i ∈ { 1, . . . , N } and t ∈ { 1, . . . , n }. Under the model 
+
+βi,t = βi, 0 +
+
+> t−1
+
+∑
+
+> u=0
+
+ωβi,u ,
+
+and conditional on the path {hβi,u }t−1 
+
+> u=0
+
+and ωβi,u ∼ N (0 , e hβi,u ) independently over u.Therefore, conditional on {hβi,u }t−1
+
+> u=0
+
+, β i,t − βi, 0 ∼ N (0 , V i,t ), V i,t := t−1∑
+
+> u=0
+
+ehβi,u . On the event 81 Gn
+
+hβi,u ≤ | μβi, 0 | + c log( n) + log(2 Kβi (s)) 
+
+s ,
+
+for all u ≤ n − 1. Hence, 
+
+Vi,t ≤ n exp {| μβi, 0 | + c log( n) + log(2 Kβi (s)) 
+
+s }
+
+= exp {| μβi,0|} (2 Kβi (s)) 1 
+
+> s
+
+n1+ cs
+
+≤ C4
+
+8 nα on Gn,
+
+where α = 1 + c/s and C4 > 0 is some constant such that 
+
+exp {| μβi,0|} (2 Kβi (s)) 1 
+
+> s
+
+≤ C4
+
+8 .
+
+Now define Mn := 
+
+√
+
+(κ + 1) C4nα log( n). Since Mn → ∞ and βi, 0 is fixed, there exists n0
+
+such that, for all n ≥ n0, M n ≥ 2 max  
+
+> 1≤i≤N
+
+|βi, 0|. Observe, 
+
+|βi,t | = |(βi,t − βi, 0) + βi, 0| ≤ | βi,t − βi, 0| + |βi, 0| ≤ Mn
+
+2 + Mn
+
+2 = Mn.
+
+So, 
+
+|βi,t | > M n and Mn ≥ 2|βi, 0| =⇒ | βi,t − βi, 0| > Mn
+
+2 .
+
+Hence, for n ≥ n0 on Gn,
+
+{| βi,t | > M n} ⊂ {| βi,t − βi, 0| > Mn
+
+2 }.
+
+Conditional on {hβi,u }t−1 
+
+> u=0
+
+on the set Gn, βi,t − βi, 0 is centered Gaussian with variance at 82 most C4nα/8. Therefore the Gaussian tail bound gives 
+
+Pθ0 (|βi,t | > M n|Gn) ≤ Pθ0 (|βi,t − βi, 0| > Mn
+
+2 |Gn)= Eθ0 [Pθ0 (|βi,t − βi, 0| > Mn
+
+2 |σ(hβi,0, . . . , h βi,t −1)) |Gn]
+
+≤ 2 exp {− (Mn 
+
+> 2
+
+)2
+
+2( C4nα 
+
+> 8
+
+)}
+
+= 2 exp {− M 2
+
+> n
+
+C4nα }
+
+= 2 exp {− (κ + 1) C4nα log( n)
+
+C4nα }
+
+= 2 n−(κ+1) .
+
+Then by the union bound 
+
+Pθ0 (Acβ,n ) = Pθ0 (Acβ,n ∩ Gn) + Pθ0 (Acβ,n ∩ Gcn)
+
+≤ Pθ0 (Acβ,n ∩ Gn) + Pθ0 (Gcn)= Pθ0 ({ max  
+
+> 1≤i≤N, 1≤t≤n
+
+|βi,t −1| > M n} ∩ Gn) + Pθ0 (Gcn)= Pθ0 ({
+
+> N
+
+⋃
+
+> i=1
+> n
+
+⋃
+
+> t=1
+
+|βi,t −1| > M n} ∩ Gn) + Pθ0 (Gcn)
+
+≤
+
+> N
+
+∑
+
+> i=1
+> n
+
+∑
+
+> t=1
+
+Pθ0 ({| βi,t −1| > M n} ∩ Gn) + Pθ0 (Gcn)=
+
+> N
+
+∑
+
+> i=1
+> n
+
+∑
+
+> t=1
+
+Pθ0 (|βi,t −1| > M n|Gn)Pθ0 (Gn) + Pθ0 (Gcn)
+
+≤
+
+> N
+
+∑
+
+> i=1
+> n
+
+∑
+
+> t=1
+
+Pθ0 (|βi,t −1| > M n|Gn) + Pθ0 (Gcn)
+
+≤ Pθ0 (Gcn) + 2 N n −κ
+
+→ 0.
+
+83 Proof of Theorem 5 
+
+Proof. By Theorem 3 of [8] 
+
+sup 
+
+> sn∈Hn
+
+Q(n) 
+
+> θ0,sn
+
+Πn(θ ∈ Θn : dn, sn (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) → 0,
+
+where in the notation of [8] P f denotes the expectation of f with respect to P .Let 
+
+Zn(sn) := Π n(θ ∈ Θn : dn, sn (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n).
+
+Notice 0 ≤ Zn(sn) ≤ 1. Now fix δ > 0. Since Zn(sn) ≥ 0, Markov’s inequality gives 
+
+Q(n) 
+
+> θ0,sn
+
+(Zn(sn) > δ ) ≤ 1
+
+δ Q(n) 
+
+> θ0,sn
+
+Zn(sn).
+
+That is 
+
+Q(n) 
+
+> θ0,sn
+
+(Π n(θ ∈ Θn : dn, sn (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) > δ )
+
+≤ 1
+
+δ Q(n) 
+
+> θ0,sn
+
+Πn(θ ∈ Θn : dn, sn (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) → 0.
+
+This implies 
+
+sup 
+
+> sn∈Hn
+
+Q(n) 
+
+> θ0,sn
+
+(Π n(θ ∈ Θn : dn, sn (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) > δ ) → 0.
+
+84 For sn ∈ Hn, define 
+
+An(sn) := {r1: n : Π n(θ ∈ Θn : dn, sn (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) > δ }.
+
+Then, 
+
+sup 
+
+> sn∈Hn
+
+Q(n) 
+
+> θ0,sn
+
+(An(sn)) → 0.
+
+Similarly, define 
+
+An(S0,n ) := {r1: n : Π n(θ ∈ Θn : dn,S 0,n (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) > δ }.
+
+So, 
+
+Pθ0 (Π n(θ ∈ Θn : dn,S 0,n (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) > δ ) = Pθ0 (r1: n ∈ An(S0,n )) .
+
+By the law of total expectation 
+
+Pθ0 (r1: n ∈ An(S0,n )) = Eθ0 [Eθ0 (1{r1: n ∈ An(S0,n )}| S0,n , r M, 1: n)] = Eθ0 [Q(n) 
+
+> θ0,S 0,n
+
+(An(S0,n ))] = Eθ0 [Q(n) 
+
+> θ0,S 0,n
+
+(An(S0,n )) 1{S0,n ∈ Hn}] + Eθ0 [Q(n) 
+
+> θ0,S 0,n
+
+(An(S0,n )) 1{S0,n /∈ Hn}].
+
+Note 
+
+Eθ0 [Q(n) 
+
+> θ0,S 0,n
+
+(An(S0,n )) 1{S0,n ∈ Hn}] ≤ sup 
+
+> sn∈Hn
+
+Q(n) 
+
+> θ0,sn
+
+(An(sn)) → 0.
+
+85 Similarly by the Proposition 5, 
+
+Eθ0 [Q(n) 
+
+> θ0,S 0,n
+
+(An(S0,n )) 1{S0,n /∈ Hn}] ≤ Pθ0 (Hcn) → 0.
+
+Therefore 
+
+Pθ0 (Π n(θ ∈ Θn : dn,S 0,n (θ, θ0) ≥ Mnϵn|r1: n, r M, 1: n) > δ ) → 0.
+
+# References 
+
+[1] Aguilar, O. and West, M. [2000], ‘Bayesian dynamic factor models and portfolio allocation’, Journal of Business & Economic Statistics 18 (3), 338–357. [2] Bickel, P. J. and Levina, E. [2008], ‘Covariance regularization by thresholding’, The Annals of Statistics pp. 2577–2604. [3] Bollerslev, T. [1986], ‘Generalized autoregressive conditional heteroskedasticity’, Jour-nal of Econometrics 31 (3), 307–327. [4] Cappiello, L., Engle, R. F. and Sheppard, K. [2006], ‘Asymmetric dynamics in the correlations of global equity and bond returns’, Journal of Financial Econometrics 
+
+4(4), 537–572. [5] Cogley, T. and Sargent, T. J. [2005], ‘Drifts and volatilities: monetary policies and outcomes in the post wwii us’, Review of Economic Dynamics 8(2), 262–302. [6] Engle, R. [2002], ‘Dynamic conditional correlation: A simple class of multivariate 86 generalized autoregressive conditional heteroskedasticity models’, Journal of Business & Economic Statistics 20 (3), 339–350. [7] Fama, E. F. and French, K. R. [2023], ‘Production of us Rm-Rf, SMB, and HML in the Fama-French data library’, Chicago Booth Paper 23-22 .[8] Ghosal, S. and van der Vaart, A. [2007], ‘Convergence rates of posterior distributions for noniid observations’, Annals of Statistics 35 , 192–223. [9] Gruber, L., Haan, S. and Kastner, G. [2026], bayesianVARs: MCMC Estimation of Bayesian Vector Autoregressions .
+
+URL: https://doi.org/10.32614/CRAN.package.bayesianVARs 
+
+[10] Hauzenberger, N., Huber, F. and Koop, G. [2024], ‘Dynamic shrinkage priors for large time-varying parameter regressions using scalable Markov chain Monte Carlo methods’, 
+
+Studies in Nonlinear Dynamics & Econometrics 28 (2), 201–225. [11] Hosszejni, D. and Kastner, G. [2021], ‘Modeling univariate and multivariate stochas-tic volatility in R with stochvol and factorstochvol’, Journal of Statistical Software 
+
+100 (12), 1–34. [12] Huber, F. and Pfarrhofer, M. [2021], ‘Dynamic shrinkage in time-varying parameter stochastic volatility in mean models’, Journal of Applied Econometrics 36 (2), 262–270. [13] Kowal, D. R., Matteson, D. S. and Ruppert, D. [2019], ‘Dynamic shrinkage processes’, 
+
+Journal of the Royal Statistical Society Series B: Statistical Methodology 81 (4), 781–804. [14] Ledoit, O. and Wolf, M. [2004], ‘A well-conditioned estimator for large-dimensional covariance matrices’, Journal of Multivariate Analysis 88 (2), 365–411. 87 [15] Lintner, J. [1965 a], ‘Security prices, risk, and maximal gains from diversification’, The Journal of Finance 20 (4), 587–615. [16] Lintner, J. [1965 b], ‘The valuation of risk assets and the selection of risky investments in stock portfolios and capital budgets’, The Review of Economics and Statistics 
+
+47 (1), 13–37. [17] Mossin, J. [1966], ‘Equilibrium in a capital asset market’, Econometrica pp. 768–783. [18] Pardo, L. [2018], Statistical Inference Based on Divergence Measures , Chapman and Hall/CRC. [19] Philipov, A. and Glickman, M. E. [2006], ‘Multivariate stochastic volatility via Wishart processes’, Journal of Business & Economic Statistics 24 (3), 313–328. [20] Primiceri, G. E. [2005], ‘Time varying structural vector autoregressions and monetary policy’, The Review of Economic Studies 72 (3), 821–852. [21] Sharpe, W. F. [1964], ‘Capital asset prices: A theory of market equilibrium under conditions of risk’, The Journal of Finance 19 (3), 425–442. [22] Triantafyllopoulos, K. [2008], ‘Multivariate stochastic volatility with Bayesian dynamic linear models’, Journal of Statistical Planning and Inference 138 (4), 1021–1037. [23] Wu, H., Schafer, T. L. and Matteson, D. S. [2025], ‘Trend and variance adaptive Bayesian changepoint analysis and local outlier scoring’, Journal of Business & Eco-nomic Statistics 43 (2), 286–297. 88
