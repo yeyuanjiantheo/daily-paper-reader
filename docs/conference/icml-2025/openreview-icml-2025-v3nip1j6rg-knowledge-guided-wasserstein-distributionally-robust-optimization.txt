@@ -1,0 +1,2877 @@
+Title: Knowledge-Guided Wasserstein Distributionally Robust Optimization
+
+URL Source: https://openreview.net/pdf?id=v3niP1j6Rg
+
+Number of Pages: 23
+
+Markdown Content:
+# Knowledge-Guided Wasserstein Distributionally Robust Optimization 
+
+Zitao Wang 1 Ziyuan Wang 2 Molei Liu * 3 Nian Si * 4 
+
+## Abstract 
+
+Wasserstein Distributionally Robust Optimization (WDRO) is a principled framework for robust esti-mation under distributional uncertainty. However, its standard formulation can be overly conserva-tive, particularly in small-sample regimes. We propose a novel knowledge-guided WDRO (KG-WDRO) framework for transfer learning, which adaptively incorporates multiple sources of ex-ternal knowledge to improve generalization accu-racy. Our method constructs smaller Wasserstein ambiguity sets by controlling the transportation along directions informed by the source knowl-edge. This strategy can alleviate perturbations on the predictive projection of the covariates and protect against information loss. Theoretically, we establish the equivalence between our WDRO formulation and the knowledge-guided shrinkage estimation based on collinear similarity, ensur-ing tractability and geometrizing the feasible set. This also reveals a novel and general interpreta-tion for recent shrinkage-based transfer learning approaches from the perspective of distributional robustness. In addition, our framework can adjust for scaling differences in the regression models between the source and target and accommodates general types of regularization such as lasso and ridge. Extensive simulations demonstrate the su-perior performance and adaptivity of KG-WDRO in enhancing small-sample transfer learning.          
+
+> *Equal contribution 1Department of Statistics, Columbia Uni-versity, New York, USA. 2Department of Industrial Engineering and Management Sciences, Northwestern University, Evanston, USA. 3Department of Biostatistics, Peking University Health Sci-ence Center; Beijing International Center for Mathematical Re-search, Peking University, Beijing, China. 4Department of Indus-trial Engineering and Decision Analytics, Hong Kong University of Science and Technology, Hong Kong, China.. Correspondence to: Nian Si <niansi@ust.hk >, Molei Liu <moleiliu@bjmu.edu.cn >.
+> Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s).
+
+## 1. Introduction 
+
+Traditional machine learning methods or empirical risk min-imization often suffer from overfitting and a lack of general-ization power, particularly in high-dimensional and small-sample-size settings. In recent years, distributionally ro-bust optimization (DRO) has emerged as a powerful frame-work for mitigating the effects of model misspecification and enhancing robustness in machine learning generaliza-tions. Among various DRO formulations, Wasserstein-DRO (WDRO) gained more attention due to its tractability and generalizability. Specifically, in WDRO, one optimizes over worst-case distributions within an ambiguity set defined by a Wasserstein ball centered at an empirical measure. However, one persistent challenge with WDRO is its ten-dency to be overly conservative, which can lead to subopti-mal performance in practice as found in (Liu et al., 2024). In many real-world scenarios, prior knowledge can be lever-aged to improve model performance and robustness. This transfer learning approach falls under the category of Do-main Adaptation , which adapts models trained on a source domain to perform well on a related target domain with limited labeled data. A key application is in clinical trials, where the binary out-come Y ∈ { 0, 1} indicates treatment success or failure, and the high-dimensional covariate X encodes a patient’s physical and health conditions along with treatment details. Data scarcity is common—especially for underrepresented populations. To address this, we leverage a classifier trained on a majority group (parameterized by θ) as a reference to estimate a classifier for the minority group (parameterized by β). This knowledge-guided transfer learning reduces uncertainty by anchoring the search for β in the direction of 
+
+θ. In such a context, transfer learning has proven to be a ver-satile approach for improving performance on a target task. 
+
+Despite its successes, the integration of prior knowledge into WDRO frameworks has remained an open question. 
+
+In this work, we introduce Knowledge-Guided Wasserstein Distributionally Robust Optimization (KG-WDRO), a novel framework that adapts the Wasserstein ambiguity set us-ing external knowledge (parameters). We assume access to prior predictors of pre-trained models, which can guide the predictive model in the target dataset. By constrain-ing the transport cost along directions informed by prior 1Knowledge-Guided WDRO 
+
+knowledge, our approach addresses the conservativeness of vanilla WDRO while preserving robustness. Intuitively, this strategy allows the model to focus its uncertainty on regions where prior knowledge is less reliable, effectively robustify knowledge-guided generalization. 
+
+1.1. Related Works 
+
+1.1.1. W ASSERSTEIN DRO Wasserstein DRO has recently garnered significant attention due to its tractability (Mohajerin Esfahani & Kuhn, 2018; Blanchet & Murthy, 2019; Gao & Kleywegt, 2023) and gen-eralizability (Blanchet et al., 2019a; Gao et al., 2022). No-tably, Blanchet et al. (2019a) and Gao et al. (2022) demon-strate that Wasserstein DRO with mean square loss is equiva-lent to the square root lasso (Belloni et al., 2011). Similarly, Shafieezadeh-Abadeh et al. (2015; 2019); Blanchet et al. (2019a); Gao et al. (2022) establish that Wasserstein DRO with logistic loss and hinge loss corresponds to their regular-ized counterparts. Moreover, the statistical properties of the WDRO estimator have also been investigated in (Blanchet et al., 2021; 2022; Gao, 2023). However, leveraging external knowledge in Wasserstein DRO has been an open problem. 1.1.2. T RANSFER LEARNING 
+
+Improving prediction accuracy for target populations by in-tegrating diverse source datasets has driven methodological advances in transfer learning. Contemporary approaches aim to address challenges including distributional hetero-geneity and limited labeled target data. A common assump-tion is that the target outcome model aligns partially with source models, enabling knowledge transfer. For example, recent frameworks employ selective parameter reduction to identify transferable sources and sparse or ridge shrinkage to leverage their knowledge (Bastani, 2020; Li et al., 2021; Tian & Feng, 2023). Subsequent works tackle covariate distribution mismatches and semi-supervised scenarios, en-hancing robustness when labeled target data is scarce (Cai et al., 2024; He et al., 2024; Zhou et al., 2024). Further innovations include geometric or profile-based adaptations, where the target model is represented as a weighted com-bination of source coefficients (Gu et al., 2024; Lin et al., 2024). 
+
+1.2. Our Contribution 
+
+Our contributions are fourfold. Framework: We introduce KG-WDRO, a principled and flexible framework that inte-grates prior knowledge into WDRO for linear regression and binary classification. This framework mitigates the conservativeness of standard WDRO, enables automated covariate scaling adjustments, and prevents negative trans-fer. Theory: We establish the equivalence between KG-WDRO and shrinkage-based estimation methods, offering a novel perspective that unifies and interprets a broad range of knowledge transfer learning approaches through the lens of distributional robustness. Table 1 provides an overview of them, highlighting their key capabilities and advantages and comparing them with our framework. Technicalities: 
+
+Leveraging Toland’s Duality (Theorem F.1), we reformu-late the innermost maximization in WDRO’s strong duality (Proposition 2.1) into a univariate optimization problem (Toland’s Duality) . This reformulation enhances tractability while accommodating more general cost functions. Em-pirical Validation: Through extensive experiments, we demonstrate the effectiveness of KG-WDRO in improving small-sample transfer learning. Below is an overview of our main results for the linear regression case. 
+
+Example 1. Suppose θ is an accessible prior predictor for a linear model parameterized with β. We show that the shrinkage-based transfer-learning regression problem, which estimates a target predictor β by solving 
+
+inf  
+
+> β,κ ∈R
+
+∥y − Xβ∥2 + √δ∥β − κθ ∥p,
+
+can be interpreted as a Wasserstein distributionally robust optimization (WDRO) problem of the form (WDRO) , where the loss function is least squares, ℓ(X, Y ; β) = ( Y −βTX)2,
+
+and the ambiguity set Bδ (PN ; c2,∞) is defined as a ball around the empirical measure. The cost function c2,∞
+
+augments the standard transport cost by the constraint 
+
+xTθ = uTθ so that 
+
+c2,∞
+
+ (x, y ), (u, v )
+
+=∥x − u∥2 
+
+> q
+
++ ∞ · | y − v| + ∞ · | (x − u)Tθ|.
+
+This establishes a distributionally robust optimization (DRO) perspective on a broad class of transfer-learning methods as will be discussed in Section 3. 
+
+1.3. Notations & Organizations 
+
+We summarize the mathematical notations used in this work. The positive integers N , M , and d denote, respectively, the target sample size, the number of sources, and the dimension of the support of the covariate X. The integers p and q ∈
+
+[1 , ∞] are reserved for pairs of H ¨older conjugates, satisfying 
+
+p−1 + q−1 = 1 for p, q ∈ (1 , ∞), as well as the pair 1 and 
+
+∞. For a distribution P supported on the Euclidean space 
+
+Rd, we use PN to denote the empirical measure of P with sample size N . In modeling the target-covariate relationship, the distribution is often factorized as P = PY |X × PX . For a vector v ∈ Rd, ∥v∥p denotes the p-norm, where p ∈ [1 , ∞],and vT denote the transpose of v. For any two vectors 
+
+u, v ∈ Rd, the notation cos ( u, v ) denote the cosine of the angle between u and v, calculated by cos ( u, v )∥u∥2∥v∥2 =
+
+2Knowledge-Guided WDRO 
+
+Table 1. Overview of recent transfer learning techniques. Each column represents a key capability: Ridge-type / Lasso-type – Regular-ization type used; Scale Adjustment – Robustness against feature-wise scaling; Continuous outcome / Binary outcome – Supports regression or classification; Partial Transfer – Selections of prior knowledge; Multi-Source ensemble – Profiles on multiple prior knowledges. METHODS RIDGE 
+
+-TYPE 
+
+LASSO 
+
+-TYPE 
+
+SCALE 
+
+ADJUSTMENT 
+
+CONTINUOUS OUTCOME 
+
+BINARY OUTCOME 
+
+PARTIAL 
+
+TRANSFER 
+
+MULTI -S OURCE ENSEMBLE 
+
+KG-WDRO ✓ ✓ ✓ ✓ ✓ ✓ ✓
+
+BASTANI (2020) ✓ ✓
+
+LI ET AL . (2021) ✓ ✓
+
+TIAN & F ENG (2023) ✓ ✓ ✓
+
+GU ET AL . (2024) ✓ ✓ ✓ ✓
+
+LIN ET AL . (2024) ✓ ✓ ✓ ✓
+
+uTv. All vectors are assumed to be column vectors. Other specialized notations are defined in context as needed. The remainder of the paper is organized as follows. Section 2 provides a review of the WDRO framework, including the strong duality result. In Section 3, we introduce our KG-WDRO framework and demonstrate its equivalence to shrinkage-based estimations in both linear regression and binary classification. Section 4 presents comprehensive results from our numerical simulations. All proofs and detailed descriptions of the numerical simulation setups are provided in the appendix. 
+
+## 2. Preliminaries 
+
+We first begin with a short overview of the distributionally robust framework on statistical learning. 
+
+2.1. Optimal Transport Cost 
+
+Let P and Q denote two probability distributions supported on Rd, and we use P(Rd × Rd) to label the set of all prob-ability measures on the product space Rd × Rd. We say that an element π ∈ P (Rd × Rd) has first marginal P and second marginal Q if 
+
+π(A × Rd) = P(A), π(Rd × B) = Q(B),
+
+for all Borel measurable sets A, B ∈ Rd. The class of all such measures π is collected as Π( P, Q), and is called the set of transport plans , which is always non-empty. Choose a non-negative, lower semi-continuous function 
+
+c : Rd × Rd → [0 , ∞] such that c(u, v ) = 0 whenever 
+
+u = v, then the Kantorovich’s formulation of optimal trans-port is defined as 
+
+Dc(P, Q) := inf  
+
+> π∈Π( P,Q)
+
+Eπ [c(U, V )] .
+
+It is well-known that (Villani, 2009, Theorem 4.1) there exists an optimal coupling π† that solves the Kantorovich’s problem inf π∈Π( P,Q) Eπ [c(U, V )] . Intuitively, we may think of the value c(u, v ) as the cost of transferring one unit of mass from u ∈ Rd to v ∈ Rd, then Eπ [c(U, V )] 
+
+gives the average cost of transferring under the plan π. The 
+
+optimal transport cost Dc(P, Q) gives a measure of discrep-ancy between probability distributions on Rd.If c(u, v ) defines a metric on Rd, then for any p ∈ [1 , ∞)
+
+the optimal transport cost, 
+
+D1/p c (P, Q) := 
+
+
+
+inf  
+
+> π∈Π( P,Q)
+
+Eπ [c(U, V )p]
+
+1/p 
+
+,
+
+defines a metric between probability distributions and metrizes weak convergence under moment assumptions. It is called the p-Wasserstein distance. We direct the interested readers to (Villani, 2009, Chapter 6) for more details. It is worth mentioning that none of our judiciously chosen cost functions qualify as metrics on the support of the data. 
+
+2.2. Distributionally Robust Optimization 
+
+In standard statistical learning framework, one generally assumes that the target-covariate pair (X, Y ) ∈ Rd × R ∼=
+
+Rd+1 follows a data-generating distribution P := PX,Y on the support Rd+1 . One then seeks to find a ‘best’ parameter 
+
+β that relates Y to X through a parameterized model by solving the stochastic optimization, 
+
+inf  
+
+> β
+
+EP [ℓ(X, Y ; β)] . (SO) The loss function ℓ(x, y ; β) provides a quantification of the goodness-of-fit in the parameter β given the realized observation (x, y ). Since only samples {(xi, y i)}i=1 ,...,N 
+
+are observed, we can typically only solve the empirical objective, 
+
+inf  
+
+> β
+
+EPN [ℓ(X, Y ; β)] = inf 
+
+> β
+
+1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ℓ(xi, y i; β). (ERM) Therefore the distribution P that underlies the data-generating mechanism is uncertain to the decision-maker. 3Knowledge-Guided WDRO 
+
+This motivated the distributionally robust optimization 
+
+(DRO) framework, which entails solving the following min-imax stochastic program: 
+
+inf  
+
+> β
+
+sup 
+
+> P∈P amb
+
+EP[ℓ(X, Y ; β)] , (DRO) where the ambiguity set Pamb represents a class of probabil-ity measures supported on Rd+1 that are candidates to the true data-generating distributions. In Wasserstein -DRO, the ambiguity set is constructed by forming a ‘ δ-ball’ around the canonical empirical measure PN associated to the decision-maker-defined transport cost c, i.e. we let the ambiguity set 
+
+Pamb be chosen as: 
+
+Bδ (PN ; c):= {P ∈ P (Rd+1 )|D c(P, PN ) ≤ δ}. (WDRO) This ambiguity set captures probability measures that are close to the observed empirical measure in the transport cost Dc, which may be taken as a class of candidates of measures perturbed from PN . The solution βDRO to (DRO) that solves the worst case expected loss should perform well over the entire set of perturbations in the ambiguity set. This is in contrast to βERM that solves (ERM) only performs well on the training samples. This adds a robustness layer to the WDRO problem (WDRO) . For a comprehensive overview of different constructions of ambiguity sets, we direct the interested reader to (Kuhn et al., 2024, Section 2). 
+
+2.3. Strong Duality of Wasserstein DRO 
+
+The Wasserstein DRO problem involves an inner maximiza-tion over an infinite-dimensional set, which appears com-putationally intractable. However, the distribution Pn is discrete, strong duality of the Wasserstein DRO reformu-lates it as a simple univariate optimization. 
+
+Proposition 2.1 (Strong Duality, (Blanchet et al., 2019a, Proposition 1)) . Let c : Rd+1 × Rd+1 → [0 , ∞] be a lower semi-continuous cost function satisfying c (x, y ), (u, v ) =0 whenever (x, y ) = ( u, v ). Then the distributionally robust regression problem 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN)
+
+EP [ℓ(X, Y ; β)] ,
+
+is equivalent to, 
+
+inf 
+
+> β∈Rd
+
+inf 
+
+> γ≥0
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+ϕγ (xi, y i; β)
+
+)
+
+,
+
+where ϕγ (xi, y i; β) is given by, 
+
+sup 
+
+> (u,v )∈Rd+1
+
+ℓ(u, v ; β) − γc  (u, v ), (xi, y i) .
+
+For more general results, see (Blanchet & Murthy, 2019, Theorem 1) and (Gao et al., 2022, Section 2). The ex-changeability of sup and inf in Wasserstein-DRO is also established by (Blanchet et al., 2019a, Lemma 1). 
+
+## 3. Knowledge-Guided Wasserstein DRO 
+
+In this section, we propose new cost functions for the Wasserstein DRO framework that leverage prior knowledge for transfer learning. For linear regression and binary classi-fication, these cost functions act as regularizers, encouraging collinearity with prior knowledge. 
+
+3.1. Knowledge-Guided Transport Cost 
+
+It is shown in (Blanchet et al., 2019a, Theorem 1) that using the squared q-norm on the covariates as the cost function 
+
+c2
+
+ (x, y ), (u, v ) = ∥x − u∥2 
+
+> q
+
++ ∞ · | y − v|, (1) equates Wasserstein distributionally robust linear regres-sion with p-norm regularization on the root mean squared error (RMSE). The cost function c2 perturbs only the ob-served covariates {xi}Ni=1 , while keeping the observed tar-gets {yi}Ni=1 fixed. Keeping the observed target Y as fixed often leads to more mathematically tractable reformulation, another intuition is that we trust the mechanism by which the target Y is generated once X is known. In the presence of prior knowledge θ that may aid in infer-ring β, we aim to control the extent of perturbation along the direction of θ.Specifically, we constrain the size of the prediction discrep-ancy θTx − θTu = θT∆, where ∆ := x − u. To achieve this goal, we henceforth augment the cost function c2 with an additional penalty term that accounts for the size of the perturbation in the direction of θ:
+
+c2,λ 
+
+ (x, y ), (u, v )
+
+=∥∆∥2 
+
+> q
+
++ ∞ · | y − v| + λh (|θT∆|), (2) where λ > 0 and h(x) : R → R+ ∪ { 0} is a non-negative, monotone increasing function of |x| such that h(0) = 0 .Recall that in the cost function c2(·), the targets y remain fixed. Intuitively, the new cost function (2) encourages the Wasserstein ambiguity set to include distributions whose marginals in X generate predictions that align with the data based on the prior predictor θ. The parameter λ controls the level of confidence in the prior knowledge. We call this kind of cost functions knowledge-guided . Since c2,λ 
+
+upper bounds the cost function c2, we have Bδ (PXN ; c2,λ 2 ) ⊆Bδ (PXN ; c2,λ 1 ) ⊆ B δ (PXN ; c2) whenever λ2 > λ 1.The corresponding optimal transport problem given by: 
+
+inf   
+
+> π∈Π( QX,PXN)
+
+Eπ [c2,λ (X, U )] ,
+
+can also be expressed as: 
+
+inf   
+
+> π∈Π( QX,PXN)
+
+Eπ [c2(X, U )] + λEπ [h(|θT∆|)] .
+
+4Knowledge-Guided WDRO 
+
+This formulation regularizes the original optimal trans-port problem by penalizing large values of the expectation 
+
+Eπ [h(|θT∆|)] .For any user-defined function h that measures the discrep-ancy in generalization with respect to the prior knowledge θ,we refer to it as weak-transferring of knowledge if λ < +∞,and strong-transferring of knowledge if λ = + ∞. In the case of strong-transferring, to ensure the finiteness of the optimal transport problem, the minimizing transport plan 
+
+π† must satisfy the orthogonality condition θT∆ = 0 , π†-almost surely. Consequently, the value of θTX remains unchanged after perturbing PXN within Bδ (PXN ; c2,∞). As a result, this should promote βDRO → θ as δ → ∞ .Indeed, we have the following proposition on the bound of the mini-max objective with strong transferring. 
+
+Proposition 3.1. Let ℓ(X, Y ; β) = ( Y − βTX)2 denote the least square loss, then 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN;c2,∞)
+
+EP
+
+(Y − βTX)2
+
+≤ inf  
+
+> α∈R
+
+EP∗
+
+> N
+
+(Y − (αθ )TX)2 .
+
+Thus, the minimax optimizer under knowledge guidance from θ achieves out-of-sample performance that is at least as good as the in-sample performance of the naive domain adapter bαN θ. A similar statement applies to the binary classification settings as discussed in Theorem 3.6. 
+
+Remark 3.2 . The above framework extends to incorporate multi-sites prior knowledge, meaning that instead of a single prior knowledge coefficient θ1, we consider a set of coef-ficients {θ1, θ 2, . . . , θ M }. Let Θ := span {θ1, θ 2, . . . , θ M }
+
+represent the linear span of these prior knowledge coeffi-cients. In the case of strong-transferring, we must ensure that rank(Θ) < d ; otherwise, the set of orthogonality con-ditions {θT
+
+> m
+
+∆ = 0; m ∈ [M ]} would imply that the pertur-bation ∆ is identically zero ( ∆ = 0). This would render the ambiguity set redundant and reduce the WDRO prob-lem (WDRO) to the ERM problem (ERM) . This result is confirmed by the statements of Theorems 3.3 and 3.6. 
+
+3.2. Linear Regression 
+
+We begin by examining the WDRO problem (WDRO) for linear regression within the strong-transferring domain. Fol-lowing this, we present a specific case within the weak-transferring domain. Let Θ := span {θ1, . . . , θ M } represent the linear span of the prior knowledge. 3.2.1. S TRONG -T RANSFERRING 
+
+Define the cost function c2,∞
+
+ (x, y ), (u, v ) := ∥x − u∥2 
+
+> q
+
++
+
+∞ · | y − v| + ∞ · | θT
+
+> 1
+
+x − θT
+
+> 1
+
+u| + . . . + ∞ · | θT 
+
+> M
+
+x − θT 
+
+> M
+
+u|,and for a set of observed samples {(xi, y i)}i∈[N ], we use 
+
+MSE N (β) := N −1 PNi=1 (yi − βTxi)2. Without making any additional distributional assumptions on (X, Y ), we obtain the following finite-dimensional representation. 
+
+Theorem 3.3 (Linear Regression with Strong-Transferring) .
+
+Consider the least-squared loss ℓ(X, Y ; β) = ( Y − βTX)2,then for any q ∈ [1 , ∞] we have 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN;c2,∞)
+
+EP
+
+(Y − βTX)2
+
+= inf 
+
+> β∈Rd,ϑ ∈Θ
+
+p MSE N (β) + √δ∥β − ϑ∥p
+
+2
+
+,
+
+where p is such that p−1 + q−1 = 1 .
+
+From the above result, we observe that the knowledge-guided WDRO problem for linear regression is equivalent to regularizing the RMSE with a p-norm distance to the linear span Θ. The regularization parameter is entirely determined by the size (or radius) of the Wasserstein ambiguity set. Im-portantly, the penalty term focuses on the collinearity with the prior knowledge rather than their algebraic difference or angular proximity. Consider the case when there is only a single prior knowl-edge θ1, the penalty term does not constrain the solution 
+
+βDRO to be close to θ1, but rather to κ · θ1 for some κ ∈ R
+
+to be optimized. Consequently, this knowledge transfer au-tomatically robustify solution against scaling of covariates. Furthermore, it can prevent negative transfer by adapting its sign to be positively correlated with β∗, which is the solution to population objective (SO) . When δ → ∞ , the penalty term becomes dominant, forcing β to lie in Θ for any p ≥ 1. This reduces the WDRO problem to a simple constrained regression problem, 
+
+inf  
+
+> β∈Θ
+
+MSE N (β),
+
+reflecting the complete reliance on the prior knowledge and prevents excessive shrinkage towards the null estimator. 
+
+Remark 3.4 . We now discuss two special cases of the penalty term, p = 2 (ridge-type regularization) and p = 1 
+
+(lasso-type regularization). For simplicity, we consider the case of a single prior knowledge vector θ.
+
+Ridge-type. The penalty term can be explicitly calculated as 
+
+min  
+
+> κ∈R
+
+∥β − κθ ∥2 = β − βTθ
+
+∥θ∥22
+
+θ
+
+> 2
+
+= ∥β⊥θ ∥2,
+
+where β⊥θ is the component of β orthogonal to θ. This penalty term shrinks distance to the line in the direction of 
+
+θ. Furthermore, note that 
+
+∥β⊥θ ∥2 = ∥β∥2 sin( β, θ ) = ∥β∥2
+
+p1 − cos 2(β, θ ),
+
+which represents a trade-off between the magnitude of β
+
+and its angular proximity to the prior knowledge θ. This 5Knowledge-Guided WDRO 
+
+Figure 1. The two-dimensional contour plots of the regularization term in Theorem 3.3 and Theorem 3.5 with λ ranging from +∞ to 2
+
+to 0.1. The prior knowledge parameter is taken as θ = (2 , 1) T. The area between the black contours constitute a feasibility set of the regularization term when written in its equivalent constraint form. The feasibility set shrinks in the direction of θ, to a circle of radius K
+
+when λ → 0 from above. 
+
+trade-off is illustrated in the leftmost figure of Fig.1, draw-ing the feasibility set of the regularization as a constraint. This regularization is closely related but different to the one proposed in (Gu et al., 2024), where they penalize large values of a computational relaxation of sin ( β, θ ).
+
+Lasso-type. When the prior knowledge θ is sparse, the penalty term min κ ∥β − κθ ∥1 promotes sparse representa-tion learning. Consider a simple example where the dimen-sion is d = 3 and θ = (1 , 0, 0) T. In this case, we have: 
+
+min  
+
+> κ
+
+∥β − κθ ∥1 = min 
+
+> κ
+
+ |β1 − κ| + |β2| + |β3|
+
+= |β2| + |β3| =: ∥β91∥1,
+
+where β91 = ( β2, β 3)T. This formulation enforces sparsity only on the last two components of β, reflecting the sparsity pattern of θ.3.2.2. W EAK TRANSFERRING 
+
+For the special case of q = p = 2 , we define the weak-transferring cost function c2,λ 
+
+ (x, y ), (u, v ) = ∥x − u∥22 +
+
+λ(θTx − θTu)2 + ∞ · | y − v| with 0 < λ < +∞. Here, we select h(x) = x2 as the user-defined function on controlling the size of perturbation in θ. For simplicity, we consider a single prior knowledge vector θ in this setup. This result can be straightforwardly extended to a multi-source setup with different values of λ’s. 
+
+Theorem 3.5 (Linear Regression with Weak Transferring) .
+
+Consider the least-squared loss ℓ(X, Y ; β) = ( Y − βTX)2,then for p = q = 2 we have 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN;c2,λ )
+
+EP
+
+(Y − βTX)2
+
+= inf 
+
+> β∈Rd
+
+p MSE N (β) + √δ ∥β∥Ψλ91
+
+2
+
+.
+
+With Ψλ = Id − 1
+
+∥θ∥22 + λ θθ T and ∥β∥2Ψλ = βTΨλβ.
+
+Write Pλ = θθ T/(∥θ∥22 + λ), we note that as λ → ∞ ,we have Pλ91 → P0 = θθ T/∥θ∥22 recovering the projec-tion matrix onto the prior knowledge θ. Consequently, 
+
+∥β∥Ψλ91 → ∥ β⊥θ ∥2.We observe that the action 
+
+Pλ91 β = βTθ
+
+∥θ∥22 + λ−1 θ
+
+is exactly the ridge regression of β onto θ with a regular-ization parameter λ−1. Thus, the finiteness of λ, which can reflect a caution in the prior knowledge θ, induces a shrinkage effect on the component of β explainable by θ
+
+in the dot product geometry. Since Ψλ ≻ Id − P , we have 
+
+∥β∥Ψλ91 > ∥β⊥θ ∥2 for any finite λ > 0, this implies the inclusion of feasibility set 
+
+{β : ∥β∥Ψλ91 ≤ K} ⊂ { β : ∥β⊥θ ∥2 ≤ K},
+
+as plotted in Fig.1 for an illustration on R2. The contour 
+
+{β ∈ R2 : ∥β∥Ψλ91 = K} forms an ellipse centered around the origin 0. The ellipse has a major axis of half length 
+
+K
+
+r ∥θ∥22 + λ−1
+
+λ−1 aligned with the direction of θ, and a mi-nor axis with half-length K aligned with the direction of θ⊥.As λ → 0, representing no-confidence in θ, the half-length of the major axis converges to K, resulting in a perfect circle as in ridge regression. The two-dimensional hyper-parameters (δ, λ −1) enable the use of data-driven methods, such as grid-search cross-validation, for hyper-parameter tuning. Unlike the strong-transferring domain, the inclusion of λ−1 allows the data to self-determine the informativeness of the source samples. 6Knowledge-Guided WDRO 
+
+3.3. Binary Classifications 
+
+In this section, we focus on the context of binary clas-sification, where the goal is to predict the discrete label 
+
+Y ∈ {− 1, 1} based on the covariates X ∈ Rd. Unlike the previous section, we use the q-norm, rather than its square, to account for distributional ambiguity in the covari-ate distribution. Define the strong-transferring cost function 
+
+c1,∞
+
+ (x, y ), (u, v ) := ∥x − u∥q + ∞ · | y − v| + ∞ · | θT
+
+> 1
+
+x −
+
+θT
+
+> 1
+
+u| + . . . + ∞ · | θT 
+
+> M
+
+x − θT 
+
+> M
+
+u|. We consider two loss func-tions here. The logistic loss function is given by 
+
+ℓ(X, Y ; β) = log 
+
+
+
+1 + e−Y β TX 
+
+,
+
+which is the negative log-likelihood of the model that postu-lates 
+
+log P(Y = 1 |X = x)
+
+P(Y = −1|X = x) = β∗Tx. 
+
+The hinge loss is given by 
+
+ℓ(X, Y ; β) = (1 − Y β TX)+,
+
+which is typically used for training classifiers that look for ‘maximum-margins’ in class boundaries, most notably sup-port vector machines .Suppose Y ∈ {− 1, 1} is binary and without any distri-butional assumptions on X, we have the following result which recovers regularized logistic regressions and support vector machines. 
+
+Theorem 3.6 (Binary Classification with Strong Transfer-ring) . Suppose the loss function ℓ(X, Y ; β) is either the logistic loss log 
+
+
+
+1 + e−Y β TX
+
+
+
+or the hinge loss (1 −
+
+Y β TX)+, then for any q ∈ [1 , ∞] we have 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN;c1,∞)
+
+EP [ℓ(X, Y ; β)] = inf 
+
+> β∈Rd,ϑ ∈Θ
+
+1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ℓ(xi, y i; β) + δ∥β − ϑ∥p,
+
+where p is such that p−1 + q−1 = 1 .
+
+3.4. Sub-Coefficient-Vector Transferring 
+
+In this subsection, we generalize the statements of Theorems 3.3 and 3.6 for p = 2 to arbitrary norms induced by positive-definite quadratic forms. Let Λ ∈ Rd×d be a positive-definite symmetric matrix. The norm ∥x∥Λ = √xTΛx
+
+induces a metric on Rd, defined as dΛ(x, u ) = ∥x − u∥Λ,known as the Mahalanobis distance . Since Λ is positive def-inite, it admits a decomposition Λ = Γ TΓ with Γ invertible, and the norm ∥x∥Λ = ∥Γx∥2 measures length in the geom-etry distorted by Γ. By (Blanchet et al., 2019b, Lemma 1), the dual norm of ∥ · ∥ Λ is ∥ · ∥ Λ−1 . Using Proposition E.6, the statements of Theorems 3.3 and 3.6 can be easily gener-alized. Define the space of positive-definite symmetric ma-trices as Sd×d 
+
+> +
+
+and the cost function: cΛ2,∞
+
+ (x, y ), (u, v ) := 
+
+∥x − u∥2Λ + ∞ · | y − v| + ∞ · PMm=1 |θT
+
+> m
+
+x − θT
+
+> m
+
+u|.
+
+Corollary 3.7 (Theorem 3.3) . For the least-squares loss 
+
+ℓ(X, Y ; β) = ( Y − βTX)2 and any Λ ∈ Sd×d 
+
+> +
+
+:
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN;cΛ2,∞)
+
+EP
+
+(Y − βTX)2
+
+= inf 
+
+> β∈Rd,ϑ ∈Θ
+
+p MSE N (β) + √δ∥β − ϑ∥Λ−1
+
+2
+
+.
+
+This formulation enables the use of metric learning meth-ods to determine Λ directly from the data, as detailed in (Blanchet et al., 2019b). For example, if the two-dimensional prior θ = [ θ1, θ 2] is known to primarily in-fluence the first component of the truth β = [ θ1 + ϵ, β 2], we can select Λ = diag( d1, d 2) with d1 ≪ d2. This imposes a weaker penalty on perturbations in the first direction, result-ing in a weighted penalty term: min κ
+
+ (β1 − κθ 1)/d 1 +(β2 − κθ 2)/d 2
+
+, which prioritizes aligning β1 with θ1,while β2 is determined more flexibly based on the data. We call this sub-coefficient-vector transferring, or the ability to partially transfer prior knowledge. A similar corollary applies to Theorem 3.6, as stated in Corollary D.1. Finally, we again draw the reader’s attention to Table 1, which compares several transfer learning methods discussed in Section 1.1.2. Notably, our proposed KG-WDRO frame-work brings together a broad range of desirable capabilities within a single, unified approach to transfer learning. 
+
+## 4. Numerical Results 
+
+In this section, we present numerical simulations to validate the effectiveness of the proposed KG-WDRO method. We compare learners across different settings, including high-dimensional sparse models, correlated covariates, and multi-source prior knowledge, for either linear regression or binary classification tasks. Performance is evaluated using out-of-sample classification error for binary classifiers and out-of-sample R2 for linear regressors. For the single-source experiments, target-source coefficient pairs (β, θ ) are generated from a multivariate normal distri-bution: 
+
+(βj , θ j ) ∼ N
+
+ 00
+
+
+
+,
+
+ σ2 ρσ 2
+
+ρσ 2 σ2
+
+ 
+
+, (3) where ρ is the correlation between β and θ, and the ex-pected length of θ is approximately σ√d − 0.5. We scale 
+
+β as β ← sβ with s ∈ (0 , 1] to study the stabilizing effects of strong prior knowledge in small-sample settings. The dimension-to-sample ratio d/N is varied by fixing d and in-creasing N . Performance is averaged over 100 simulations. 7Knowledge-Guided WDRO   
+
+> Figure 2. Out-of-sample performance plot of the proposed KG-WDRO method for high-dimensional regression tasks, compared against benchmark methods. The plot shows performance variations as ρ, representing the correlation between true and prior coefficient pairs, increases. Results are displayed for four specific settings across three experimental groups.
+
+Each dataset consists of three parts: data = (train, val, test) . The (train, val) pair shares the same size, and hyperparameters are selected based on validation performance. The source data contains 800 samples, with source truth θ estimated accordingly. Out-of-sample perfor-mance is measured on the test set of 5000 data points. 
+
+4.1. Simulation 1: Logistic with ℓ1-Strong Transferring 
+
+In the first experiment, we compare two learners for bi-nary classification tasks with high-dimensional sparse co-efficients against our proposed KG-WDRO learner, βKG ,derived using Theorem 3.6 with p = 1 . The competing learners are the target-only vanilla WDRO learner βWDRO 
+
+(Blanchet et al., 2019a, Theorem 2) and βTransG , obtained via the A-Trans-GLM algorithm (Tian & Feng, 2023, Al-gorithm 1). The target-source pair (β, θ ) is generated using (3) with a dimension of 50 and augmented with 100 ze-ros for sparsity, resulting in a total dimension of 150. We test six settings, varying the sample size N ∈ { 20 , 50 , 80 },signal strength s ∈ { 0.5, 1}, and truth-prior correlation 
+
+ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 }.The comparison between βKG and βTransG is highly com-petitive, with βKG consistently outperforming βTransG by up to 2% in accuracy when the sample size is small ( N =20 ) across all values of ρ, as shown in the upper-left plot of Figure 2. In larger sample size scenarios, both learners perform similarly (see Table 3 for detailed results). Both transfer learning methods, βKG and βTransG , significantly outperform the target-only learner, βWDRO .
+
+4.2. Simulation 2: Linear Regression with ℓ2-Weak Transferring 
+
+In this simulation, we compare two learners on high-dimensional linear regression with correlated covariates against our proposed learners, βKGweak (Theorem 3.5) and 
+
+βKGstrong (Theorem 3.3), both using p = 2 . There is no sparsity in the regression coefficients. The competing learners are the target-only vanilla WDRO learner βWDRO 
+
+(Blanchet et al., 2019a, Theorem 1) and the Trans-Ridge algorithm adapted from (Li et al., 2021, Algorithm 1), de-noted as βTransR . The covariates are fixed at dimension 100, with a pairwise correlation of 0.3. The experiment is conducted across six settings, varying the sample size 
+
+N ∈ { 50 , 70 , 90 }, signal strength s ∈ { 0.8, 1}, and truth-prior correlation ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 }.As shown in the upper-right plot of Figure 2, the perfor-mance of βTransR lags significantly behind both βKGstrong 
+
+and βKGweak until the correlation ρ becomes sufficiently high. Across all settings, βKGstrong and βKGweak consis-tently outperform βTransR when ρ is moderate or low, as documented in Table 4. Furthermore, all three transfer learn-ing methods demonstrate superior performance compared 8Knowledge-Guided WDRO 
+
+to the target-only learner, βWDRO .
+
+4.3. Simulation 3: Transfer Learning with Multiple Sites 
+
+In the final set of experiments, we validate our methods in a multi-source transfer learning setting with high-dimensional sparse linear regression. The significant components of the three source coefficients are generated using (3) with correlation ϱ and dimension 50, denoted as {θ1, θ 2, θ 3}. We construct a linear combination, θS = aθ 1 + bθ 2 + cθ 3, and generate β = ρθ S + ε, where ε ∼ N (0 , (1 − ρ2)Var( θS )) ,ensuring Corr( β, θ S ) = ρ. β is then scaled to match the magnitude of θS , and all vectors are augmented with 100 zeros, yielding a total dimension of 150. Our proposed method, βKG (Theorem 3.3, p = 1 ), is compared against the oracle Trans-Lasso algorithm (Li et al., 2021, Algorithm 1) ( βTransL ) and the vanilla WDRO learner βWDRO . The experiment spans six settings: [a, b, c ] = [1 , −0.5, 0.2] and 
+
+[1 , 1, 1] , with ϱ = 0 .9 and 0.6, respectively. Sample sizes vary in N ∈ { 50 , 60 , 70 }. The truth-prior correlation ranges in ρ ∈ { 0.7, 0.75 , 0.8, 0.85 , 0.9, 0.95 }.When [a, b, c ] = [1 , −0.5, 0.2] , the contributions of the θ’s to the generation of θS are unequal. In this case, it is not surprising that βKG outperforms βTransL , as shown in the bottom-left plot of Figure 2. When θS is an equal-weighted average of the θ’s ( [a, b, c ] = [1 , 1, 1] ), the performance of βKG and βTransL becomes similar. However, βKG still demonstrates superior performance in larger sample sizes and higher correlations, as documented in Table 5.                                
+
+> Table 2. Log-loss values for WDRO, KG-WDRO, and Trans-GLM across the eight target states and overall in the U.S. election dataset. The best-performing method in each state and overall is highlighted in distinct colors. STATE WDRO KG-WDRO TRANS -GLM ARIZONA 22.43 7.54 8.52 GEORGIA 46.60 27.22 24.89 ILLINOIS 20.02 8.78 15.49 MICHIGAN 43.43 25.23 24.79 MINNESOTA 38.67 23.42 27.63 MISSISSIPPI 34.31 14.99 16.75 N. C AROLINA 41.48 19.02 18.56 VIRGINIA 64.84 21.20 22.84 OVERALL 311.77 147.39 159.49
+
+4.4. A Real Data Analysis 
+
+To demonstrate the practical applicability of our KG-WDRO framework, we evaluate it on the Trans-GLM (Tian & Feng, 2023) dataset, which compiles 2020 U.S. presidential elec-tion results at the county level (see their references for data sources). Each county is labeled as ‘1’ if the Democratic candidate won, and ‘0’ otherwise. We compare KG-WDRO with Trans-GLM on a binary classification task, where the goal is to predict county-level election outcomes in eight target states (Table. 2) using data from the remaining states as external source knowledge. The features include county-level demographics such as population size and ethnicity proportions, and the base model is logistic regression. The cleaned dataset consists of 3,111 counties and 761 standard-ized predictors across 49 states. We use data from 2,100 counties as the source to predict outcomes in the eight tar-get states (approximately 100 counties each). KG-WDRO outperforms Trans-GLM in 5 out of 8 states and reduces the overall log-loss by 7.6%. Both transfer learning methods significantly outperform the standard WDRO estimator. 
+
+## 5. Conclusion 
+
+We propose the knowledge-guided Wasserstein distribution-ally robust optimization (KG-WDRO) framework, which utilizes prior knowledge of predictors to mitigate the over-conservativeness of conventional DRO methods. We estab-lish tractable reformulations and demonstrate their superior performance compared to other methods. For future work, we aim to provide statistical guarantees of our proposed estimators. Furthermore, based on these statistical proper-ties, we plan to develop a principled approach for selecting hyperparameters such as δ and λ.
+
+## Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There might be potential societal consequences of our work, none of which we feel need to be specifically highlighted here. 
+
+## References 
+
+Bastani, H. Predicting with proxies: Transfer learning in high dimension. Management Science , 67(5):2964–2984, 2020. Belloni, A., Chernozhukov, V., and Wang, L. Square-root lasso: Pivotal recovery of sparse signals via conic programming. Biometrika , 98(4):791–806, 2011. doi: 10.1093/biomet/asr043. Blanchet, J. and Murthy, K. Quantifying distributional model risk via optimal transport. Mathematics of Opera-tions Research , 44(2):565–600, 2019. Blanchet, J., Kang, Y., and Murthy, K. Robust wasserstein profile inference and applications to machine learning. 
+
+Journal of Applied Probability , 56(3):830–857, 2019a. Blanchet, J., Kang, Y., Murthy, K., and Zhang, F. Data-driven optimal transport cost selection for distributionally robust optimization. In 2019 Winter Simulation Con-
+
+9Knowledge-Guided WDRO 
+
+ference (WSC) , pp. 3740–3751, 2019b. doi: 10.1109/ WSC40007.2019.9004785. Blanchet, J., Murthy, K., and Nguyen, V. A. Statistical anal-ysis of wasserstein distributionally robust estimators. In 
+
+Tutorials in Operations Research: Emerging optimization methods and modeling techniques with applications , pp. 227–254. INFORMS, 2021. Blanchet, J., Murthy, K., and Si, N. Confidence regions in wasserstein distributionally robust estimation. Biometrika ,109(2):295–315, June 2022. Cai, T., Li, M., and Liu, M. Semi-supervised triply ro-bust inductive transfer learning. Journal of the American Statistical Association , pp. 1–14, 2024. Gao, R. Finite-sample guarantees for wasserstein distri-butionally robust optimization: Breaking the curse of dimensionality. Operations Research , 71(6):2291–2306, 2023. Gao, R. and Kleywegt, A. Distributionally robust stochastic optimization with wasserstein distance. Mathematics of Operations Research , 48(2):603–655, 2023. Gao, R., Chen, X., and Kleywegt, A. J. Wasserstein distribu-tionally robust optimization and variation regularization. 
+
+Operations Research , 72(3):1177–1191, 2022. Gu, T., Han, Y., and Duan, R. Robust angle-based transfer learning in high dimensions. Journal of the Royal Statis-tical Society Series B: Statistical Methodology , 12 2024. ISSN 1369-7412. He, Z., Sun, Y., and Li, R. Transfusion: Covariate-shift robust transfer learning for high-dimensional regression. In International Conference on Artificial Intelligence and Statistics , pp. 703–711. PMLR, 2024. Kuhn, D., Shafiee, S., and Wiesemann, W. Distributionally robust optimization. arXiv preprint arXiv: 2411.02549 ,2024. Li, S., Cai, T. T., and Li, H. Transfer learning for high-dimensional linear regression: Prediction, estimation and minimax optimality. Journal of the Royal Statistical Society Series B: Statistical Methodology , 84(1):149–173, 11 2021. ISSN 1369-7412. Lin, Z., Zhao, J., Wang, F., and Wang, H. Profiled trans-fer learning for high dimensional linear model. arXiv preprint arXiv:2406.00701 , 2024. Liu, J., Wang, T., Cui, P., and Namkoong, H. Rethinking distribution shifts: Empirical analysis and inductive mod-eling for tabular data. arXiv preprint arXiv: 2307.05284 ,2024. Luenberger, D. G. and Ye, Y. Linear and Nonlinear Pro-gramming . International Series in Operations Research & Management Science. Springer New York, NY, 2008. Mohajerin Esfahani, P. and Kuhn, D. Data-driven distribu-tionally robust optimization using the wasserstein met-ric: Performance guarantees and tractable reformulations. 
+
+Mathematical Programming , 171(1):115–166, 2018. Rockafellar, R. T. Convex Analysis . Princeton University Press, Princeton, N.J, 1970. ISBN 9781400873173. Shafieezadeh-Abadeh, S., Esfahani, P. M., and Kuhn, D. Distributionally robust logistic regression. In Advances in Neural Information Processing Systems , volume 28, 2015. Shafieezadeh-Abadeh, S., Kuhn, D., and Esfahani, P. M. Regularization via mass transportation. Journal of Ma-chine Learning Research , 20(103):1–68, 2019. Tian, Y. and Feng, Y. Transfer learning under high-dimensional generalized linear models. Journal of the American Statistical Association , 118(544):2684–2697, 2023. Toland, J. F. Duality in nonconvex optimization. Journal of Mathematical Analysis and Applications , 66(2):399–415, 1978. Toland, J. F. A duality principle for non-convex optimisa-tion and the calculus of variations. Archive for Rational Mechanics and Analysis , 71:41–61, 1979. Villani, C. Optimal Transport: Old and New , volume 338 of Grundlehren der mathematischen Wissenschaften .Springer Berlin, Heidelberg, 1 edition, 2009. Zhou, D., Li, M., Cai, T., and Liu, M. Model-assisted and knowledge-guided transfer regression for the underrep-resented population. arXiv preprint arXiv: 2410.06484 ,2024. 10 Knowledge-Guided WDRO 
+
+## A. Additional Details in Numerical Results 
+
+This section provides details to supplement Section 4. We outline the data-generating distributions for all three sets of experiments, the hyperparameter grids, and the learners used to identify prior knowledge. We present the exact numerical results for all three sets of experiments. Recall that the notation s ∈ (0 , 1] represents the signal strength of the true parameter 
+
+β, which works by rescaling the magnitude of β such that β ← sβ . The notation d is the dimension of the covariates, and N
+
+is the sample size. Finally, the symbol ρ represents the correlation between the true β and the prior θ.
+
+A.1. Simulation Results 
+
+A.1.1. S IMULATION 1: L OGISTIC REGRESSION 
+
+SETTING ρ = 0 .3 ρ = 0 .5 ρ = 0 .7 ρ = 0 .8 ρ = 0 .9 ρ = 0 .95 WDRO 
+
+s = 1 KG-WDRO 0.587 0.647 0.714 0.748 0.794 0.817 0.565 
+
+N = 20 TRANS -GLM 0.585 0.641 0.702 0.735 0.778 0.800 -
+
+s = 1 KG-WDRO 0.586 0.647 0.713 0.751 0.797 0.823 0.619 
+
+N = 50 TRANS -GLM 0.586 0.645 0.710 0.752 0.792 0.823 -
+
+s = 1 KG-WDRO 0.583 0.646 0.713 0.751 0.798 0.823 0.654 
+
+N = 80 TRANS -GLM 0.584 0.646 0.714 0.755 0.800 0.826 -
+
+s = 0 .5 KG-WDRO 0.581 0.634 0.690 0.721 0.762 0.787 0.549 
+
+N = 20 TRANS -GLM 0.579 0.626 0.674 0.708 0.748 0.760 -
+
+s = 0 .5 KG-WDRO 0.580 0.635 0.689 0.728 0.768 0.794 0.588 
+
+N = 50 TRANS -GLM 0.579 0.633 0.693 0.723 0.769 0.789 -
+
+s = 0 .5 KG-WDRO 0.581 0.637 0.700 0.732 0.775 0.790 0.617 
+
+N = 80 TRANS -GLM 0.581 0.638 0.702 0.737 0.779 0.799 -
+
+Table 3. Out-of-sample classification accuracies for Simulation 4.1, comparing KG-WDRO, Trans-GLM, and WDRO across six settings with varying values of ρ.
+
+A.1.2. S IMULATION 2: L INEAR REGRESSION 
+
+SETTING ρ = 0 .3 ρ = 0 .5 ρ = 0 .7 ρ = 0 .8 ρ = 0 .9 ρ = 0 .95 WDRO 
+
+s = 1 KG-WDRO (W EAK ) 0.585 0.645 0.740 0.801 0.870 0.912 0.108 
+
+N = 50 KG-WDRO (S TRONG ) 0.583 0.646 0.741 0.800 0.871 0.910 -TRANS -R IDGE 0.391 0.548 0.706 0.786 0.870 0.915 -
+
+s = 1 KG-WDRO (W EAK ) 0.707 0.745 0.803 0.843 0.894 0.924 0.513 
+
+N = 70 KG-WDRO (S TRONG ) 0.704 0.743 0.803 0.842 0.892 0.923 -TRANS -R IDGE 0.599 0.692 0.788 0.838 0.893 0.925 -
+
+s = 1 KG-WDRO (W EAK ) 0.806 0.827 0.859 0.881 0.911 0.932 0.758 
+
+N = 90 KG-WDRO (S TRONG ) 0.804 0.825 0.857 0.880 0.910 0.930 -TRANS -R IDGE 0.762 0.802 0.849 0.877 0.910 0.932 -
+
+s = 0 .8 KG-WDRO (W EAK ) 0.563 0.621 0.716 0.777 0.850 0.894 0.030 
+
+N = 50 KG-WDRO (S TRONG ) 0.561 0.622 0.716 0.777 0.849 0.892 -TRANS -R IDGE 0.213 0.405 0.600 0.700 0.803 0.858 -
+
+s = 0 .8 KG-WDRO (W EAK ) 0.673 0.713 0.774 0.818 0.872 0.905 0.361 
+
+N = 70 KG-WDRO (S TRONG ) 0.670 0.710 0.774 0.816 0.869 0.903 -TRANS -R IDGE 0.470 0.585 0.704 0.768 0.837 0.875 -
+
+s = 0 .8 KG-WDRO (W EAK ) 0.768 0.791 0.826 0.851 0.886 0.911 0.703 
+
+N = 90 KG-WDRO (S TRONG ) 0.765 0.788 0.825 0.851 0.885 0.909 -TRANS -R IDGE 0.671 0.724 0.785 0.821 0.863 0.890 -
+
+Table 4. Out-of-sample R2 for Simulation 4.2, comparing KG-WDRO (Strong), KG-WDRO (Weak), Trans-Ridge, and WDRO across six settings with varying values of ρ.
+
+11 Knowledge-Guided WDRO 
+
+A.1.3. S IMULATION 3: M ULTI -S ITES 
+
+Here, recall that the notation ϱ denote the correlation of generating the three prior knowledge under the scheme (3). 
+
+SETTING ρ = 0 .7 ρ = 0 .75 ρ = 0 .8 ρ = 0 .85 ρ = 0 .9 ρ = 0 .95 WDRO 
+
+[1 , −0.5, 0.2] KG-WDRO 0.560 0.640 0.713 0.783 0.850 0.916 -0.584 
+
+ϱ = 0 .9, N = 50 TRANS -L ASSO 0.578 0.625 0.673 0.723 0.767 0.815 -
+
+[1 , −0.5, 0.2] KG-WDRO 0.674 0.728 0.776 0.825 0.875 0.926 0.027 
+
+ϱ = 0 .9, N = 60 TRANS -L ASSO 0.666 0.697 0.732 0.770 0.808 0.850 -
+
+[1 , −0.5, 0.2] KG-WDRO 0.793 0.820 0.848 0.878 0.907 0.939 0.375 
+
+ϱ = 0 .9, N = 70 TRANS -L ASSO 0.756 0.779 0.805 0.832 0.857 0.882 -
+
+[1 , 1, 1] KG-WDRO 0.565 0.642 0.715 0.785 0.852 0.916 -2.837 
+
+ϱ = 0 .6, N = 50 TRANS -L ASSO 0.628 0.680 0.735 0.790 0.838 0.889 -
+
+[1 , 1, 1] KG-WDRO 0.673 0.729 0.778 0.829 0.877 0.928 -0.015 
+
+ϱ = 0 .6, N = 60 TRANS -L ASSO 0.708 0.744 0.786 0.826 0.863 0.902 -
+
+[1 , 1, 1] KG-WDRO 0.797 0.825 0.852 0.880 0.911 0.942 0.354 
+
+ϱ = 0 .6, N = 70 TRANS -L ASSO 0.794 0.820 0.844 0.868 0.894 0.919 -
+
+Table 5. Out-of-sample R2 for Simulation 4.3, comparing KG-WDRO, Trans-Lasso, and WDRO across six settings with varying values of ρ.
+
+A.2. Simulation Setup 
+
+Let Ber( p) denote a bernoulli distribution with probability parameter p, U[a, b ] denote a uniform distribution supported on 
+
+[a, b ], and N (μ, σ 2) denote a univariate normal distribution with mean μ and variance σ2.A.2.1. S IMULATION 1: L OGISTIC REGRESSION 
+
+In this simulation, the coefficients are generated in a high-dimensional sparse setting. The dimension of the nonzero components is set to 50, which is then augmented with 100 zero components to introduce sparsity. The nonzero components of the true coefficient-prior pair (β, θ ) are generated using the multivariate normal scheme in (3) , with component variance 
+
+σ2 = 0 .4 and ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 }. The target labels are generated as Ytarget ∼ Ber (1 /(1 + exp ( 9βTX)) ,and the source labels are generated as Ysource ∼ Ber (1 /(1 + exp ( 9θTX)) , where X ∼ U [−2, 2] 150 . The sample size N
+
+for (Xtarget , Y target ) is varied across {20 , 50 , 80 }, while the sample size for the source data (Xsource , Y source ) is fixed at 800. Each dataset is paired with a validation set of the same size for hyperparameter selection. Let grid 1 denote a hyperparameter grid ranging from 0.0001 to 1 with 10 log-spaced values, and let grid 2 denote a hyperparameter grid ranging from 0.0001 to 2 with 20 log-spaced values. The βWDRO estimator is learned by selecting the best-performing hyperparameter on grid 1 using validation data. For the A-Trans-GLM learner (Tian & Feng, 2023, Algorithm 1), the transferring step is optimized using grid 1, and the debiasing step is optimized using grid 2. For the KG-WDRO learner βKG proposed in Theorem 3.6 with p = 1 , the prior θ is first learned from the source data using the vanilla WDRO method on grid 1, followed by learning βKG on grid 2 with the learned θWDRO as input. The simulations are conducted on the parameter grid N ∈ { 20 , 50 , 80 } × ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 } × s ∈ { 0.5, 1},with each configuration repeated 100 times. The average results are reported. A.2.2. S IMULATION 2: L INEAR REGRESSION 
+
+In this simulation, the coefficients are generated in a high-dimensional correlated setting. The dimension of the coefficients is set to 100 and the components of the true coefficient-prior pair (β, θ ) are generated using the multivariate normal scheme in (3) , with component variance σ2 = 0 .1 and ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 }. The target labels are generated as 
+
+Ytarget ∼ N (βTX, √0.5) , and the source labels are generated as Ysource ∼ N (θTX, √0.5) , where X ∼ N (0, Σ) with 
+
+Σi,j =
+
+(
+
+1 if i = j, 
+
+0.3 if i̸ = j, for all i, j = 1 , 2, . . . , 100 .
+
+12 Knowledge-Guided WDRO 
+
+The sample size N for (Xtarget , Y target ) is varied across {50 , 70 , 90 }, while the sample size for the source data 
+
+(Xsource , Y source ) is fixed at 800. Each dataset is paired with a validation set of the same size for hyperparameter se-lection. Let grid 1 denote a hyperparameter grid ranging from 0.0001 to 1 with 10 log-spaced values, and let grid 2 denote a hyperparameter grid ranging from 0.0001 to 1.5 with 20 log-spaced values. The βWDRO estimator is learned by selecting the best-performing hyperparameter on grid 1 using validation data. For the Trans-Ridge learner adapted from (Li et al., 2021, Algorithm 1), the transferring step is optimized using grid 1, and the debiasing step is optimized using grid 2. For the KG-WDRO learner βKGstrong proposed in Theorem 3.3 with p = 2 , and the βKGweak learner proposed in Theorem 3.5, the prior θ is first learned from the source data using the vanilla WDRO method on grid 1, followed by learning βKGstrong on 
+
+grid 2 with the learned θWDRO as input. The λ−1 grid for βKGweak is 0.0001 to 8 with 20 log-spaced values. The simulations are conducted on the parameter grid N ∈ { 50 , 70 , 90 } × ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 } × s ∈ { 0.8, 1},with each configuration repeated 100 times. The average results are reported. A.2.3. S IMULATION 3: M ULTIPLE SITES 
+
+In this simulation, the coefficients are generated in a high-dimensional sparse setting. The dimension of the nonzero components is set to 50, which is then augmented with 100 zero components to introduce sparsity. The number of external source is 3, we generate the their coefficients θ1, θ 2, θ 3 using the scheme (3) . We construct a linear combination, 
+
+θS = aθ 1 + bθ 2 + cθ 3, and generate the target coefficient β = ρθ S + ε, where ε ∼ N (0 , (1 − ρ2)Var( θS )) , ensuring 
+
+Corr( β, θ S ) = ρ. The target coefficient β is then scaled to match the magnitude of θS .The target labels are generated as Ytarget ∼ N (βTX, √0.5) , and the source labels are generated as Ysource ,m ∼N (θT
+
+> m
+
+X, √0.5) for m ∈ [3] , where X ∼ N (0, Σ) with 
+
+Σi,j =
+
+(
+
+1 if i = j, 
+
+0.1 if i̸ = j, for all i, j = 1 , 2, . . . , 150 .
+
+The sample size for the target data ranges in {50 , 60 , 70 }.Let grid 1 denote a hyperparameter grid ranging from 0.0001 to 1 with 15 log-spaced values, and let grid 2 denote a hyperparameter grid ranging from 0.0001 to 3 with 20 log-spaced values. The βWDRO estimator is learned by selecting the best-performing hyperparameter on grid 1 using validation data. For the oracle Trans-Lasso learner (Li et al., 2021, Algorithm 1), the transferring step is optimized using grid 1, and the debiasing step is optimized using grid 2 using all three source data. For the KG-WDRO learner βKG proposed in Theorem 3.3 with p = 1 , the priors θ1, θ 2, θ 3 are first learned from the three source data using the vanilla WDRO method on grid 1, followed by learning βKG on grid 2 with the learned 
+
+θ1,WDRO , θ 2,WDRO , θ 3,WDRO as input. The simulations are conducted on the parameter grid N ∈ { 50 , 60 , 70 } × ρ ∈ { 0.3, 0.5, 0.7, 0.8, 0.9, 0.95 } × [a, b, c ] ∈{[1 , −0.5, 0.2] , [1 , 1, 1] }, with each configuration repeated 100 times. The average results are reported. 
+
+## B. Proof of Results in Regression. 
+
+Proof of Proposition 3.1 . This result follows from the observation that, under the constraint imposed by c2,∞, for any 
+
+P# ∈ B δ (PN ; c2,∞) and any α ∈ R, the marginal distributions of (Y, αθ TX) must agree under PN and P#. That is, 
+
+PN
+
+ (Y, αθ TX) ∈ A × B = P# (Y, αθ TX) ∈ A × B,
+
+for all Borel measurable sets A, B ⊂ R. Consequently, for any P# ∈ B δ (PN ; c2,∞) we have 
+
+EPN
+
+(Y − αθ TX)2 = EP#
+
+(Y − αθ TX)2 ,
+
+then choosing β = αθ , we have 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PN)
+
+EP
+
+(Y − βTX)2 = sup   
+
+> P:Bδ(PN)
+
+inf 
+
+> β∈Rd
+
+EP
+
+(Y − βTX)2
+
+≤ sup   
+
+> P:Bδ(PN)
+
+EP
+
+(Y − αθ TX)2 .
+
+= EPN
+
+(Y − αθ TX)2 ,
+
+13 Knowledge-Guided WDRO 
+
+where the first equality invoked the Minimax Theorem of WDRO (Blanchet et al., 2019a, Lemma 1). Taking infimum over 
+
+α completes the proof. 
+
+Lemma B.1. Let fβ : Rd → R be defined as ∆ ∈ Rd 7 → (βT∆) 2 − 2r(β)βT∆ depending on some β ∈ Rd and let r(β) be a non-negative real-valued function in β. Then the convex conjugate f ∗ 
+
+> β
+
+(∆ ∗) : Rd → R is given by 
+
+f ∗ 
+
+> β
+
+(∆ ∗) = 
+
+
+
+(βT∆∗ + 2 r(β)∥β∥22)2
+
+4∥β∥42
+
+if ∆∗ ∈ span β, 
+
++∞ otherwise .
+
+Therefore the biconjugate f ∗∗  
+
+> β
+
+(∆) : Rd → R of fβ (∆) has representation: 
+
+f ∗∗  
+
+> β
+
+(∆) = sup 
+
+> α∈R
+
+
+
+α(βT∆) − (α + 2 r(β)) 2
+
+4
+
+
+
+.
+
+Proof. The convex conjugate f ∗ 
+
+> β
+
+(∆ ∗) is defined as 
+
+f ∗ 
+
+> β
+
+(∆ ∗) := sup 
+
+> ∆∈Rd
+
+ ∆∗T∆ − (βT∆) 2 + 2 r(β)( βT∆) ,
+
+where ∆∗, β ∈ Rd and r(β) ∈ R are taken as fixed values. Orthogonalize ∆ = aβ + ω in the direction of β with a ∈ R,and ω ∈ Rd such that βTω = 0 . Then , we have ∆∗T∆ = a∆∗Tβ + ∆ ∗Tω, and the convex conjugate becomes 
+
+f ∗(∆ ∗) = sup 
+
+> a,ω
+
+ a(∆ ∗Tβ) + ∆ ∗Tω − a2∥β∥42 + 2 ar (β)∥β∥22
+
+
+
+s.t βTω = 0 .
+
+Fixing ω, the objective is a negative quadratic function in a, hence the objective in a is bounded from above by a finite value. Now, if ∆∗ is not orthogonal to ω, the term sup ω ∆∗Tω is unbounded, and the convex conjugate f ∗(∆ ∗) = + ∞. If ∆∗ is orthogonal to ω, then the convex conjugate attains finite value. Note that ∆∗Tω = 0 ⇐⇒ ∆∗ ∈ span β. Hence condition on {∆∗ = αβ ; α ∈ R}, we have 
+
+f ∗(∆ ∗) = sup 
+
+> a
+
+ a(∆ ∗Tβ) − a2∥β∥42 + 2 r(β)a∥β∥22
+
+
+
+=
+
+ ∆∗Tβ + 2 r(β)∥β∥22
+
+2
+
+4∥β∥42
+
+,
+
+where the optimal solution is a∗ = α + 2 r(β)2∥β∥22
+
+, and the coefficient α is given by the projection scalar α = ∆∗Tβ
+
+∥β∥22
+
+.The biconjuagte 
+
+f ∗∗ (∆) = sup 
+
+> ∆∗
+
+ ∆T∆∗ − f ∗(∆ ∗),
+
+is therefore bounded from below if and only if ∆∗ ∈ span β. Let ∆∗ = αβ for some α ∈ R, then substituting we get the representation, 
+
+f ∗∗ (∆) = sup 
+
+> α
+
+∆T(αβ ) −
+
+ βT(αβ ) + 2 r(β)∥β∥22
+
+2
+
+4∥β∥42
+
+!
+
+= sup 
+
+> α
+
+
+
+α(∆ Tβ) − (α + 2 r(β)) 2
+
+4
+
+
+
+.
+
+It can be readily verified that f ∗∗ (∆) = f (∆) as promised by the Fenchel-Moreau Theorem (Theorem E.4). 
+
+Lemma B.2. Let gθ (∆) : Rd → R be defined as ∆ ∈ Rd 7 → | θT∆| for some θ ∈ Rd. Then the convex conjugate g∗ 
+
+> θ
+
+(∆ ∗) is given by 
+
+g∗ 
+
+> θ
+
+(∆ ∗) = 
+
+(
+
+0 if ∆∗ = αθ and |α| ≤ 1,
+
++∞ otherwise. 
+
+14 Knowledge-Guided WDRO 
+
+Therefore the convex conjugate of the function g(∆) := γ PMm=1 gθm (∆) for some γ > 0 is given by 
+
+g∗(∆ ∗) = 
+
+(
+
+0 if ∆∗ = PMm=1 αmθm and , |αm| ≤ γ for each m, 
+
++∞ otherwise. Proof. The convex conjugate is defined as 
+
+g∗ 
+
+> θ
+
+(∆ ∗) = sup 
+
+> ∆
+
+ ∆∗T∆ − | θT∆|,
+
+again, orthogonalize ∆ = aθ + ω, where a = θT∆
+
+∥θ∥22
+
+and θTω = 0 . Now by the change of variable u := θT∆, the convex conjugate is now 
+
+g∗ 
+
+> θ
+
+(∆ ∗) = sup 
+
+> u,ω
+
+ u
+
+∥θ∥22
+
+(∆ ∗Tθ) + ∆ ∗Tω − | u|
+
+
+
+s.t θTω = 0 .
+
+Thus the convex conjugate g∗ 
+
+> θ
+
+(∆ ∗) = + ∞ if ∆∗̸ ∈ span θ. If ∆∗ = αθ for some α ∈ R, then 
+
+g∗ 
+
+> θ
+
+(∆ ∗) = g∗ 
+
+> θ
+
+(αθ ) = sup 
+
+> u
+
+ u
+
+∥θ∥22
+
+α∥θ∥22 − | u|
+
+
+
+= sup 
+
+> u
+
+ αu − | u|
+
+=
+
+(
+
+0 if |α| ≤ 1,
+
++∞ otherwise, where the last equality holds by noting that sup u αu − | u| = | · | ∗(α) is the convex conjugate of the absolute value function (Proposition E.2). This proofs the convex conjugate of g∗ 
+
+> θ
+
+(∆ ∗). Now g(∆) = γ PMm=1 gθm (∆) = γ¯g(∆) , the convex conjugate of ¯g(∆) is 
+
+¯g∗(∆ ∗) = ( gθ1 + . . . + gθM )∗(∆ ∗)= inf 
+
+> ∆∗
+
+ g∗ 
+
+> θ1
+
+(∆ ∗
+
+> 1
+
+) + . . . + g∗ 
+
+> θM
+
+(∆ ∗ 
+
+> M
+
+) s.t ∆∗ 
+
+> 1
+
++ . . . + ∆ ∗ 
+
+> M
+
+= ∆ ∗,
+
+where the second line follows from the infimal convolution property of sum of convex conjugates (Theorem E.5). We know that ¯g∗ is finite if and only if g∗ 
+
+> θm
+
+(∆ ∗
+
+> m
+
+) = 0 for all m ∈ [M ], that is ∆∗ 
+
+> m
+
+= αmθm for some αm ∈ [−1, 1] for all m ∈ [M ].Hence ¯g∗(∆ ∗) = 0 if and only if ∆∗ = PMm=1 αmθm and αm ∈ [−1, 1] for all m ∈ [M ]. Finally we can calculate the convex conjugate g∗(∆ ∗) = ( γ¯g)∗(∆ ∗) = γ¯g∗
+
+ ∆∗
+
+γ
+
+
+
+by the scaling law of convex conjugates (Proposition E.3) given 
+
+γ > 0. This concludes the proof. We now give the proof to Theorem 3.3. 
+
+Proof of Theorem 3.3 . Let r(β) := y − βTx. Then first consider the cost function 
+
+c2
+
+ (x, y ), (u, v ) := ∥x − u∥2 
+
+> q
+
++ ∞ · | y − v| + d(θT
+
+> 1
+
+x − θT
+
+> 1
+
+u) + . . . + d(θT 
+
+> M
+
+x − θT 
+
+> M
+
+u).
+
+where we replaced the transferring strength from +∞ to a finite-valued distance function d(x) : R → R that is a monotone function in |x|, with d(0) = 0 . We will then let d(x) → ∞ except at x = 0 . Then the supremum function 
+
+ϕγ (x, y ; β) = sup 
+
+> (u,v )∈Rd+1
+
+ℓ(u, v ; β) − γc  (u, v ), (x, y ) ,
+
+is finite if and only if v = y. Then, we have 
+
+l (u, v ; β) − γc (( u, v ) , (x, y )) = ( y − βTu)2 − γ ∥x − u∥2 
+
+> q
+
+− γd (θT
+
+> 1
+
+x − θT
+
+> 1
+
+u) − . . . − γd (θT 
+
+> M
+
+x − θT 
+
+> M
+
+u).
+
+15 Knowledge-Guided WDRO 
+
+Denote by ∆ := u − x, we get 
+
+l (u, v ; β) − γc (( u, v ) , (x, y )) =r(β)2 + (βT∆) 2 − 2r(β)βT∆ − γ∥∆∥2 
+
+> q
+
+− γd (θT
+
+> 1
+
+∆) − . . . − γd (θT 
+
+> M
+
+∆) .
+
+Consider the objective in ∆sup 
+
+> ∆
+
+(βT∆) 2 − 2r(β)βT∆ − γ∥∆∥2 
+
+> q
+
+− γd (θT
+
+> 1
+
+∆) − . . . − γd (θT 
+
+> M
+
+∆) 
+
+:= sup 
+
+> ∆
+
+fβ (∆) − g(∆) ,
+
+where we let fβ (∆) := ( βT∆) 2 − 2r(β)βT∆ and g(∆) := γ∥∆∥2 
+
+> q
+
++ γd (θT
+
+> 1
+
+∆) + . . . + γd (θT 
+
+> M
+
+∆) . This is a convex + concave optimization, we express the convex part of fβ (∆) as a supremum of infinitely many affine functions. Then by Lemma B.1, we have fβ (∆) = f ∗∗  
+
+> β
+
+(∆) = sup α∈R
+
+
+
+α(βT∆) − (α + 2 r(β)) 2
+
+4
+
+
+
+, then we may write 
+
+sup 
+
+> ∆
+
+fβ (∆) − g(∆) 
+
+= sup 
+
+> ∆
+
+
+
+sup 
+
+> α∈R
+
+
+
+α(βT∆) − (α + 2 r(β)) 2
+
+4
+
+
+
+− g(∆) 
+
+
+
+= sup 
+
+> α
+
+(
+
+sup 
+
+> ∆
+
+ ∆T(αβ ) − g(∆)  −
+
+ α + 2 r(β)2
+
+4
+
+)
+
+= sup 
+
+> α
+
+(
+
+g∗(αβ ) −
+
+ α + 2 r(β)2
+
+4
+
+)
+
+, (Toland’s Duality) where g∗ is the convex conjugate of g. Let g(∆) := g1(∆) + gθ (∆) , with g1(∆) = γ∥∆∥2 
+
+> q
+
+and gθ (∆) := γ PMm=1 d(θT
+
+> m
+
+∆) .Then we can compute the convex conjugate of g using the infimal convolution property (Theorem E.5). Then 
+
+g∗(∆ ∗) = inf   
+
+> ∆∗
+> 1+∆ ∗
+> 2=∆ ∗
+
+ g∗ 
+
+> 1
+
+(∆ ∗
+
+> 1
+
+) + g∗ 
+
+> θ
+
+(∆ ∗
+
+> 2
+
+).
+
+We know that g∗ 
+
+> 1
+
+(∆ ∗
+
+> 1
+
+) = 14γ ∥∆∗
+
+> 1
+
+∥2
+
+> p
+
+, where p−1 + q−1 = 1 (Proposition E.2). Now suppose d(x) = λ|x| for some λ > 0,by Lemma B.2, we have, 
+
+g∗ 
+
+> θ
+
+(∆ ∗
+
+> 2
+
+) = 
+
+(
+
+0 if ∆∗ 
+
+> 2
+
+= PMm=1 αmθm and , |αm| ≤ γλ for each m, 
+
++∞ otherwise. Then the convex conjugate g∗(∆ ∗) is 
+
+g∗(∆ ∗) = inf 
+
+> ∆∗
+> 2
+
+g∗ 
+
+> 1
+
+(∆ ∗ − ∆∗
+
+> 2
+
+),
+
+s.t ∆∗ 
+
+> 2
+
+=
+
+> M
+
+X
+
+> m=1
+
+αmθm and , |αm| ≤ γλ for each m, 
+
+which is equivalently, 
+
+g∗(∆ ∗) = 14γ inf  
+
+> α
+
+∆∗ −
+
+> M
+
+X
+
+> m=1
+
+αmθm
+
+> 2
+> p
+
+,
+
+s.t |αm| ≤ γλ for each m. 
+
+Letting λ → ∞ , we recover the cost function c2,∞, and when λ → ∞ , each αm is now free in R. Then we have 
+
+g∗(∆ ∗) = 14γ inf ϑ∈Θ ∥∆∗ − ϑ∥2
+
+> p
+
+, with Θ := span {θ1, . . . , θ M }, the validity of this tactic follows from (Luenberger & Ye, 16 Knowledge-Guided WDRO 
+
+2008, Theorem 1, Section 13.1). Then we have g∗(αβ ) = 14γ inf ϑ∈Θ ∥αβ − ϑ∥2
+
+> p
+
+. Suppose α̸ = 0 , then dividing by α, we get 
+
+g∗(αβ ) = α2
+
+4γ inf  
+
+> ϑ∈Θ
+
+∥β − ϑ∥2
+
+> p
+
+.
+
+If α = 0 , then g∗(αβ ) = g∗(0) = 14γ inf ϑ ∥ϑ∥2 
+
+> p
+
+= 0 , so the representation g∗(αβ ) = α2
+
+4γ inf ϑ∈Θ ∥β − ϑ∥2
+
+> p
+
+, is valid for all 
+
+α ∈ R. Therefore following the proof of (Blanchet et al., 2019a, Theorem 1), 
+
+ϕγ (x, y ; β) = r(β)2 + 14 sup 
+
+> α
+
+ α2
+
+γ inf  
+
+> ϑ∈Θ
+
+∥β − ϑ∥2 
+
+> p
+
+−  α + 2 r(β)2
+
+
+
+= 14 sup 
+
+> α
+
+( inf ϑ ∥β − ϑ∥2
+
+> p
+
+γ − 1
+
+!
+
+α2 − 4r(β)α
+
+)
+
+=
+
+
+
+r(β)2γγ − inf ϑ ∥β − ϑ∥2
+
+> p
+
+if inf ϑ ∥β − ϑ∥2 
+
+> p
+
+≤ γ, 
+
++∞ otherwise. Then the minimization objective can be simplified as 
+
+inf 
+
+> β∈Rd
+
+min 
+
+> γ≥0
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+ϕγ (xi, y i; β)
+
+)
+
+= inf  
+
+> β
+
+inf 
+
+> γ≥inf ϑ∥β−ϑ∥2
+> p
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+ri(β)2γγ − inf ϑ∥β − ϑ∥2
+
+> p
+
+)
+
+= inf  
+
+> β
+
+inf 
+
+> γ≥inf ϑ∥β−ϑ∥2
+> p
+
+
+
+γδ + MSE (β) γγ − inf ϑ∥β − ϑ∥2
+
+> p
+
+
+
+= inf 
+
+> β
+
+pMSE (β) + √δ inf  
+
+> ϑ
+
+∥β − ϑ∥p
+
+2
+
+,
+
+where the last equality follows because γδ + 1
+
+n MSE (β) γγ − inf ϑ∥β − ϑ∥2
+
+> p
+
+is a convex function in γ that tends to +∞
+
+approaching the boundaries inf ϑ ∥β − ϑ∥2 
+
+> p
+
+and +∞, so the optimization over γ can be solved using first-order condition. Then by Proposition 2.1, strong duality holds and, 
+
+inf  
+
+> β
+
+sup  
+
+> P:Dc2(P,Pn)≤δ
+
+EP
+
+(Y − βTX)2 = inf 
+
+> β,ϑ
+
+p MSE (β) + √δ∥β − ϑ∥p
+
+2
+
+.
+
+This reduces the infinite-dimensional optimization to a finite-dimensional problem, where we interchanged inf ϑ and the quadratic function, since the quadratic function is monotone increasing on the positive reals. The next proof is to Theorem 3.5 with the weak transferring cost function c2,λ 
+
+ (x, y ), (u, v ) = ∥x − u∥22 + λ(θTx −
+
+θTu)2 + ∞ · | y − v| with some λ > 0. The statements generalizes to multi-sites by first considering orthogonalizing the prior knowledge {θ1, . . . , θ M }.
+
+Proof of Theorem 3.5 . Following the proof of Theorem 3.3, we solve the optimization problem 
+
+sup 
+
+> ∆∈Rd
+
+ (βT∆) 2 − 2r(β)βT∆ − γ∥∆∥22 − γλ (θT∆) 2,
+
+where we recall that γ is the dual-variable in statement of Proposition 2.1, λ > 0 is the transferring strength, θ ∈ Rd is the prior knowledge, and r(β) = ( y − βTx)2 is the residual in β.17 Knowledge-Guided WDRO 
+
+Then let O be an orthogonal matrix, whose first column is θ/ ∥θ∥2, then use e∆ := O−1∆. The objective function now becomes 
+
+(βTO e∆) 2 − 2r(β)βTO e∆ − γ∥ e∆∥22 − γλ ∥θ∥22 e∆21,
+
+where the last term follows because θTO = ( ∥θ∥2, 0, . . . , 0) , and e∆1 denotes the first component of e∆. Now define 
+
+D = diag 
+
+q 
+
+λ∥θ∥22 + 1 , 1, . . . , 1
+
+
+
+,
+
+and consider the change of variable ¯∆ = D e∆, then the last two terms become 
+
+∥ e∆∥22 + λ∥θ∥22 e∆21 = ∥D−1 ¯∆∥22 + λ∥θ∥2
+
+¯∆21
+
+λ∥θ∥22 + 1 =
+
+> d
+
+X
+
+> i=1
+
+¯∆2 
+
+> d
+
+= ∥ ¯∆∥22.
+
+Therefore, the objective becomes 
+
+sup 
+
+> ¯∆
+
+ (βTOD−1 ¯∆) 2 − 2r(β)βTOD−1 ¯∆ − γ∥ ¯∆∥22
+
+
+
+= sup 
+
+> ¯∆
+
+ ∥βTOD−1∥22∥ ¯∆∥22 − 2r(β)∥βTOD−1∥2∥ ¯∆∥2 − γ∥ ¯∆∥22)= sup 
+
+> ¯∆
+
+ (∥β∥Ψλ − γ)∥ ¯∆∥22 − 2r(β)∥β∥Ψλ ∥ ¯∆∥2
+
+
+
+which has finite optimal value r(β)2∥β∥2Ψλ
+
+γ − ∥ β∥2Ψλ
+
+whenever γ ≥ ∥ β∥Ψλ , with Ψλ denoting the positive-definite symmetric matrix, 
+
+Ψλ = Id − 1
+
+∥θ∥22 + λ−1 θθ T,
+
+that is independent of the choice of O. The first equality follows because we applied Cauchy-Schwarz inequality and since 
+
+¯∆ ∈ Rd is free, there is some ¯∆ that achieves equality. The rest of the proof follows exactly along the proof of Theorem 3.3 by completing the optimization over the dual problem using Proposition 2.1. 
+
+## C. Proof of Results in Classification. 
+
+Lemma C.1. Consider the convex function hβ (x) : Rd → R by x ∈ Rd 7 → log (1 + exp ( 9βTx)) , for some q > 0 and 
+
+x′ ∈ R. Then for every γ > 0, the constraint optimization problem Hβ (x′) defined as, 
+
+sup 
+
+> x∈Rp
+
+hβ (x) − γ∥x′ − x∥q ,
+
+s.t θT(x′ − x) = 0 ,
+
+has optimal objective value, 
+
+Hβ (x′) = 
+
+(
+
+hβ (x′) if inf κ∈R∥β − κθ ∥p ≤ γ, 
+
++∞ otherwise, where p, q ∈ [1 , ∞) with p−1 + q−1 = 1 .Proof. This lemma is a simple extension of (Shafieezadeh-Abadeh et al., 2015, Lemma 1). Following their proof, it is shown that 
+
+hβ (x) = h∗∗  
+
+> β
+
+(x) = sup 
+
+> 0≤α≤1
+
+ (αβ )Tx − ¯h∗(α),
+
+where 
+
+¯h∗(α) = 
+
+(
+
+α log ( α) + (1 − α) log (1 − α) if α ∈ [0 , 1] ,
+
++∞ otherwise ,
+
+18 Knowledge-Guided WDRO 
+
+is the convex conjugate of the function log  1 + e9x (Proposition E.2). Then it is shown that the objective Hβ must has representation 
+
+sup 
+
+> 0≤α≤1
+
+inf  
+
+> ∥q∥p≤γ
+
+sup 
+
+> x
+
+ (αβ + q)Tx − ¯h∗(α) − qTx′,
+
+s.t θT(x − x′) = 0 .
+
+Fixing α and q, then the inner maximization in x
+
+sup 
+
+> x
+
+ (αβ + q)Tx − qTx′,
+
+s.t θT(x − x′) = 0 ,
+
+has solution (αβ )Tx′ subject to αβ + q = μθ for some μ ∈ R derived using the first-order condition of the Lagrangian duality or +∞ otherwise. Then condition on {αβ + q = μθ |μ ∈ R}, the objective has representation 
+
+Hβ (x′) = sup 
+
+> 0≤α≤1
+
+inf 
+
+> ∥q∥p≤γ
+
+ (αβ )Tx′ − ¯h∗(α) s.t q = μθ − αβ 
+
+= sup 
+
+> 0≤α≤1
+
+inf 
+
+> μ, ∥μθ −αβ ∥p≤γ
+
+ (αβ )Tx′ − ¯h∗(α).
+
+Consider the constraint ∥μθ − αβ ∥p ≤ γ over μ. Suppose α > 0, then dividing by −α, we get the equivalent constraint 
+
+|α| β − μα θ p
+
+
+
+≤ γ over μ. Defining the change of variable κ := μα , then since the Lagrange multiplier μ ∈ R is free, we have κ is free, and the constraint becomes inf κ |α|∥ β − κθ ∥p ≤ γ over κ ∈ R. If α = 0 , then inf μ ∥μθ − 0∥ =0 = 0 · inf κ ∥β − κθ ∥p. So the equivalent constraint inf κ |α|∥ β − κθ ∥p ≤ γ is valid for all α ∈ [0 , 1] . Then condition on 
+
+{αβ + q = μθ |μ ∈ R}, the objective becomes, 
+
+Hβ (x′) = sup 
+
+> 0≤α≤1
+
+ (αβ )Tx′ − ¯h∗(α) s.t sup 
+
+> 0≤α≤1
+
+|α| inf  
+
+> κ
+
+∥β − κθ ∥p ≤ γ, 
+
+= sup 
+
+> 0≤α≤1
+
+ (αβ )Tx′ − ¯h∗(α) s.t inf  
+
+> κ
+
+∥β − κθ ∥p ≤ γ, 
+
+Recognizing that 
+
+sup 
+
+> 0≤α≤1
+
+ (αβ )Tx′ − ¯h∗(α) = sup 
+
+> 0≤α≤1
+
+α(βTx′) − ¯h∗(α) = ¯h∗∗ (βTx′) = hβ (x′),
+
+we get 
+
+Hβ (x′) = 
+
+(
+
+hβ (x′) if inf κ ∥β − κθ ∥p ≤ γ, 
+
++∞ otherwise. The above Lemma C.1 is easily generalized to incorporate multiple orthogonality constraints {θT
+
+> m
+
+(x′ − x) = 0 ; m ∈ [M ]}
+
+using the exact same Lagrangian formulation. Again, recall Θ = span {θ1, . . . , θ M }. Thus the optimal objective value under multiple constraints becomes 
+
+Hβ (x′) = 
+
+(
+
+hβ (x′) if inf ϑ∈Θ ∥β − ϑ∥p ≤ γ, 
+
++∞ otherwise. We now give the proof to Theorem 3.6. 
+
+Proof of Theorem 3.6 for Logistic Loss . Using Proposition 2.1, we apply the strong duality, and consider the inner opti-mization problem 
+
+sup 
+
+> P:Dc1,∞(P,Pn)≤δ
+
+EP
+
+h
+
+log 
+
+
+
+1 + e−Y β TX i 
+
+=
+
+
+
+inf γ≥0
+
+
+
+γδ + 1
+
+n
+
+PNi=1 sup u∈Rd
+
+
+
+log 
+
+
+
+1 + e−yiβTu
+
+
+
+− γ∥xi − u∥q
+
+
+
+,
+
+s.t θT
+
+> m
+
+(xi − u) = 0 , for all m ∈ [M ] and i ∈ [N ].
+
+19 Knowledge-Guided WDRO 
+
+For each i ∈ [N ], we apply Lemma C.1 to the maximization problem, 
+
+Hβ (xi) = 
+
+(sup u∈Rd
+
+
+
+log 
+
+
+
+1 + e−yiβTu
+
+
+
+− γ∥xi − u∥q
+
+
+
+,
+
+s.t θT
+
+> m
+
+(xi − u) = 0 , for all m ∈ [M ].
+
+which has solution (log 
+
+
+
+1 + e−yiβTxi
+
+
+
+if inf ϑ∈Θ ∥β − ϑ∥p ≤ γ, 
+
++∞ otherwise. Therefore, the maximization problem sup P:Dc1,∞(P,Pn)≤δ EP
+
+h
+
+log 
+
+
+
+1 + e−Y β TX
+
+i 
+
+is bounded from above if and only if 
+
+γ ≥ inf ϑ ∥β − ϑ∥p. Under this condition, this reduces the inner optimization problem, 
+
+sup 
+
+> P:Dc1,∞(P,Pn)≤δ
+
+EP
+
+h
+
+log 
+
+
+
+1 + e−Y β TX i 
+
+= inf  
+
+> γ≥inf ϑ∥β−ϑ∥p
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + e−yiβTxi
+
+)
+
+= 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+log 
+
+
+
+1 + e−yiβTxi
+
+
+
++ δ inf  
+
+> ϑ
+
+∥β − ϑ∥p.
+
+This concludes the proof. We now give the proof to the maximum margin classifier using the hinge loss. 
+
+Proof of Theorem 3.6 for Hinge Loss . As in the case to the proof of Theorem 3.3, we first consider the relaxed cost function 
+
+c1(( x, y ), (u, v )) = ∥x − u∥q + ∞ · | y − v| + λ ·
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+x − θT
+
+> m
+
+u|,
+
+where we relaxed the transferring strength from +∞ to some finite value λ > 0. We will then let λ → +∞. Again, by strong duality, we can solve the worst case hinge loss by solving the dual problem 
+
+inf 
+
+> γ≥0
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+sup 
+
+> u
+
+(1 − yiβTu)+ − γ∥u − xi∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+(xi − u)|
+
+!) 
+
+.
+
+Let ∆ := u − x, then we have 
+
+sup 
+
+> u
+
+(1 − yβ Tu)+ − γ∥u − x∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+(x − u)|
+
+!
+
+= sup 
+
+> ∆
+
+(1 − yβ T(∆ + x)) + − γ∥∆∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+∆|
+
+!
+
+= sup 
+
+> ∆
+
+sup 
+
+> 0≤α≤1
+
+α(1 − yβ T(∆ + x)) − γ∥∆∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+∆|
+
+!
+
+= sup 
+
+> 0≤α≤1
+
+sup 
+
+> ∆
+
+−αyβ T∆ − γ∥∆∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+∆| + α(1 − yβ Tx)
+
+!
+
+.
+
+Where in the second equality we used x+ = sup 0≤α≤1 αx . Fixing α, consider the inner minimization in ∆,
+
+sup 
+
+> ∆
+
+−αyβ T∆ − γ∥∆∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+∆|
+
+!
+
+= g∗(−αyβ ),
+
+20 Knowledge-Guided WDRO 
+
+where g∗(∆ ∗) is the convex conjugate of g(∆) := γ∥∆∥q + γλ PMm=1 |θT
+
+> m
+
+∆|. Set γ∥∆1∥q =: g1(∆ 1) and 
+
+γλ PMm=1 |θT
+
+> m
+
+∆2| =: g2(∆ 2), then by the infimal convolution property of convex conjugates (Theorem E.5), we know that 
+
+g∗(∆ ∗) = inf   
+
+> ∆∗
+> 1+∆ ∗
+> 2=∆ ∗
+
+ g∗ 
+
+> 1
+
+(∆ ∗
+
+> 1
+
+) + g∗ 
+
+> 2
+
+(∆ ∗
+
+> 2
+
+).
+
+From Lemma B.2, we know that if g∗(∆ ∗) is finite, then g∗ 
+
+> 2
+
+(∆ ∗
+
+> 2
+
+) = 0 subject to ∆∗ 
+
+> 2
+
+= PMm=1 αmθm and |αm| ≤ λγ for all 
+
+m ∈ [M ]. Now it is well known that (Proposition E.2), 
+
+g∗ 
+
+> 1
+
+(∆ ∗
+
+> 1
+
+) = ( γ∥ · ∥ q )∗(∆ ∗
+
+> 1
+
+) = I{∥ ∆∗ 
+
+> 1∥p≤γ}
+
+(∆ ∗
+
+> 1
+
+),
+
+where IC (x) denotes the convex indicator on the set C. Therefore, letting λ → ∞ , the constraints {| αm| ≤ λγ |m ∈ [M ]}
+
+is redundant, and we have 
+
+g∗(∆ ∗) = 
+
+(
+
+0 if inf ϑ∈Θ ∥∆∗ − ϑ∥p ≤ γ, 
+
++∞ otherwise, where we let Θ := span {θ1, . . . , θ M }. Therefore, g∗(−αyβ ) is finite if and only if inf ϑ ∥ − αyβ − ϑ∥p ≤ γ. Now y = ±1,so we can remove −y, and this leaves us the condition that inf ϑ ∥αβ − ϑ∥p ≤ γ, which is equivalent to α inf ϑ ∥β − ϑ∥p ≤ γ
+
+for all α ∈ [0 , 1] , including α = 0 . Taking supremum over α ∈ [0 , 1] , the final condition is inf ϑ ∥β − ϑ∥p ≤ γ. Therefore, assuming the dual problem is bounded from above, it reduces as 
+
+sup 
+
+> 0≤α≤1
+
+sup 
+
+> ∆
+
+−αyβ T∆ − γ∥∆∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+∆| + α(1 − yβ Tx)
+
+!
+
+= sup 
+
+> 0≤α≤1
+
+ I{inf ϑ ∥β−ϑ∥p≤γ} + α(1 − yβ Tx)
+
+=(1 − yβ Tx)+ given inf  
+
+> ϑ
+
+∥β − ϑ∥p ≤ γ. 
+
+Finally, the dual form of the distributionally robust optimization problem is 
+
+inf  
+
+> β
+
+inf 
+
+> γ≥0
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+sup 
+
+> u
+
+(1 − yiβTu)+ − γ∥u − xi∥q − γλ 
+
+> M
+
+X
+
+> m=1
+
+|θT
+
+> m
+
+(xi − u)|
+
+!) 
+
+= inf  
+
+> β
+
+inf  
+
+> γ≥inf ϑ∥β−ϑ∥p
+
+(
+
+γδ + 1
+
+n
+
+> N
+
+X
+
+> i=1
+
+(1 − yiβTxi)+
+
+)
+
+= inf 
+
+> β,ϑ
+
+(
+
+1
+
+n
+
+> N
+
+X
+
+> i=1
+
+(1 − yiβTxi)+ + δ∥β − ϑ∥p
+
+)
+
+.
+
+This completes the proof. 
+
+## D. Proof of Results in Mahalanobis Norm Regularization 
+
+Proof of Corollary 3.7 . This is a direct consequence of the convex conjugate of ∥x∥2Λ given in Proposition E.6. Define the cost function cΛ1,∞
+
+ (x, y ), (u, v ) := ∥x − u∥Λ + ∞ · | y − v| + ∞ · PMm=1 |θT
+
+> m
+
+x − θT
+
+> m
+
+u|.
+
+Corollary D.1 (Theorem 3.6) . Suppose the loss function ℓ(X, Y ; β) is either the logistic loss log 
+
+
+
+1 + e−Y β TX
+
+
+
+or the hinge loss (1 − Y β TX)+, then for any Λ ∈ Sd×d 
+
+> +
+
+we have 
+
+inf 
+
+> β∈Rd
+
+sup   
+
+> P:Bδ(PXN;cΛ1,∞)
+
+EP [ℓ(X, Y ; β)] = inf 
+
+> β∈Rd,ϑ ∈Θ
+
+1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ℓ(xi, y i; β) + δ∥β − ϑ∥Λ91 .
+
+Proof. For the logistic loss case, this is a direct consequence of the dual norm of ∥x∥Λ, for the hinge loss case this is a direct consequence of the convex conjugate of ∥x∥Λ. Both given by Proposition E.6. 21 Knowledge-Guided WDRO 
+
+## E. Useful Results on Convex Conjugation 
+
+In this section we review some results on the concept of convex conjugates that repeatedly come up in the proofs. For more details on convex conjugations, the interested readers can consult (Rockafellar, 1970, Section 12 & 16). 
+
+Definition E.1 (Convex Conjugate) . Let f : Rd → R be a real-valued function on the Euclidean space, then the convex conjugate of f is the function f ∗ : Rd → R that evaluates x∗ ∈ Rn by 
+
+f ∗(x∗) = sup   
+
+> x∈dom (f)
+
+ x∗Tx − f (x).
+
+This is also called the Legendre transformation of f , and the Legendre-Fenchel transformation for f defined on arbitrary real topological vector spaces. Here we collect some examples of convex conjugates that appeared in the appendix. These are well-known. 
+
+Proposition E.2. Let p, q ≥ 1 such that 1
+
+p + 1
+
+q = 1 .1. The convex conjugate of the absolute value function f (x) = |x| on R is given by | · | ∗(x∗) = I|x∗|≤ 1(x∗), the convex indicator function on the set {| x∗| ≤ 1|x∗ ∈ R}.2. The convex conjugate of the q-norm ∥x∥q on Rd is given by ∥ · ∥ ∗ 
+
+> q
+
+(x∗) = I∥x∗∥p≤1(x∗), the convex indicator function on the set {∥ x∗∥p ≤ 1|x∗ ∈ Rd}.3. The convex conjugate of 12 ∥x∥2 
+
+> q
+
+on Rd is given by 
+
+ 12 ∥ · ∥ 2
+
+> q
+
+∗
+
+(x∗) = 12 ∥x∗∥2
+
+> p
+
+.4. The convex conjugate of log  1 + e9x on R is given by 
+
+
+
+x∗ log ( x∗) + (1 − x∗) log (1 − x∗) if x∗ ∈ (0 , 1) 0 if x∗ = 0 , 1+∞ otherwise .
+
+Another easy consequence from the definition of convex conjugation is the below scaling laws. 
+
+Proposition E.3 (Scaling Laws) . Let f ∗(x∗) be the convex conjugate of f (x) on Rd. Then we have, 1. the convex conjugate of f (ax ) whenever a̸ = 0 is given by f ∗(x∗/a ).2. the convex conjugate of af (x) whenever a > 0 is given by af ∗(x∗/a ).
+
+Let Γ  Rd denote the class of proper convex lower-semi continuous functions on Rd, the next statement says that this conjugation induces an one-to-one symmetric correspondence on the class Γ  Rd. It is a cornerstone of modern convex analysis and used in the proof of Theorem 3.3 and Lemma C.1. 
+
+Theorem E.4 (Fenchel-Moreau) . Let f be a proper convex, lower semi-continuous function on Rd, then 1. the convex conjugation f 7 → f ∗ is a bijection on Γ  Rd;2. f ∈ Γ  Rd ⇐⇒ f ∗∗ = f .Proof. For a proof please consult (Rockafellar, 1970, Section 12). The next statement concerns the commutativity of convex conjugation and function summation. Its usefulness is profound, and applied to the proof of Theorem 3.3 and Theorem 3.6. 22 Knowledge-Guided WDRO 
+
+Theorem E.5 (Infimal Convolution Property of Convex Conjugation) . Let f1, . . . , f M be proper convex functions on Rd,then 
+
+(f1□ . . . □fM )∗ = f ∗ 
+
+> 1
+
++ . . . f ∗ 
+
+> M
+
+,
+
+and 
+
+(f1 + . . . + fM )∗(x∗) = inf  
+
+> x∗
+
+{f ∗ 
+
+> 1
+
+(x∗
+
+> 1
+
+) + . . . f ∗ 
+
+> M
+
+(x∗ 
+
+> M
+
+) | x∗ 
+
+> 1
+
++ . . . + x∗ 
+
+> M
+
+= x∗}.
+
+Proof. For a proof please consult (Rockafellar, 1970, Theorem 16.4). 
+
+Proposition E.6. Let Λ ∈ Sd×d 
+
+> +
+
+, then the dual norm of ∥x∥Λ is ∥x∥Λ−1 . The Cauchy-Schwarz inequality xTu ≤ ∥ x∥Λ∥u∥Λ91
+
+holds, and equality is attainable. The convex conjugate of ∥x∥Λ is given by I∥x∗∥Λ91 ≤1(x∗), and the convex conjugate of 
+
+∥x∥2Λ is given by ∥x∗∥2Λ91 /4.Proof. The dual norm of ∥x∥Λ, the Cauchy-Schwarz inequality and attainability of equality follows from (Blanchet et al., 2019b, Lemma 1). Now to compute the convex conjugate of ∥x∥2Λ, we want to evaluate 
+
+sup 
+
+> x∈Rd
+
+(x∗Tx − ∥ x∥2Λ).
+
+By the Cauchy-Schwarz inequality we have x∗Tx ≤ ∥ x∥Λ∥x∗∥Λ91 , and so we have 
+
+x∗Tx − ∥ x∥2Λ ≤ ∥ x∥Λ∥x∗∥Λ91 − ∥ x∥2Λ.
+
+Hence 
+
+sup 
+
+> x∈Rd
+
+(x∗Tx − ∥ x∥2Λ) ≤ sup 
+
+> t≥0
+
+(t∥x∗∥Λ91 − t2) = 14 ∥x∗∥2Λ91 .
+
+By attainability of equality in the Cauchy-Schwarz inequality, the supremum are equal, and we have 
+
+sup 
+
+> x∈Rd
+
+(x∗Tx − ∥ x∥2Λ) = 14 ∥x∗∥2Λ91 .
+
+This proofs the convex conjugate of ∥x∥2Λ. Now consider the convex conjugate of ∥x∥Λ, then we need to evaluate 
+
+sup 
+
+> x∈Rd
+
+(x∗Tx − ∥ x∥Λ),
+
+again, by Cauchy-Schwarz and the attainability of equality, we have 
+
+sup 
+
+> x∈Rd
+
+(x∗Tx − ∥ x∥Λ) = sup 
+
+> x∈Rd
+
+(∥x∥Λ∥x∗∥Λ91 − ∥ x∥Λ)= sup 
+
+> x∈R
+
+(∥x∥Λ(∥x∗∥Λ91 − 1)) =
+
+(
+
+0 if ∥x∗∥Λ91 ≤ 1,
+
++∞ otherwise .
+
+This completes the proof. 
+
+## F. Toland’s Duality 
+
+The duality theory of Toland’s (Toland, 1978; 1979) concerns the minimization of nonconvex functions, in particular, applies to the minimization of the difference of convex functions (DC problems). The duality holds under minimal conditions, and one tries to see if the DC problem can be transformed into something more manageable. 
+
+Theorem F.1 (Toland’s Duality) . Let f and g be functions on Rd, if f ∈ Γ  Rd, then we have 
+
+inf 
+
+> x∈Rd
+
+{f (x) − g(x)} = inf 
+
+> x∗∈Rd
+
+{g∗(x∗) − f ∗(x∗)} .
+
+Toland’s duality is implicitly used in the proof to Theorem 3.3 and Lemma C.1 which also sketches a proof to the above duality theorem. 23

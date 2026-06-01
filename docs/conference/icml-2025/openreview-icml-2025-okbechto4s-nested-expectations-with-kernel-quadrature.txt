@@ -1,0 +1,4793 @@
+Title: Nested Expectations with Kernel Quadrature
+
+URL Source: https://openreview.net/pdf?id=OKbECHtO4S
+
+Number of Pages: 34
+
+Markdown Content:
+# Nested Expectations with Kernel Quadrature 
+
+Zonghao Chen 1 Masha Naslidnyk 1 Franc ¸ois-Xavier Briol 2
+
+## Abstract 
+
+This paper considers the challenging computa-tional task of estimating nested expectations. Ex-isting algorithms, such as nested Monte Carlo or multilevel Monte Carlo, are known to be consis-tent but require a large number of samples at both inner and outer levels to converge. Instead, we propose a novel estimator consisting of nested kernel quadrature estimators and we prove that it has a faster convergence rate than all base-line methods when the integrands have sufficient smoothness. We then demonstrate empirically that our proposed method does indeed require fewer samples to estimate nested expectations on real-world applications including Bayesian opti-misation, option pricing, and health economics. 
+
+## 1. Introduction 
+
+We consider the computational task of estimating a nested expectation, which is the expectation of a function that itself depends on another unknown conditional expecta-tion. More precisely, let Q be a Borel probability measure with density q on Θ and Pθ a Borel probability measure with density pθ on X ⊆ RdX which is parameterized by 
+
+θ ∈ Θ ⊆ RdΘ . Given integrable functions f : R → R and 
+
+g : X × Θ → R, we are interested in estimating: 
+
+I := Eθ∼Q [f (EX∼Pθ [g(X, θ )])] (1) 
+
+=
+
+Z
+
+> Θ
+
+f
+
+Z
+
+> X
+
+g(x, θ )pθ (x)dx 
+
+| {z }
+
+> inner conditional expectation
+
+!
+
+q(θ)dθ 
+
+| {z }
+
+> outer expectation
+
+.
+
+Nested expectations arise within a wide range of tasks, such as the computation of objectives in Bayesian experimen-tal design (Beck et al., 2020; Goda et al., 2020; Rainforth                     
+
+> 1Department of Computer Science, University College London 2Department of Statistical Science, University Col-lege London. Correspondence to: Zonghao Chen <zong-hao.chen.22@ucl.ac.uk >.
+> Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s).
+
+et al., 2024), of acquisition functions in active learning and Bayesian optimisation (Ginsbourger and Le Riche, 2010; Yang et al., 2024), of objectives in distributionally-robust optimisation (Shapiro et al., 2023; Bariletto and Ho, 2024; Dellaporta et al., 2024), and of statistical divergences (Song et al., 2020; Kanagawa et al., 2023). Computing nested expectations is also a key task beyond machine learning, including in fields ranging from value of information for decision making (Giles and Goda, 2019; Mala, 2024) to fi-nance and insurance (Gordy and Juneja, 2010; Giles and Haji-Ali, 2019), manufacturing (Andrad´ ottir and Glynn, 2016) and geology (Goda et al., 2018). The estimation of nested expectations is particularly chal-lenging since there are two levels of intractability: the in-ner conditional expectation, and the outer expectation, both of which must be approximated accurately in order to ap-proximate the nested expectation I accurately. The most widely used algorithm for this problem is nested Monte Carlo (NMC) (Lee and Glynn, 2003; Hong and Juneja, 2009; Rainforth et al., 2018). It approximates the inner and outer expectations using Monte Carlo estimators with N
+
+and T samples respectively. NMC is consistent under mild conditions, but has a relatively slow rate of convergence. Depending on the regularity of the problem, existing results indicate that we require either O(∆ −3) or O(∆ −4) evalu-ations of g to obtain a root mean squared error smaller or equal to ∆. This tends to be prohibitively expensive; for example, we would expect in the order of either 1 or 100 
+
+million observations to obtain an error of ∆ = 0 .01 . This is infeasible for many applications where obtaining samples or evaluating g is expensive. This issue has led to the development of a number of meth-ods aiming to reduce the cost. Bartuska et al. (2023) pro-posed replacing the Monte Carlo estimators with quasi-Monte Carlo (QMC) (Dick et al., 2013). This algorithm, called nested QMC (NQMC) , requires only O(∆ −2.5)
+
+function evaluations to obtain an error of size ∆ (so that we only need in the order of 100 , 000 observations for an error of ∆ = 0 .01 ). However, NQMC requires strong regu-larity assumptions which may not hold in practice (a mono-tone second and third derivative for f ). Separately, Bujok et al. (2015); Giles and Haji-Ali (2019); Giles and Goda (2019) proposed to use multi-level Monte Carlo (MLMC) 
+
+and showed that this can further reduce the number of func-1Nested Expectations with Kernel Quadrature 
+
+tion evaluations to O(∆ −2) (so that we only need in the order of 10 , 000 observations for an error of ∆ = 0 .01 ). The algorithm has relatively mild assumptions on f and g,which makes it broadly applicable but sub-optimal for ap-plications where f and g are smooth and where we might therefore expect further reductions in cost. To fill this gap in the literature, we propose a novel algo-rithm called nested kernel quadrature (NKQ) , which is pre-sented in Section 3. NKQ replaces the inner and outer MC estimators of NMC with kernel quadrature (KQ) estimators (Sommariva and Vianello, 2006). We show in Section 4 that NKQ requires only ˜O(∆ − dX   
+
+> sX−dΘ
+> sΘ
+
+) function evalua-tions to guarantee an error smaller or equal to ∆. Here 
+
+˜O denotes O up to logarithmic terms, sX , s Θ are constants relating to the smoothness of f and g in X and Θ, and we have sX > d X /2 and sΘ > d Θ/2. In the least fa-vorable case, we therefore recover the O(∆ −4) of NMC, but when the integrand is smooth and the dimension is not too large, we are able to have a cost which scales better than O(∆ −2) and the method significantly outperforms all competitors. In those cases, we may only need in the order of a few hundred or thousands observations for an error of 
+
+∆ = 0 .01 . This fast rate is demonstrated numerically in Section 5, where we show that NKQ can provide signifi-cant accuracy gains in problems from Bayesian optimisa-tion to option pricing and health economics. Moreover, we show that NKQ can be combined with QMC and MLMC, providing an avenue to further accelerate convergence. 
+
+## 2. Background 
+
+Notation Let N+ denote the positive integers and N =
+
+N+ ∪ { 0}. For h : X ⊆ Rd → R, x1: N and h(x1: N )
+
+are vectorized notation for [x1, . . . , x N ]⊤ ∈ RN ×d and 
+
+[h(x1), . . . , h (xN )] ⊤ ∈ RN ×1 respectively. For a vector 
+
+a = [ a1, . . . , a d]⊤ ∈ Rd, define ∥a∥b = ( Pdi=1 abi )1/b .For a distribution π supported on X and 0 < p ≤ ∞ ,
+
+Lp(π) is the space of functions h : X → R such that 
+
+∥h∥Lp(π) := EX∼π [|h(X)|p] < ∞ and L∞(π) is the space of functions that are bounded π-almost everywhere. When 
+
+π is the Lebesgue measure LX over X , we write Lp(X ) := 
+
+Lp(LX ). For β ∈ N, Cβ (X ) denotes the space of functions whose partial derivatives of up to and including order β
+
+are continuous. For two positive sequences {an}n∈N+ and 
+
+{bn}n∈N+ , an ≍ bn means that lim n→∞ an 
+
+> bn
+
+is a positive constant, an = O(bn) means that lim n→∞ an 
+
+> bn
+
+< ∞ and 
+
+an = ˜O(bn) means that an = O(bn(log bn)r ) for some positive constant r.
+
+Existing Methods for Nested Expectations Standard Monte Carlo (MC) is an estimator which can be used to ap-proximate expectations/integrals through samples (Robert and Casella, 2000). Given an arbitrary function h : X → R
+
+with h ∈ L1(π), and N independent and identically dis-tributed (i.i.d.) realisations x1: N from π, standard MC ap-proximates the expectation of h under π as follows: 
+
+EX∼π [h(X)] ≈ 1
+
+N
+
+> N
+
+X
+
+> n=1
+
+h(xn).
+
+For the nested expectation I in (1), the use of a MC esti-mator for both the inner and outer expectation leads to the 
+
+nested Monte Carlo (NMC) estimator (Hong and Juneja, 2009; Rainforth et al., 2018) given by 
+
+ˆINMC := 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+f 1
+
+N
+
+> N
+
+X
+
+> n=1
+
+g(x(t) 
+
+> n
+
+, θ t)
+
+!
+
+, (2) where θ1: T are T i.i.d. realisations from Q and x(t)1: N are N
+
+i.i.d. realisations from Pθt for each t ∈ { 1, . . . , T }. The root mean-squared error of this estimator goes to zero at rate O(N − 12 +T − 12 ) when f is Lipschitz continuous (Rain-forth et al., 2018). Hence, taking N = T = O(∆ −2)
+
+leads to an algorithm which requires N × T = O(∆ −4)
+
+function evaluations to obtain error smaller or equal to 
+
+∆. When f has bounded second order derivatives, the root mean-squared error converges at the improved rate of 
+
+O(N −1 + T − 12 ) (Rainforth et al., 2018). Taking N =√T = O(∆ −1) therefore leads to an algorithm requiring 
+
+N × T = O(∆ −3) function evaluations to get an error of 
+
+∆ (Gordy and Juneja, 2010; Rainforth et al., 2018). De-spite its simplicity, NMC therefore requires a large number of evaluations to reach a given ∆.As a result, two extensions have been proposed. Firstly, Bartuska et al. (2023) proposed to use (2), but to replace the i.i.d. samples with QMC points. QMC points are points which aim to fill X in a somewhat uniform fashion (Dick et al., 2013), with well-known examples including Sobol or Halton sequences. Bartuska et al. (2023) used randomized QMC points, which removes the bias of standard QMC by using a randomized low discrepancy sequence (Owen, 2003). For nested expectations, they showed that nesting randomized QMC estimators can lead to a faster conver-gence rate and hence a smaller cost of O(∆ −2.5). How-ever, the approach is only applicable when Pθ and Q are Lebesgue measures on unit cubes (or smooth transforma-tions thereof), and the rate only holds when f has mono-tone second and third order derivatives. Alternatively, Bujok et al. (2015); Giles (2015); Giles and Haji-Ali (2019); Giles and Goda (2019) proposed to use 
+
+multi-level Monte Carlo (MLMC), which decomposes the nested expectation using a telescoping sum on the outer in-tegral, then approximates each term with MC. The inte-grand with the ℓ’th fidelity level is constructed as the com-position of f with an inner MC estimator based on Nℓ sam-ples. More precisely, the MLMC treatment of nested ex-pectations consist of using: 2Nested Expectations with Kernel Quadrature 
+
+ˆIMLMC := 
+
+> L
+
+X
+
+> l=1
+
+1
+
+TℓTℓX
+
+> t=1
+
+(f (Jℓ,t ) − f (Jℓ−1,t )) + 1
+
+T0
+
+> T0
+
+X
+
+> t=1
+
+f (J0,t )
+
+where Jℓ,t := 1
+
+NℓNℓX
+
+> n=1
+
+g(x(t) 
+
+> n
+
+, θ t) for ℓ ∈ { 0, . . . , L }, (3) Under some regularity conditions, Theorem 1 from Giles (2015) shows that taking Nℓ = O(2 ℓ) and Tℓ =
+
+O(2 −2ℓ∆−2) leads to an estimator requiring O(∆ −2)
+
+function evaluations to obtain root mean squared error smaller or equal to ∆. Although MLMC has the best known efficiency for nested expectations, Nl and Tl need to grow exponentially with l, and we therefore need a very large sample size for its theoretical convergence rate to be-come evident in practice (Giles and Haji-Ali, 2019; Giles and Goda, 2019). MLMC also requires making several challenging design choices, including the coarsest level to use, and the number of samples per level. Most impor-tantly, MLMC as well as all existing methods fail to ac-count for the smoothness of the functions f and g.
+
+Kernel Quadrature Kernel quadrature (KQ) (Som-mariva and Vianello, 2006; Rasmussen and Ghahramani, 2002; Briol et al., 2019) provides an alternative to standard MC for (non-nested) expectations. Consider an arbitrary function h : X → R and distribution π on X , and sup-pose we would like to approximate EX∼π [h(X)] . KQ is an estimator which can be used when h is sufficiently reg-ular, in the sense that it belongs to a reproducing kernel Hilbert space (RKHS) (Berlinet and Thomas-Agnan, 2004) 
+
+Hk with kernel k. We recall that for a positive semi-definite kernel k : X × X → R, the RKHS Hk is a Hilbert space with inner product ⟨· , ·⟩ Hk and norm ∥ · ∥ Hk (Aronszajn, 1950) such that: (i) k(x, ·) ∈ H k for all x ∈ X , and (ii) the reproducing property holds, i.e. for all h ∈ H k, x ∈ X ,
+
+h(x) = ⟨h, k (x, ·)⟩Hk . An important example of RKHS is the Sobolev space W s 
+
+> 2
+
+(X ) (s > d 
+
+> 2
+
+), which consists of func-tions of certain smoothness encoded through the square in-tegrability of their weak partial derivatives up to order s,
+
+W s 
+
+> 2
+
+(X ) := h ∈ L2(X ) : Dβ h ∈ L2(X )
+
+for all β ∈ Nd with |β| ≤ s , s ∈ N+ (4) where Dβ f denotes the β-th (weak) partial derivative of f .Assuming h ∈ H k and EX∼π [pk(X, X )] < ∞, the KQ estimator ˆIKQ = PNn=1 wnh(xn) uses weights obtained by minimizing an upper bound on the absolute error: 
+
+I − ˆIKQ = EX∼π [h(X)] −
+
+> N
+
+X
+
+> n=1
+
+wnh(xn)
+
+≤ ∥ h∥Hk μπ (X) −
+
+> N
+
+X
+
+> n=1
+
+wnk (xn, ·) Hk
+
+,
+
+where μπ (·) = EX∼π [k(X, ·)] is the kernel mean embed-ding (KME) of π in the RKHS Hk (Smola et al., 2007). Minimizing the right hand side with an additive regulariser term λ∥f ∥Hk over the choice of weights leads to the fol-lowing KQ estimator: 
+
+ˆIKQ := μπ (x1: N ) ( K + N λ IN )−1 h(x1: N ), (5) where IN is the N × N identity matrix, K =
+
+k(x1: N , x 1: N ) ∈ RN ×N is the Gram matrix and λ ≥ 0
+
+is a regularisation parameter ensuring the matrix is numer-ically invertible. The KQ weights are given by w1: N =
+
+μπ (x1: N )( K + N λ IN )−1 and are optimal when λ = 0 .KQ takes into account the structural information that h ∈Hk so the absolute error |I − ˆIKQ | goes to 0 at a fast rate as N → ∞ . Specifically, when the RKHS Hk is norm-equivalent to the Sobolev space W s 
+
+> 2
+
+(X ) (s > d 
+
+> 2
+
+), KQ achieves the rate O(N − sd ) (Kanagawa and Hennig, 2019; Kanagawa et al., 2020). This is known to be minimax opti-mal (Novak, 2006; 2016), and significantly faster than the 
+
+O(N − 12 ) rate of standard MC. Interestingly, existing proof techniques that obtain this rate take λ = 0 in (5) and re-quire the Gram matrix K to be invertible, whilst the new proof technique based on kernel ridge regression in this pa-per obtains the same optimal rate while allowing a positive regularization λ ≍ N − 2sd (log N ) 2s+2  
+
+> d
+
+, which improves nu-merical stability when inverting K. (See Remark B.2) Despite the optimality of the KQ convergence rate, the rate constant can be reduced by selecting points x1: N other than through i.i.d. sampling. Strategies include impor-tance sampling (Bach, 2017; Briol et al., 2017), QMC point sets (Briol et al., 2019; R. Jagadeeswaran, 2019; Bharti et al., 2023; Kaarnioja et al., 2025), realisations from deter-minental point processes (Belhadji et al., 2019), point sets with symmetry properties (Karvonen and S¨ arkk¨ a, 2018; Karvonen et al., 2019) and adaptive designs (Osborne et al., 2012; Gunter et al., 2014; Briol et al., 2015; Gessner et al., 2020). Most relevant to our work is the combination of KQ with MLMC to improve accuracy in multifidelity settings (Li et al., 2023). Two main drawbacks of KQ compared to MC are the worst-case computational cost of O(N 3) (due to computation of the inverse of the Gram matrix), and the need for a closed-form expression of the KME μπ . Fortunately, numerous approaches can mitigate these drawbacks. To reduce the cost, one can use geometric properties of the point set (Kar-vonen and S¨ arkk¨ a, 2018; Karvonen et al., 2019; Kuo et al., 2024), Nystr¨ om approximations (Hayakawa et al., 2022; 2023), randomly pivoted Cholesky (Epperly and Moreno, 2023), or the fast Fourier transform (Zeng et al., 2009). To obtain a closed-form KME, KQ users typically refer to existing derivations (see Table 1 in Briol et al. (2019) or Wenger et al. (2021)), or use Stein reproducing kernels 3Nested Expectations with Kernel Quadrature 
+
+(Oates et al., 2017; 2019; Si et al., 2021; Sun et al., 2023). In this paper, we tackle both drawbacks through a change of variable trick. Suppose we can find a continuous trans-formation map Φ such that x1: N = Φ( u1: N ) where u1: N
+
+are samples from a simpler distribution U of our choice. A direct application of change of variables theorem (Sec-tion 8.2 of Stirzaker (2003)) proves that EX∼π h(X) = R 
+
+> U
+
+h(Φ( u)) dU(u), so the integrand changes from h : X → 
+
+R to h◦Φ : U → R and the kernel quadrature estimator be-comes ˆIKQ = μU(u1: N ) ( KU + N λ IN )−1 (h ◦ Φ)( u1: N ),where KU = kU (u1: N , u 1: N ). The measure U is typically chosen such that the KME is known in closed-form, and the KQ weights μU(u1: N ) ( KU + N λ IN )−1 can be pre-computed and stored so that KQ becomes a weighted aver-age of function evaluations with O(N ) computational com-plexity. The main technical challenge of using the change of variable trick is to find such transform map Φ. See Ap-pendix F.1 for further details. Before concluding, we note that the KQ estimator is of-ten called Bayesian quadrature (BQ) (Diaconis, 1988; O’Hagan, 1991; Rasmussen and Ghahramani, 2002; Briol et al., 2019; Hennig et al., 2022) since it can be derived as the mean of the pushforward of a Gaussian measure on 
+
+h conditioned on h(x1: N ) (Kanagawa et al., 2018). The advantage of the Bayesian interpretation is that it provides finite-sample uncertainty quantification, and it also allows for efficient hyperparameter selection via empirical Bayes. 
+
+## 3. Nested Kernel Quadrature 
+
+We can now present our novel algorithm: nested kernel quadrature (NKQ) . To simplify the formulas, we write 
+
+J(θ) := EX∼Pθ [g(X, θ )] , F (θ) := f (J(θ)) , (6) so that the nested expectation in (1) can be written as I =
+
+Eθ∼Q[F (θ)] . We will assume that we have access to 
+
+θ1: T := [ θ1, . . . , θ T ]⊤ ∈ ΘT ,x(t)1: N := 
+
+h
+
+x(t)1 , . . . , x (t)
+
+> N
+
+i
+
+∈ X N ,g x(t)1: N , θ t
+
+ := 
+
+h
+
+g x(t)1 , θ t
+
+, . . . , g  x(t) 
+
+> N
+
+, θ t
+
+i
+
+∈ RN ,
+
+for all t ∈ { 1, . . . , T }, and f is a function that can be eval-uated. We do not specify how the point sets are generated, although further (mild) assumptions will be imposed for our theory in Section 4. Using the same number of func-tion evaluations N per θt is not essential, but we assume this as it significantly simplifies our notation. Given the above, we are now ready to define NKQ as the following two-stage algorithm, which is illustrated in Figure 1. 
+
+Stage I For each t ∈ { 1, . . . , T }, we estimate the inner conditional expectation J evaluated at θt with N observa-Stage I Stage II                  
+
+> 𝜽 𝟐
+> 𝜽 𝟏
+> 𝜽 𝑻
+> … F(μ)ˆFKQ (μt)w£
+> t
+> 𝜽 𝟏 𝜽 𝟐 …𝜽 𝑻
+> g(x(1)
+> n,μ1)
+> wX
+> n, 1
+> 𝒙 𝟏
+> (𝟏 )𝒙 𝑵
+> (𝟏 )…
+> g(x(2)
+> n,μ2)
+> wX
+> n, 2
+> 𝒙 𝟏
+> (𝟐 )𝒙 𝑵
+> (𝟐 )…
+> g(x(T)
+> n,μT)
+> wX
+> n,T
+> 𝒙 𝟏
+> (𝑻 )𝒙 𝑵
+> (𝑻 )…
+
+Figure 1. Illustration of NKQ. In stage I, we estimate J(θt) using 
+
+ˆJKQ (θt) = PNn=1 wX
+
+> n,t
+
+g(x(t) 
+
+> n
+
+, θ t) for all t ∈ { 1, . . . , T }. In stage II, we estimate I with ˆINKQ = PTt=1 wΘ 
+
+> t
+
+ˆFKQ (θt) where 
+
+ˆFKQ (θt) := f ( ˆJKQ (θt)) . The shaded areas depict Pθ (for stage I) and Q (for stage II). 
+
+tions x(t)1: N and g(x(t)1: N , θ t) using a KQ estimator: 
+
+ˆJKQ (θt) := μPθt
+
+ x(t)1: N
+
+  K(t) 
+
+> X
+
++ N λ X IN
+
+−1g x(t)1: N , θ t
+
+.
+
+(7) Here kX is a reproducing kernel on X , μPθt (·) =
+
+EX∼Pθt [kX (X, ·)] is the KME of Pθt and K(t) 
+
+> X
+
+=
+
+kX (x(t)1: N , x (t)1: N ) is an N × N Gram matrix. Using the same kernel kX for each t ∈ { 1, . . . , T } is not essential, but we assume this to be the case for simplicity. Given these KQ estimates, we then we apply the function f to get 
+
+ˆFKQ (θt) = f ( ˆJKQ (θt)) .
+
+Stage II We use a KQ estimator to approximate the outer expectation using the output of Stage I: 
+
+ˆINKQ := μQ(θ1: T )( KΘ + T λ ΘIT )−1 ˆFKQ (θ1: T ). (8) Here kΘ is a reproducing kernel on Θ, μQ =
+
+Eθ∼Q[kΘ(θ, ·)] is the embedding of Q and KΘ =
+
+kΘ(θ1: T , θ 1: T ) is a T × T Gram matrix. Combining stage I and II, NKQ can be expressed in a single equation as a nesting of two quadrature rules: 
+
+ˆINKQ =
+
+> T
+
+X
+
+> t=1
+
+wΘ 
+
+> t
+
+f
+
+> N
+
+X
+
+> n=1
+
+wX
+
+> n,t
+
+g(x(t) 
+
+> n
+
+, θ t)
+
+!
+
+, (9) where wX
+
+> 1,t
+
+, . . . , w X 
+
+> N,t
+
+are the KQ weights used in stage I for 
+
+ˆJKQ (θt) and wΘ1 , . . . , w Θ 
+
+> T
+
+are the KQ weights used in stage II. Although these weights are stage-wise optimal when 
+
+λX = λΘ = 0 thanks to the optimality of KQ weights, it is unclear whether they are globally optimal due to the non-linearity of f . Note that NMC can be recovered by taking all stage I weights to be 1/N and all stage II weights to be 
+
+1/T , which is sub-optimal. In addition to the algorithmic simplicity of our proposed estimator NKQ, we demonstrate its superior performance in terms of both rate of conver-gence (Section 4) and empirical performances (Section 5). 4Nested Expectations with Kernel Quadrature 
+
+NKQ inherits the two main drawbacks of KQ. Firstly, solv-ing the linear systems to obtain the stage I and II weights has a worst-case computational complexity of O(T N 3 +
+
+T 3). Secondly, NKQ requires closed-form KMEs at both stages: μPθt for all t ∈ { 1, . . . , T } in stage I, and μQ in stage II. Fortunately, we can often use the approaches dis-cussed in the previous section to reduce the complexity to 
+
+O(T N + T ) and obtain closed-form kernel embeddings. NKQ requires the selection of hyperparameters, including for the kernels in both stage I and II. We typically take 
+
+kX and kΘ to be Mat´ ern kernels whose orders are deter-mined by the smoothness of f and g (as justified by The-orem 1; see Section 4 for details). This leaves us with a choice of kernel hyperparameters which include length-scales γX , γ Θ > 0 and amplitudes AX , A Θ > 0. The lengthscales are selected via the median heuristic. The regularizers are set to λX = λ0,X N − 2sX 
+
+> dX
+
+(log N ) 2sX +2 
+
+> dX
+
+and λΘ = λ0,ΘT − 2sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2  
+
+> dΘ
+
+following Theo-rem 1, where λ0,X , λ 0,Θ are selected with grid search over 
+
+{0.01 , 0.1, 1.0}. Finally, we standardise our function val-ues (by subtracting the empirical mean then dividing by the empirical standard deviation), and then set the amplitudes to AX = AΘ = 1 . This last choice could further be im-proved using a grid search, but we do not do this as we do not notice significant improvements when doing so in experiments and this tends to increase the cost. Before presenting our theoretical results, we briefly com-ment on the connection with existing KQ methods. If we could evaluate the exact expression for the inner con-ditional expectation J(θ) pointwise, then (following (5)) the KQ estimator for I would be ¯IKQ = μQ(θ1: T )( KΘ +
+
+T λ ΘIT )−1F (θ1: T ). Comparing with (8), NKQ can thus be seen as KQ with noisy function values ˆFKQ (θ1: T ) (re-placing the exact values F (θ1: T ) in (8)). Although it is proved in Cai et al. (2023) that noisy observations make KQ converge at a slower rate, we prove that the stage II observation noise is of the same order as the stage I error, and consequently, we can still treat stage II KQ as noiseless kernel ridge regression and the additional error caused by the stage II observation noise would be subsumed by the stage I error (See Remark 4.1). NKQ is also closely related to a family of regression-based methods for estimating con-ditional expectations (Longstaff and Schwartz, 2001; Chen et al., 2024b). Indeed, with a slight modification of Stage II in (8), we can obtain an estimator of J(θ) that we call 
+
+conditional kernel quadrature (CKQ) 
+
+ˆJCKQ (θ) := kΘ(θ, θ 1: T )( KΘ + T λ ΘIT )−1 ˆJKQ (θ1: T ).
+
+(10) CKQ highly resembles conditional BQ (CBQ) (Chen et al., 2024b); the difference is in stage II, where CBQ uses het-eroskedastic Gaussian process regression whilst CKQ uses kernel ridge regression. Interestingly, the proof in this pa-per leads to a much better rate for CKQ than the best known rate for CBQ (see Remark 4.2). 
+
+## 4. Theoretical Results 
+
+In this section, we derive a convergence rate for the abso-lute error | ˆINKQ − I| as the number of samples N, T → ∞ .Before doing so, we recall the connection between RKHSs and Sobolev spaces. A kernel k on Rd is said to be trans-lation invariant if k(x, x ′) = Ψ( x − x′) for some positive definite function Ψ whose Fourier transform ˆΨ( ω) is a fi-nite non-negative measure on Rd (Wendland, 2004, The-orem 6.6). Suppose X has a Lipschitz boundary, if k is translation invariant and its Fourier transform ˆΨ( ω) de-cays as O(1 + ∥ω∥22)−s when ω → ∞ for s > d/ 2,then its RKHS Hk is norm equivalent to the Sobolev space W s 
+
+> 2
+
+(X ) (Wendland, 2004, Corollary 10.48). More specifically, it means that their set of functions coincide and there are constants c1, c 2 > 0 such that c1∥h∥Hk ≤∥h∥W s   
+
+> 2(X)
+
+≤ c2∥h∥Hk holds for all h ∈ H k. In this pa-per, we call such kernel a Sobolev reproducing kernel of smoothness s. An important example of Sobolev kernel is the Mat´ ern kernel— the RKHS of a Mat´ ern-ν kernel is norm-equivalent to W s 
+
+> 2
+
+(X ) with s = ν + d/ 2. All Sobolev kernels are bounded, i.e. sup x∈X k(x, x ) ≤ κ for some positive constant κ. When the context is clear, we use 
+
+∥f ∥s, 2 := ∥f ∥W s   
+
+> 2(X)
+
+to denote the Sobolev space norm. 
+
+Theorem 1. Let X = [0 , 1] dX and Θ = [0 , 1] dΘ . Suppose 
+
+θ1: T are i.i.d. samples from Q and x(t)1: N are i.i.d samples from Pθt for all t ∈ { 1, · · · , T }. Suppose further that kX
+
+and kΘ are Sobolev kernels of smoothness sX > d X /2 and 
+
+sΘ > d Θ/2, and that the following conditions hold (1) There exist G0,Θ, G 1,Θ, G 0,X , G 1,X > 0 such that 
+
+G0,Θ ≤ q(θ) ≤ G1,Θ and G0,X ≤ pθ (x) ≤ G1,X
+
+for any θ ∈ Θ and x ∈ X .(2) There exists S1 > 0 such that for any θ ∈ Θ and any 
+
+β ∈ NdΘ with |β| ≤ sΘ, ∥Dβθ g(·, θ )∥sX ,2 ≤ S1.(3) There exist S2, S 3 > 0 such that for any x ∈ X ,
+
+∥g(x, ·)∥sΘ,2 ≤ S2 and ∥θ 7 → pθ (x)∥sΘ,2 ≤ S3 ≤ 1.(4) There exists S4 > 0 such that derivatives of f up to and including order sΘ + 1 are bounded by S4.Then, there exists N0, T 0 ∈ N+ such that for N > N 0, T > T0, we can take λX ≍ N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+and λΘ ≍
+
+T −2 sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2  
+
+> dΘ
+
+to obtain the following bound 
+
+I − ˆINKQ 
+
+≤ τ
+
+
+
+C1N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ C2T − sΘ 
+
+> dΘ
+
+(log T ) sΘ+1 
+
+> dΘ
+
+
+
+,
+
+which holds with probability at least 1 − 8e−τ . C1, C 2 are 
+
+5Nested Expectations with Kernel Quadrature 
+
+two constants independent of N, T, τ .
+
+Corollary 1. Suppose all assumptions in Theorem 1 hold. If we set N = ˜O(∆ − dX 
+
+> sX
+
+) and T = ˜O(∆ − dΘ 
+
+> sΘ
+
+), then N ×
+
+T = ˜O(∆ − dX   
+
+> sX−dΘ
+> sΘ
+
+) samples are sufficient to guarantee that |I − ˆINKQ | ≤ ∆ holds with high probability. 
+
+To prove these results, we can decompose |I − ˆINKQ |
+
+into the sum of stage I and stage II errors, which can be bounded by terms of order N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+and 
+
+T − sΘ 
+
+> dΘ
+
+(log T ) sΘ+1  
+
+> dΘ
+
+respectively; see Appendix C. Interest-ingly, note that the stage II error does not suffer from the fact that we are using noisy observations ˆFKQ (θ1: T ) and we maintain the standard KQ rate up to logarithm terms (see Remark 4.1). We emphasize that our bound indicates that the tail of |I − ˆINKQ | is sub-exponential. This contrasts with existing work on Monte Carlo methods, which only provides upper bounds on the expectation of error with no constraints on its tails (Giles, 2015; Bartuska et al., 2023). We now briefly discuss our assumptions. Assumption (1) is mild and allows L2(Pθ ) (resp. L2(Q)) to be norm equiva-lent to L2(X ) (resp. L2(Θ) ), which is widely used in statis-tical learning theory that involves Sobolev spaces (Fischer and Steinwart, 2020; Suzuki and Nitanda, 2021). Since our proof essentially translates quadrature error into gen-eralization error of kernel ridge regression, Assumptions (2), (3), (4) ensure that functions f, g and the density p
+
+have enough regularity so that the regression targets in both stage I and stage II belong to the correct Sobolev spaces. These are more restrictive, but are essential to obtain our fast rate and are common assumptions in the KQ literature. Assumptions (2), (3), (4) can be relaxed if mis-specification is allowed; see e.g. Fischer and Steinwart (2020); Kana-gawa et al. (2023); Zhang et al. (2023). Theorem 1 shows that for NKQ to have a fast convergence rate, one ought to use Sobolev kernels which are as smooth as possible in both stages. Furthermore, when sX = sΘ = ∞ (e.g. when the integrand and kernels belong to Gaussian RKHSs), our proof could be modified to show an exponential rate of con-vergence in a similar fashion as Briol (2018, Theorem 10) or Karvonen et al. (2020). 
+
+Remark 4.1 (Noisy observations in Stage II of NKQ) . Note that NKQ employs noisy observations 
+
+{θt, ˆFKQ (θt)}Tt=1 in stage II KQ rather than the ground truth observations {θt, F (θt)}Tt=1 . Although Cai et al. (2023) establishes that KQ with noisy observations converges at a slower rate than KQ with noiseless obser-vations, a key distinction in our setting is that, as shown in (C.30) , the observation noise in stage II KQ is of order 
+
+˜O(N − sX 
+
+> dX
+
+), whereas the noise in Cai et al. (2023) remains at a constant level. As a result, we can still use KQ in stage II as if the observations { ˆFKQ (θt)}Tt=1 are noiseless, and the additional error it introduces happens to be of the 
+
+Method Cost 
+
+NMC O(∆ −3) or O(∆ −4)
+
+NQMC O(∆ −2.5)
+
+MLMC O(∆ −2)
+
+NKQ (Corollary 1) ˜O
+
+
+
+∆− dX  
+
+> sX−dΘ
+> sΘ
+
+
+
+Table 1. Cost of methods for nested expectations, measured through the number of function evaluations required to ensure 
+
+|I − ˆI| ≤ ∆. NMC rate is taken from Theorem 3 of Rain-forth et al. (2018), NQMC rate is taken from Proposition 4 of Bar-tuska et al. (2023), MLMC rate is taken from Section 3.1 of Giles (2018). Smaller exponents r in ∆−r indicate a cheaper method. 
+
+same order as the stage I error ˜O(N − sX 
+
+> dX
+
+) and is therefore subsumed by it. 
+
+Remark 4.2 (Convergence rate for CKQ) . For the CKQ es-timator ˆJCKQ (defined in (10) ) that approximates the para-metric / conditional expectation J(θ) uniformly over all 
+
+θ ∈ Θ, the error can be upper bounded in the same way as NKQ. The stage I error and can be shown to be ˜O(N − sX 
+
+> dX
+
+)
+
+using the same analysis from (C.13) to (C.16) ; and the 
+
+stage II error and can be shown to be ˜O(T − sΘ 
+
+> dΘ
+
+) using the same analysis from (C.18) to (C.34) . Combining the two er-ror terms, we have ∥J − ˆJCKQ ∥L2(Q) = ˜O(N − sX 
+
+> dX
+
++T − sΘ 
+
+> dΘ
+
+)
+
+holds with probability at least 1 − 8e−τ . The rate is better than the best known rate O(N − sX 
+
+> dX
+
++ T − 14 ) of CBQ proved in Theorem 1 of (Chen et al., 2024b) since sΘ 
+
+> dΘ
+
+> 12 > 14 .The intuition behind the faster rate is that CKQ benefits from the extra flexibility of choose regularization parame-ters λX , λ Θ; while CBQ, as a two stage Gaussian Process based approach, is limited to choose λΘ equal to the het-eroskedastic noise from the first stage. It may be possible to modify the proof of (Chen et al., 2024b) to improve the rate further, but this has not been explored to date. 
+
+In Table 1, we compare the cost of all methods evaluated by the number of evaluations required to ensure | ˆI − I| ≤ ∆.We can see that NKQ is the only method that explicitly exploits the smoothness of g, p, f in the problem so that it outperforms all other methods when dX 
+
+> sX
+
++ dΘ 
+
+> sΘ
+
+< 2.
+
+Remark 4.3 (Combine NKQ with MLMC and QMC) . We have previously mentioned that KQ could potentially be combined with other algorithms to further improve effi-ciency, and studied this for both MLMC and QMC. For the former (i.e. NKQ+MLMC), we derived a new method called multi-level NKQ (MLKQ) , which closely related to multilevel BQ algorithm of Li et al. (2023) and for which we were able to prove a rate of ˜O(∆ −1− dX   
+
+> 2sX−dΘ2sΘ
+
+). Sim-ilarly to NKQ, when dX 
+
+> sX
+
++ dΘ 
+
+> sΘ
+
+< 2, the rate for MLKQ 
+
+6Nested Expectations with Kernel Quadrature 
+
+is faster than that of NMC, NQMC and MLMC. However, the rate we managed to prove is slower than that for NKQ, and a slower convergence was also observed empirically (see Figure 6). We speculate that the worse performance is caused by the accumulation of bias from the KQ estimators at each level. See Appendix D.2 for details. We also consider combining NKQ and QMC. In this case, we expect the same rate as in Theorem 1 can be recovered by resorting to the fill distance technique in scatter data approximation (Wendland, 2004). This is confirmed em-pirically in Section 5, where we observe that using QMC points can achieve similar or even better performance than NKQ with i.i.d. samples. 
+
+## 5. Experiments 
+
+We now illustrate NKQ over a range of applications, in-cluding some where the theory does not hold but where we still observe significant gains in accuracy. The code to reproduce all experiments is available at https:// github .com/hudsonchen/nest kq .
+
+Synthetic Experiment We start by verifying the bound in Theorem 1 using the following synthetic example: Q =U[0 , 1] , Pθ = U[0 , 1] , g(x, θ ) = x 52 + θ 52 , and f (z) = z2,in which case I = 0 .4115 can be computed analytically. We estimate I with i.i.d. samples θ1: T ∼ U[0 , 1] and i.i.d. samples x(t)1: N ∼ U[0 , 1] for t ∈ { 1, . . . , T }. The assump-tions from Theorem 1 are satisfied with sX = sΘ = 2 and 
+
+dX = dΘ = 1 (see Appendix F.2). Therefore, to reach the absolute error threshold ∆, we choose N = T = ∆ −0.5
+
+for NKQ following Corollary 1. On the other hand, based on Theorem 3 of Rainforth et al. (2018), the optimal way of assigning samples for NMC is to choose N = √T = ∆ −1.In Figure 2 Top , we see that the optimal choice of N and 
+
+T suggested by the theory indeed results in a faster rate of convergence for both NMC and NKQ. For this synthetic problem, we confirm that both the theoretical rates of NKQ (Cost = ∆ −1) and NMC (Cost = ∆ −3) from Theorem 1 and Rainforth et al. (2018, Theorem 3) are indeed realized. We also adapt the synthetic problem to higher dimensions (dX = dΘ = d) in (F.42) and observe in Figure 2 Bottom 
+
+that the performance gap between NKQ and NMC closes down as dimension grows. Such behaviour is expected be-cause the cost of NKQ is ˜O(∆ − dX   
+
+> sX−dΘ
+> sΘ
+
+) and therefore de-grades as the dimensions dX and dΘ increase; whilst the cost of NMC remains the same. We also conduct ablation studies, which are reserved for Figure 5 in the appendix. In the left-most plot, we see that the result are not too sensitive to λ0, although very large values decrease accuracy whilst very small values cause numerical issues. In the middle plot, we see that selecting 10 2 10 3 10 4 10 5 10 6                        
+
+> Cost= N×T
+> 10 −5
+> 10 −3
+> 10 −1
+> ∆ =  |I − ˆI|
+> Synthetic Experiment NMC ( N=T)NKQ ( N=T)NMC ( N=√T)NKQ ( N=√T)10 210 310 410 510 6
+> Cost
+> 10 −6
+> 10 −4
+> 10 −2
+> 10 0
+> ∆ =  |I − ˆI|
+> d= 1 d= 10 d= 20
+
+Figure 2. Synthetic experiment. Top: Verification of theoretical results. The thin grey lines are theoretical rates of ∆ = Cost −1
+
+and ∆ = Cost −1/3. Bottom: Comparison of NKQ and NMC as dimension d increases. Results are averaged over 1000 indepen-dent runs, while shaded regions give the 25%-75% quantiles. 
+
+the kernel lengthscale using the median heuristic provides very good performance. In the right-most plot, we see that NKQ with Mat´ ern- 32 kernels outperforms Mat´ ern- 12 kernel, indicating practitioners should use Sobolev kernels with the highest order of smoothness permissible by Theorem 1. 
+
+Risk Management in Finance We now move beyond synthetic examples, starting in finance. Financial in-stitutions often face the challenge of estimating the ex-pected loss of their portfolios in the presence of poten-tial economic shocks, which amounts to numerically solv-ing stochastic differential equations (SDEs) over long time horizons (Achdou and Pironneau, 2005). Given the high cost of such simulations, data-efficient methods like NKQ are particularly desirable. Suppose a shock occurs at time η and alters the price of an asset by a factor of 1 + s for some s ≥ 0. Conditioned on the asset price S(η) = θ at the time of shock, the loss of an option associated with that asset at maturity ζ with price S(ζ) = x can be expressed as J(θ) = EX∼Pθ [g(X)] ,where g(x) = ψ(x) − ψ((1 + s)x) measures the shortfall in option payoff and the distribution Pθ is induced by the price of the asset which is described by the Black-Scholes formula. The payoff function we consider is that of a but-terfly call option: ψ(x) = max( x − K1, 0) + max( x −
+
+K2, 0) − 2 max( x − (K1 + K2)/2, 0) for K1, K 2 ≥ 0.Since we incur a loss only if the final shortfall is positive, the expected loss of the option at maturity can be expressed as I = Eθ∼Q[max( EX∼Pθ [g(X)] , 0)] . Under this setting, 7Nested Expectations with Kernel Quadrature NMC NKQ NMC (QMC) NKQ (QMC) MLMC 10 2 10 3 10 4 10 5 10 6    
+
+> Cost
+> 10 −2
+> 10 −1
+> 10 0
+> ∆ =  |I − ˆI|
+> Risk Management in Finance 10 210 310 410 510 6
+> Cost
+> 10 1
+> 10 2
+> ∆ =  |I − ˆI|
+> Health Economics
+
+Figure 3. Top: Financial risk management. Bottom: Health eco-nomics. Results are averaged over 100 independent runs, while shaded regions give the 25%-75% quantiles. 
+
+dΘ = dX = 1 and I = 3 .077 can be computed analytically. In this experiment, Assumptions (2)(3) are satisfied with 
+
+sΘ = sX = 1 , but the max function is not in C2(R) which violates Assumption (4) (see Appendix F.3). Nevertheless, we still run NKQ with kX and kΘ being Mat´ ern- 12 kernels and choose N = T = ∆ −1 for NKQ following Corol-lary 1. For NMC, we follow Gordy and Juneja (2010) and choose N = √T = ∆ −1. For MLMC, we use L = 5 lev-els and allocate samples at each level following Giles and Goda (2019). In Figure 3 Top , we present the mean absolute error of NKQ, NMC and MLMC with increasing cost. We see that NKQ outperforms both NMC and MLMC as expected. For each method, we obtain the empirical rate r by linear re-gression in log-log space, and compare this against the the-oretical rate in Table 1. For NMC, our estimate of ˆr = 2 .97 
+
+matches theory ( r = 3 ), but when using QMC samples in-stead, our estimate of ˆr = 2 .74 shows we under-perform compared to the theoretical rate ( r = 2 .5). This is likely because the domains are unbounded and the measures are not uniform, breaking key assumptions. Finally, for NKQ, we obtain ˆr = 1 .90 for i.i.d samples and ˆr = 1 .91 for QMC samples which match (and even slightly outperform) the theoretical rate ( r = 2 ). 
+
+Value of Information for Healthcare Decision Making 
+
+In medical decision-making, a key metric to evaluate the cost-benefit trade-off of conducting additional tests on pa-tients is the expected value of partial perfect information (EVPPI) (Brennan et al., 2007; Heath et al., 2017). For-mally, let gc denote the patient outcome (such as quality-adjusted life-years) under treatment c in a set of possible treatments C, and θ represent the additional variables that may be measured. Then, Jc(θ) = EX∼Pθ [gc(X, θ )] repre-sents the expected patient outcome given the measurement of θ. The EVPPI is defined as I = I1 − max c∈C (I2,c ),where I1 = Eθ∼Q [max c∈C Jc(θ)] and I2,c = Eθ∼Q [Jc(θ)] 
+
+and therefore I consists of |C| + 1 nested expectations. We follow Section 4.2 of Giles and Goda (2019), where both Pθ and Q are Gaussians, and g1(x, θ ) =10 4(θ1x5x6 + x7x8x9) − (x1 + x2x3x4) and g2(x, θ ) = 10 4(θ2x13 x14 + x15 x16 x17 ) − (x10 + x11 x12 x4). The ex-act practical meanings of each dimension of x and θ can be found in Appendix F.4, but includes quantities such as ‘cost of treatment’ and ‘duration of side effects’. Here we have dX = 17 and dΘ = 2 , the former being relatively high dimensional. The ground truth EVPPI under this setting is 
+
+I = 538 provided in Giles and Goda (2019). For estimating both I1 and I2,c , Assumptions (2)(3) are sat-isfied with infinite smoothness sX = sΘ = ∞, but the max 
+
+function in I1 is only in C0(R) which violates Assump-tion (4). As a result, for estimating I1 we take kX to be a Gaussian kernel and kΘ to be Mat´ ern- 12 kernel (so as to be conservative about the smoothness in θ). For estimating 
+
+I2,c , we select both kX and kΘ to be Gaussian kernels. For NKQ, we choose N = T = ∆ −1 whereas for NMC, we choose N = √T = ∆ −1. For MLMC, we use L = 5 levels and allocate the samples at each level following Giles and Goda (2019). We run NKQ and NMC with both i.i.d. sam-ples and QMC samples. In Figure 3 Bottom , we present the mean absolute error of NKQ, NMC and MLMC with increasing cost. We can see that NKQ consistently outper-forms other baselines. 
+
+Bayesian Optimization We conclude with an applica-tion in Bayesian optimization. Typical acquisition func-tions are greedy approaches that maximize the immediate reward, while look-ahead acquisition functions optimize accumulated reward over a planning horizon, which results in reduced number of required function evaluations (Gins-bourger and Le Riche, 2010; Gonz´ alez et al., 2016; Wu and Frazier, 2019; Yang et al., 2024). The utility of a two-step look ahead acquisition functions can be written as the fol-lowing nested expectation. 
+
+α(z; D) := Ef|D 
+
+h
+
+g(f|D , z ) + max  
+
+> z′
+
+Ef|D ′
+
+g  f|D ′ , z ′ i
+
+,
+
+where f|D , f |D ′ are the posterior distributions given data D
+
+and D′ := D ∪ (z, f |D (z)) . In this experiment, the prior is a Gaussian process with zero mean and Mat´ ern-0.5 co-variance so the posterior f|D remain a Gaussian process. The initial starting data D0 consists of 2 points sampled uniformly from a prespecified interval. Here, g is the re-ward function and we use q-expected improvement (Wang et al., 2020) with q = 2 so z = ( z1, z 2) and g(f|D , z ) = 
+
+8Nested Expectations with Kernel Quadrature 0 2 4 6 8           
+
+> Seconds
+> 10 −1
+> 10 0
+> NMSE
+> Dropwave
+> NKQ NMC MLMC
+> 0246810
+> Seconds
+> 10 −1
+> 10 0
+> Ackley
+> 010 20 30 40 50 60
+> Seconds
+> 10 −1
+> 10 0
+> Cosine8
+
+Figure 4. Bayesian optimization with look ahead acquisition function . The plots are NMSE against accumulative wall clock time. Results are averaged over 100 independent runs, while shaded regions give the 25%-75% quantiles. 
+
+max j=1 ,2(f|D (zj ) − rmax ), 0) . The constant rmax is the maximum reward obtained from previous queries. Al-though f|D (resp. f|D ′ ) is a Gaussian process, we only ever consider its evaluation on z (resp. z′), and we there-fore only have to integrate against two-dimensional Gaus-sians. Notationally speaking, f|D ′ (z1, z 2) correspond to x
+
+and f|D (z1, z 2) correspond to θ in (1) (i.e. dX = dΘ = 2 ), but we use the notation of f|D ′ , f |D to stay consistent with the GP literature. As a result of the max operation, sX = 1 
+
+but we do not have sufficient smoothness in Θ.We benchmark NKQ, NMC and MLMC on three synthetic tasks from BoTorch (Balandat et al., 2020). For NKQ, both kX and kΘ are Mat´ ern- 12 kernels since we want to be conservative about the smoothness. Although both Q
+
+and Pθ are Gaussian so closed-form KMEs are available, we use the “change of variable trick” which maps Gaus-sian distributions to two uniform distributions over [0 , 1] d
+
+(see Appendix F.5) to reduce the computational complexity of NKQ to O(T × N ). To reach a specific error threshold 
+
+∆ = 0 .01 , following Table 1, we choose N = T = ∆ −2
+
+for NMC and N = T = ∆ −1 for NKQ. For MLMC, we use the same code as Yang et al. (2024). The normalized mean squared error (NMSE) ∥ max z∈D S fBB (z)−fBB (z∗)∥2   
+
+> ∥max z∈D 0fBB (z)−fBB (z∗)∥2
+
+is used as performance metric, where D0 (resp. DS ) is queried data at initialization (resp. after S iterations), fBB 
+
+is the black box function to be optimized and fBB (z∗) is the maximum reward. In Figure 4, we compare the efficiency of each method by plotting their NMSE against cumulative computational time in wall clock. We can see that NKQ achieves the lowest NMSE among all methods under a fixed amount of computational time in all three datasets, even though the assumptions of Theorem 1 are not all satisfied. Since the 
+
+Dropwave , Ackley , and Cosine8 functions are syn-thetic and computationally cheap (see Appendix F.5), we expect the advantages of NKQ to be more pronounced for Bayesian optimization on real-world expensive problems. Furthermore, many other utility functions in Bayesian optimization—such as predictive entropy search—involve nested expectations (Balandat et al., 2020). We leave the empirical evaluation of NKQ on these utility functions to future work. 
+
+## 6. Conclusion 
+
+This paper introduces a novel estimator for nested expec-tations based on kernel quadrature. We prove in Theo-rem 1 that our method has a faster rate of convergence than existing methods provided that the problem has sufficient smoothness. This theoretical result is consistent with the empirical evidence in several numerical experiments. Ad-ditionally, even when the problem is not as smooth as the theory requires, NKQ can still outperform baseline meth-ods potentially due to the use of non-equal weights. Following our work, there remain a number of interest-ing future problems and we now highlight two main ones. Firstly, we propose a combination of KQ and MLMC that we call MLKQ in Appendix D.2. However, we believe our current theoretical rate for MLKQ is sub-optimal due to the sub-optimal allocation of samples at each level. Further work will therefore be needed to determine whether this is a viable approach in some cases. Secondly, for applica-tions where function evaluations are extremely expensive, NKQ could be extended to its Bayesian counterpart. This would allow us to use the finite sample uncertainty quan-tification for adaptive selection of samples, which could further improve performance. Finally, establishing mini-max lower bounds for nested expectation remains an open and compelling problem. The main difficulty lies in its two-stage structure. To the best of our knowledge, exist-ing minimax lower bounds for two-stage problem typically reduce the problem to a one-stage problem before deriving the bound; see, for example, Chen and Reiss (2011, Chap-ter 3), Meunier et al. (2024, Appendix F.1), and Zhang et al. (2025). However, it remains unclear how to directly estab-lish meaningful minimax lower bounds of genuinely two-stage problems, such as our nested expectation. 
+
+## Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here. 9Nested Expectations with Kernel Quadrature 
+
+## Acknowledgments 
+
+The authors acknowledge useful discussions with Philipp Hennig and support from the Engineering and Physi-cal Sciences Research Council (ESPRC) through grants [EP/S021566/1] (for ZC and MN) and [EP/Y022300/1] (for FXB). 
+
+## References 
+
+Yves Achdou and Olivier Pironneau. Computational meth-ods for option pricing . SIAM, 2005. Robert A Adams and John JF Fournier. Sobolev spaces .Elsevier, 2003. Aur´ elien Alfonsi, Adel Cherchali, and Jose Arturo Infante Acevedo. Multilevel Monte Carlo for computing the SCR with the standard formula and other stress tests. 
+
+Insurance: Mathematics and Economics , 100:234–260, 2021. Aur´ elien Alfonsi, Bernard Lapeyre, and J´ erˆ ome Lelong. How many inner simulations to compute conditional expectations with least-square Monte Carlo? arXiv preprint arXiv:2209.04153 , 2022. Sigrun Andrad´ ottir and Peter W. Glynn. Computing Bayesian means using simulation. ACM Transactions on Modeling and Computer Simulation , 26(2):1–26, 2016. Nachman Aronszajn. Theory of reproducing kernels. 
+
+Transactions of the American mathematical society , 68 (3):337–404, 1950. Francis Bach. On the equivalence between kernel quadra-ture rules and random feature expansions. Journal of Machine Learning Research , 18(19):1–38, 2017. Maximilian Balandat, Brian Karrer, Daniel Jiang, Samuel Daulton, Ben Letham, Andrew G Wilson, and Eytan Bakshy. Botorch: A framework for efficient Monte-carlo Bayesian optimization. Advances in Neural Information Processing Systems , 33:21524–21538, 2020. Nicola Bariletto and Nhat Ho. Bayesian Nonparametrics meets Data-Driven Robust Optimization. In Advances in Neural Information Processing Systems , 2024. Arved Bartuska, Andre Gustavo Carlon, Luis Espath, Se-bastian Krumscheid, and Raul Tempone. Double-loop randomized Quasi-Monte Carlo estimator for nested in-tegration. arXiv:2302.14119 , 2023. Joakim Beck, Ben Mansour Dia, Luis Espath, and Ra´ ul Tempone. Multilevel double loop Monte Carlo and stochastic collocation methods with importance sam-pling for Bayesian optimal experimental design. Inter-national Journal for Numerical Methods in Engineering ,121(15):3482–3503, 2020. Ali Behzadan and Michael Holst. Multiplication in Sobolev spaces, revisited. Arkiv f¨ or Matematik , 59(2):275–306, 2021. Ayoub Belhadji, R´ emi Bardenet, and Pierre Chainais. Ker-nel quadrature with DPPs. Advances in Neural Informa-tion Processing Systems , 32, 2019. Colin Bennett and Robert C Sharpley. Interpolation of op-erators . Academic press, 1988. Alain Berlinet and Christine Thomas-Agnan. Reproduc-ing Kernel Hilbert Spaces in Probability and Statistics .Springer Science+Business Media, New York, 2004. Ayush Bharti, Masha Naslidnyk, Oscar Key, Samuel Kaski, and Franc ¸ois-Xavier Briol. Optimally-weighted estima-tors of the maximum mean discrepancy for likelihood-free inference. In International Conference on Machine Learning , pages 2289–2312, 2023. Alan Brennan, Samer Kharroubi, Anthony O’Hagan, and Jim Chilcott. Calculating partial expected value of per-fect information via Monte Carlo sampling algorithms. 
+
+Medical Decision Making , 27(4):448–470, 2007. Franc ¸ois-Xavier Briol. Statistical computation with ker-nels . PhD thesis, University of Warwick, 2018. Franc ¸ois-Xavier Briol, Chris Oates, Mark Girolami, and Michael Osborne. Frank-Wolfe Bayesian quadrature: Probabilistic integration with theoretical guarantees. In 
+
+Advances in Neural Information Processing Systems ,pages 1162–1170, 2015. Franc ¸ois-Xavier Briol, Chris Oates, Jon Cockayne, Ye Chen, and Mark Girolami. On the sampling prob-lem for kernel quadrature. In Proceedings of the Inter-national Conference on Machine Learning , pages 586– 595, 2017. Franc ¸ois-Xavier Briol, Chris Oates, Mark Girolami, M. A. Osborne, and D. Sejdinovic. Probabilistic integration: A role in statistical computation? (with discussion). Statis-tical Science , 34(1):1–22, 2019. Karolina Bujok, Ben M Hambly, and Christoph Reisinger. Multilevel simulation of functionals of bernoulli random variables with application to basket credit derivatives. 
+
+Methodology and Computing in Applied Probability , 17: 579–604, 2015. 10 Nested Expectations with Kernel Quadrature 
+
+X. Cai, C. T. Lam, and J. Scarlett. On average-case error bounds for kernel-based Bayesian quadrature. Transac-tions on Machine Learning Research , 2023. Xiaohong Chen and Markus Reiss. On rate optimality for ill-posed inverse problems in econometrics. Econo-metric Theory , 27(3):497–521, 2011. ISSN 0266-4666, 1469-4360. URL http://www .jstor .org/ stable/27975490 .Zonghao Chen, Aratrika Mustafi, Pierre Glaser, Anna Ko-rba, Arthur Gretton, and Bharath K Sriperumbudur. (de)-regularized maximum mean discrepancy gradient flow. 
+
+arXiv preprint arXiv:2409.14980 , 2024a. Zonghao Chen, Masha Naslidnyk, Arthur Gretton, and Franc ¸ois-Xavier Briol. Conditional Bayesian quadra-ture. Conference on Uncertainty in Artificial Intelli-gence , 2024b. Charita Dellaporta, Patrick O’Hara, and Theodoros Damoulas. Decision making under the exponential fam-ily: Distributionally robust optimisation with Bayesian ambiguity sets. arXiv:2411.16829v1 , 2024. Persi Diaconis. Bayesian numerical analysis. Statistical Decision Theory and Related Topics IV , pages 163–175, 1988. Josef Dick, Frances Kuo, and Ian H. Sloan. High-dimensional integration: The Quasi-Monte Carlo way. 
+
+Acta Numerica , 22(April 2013):133–288, 2013. Mona Eberts and Ingo Steinwart. Optimal regression rates for SVMs using Gaussian kernels. 2013. David Eric Edmunds and Hans Triebel. Function spaces, entropy numbers, differential operators. (No Title) , 1996. Ethan N. Epperly and Elvira Moreno. Kernel quadrature with randomly pivoted cholesky. In Advances in Neural Information Processing Systems , pages 65850–65868, 2023. Lawrence C Evans. Partial differential equations , vol-ume 19. American Mathematical Society, 2022. Simon Fischer and Ingo Steinwart. Sobolev norm learning rates for regularized least-squares algorithms. Journal of Machine Learning Research , 21(205):1–38, 2020. Alexandra Gessner, Javier Gonzalez, and Maren Mah-sereci. Active multi-information source Bayesian quadrature. In Uncertainty in Artificial Intelligence ,pages 712–721. PMLR, 2020. Michael B. Giles. Multilevel Monte Carlo methods. Acta Numerica , 24:259–328, 2015. Michael B. Giles. MLMC for nested expectations. Con-temporary computational mathematics-A celebration of the 80th birthday of ian sloan , pages 425–442, 2018. Michael B. Giles and Takashi Goda. Decision-making un-der uncertainty: using MLMC for efficient estimation of EVPPI. Statistics and computing , 29:739–751, 2019. Michael B. Giles and A-L Haji-Ali. Multilevel nested sim-ulation for efficient risk estimation. SIAM/ASA Journal on Uncertainty Quantification , 7(2):497–525, 2019. David Ginsbourger and Rodolphe Le Riche. Towards Gaussian process-based optimization with finite time horizon. In mODa 9 - Advances in Model-Oriented De-sign and Analysis , pages 89–96, 2010. Takashi Goda, Daisuke Murakami, Kei Tanaka, and Kozo Sato. Decision-theoretic sensitivity analysis for reservoir development under uncertainty using multilevel Quasi-Monte Carlo methods. Computational Geosciences , 22 (4):1009–1020, 2018. Takashi Goda, Tomohiko Hironaka, and Takeru Iwamoto. Multilevel Monte Carlo estimation of expected informa-tion gains. Stochastic Analysis and Applications , 38(4): 581–600, 2020. Javier Gonz´ alez, Michael Osborne, and Neil Lawrence. Glasses: Relieving the myopia of Bayesian optimisation. In Artificial Intelligence and Statistics , pages 790–799. PMLR, 2016. Michael B. Gordy and Sandeep Juneja. Nested simulation in portfolio risk measurement. Management Science , 56 (10):iv–1872, 2010. Arthur Gretton. Introduction to rkhs, and some simple ker-nel algorithms. Advanced Topics in Machine Learning. Lecture Conducted from University College London , 16 (5-3):2, 2013. Tom Gunter, Michael A Osborne, Roman Garnett, Philipp Hennig, and Stephen J Roberts. Sampling for inference in probabilistic models with fast Bayesian quadrature. 
+
+Advances in Neural Information Processing Systems , 27, 2014. Hanyuan Hang and Ingo Steinwart. Optimal learning with anisotropic Gaussian SVMs. Applied and Computa-tional Harmonic Analysis , 55:337–367, 2021. Satoshi Hayakawa, Harald Oberhauser, and Terry Lyons. Positively weighted kernel quadrature via subsampling. In Advances in Neural Information Processing Systems ,pages 6886 – 6900, 2022. 11 Nested Expectations with Kernel Quadrature 
+
+Satoshi Hayakawa, Harald Oberhauser, and Terry Lyons. Sampling-based Nystr¨ om approximation and kernel quadrature. In International Conference on Machine Learning , volume 202, pages 12678–12699, 2023. Anna Heath, Ioanna Manolopoulou, and Gianluca Baio. A Review of Methods for Analysis of the Expected Value of Information. Medical Decision Making , 37(7):747– 758, 2017. Philipp Hennig, Michael A. Osborne, and Hans Kerst-ing. Probabilistic Numerics: Computation as Machine Learning . Cambridge University Press, 2022. Jeff L. Hong and Sandeep Juneja. Estimating the mean of a non-linear function of conditional expectation. In 
+
+Proceedings of the 2009 Winter Simulation Conference ,pages 1223–1236, 2009. Tuomas Hytonen, Jan Van Neerven, Mark Veraar, and Lutz Weis. Analysis in Banach spaces , volume 12. Springer, 2016. Vesa Kaarnioja, Ilja Klebanov, Claudia Schillings, and Yuya Suzuki. Lattice rules meet kernel cubature. 
+
+arXiv:2501.09500 , 2025. Heishiro Kanagawa, Wittawat Jitkrittum, Lester Mackey, Kenji Fukumizu, and Arthur Gretton. A kernel stein test for comparing latent variable models. Journal of the Royal Statistical Society Series B: Statistical Methodol-ogy , 85:986–1011, 2023. Monotobu Kanagawa and Philipp Hennig. Convergence guarantees for adaptive Bayesian quadrature methods. In Advances in Neural Information Processing Systems ,pages 6237–6248, 2019. Monotobu Kanagawa, Bharath K. Sriperumbudur, and Kenji Fukumizu. Convergence analysis of determin-istic kernel-based quadrature rules in misspecified set-tings. Foundations of Computational Mathematics , 20: 155–194, 2020. Motonobu Kanagawa, Philipp Hennig, Dino Sejdinovic, and Bharath K Sriperumbudur. Gaussian processes and kernel methods: A review on connections and equiva-lences. arXiv preprint arXiv:1807.02582 , 2018. Toni Karvonen and Simo S¨ arkk¨ a. Fully symmetric kernel quadrature. SIAM Journal on Scientific Computing , 40 (2):697–720, 2018. Toni Karvonen, Simo S¨ arkk¨ a, and Chris Oates. Symmetry exploits for Bayesian cubature methods. Statistics and Computing , 29:1231–1248, 2019. Toni Karvonen, Chris Oates, and Mark Girolami. Integra-tion in reproducing kernel Hilbert spaces of Gaussian kernels. Mathematics of Computation , 90(331):2209– 2233, 2020. Frances Y Kuo, Weiwen Mo, and Dirk Nuyens. Construct-ing Embedded Lattice-Based Algorithms for Multivari-ate Function Approximation with a Composite Number of Points. Constructive Approximation , 2024. Shing Hoi Lee and Peter W. Glynn. Computing the distri-bution function of a conditional expectation via Monte Carlo: Discrete conditioning spaces. ACM Transactions on Modeling and Computer Simulation , 13(3):238–258, 2003. Kaiyu Li, Daniel Giles, Toni Karvonen, Serge Guillas, and Franc ¸ois-Xavier Briol. Multilevel Bayesian quadra-ture. In International Conference on Artificial Intelli-gence and Statistics , pages 1845–1868. PMLR, 2023. Jihao Long, Xiaojun Peng, and Lei Wu. A duality analysis of kernel ridge regression in the noiseless regime. arXiv preprint arXiv:2402.15718 , 2024. Francis A Longstaff and Eduardo S Schwartz. Valuing american options by simulation: a simple least-squares approach. The review of financial studies , 14(1):113– 147, 2001. Firdous Ahmad Mala. Value of information for healthcare decision-making. Technometrics , 66(4):677–678, 2024. doi: 10 .1080/00401706 .2024 .2407725. Dimitri Meunier, Zhu Li, Tim Christensen, and Arthur Gretton. Nonparametric instrumental regression via ker-nel methods is minimax optimal, 2024. URL https: //arxiv .org/abs/2411 .19653 .Erich Novak. Deterministic and stochastic error bounds in numerical analysis , volume 1349. Springer, 2006. Erich Novak. Some results on the complexity of numer-ical integration. Monte Carlo and Quasi-Monte Carlo Methods: MCQMC, Leuven, Belgium, April 2014 , pages 161–183, 2016. Chris Oates, Mark Girolami, and Nicolas Chopin. Control functionals for Monte Carlo integration. Journal of the Royal Statistical Society B: Statistical Methodology , 79 (3):695–718, 2017. Chris J. Oates, Jon Cockayne, Franc ¸ois-Xavier Briol, and Mark Girolami. Convergence rates for a class of esti-mators based on Stein’s identity. Bernoulli , 25(2):1141– 1159, 2019. Anthony O’Hagan. Bayes–Hermite quadrature. Journal of Statistical Planning and Inference , 29:245–260, 1991. 12 Nested Expectations with Kernel Quadrature 
+
+Michael Osborne, Roman Garnett, Zoubin Ghahramani, David K Duvenaud, Stephen J Roberts, and Carl Ras-mussen. Active learning of model evidence using Bayesian quadrature. Advances in Neural Information Processing Systems , 25, 2012. Art B Owen. Quasi-Monte carlo sampling. Monte Carlo Ray Tracing: Siggraph , 1:69–88, 2003. Fred J. Hickernell R. Jagadeeswaran. Fast automatic Bayesian cubature using lattice sampling. Statistics and Computing , 29(6):1215–1229, 2019. Tom Rainforth, Rob Cornish, Hongseok Yang, Andrew Warrington, and Frank Wood. On nesting Monte Carlo estimators. In International Conference on Machine Learning , pages 4267–4276. PMLR, 2018. Tom Rainforth, Adam Foster, Desi R. Ivanova, and Fred-die B. Smith. Modern Bayesian experimental design. 
+
+Statistical Science , 39(1):100–114, 2024. Carl Rasmussen and Zoubin Ghahramani. Bayesian Monte Carlo. In Advances in Neural Information Processing Systems , pages 489–496, 2002. Klaus Ritter. Average-case analysis of numerical prob-lems . Number 1733. Springer Science & Business Me-dia, 2000. Christian P. Robert and George Casella. Monte Carlo Sta-tistical Methods . Springer, 2000. Walter Rudin. Principles of mathematical analysis , vol-ume 3. McGraw-hill New York, 1964. Alexander Shapiro, Enlu Zhou, and Yifan Lin. Bayesian distributionally robust optimization. SIAM Journal on Optimization , 33(2):1279–1304, 2023. Shijing Si, Chris J. Oates, Andrew B. Duncan, Lawrence Carin, and Franc ¸ois-Xavier Briol. Scalable con-trol variates for Monte Carlo methods via stochas-tic optimization. Proceedings of the 14th Confer-ence on Monte Carlo and Quasi-Monte Carlo Methods. arXiv:2006.07487 , 2021. Alex Smola, Arthur Gretton, Le Song, and Bernhard Sch¨ olkopf. A hilbert space embedding for distributions. In International conference on algorithmic learning the-ory , pages 13–31. Springer, 2007. Alvise Sommariva and Marco Vianello. Numerical cuba-ture on scattered data by radial basis functions. Comput-ing , 76:295–310, 2006. Yang Song, Sahaj Garg, Jiaxin Shi, and Stefano Ermon. Sliced Sscore matching: A scalable approach to density and score estimation. In Uncertainty in Artificial Intelli-gence Conference , pages 574–584, 2020. Ingo Steinwart. Support Vector Machines . Springer, 2008. Ingo Steinwart, Don R Hush, Clint Scovel, et al. Optimal rates for regularized least squares regression. In COLT ,pages 79–93, 2009. David Stirzaker. Elementary Probability . Cambridge Uni-versity Press, 2003. Zhuo Sun, Alessandro Barp, and Franc ¸ois-Xavier Briol. Vector-valued control variates. In International Confer-ence on Machine Learning , pages 32819–32846, 2023. Taiji Suzuki and Atsushi Nitanda. Deep learning is adap-tive to intrinsic dimensionality of model smoothness in anisotropic Besov space. Advances in Neural Informa-tion Processing Systems , 34:3609–3621, 2021. Roman Vershynin. High-dimensional probability: An in-troduction with applications in data science , volume 47. Cambridge university press, 2018. Jialei Wang, Scott C Clark, Eric Liu, and Peter I Frazier. Parallel Bayesian global optimization of expensive func-tions. Operations Research , 68(6):1850–1865, 2020. Holger Wendland. Scattered data approximation , vol-ume 17. Cambridge university press, 2004. Jonathan Wenger, Nicholas Kr¨ amer, Marvin Pf¨ ortner, Jonathan Schmidt, Nathanael Bosch, Nina Effenberger, Johannes Zenn, Alexandra Gessner, Toni Karvonen, Franc ¸ois-Xavier Briol, et al. ProbNum: Probabilistic Numerics in Python. arXiv preprint arXiv:2112.02100 ,2021. Jian Wu and Peter Frazier. Practical two-step lookahead Bayesian optimization. Advances in Neural Information Processing Systems , 32, 2019. George Wynne, Franc ¸ois-Xavier Briol, and Mark Girolami. Convergence guarantees for Gaussian process means with misspecified likelihoods and smoothness. The Jour-nal of Machine Learning Research , 22(1):5468–5507, 2021. Shangda Yang, Vitaly Zankin, Maximilian Balandat, Ste-fan Scherer, Kevin Thomas Carlberg, Neil Walton, and Kody JH Law. Accelerating look-ahead in Bayesian op-timization: Multilevel Monte Carlo is all you need. In 
+
+Forty-first International Conference on Machine Learn-ing , 2024. Xiaoyan Zeng, Peter Kritzer, and Fred J. Hickernell. Spline methods using integration lattices and digital nets. pages 529–555, 2009. 13 Nested Expectations with Kernel Quadrature 
+
+Haobo Zhang, Yicheng Li, Weihao Lu, and Qian Lin. On the optimality of misspecified kernel ridge regression. In 
+
+International Conference on Machine Learning , pages 41331–41353. PMLR, 2023. Zhen Zhang, Xin Liu, Shaoli Wang, and Jiaye Teng. Minimax optimal two-stage algorithm for moment es-timation under covariate shift. In The Thirteenth International Conference on Learning Representa-tions , 2025. URL https://openreview .net/ forum?id=oc4yw7zX9T .14 Nested Expectations with Kernel Quadrature 
+
+# Supplementary Material 
+
+## Table of Contents 
+
+15 Nested Expectations with Kernel Quadrature 
+
+Additional notations For two normed vector spaces A, B , A ∼= B means that A and B are norm equivalent, i.e. their sets coincide and the corresponding norms are equivalent. In other words, there are constants c1, c 2 > 0 such that c1∥h∥A ≤∥h∥B ≤ c2∥h∥A holds for all h ∈ A, written as ∥ · ∥ A ∼= ∥ · ∥ B . For A ⊆ B, A is said to be continuously embedded in B
+
+if the inclusion map between them is continuous, written as A , → B. ∥T ∥ denotes the norm of an operator T : A → B.For a function f : X ⊆ Rd → R and α ∈ Nd, we use ∂αx f to denote the standard derivative ∂x α1 
+
+> 1
+
+· · · ∂x αn 
+
+> n
+
+f and Dαx f to denote the weak derivative. For f ∈ W s 
+
+> 2
+
+(X ), we use ∥f ∥s, 2 := ∥f ∥W s   
+
+> 2(X)
+
+to denote its Sobolev space norm. ≲ means ≤
+
+up to some positive multiplicative constants. 
+
+## A. Existing Results on Kernel Ridge Regression 
+
+In this section, we present Proposition 1 to 3 which are adaptation of theorems from Fischer and Steinwart (2020) applied to Sobolev spaces. These propositions are foundations of the proof of Theorem 1 in Appendix C. In the standard regression setting, we are given N observations {xi, y i}Ni=1 which are i.i.d sampled from an unknown joint distribution P on X × R. Here, X ⊂ Rd is a compact domain. The marginal distribution of P on X is π, and the conditional distribution P(· | x) satisfies the Bernstein moment condition (Fischer and Steinwart, 2020). In other words, there exists constants σ, L > 0 independent of x such that 
+
+Z
+
+> R
+
+|y − h∗(x)|m P(dy | x) ≤ 12 m!σ2Lm−2 (A.1) is satisfied for π-almost all x ∈ X and all m ≥ 2. For example, (A.1) is satisfied with σ = L = σ0 when P(· | x)
+
+is a Gaussian distribution with bounded variance σ0. Additionally, (A.1) is also satisfied when there is no noise in the observation so σ = L = 0 , which will be discussed in Appendix B. In a regression problem, the target of interest is the Bayes predictor h∗ : X → R, x 7 → E[Y | X = x]. One way of estimating h∗ is through kernel ridge regression (Fischer and Steinwart, 2020): given a reproducing kernel k : X ×X → R,the kernel ridge regression estimator ˆhλ : X → R is defined as the solution to the following optimization problem ( λ > 0): 
+
+ˆhλ = arg min 
+
+> h∈H k
+
+(
+
+λ∥h∥2 
+
+> Hk
+
++ 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+(yi − h(xi)) 2
+
+)
+
+. (A.2) 
+
+Hk is the reproducing kernel Hilbert space (RKHS) associated with a kernel k. Fortunately, it has the following closed-form expression (Gretton, 2013, Section 7) 
+
+ˆhλ = k(·, x 1: N ) ( k(x1: N , x 1: N ) + N λ IN )−1 y1: N .
+
+We also introduce an auxiliary function hλ : X → Y which is the solution to another optimization problem: 
+
+hλ = arg min  
+
+> f∈H k
+
+
+
+λ∥f ∥2 
+
+> H
+
++
+
+Z
+
+> X × R
+
+(y − f (x)) 2P(dx, dy )
+
+
+
+. (A.3) In regression setting, it is of interest to study the generalization error between the estimator ˆhλ and the Bayes optimal predictor h∗, ∥ˆhλ − h∗∥L2(π), and particularly its asymptotic rate of convergence towards 0 as the number of samples N
+
+tend to infinity. The generalization error can be decomposed into two terms, through a triangular inequality, 
+
+∥ˆhλ − h∗∥L2(π) ≤ ∥ ˆhλ − hλ∥L2(π) + ∥hλ − h∗∥L2(π) , (A.4) where the first term ∥ˆhλ − hλ∥L2(π) is known as the estimation error and the second term ∥hλ − h∗∥L2(π) is known as the approximation error. Next, we are going to present propositions that study these two terms separately under the following list of conditions. (S1) k is a Sobolev reproducing kernel of smoothness s > d 
+
+> 2
+
+.(S2) π is a probability measure on X with density p : X → R. There exist positive constants G0, G 1 such that G0 ≤
+
+p(x) ≤ G1 for any x ∈ X .(S3) The Bayes predictor h∗ ∈ W s 
+
+> 2
+
+(X ).(S4) There exists universal constants σ, L > 0 such that (A.1) holds. 16 Nested Expectations with Kernel Quadrature 
+
+Proposition 1 (Approximation error) . Under Assumptions (S1)-(S4), 
+
+∥hλ − h∗∥L2(π) ≤ ∥ h∗∥s, 2 λ 12 .
+
+Proof. This is direct application of Lemma 14 of (Fischer and Steinwart, 2020) with β = 1 and γ = 0 .
+
+Proposition 2 (Estimation error) . Suppose Assumptions (S1)-(S4) hold. Let N (λ) be the effective dimension defined in Lemma 1, and kα be defined in Lemma 2. If N > A λ,τ , then with probability at least 1 − 4e−τ ,
+
+∥hλ − ˆhλ∥2 
+
+> L2(π)
+
+≤ 576 τ 2
+
+N
+
+
+
+L2Dλ − d 
+
+> 2s
+
++ M 2λ1− d 
+
+> 2s
+
+∥h∗∥2 
+
+> s, 2
+
++ M 2 L2
+
+> λ
+
+N λ− d
+
+> 2s
+
+
+
+, (A.5) 
+
+where D and M are constants independent of N , and gλ, A λ,τ , L λ are defined as follows 
+
+gλ := log 
+
+
+
+2eN (λ) ∥Σπ ∥ + λ
+
+∥Σπ ∥
+
+
+
+, Aλ,τ := 8 k2
+
+> α
+
+τ g λλ− d 
+
+> 2s
+
+, Lλ := max 
+
+n
+
+L, λ 12 − d
+
+> 4s
+
+ ∥h∗∥L∞(π) + kα∥h∗∥s, 2
+
+o
+
+.
+
+Proof. This proposition is a special case of Theorem 16 in Fischer and Steinwart (2020) under the following adaptations towards our Sobolev space setting: 1) Lemma 1 proves that N (λ) ≤ Dλ − d 
+
+> 2s
+
+and Lemma 2 proves that kα ≤ M for 
+
+α = d 
+
+> 2s
+
+. 2) ∥h∗ − hλ∥L∞(π) is upper bounded by λ 12 − d
+
+> 4s
+
+ ∥h∗∥L∞(π) + kα∥h∗∥s, 2
+
+ proved in Corollary 15 of Fischer and Steinwart (2020). ∥Σπ ∥ is the norm of the covariance operator defined in (E.40). 
+
+Proposition 3. Suppose Assumptions (S1)-(S4) hold. For Aλ,τ and Lλ defined above in Proposition 2, if N > A λ,τ , then with probability at least 1 − 4e−τ ,
+
+ˆhλ − h∗ 2
+
+> L2(π)
+
+≤ 576 τ 2
+
+N
+
+
+
+L2Dλ − d 
+
+> 2s
+
++ M 2λ1− d 
+
+> 2s
+
+∥h∗∥2 
+
+> s, 2
+
++ 2 M 2 L2
+
+> λ
+
+N λ− d
+
+> 2s
+
+
+
++ ∥h∗∥2 
+
+> s, 2
+
+λ. 
+
+Proof. By the triangle inequality in (A.4), combining Proposition 1 and Proposition 2 finishes the proof. 
+
+## B. Noiseless Kernel Ridge Regression (Kernel Quadrature) 
+
+In this section, we present the upper bound on the generalization error ∥h∗ − ˆhλ∥L2(π) in Proposition 3 adapted to the noiseless regression setting, which will be employed in the proof of Theorem 1 in the next section. Our proof follows the outline of the proof for Theorem 1 in (Fischer and Steinwart, 2020), modified for our choice of regularization parameter λ.Note that this section is of independent interest to some readers as it presents the first standalone proof on the convergence rate of kernel quadrature that 1): it allows positive regularization parameter λ > 0 and 2): it provides convergence in high probability rather than in expectation. The closely-related work is Bach (2017) which requires i.i.d samples from an intractable distribution; and Long et al. (2024) which provides a more general analysis on noiseless kernel ridge regression in both well-specified and mis-specified setting. Suppose we have N observations x1: N which are i.i.d sampled from an unknown distribution π on X along with N
+
+noiseless function evaluations h∗(x1: N ) where h∗ : X ⊂ Rd → R. The setting appears for instance when the measurement of the output values is very accurate, or when the output values are obtained as a result of computer experiments. 
+
+Proposition 4. Let X ⊂ Rd be compact, and x1: N be N i.i.d. samples from π. Define ˆhλN (·) := 
+
+k(·, x 1: N ) ( k(x1: N , x 1: N ) + N λ N IN )−1 h∗(x1: N ), and suppose conditions (S1)-(S4) are satisfied. Then, if λN ≍
+
+N − 2sd (log N ) 2s+2  
+
+> d
+
+, there exists an N0 > 0 such that for all N > N 0,
+
+∥h∗ − ˆhλN ∥L2(π) ≤ Cτ N − sd (log N ) s+1  
+
+> d
+
+∥h∗∥s, 2 (B.6) 
+
+holds with probability at least 1 − 4e−τ , for a constant C = C(X , G 0, G 1) that only depends on X , G 0, G 1.Proof. Notice that ˆhλN is precisely the solution to the optimization problem defined in (A.2) only with yi replaced by 
+
+h∗(xi). Similarly, we define hλN as the solution to the optimization problem defined in (A.3) only with y replaced by 
+
+h∗(x). Note that Assumption (S4) is instantly satisfied with L = 0 .Similar to the proof of Proposition 3, we decompose the generalization error into an estimation error term ∥hλN −
+
+ˆhλN ∥L2(π) and an approximation error term ∥hλN − h∗∥L2(π).17 Nested Expectations with Kernel Quadrature 
+
+Approximation error Take λN ≍ N − 2sd (log N ) 2s+2  
+
+> d
+
+, then from Proposition 1, we have 
+
+∥hλN − h∗∥L2(π) ≤ λ 12 
+
+> N
+
+∥h∗∥s, 2 ≍ N − sd (log N ) s+1  
+
+> d
+
+∥h∗∥s, 2.
+
+Estimation error Recall all the constants gλN , AλN ,τ and LλN defined in Proposition 2. Since L = 0 , we know the constant LλN = λ 12 − d
+
+> 4s
+> N
+
+ ∥h∗∥L∞(π) + kα∥h∗∥s, 2
+
+. In order to apply Proposition 2, we need to check there indeed exists 
+
+N0 such that N ≥ AλN ,τ is satisfied for all N ≥ N0. To this end, we are going to verify that lim N →∞ AλN ,τ /N → 0.Notice that 
+
+lim  
+
+> N→∞
+
+AλN ,τ 
+
+N = 8k2
+
+> α
+
+τ g λN λ− d
+
+> 2s
+> N
+
+N = 8(log N )− s+1  
+
+> s
+
+k2
+
+> α
+
+τ log 
+
+
+
+2eN (λN ) ∥Σπ ∥ + λN
+
+∥Σπ ∥
+
+
+
+where N (λN ) and k2 
+
+> α
+
+are defined in Lemma 1 and Lemma 2. Since lim N →∞ λN = lim N →∞ N − 2sd (log N ) 2s+2  
+
+> d
+
+= 0 ,there exists N ′ such that λN ≤ ∥ Σπ ∥ for all N ≥ N ′. Therefore, as N tends to infinity, 
+
+lim  
+
+> N→∞
+
+AλN ,τ 
+
+N ≤ lim   
+
+> N→∞
+
+8(log N )− s+1  
+
+> s
+
+k2
+
+> α
+
+τ log (4 eN (λN )) 
+
+≤ lim   
+
+> N→∞
+
+8(log N )− s+1  
+
+> s
+
+k2
+
+> α
+
+τ log 
+
+
+
+4eDλ − d
+
+> 2s
+> N
+
+
+
+= lim   
+
+> N→∞
+
+8(log N )− s+1  
+
+> s
+
+k2
+
+> α
+
+τ log (4 eD ) + lim   
+
+> N→∞
+
+8(log N )− s+1  
+
+> s
+
+k2
+
+> α
+
+τ log 
+
+
+
+N (log N )− s+1 
+
+> s
+
+
+
+≤ lim   
+
+> N→∞
+
+16(log N )− s+1  
+
+> s
+
+k2
+
+> α
+
+τ log ( N )= 0 ,
+
+(B.7) where M and D are constants defined in Lemma 1 and Lemma 2. So there exists N ′′ such that N ≥ AλN ,τ for all 
+
+N ≥ N ′′ . Taking N0 = max {N ′, N ′′ }, then we have N ≥ AλN ,τ for all N ≥ N0. From Proposition 2, we know that with probability at least 1 − 4e−τ ,
+
+∥hλN − ˆhλN ∥2 
+
+> L2(π)
+
+≤ 576 τ 2
+
+N
+
+
+
+M 2λ1− d 
+
+> 2s
+> N
+
+∥h∗∥2 
+
+> s, 2
+
++ M 2λ1− d
+
+> 2s
+> N
+
+ ∥h∗∥L∞(π) + M ∥h∗∥s, 2
+
+2 1
+
+N λ− d
+
+> 2s
+> N
+
+
+
+≍ 576 τ 2
+
+N
+
+
+
+M 2N 1− 2sd (log N ) s+1  
+
+> s
+> 2s−dd
+
+∥h∗∥2 
+
+> s, 2
+
++ M 2  ∥h∗∥L∞(π) + M ∥h∗∥s, 2
+
+2 N 1− 2sd (log N ) s+1 2s
+
+> 4s−dd
+
+
+
+≤ 576 τ 2N − 2sd (log N ) 2s+2 
+
+> d
+
+
+
+M 2 ∥h∗∥2 
+
+> s, 2
+
++ M 2  ∥h∗∥L∞(π) + M ∥h∗∥s, 2
+
+2
+
+.
+
+So we have, with probability at least 1 − 4e−τ ,
+
+∥hλN − ˆhλN ∥L2(π) ≤ 24 τ N − sd (log N ) s+1 
+
+> d
+
+
+
+(M + M 2) ∥h∗∥s, 2 + M ∥h∗∥L∞(π)
+
+
+
+.
+
+Combine approximation and estimation error Combining the above two inequalities on approximation error ∥hλN −
+
+h∗∥L2(π) and estimation error ∥hλN − ˆhλN ∥L2(π), we have with probability at least 1 − 4e−τ ,
+
+∥h∗ − ˆhλN ∥L2(π) ≤ 24 τ N − sd (log N ) s+1 
+
+> d
+
+
+
+(1 + M + M 2) ∥h∗∥s, 2 + M ∥h∗∥L∞(π)
+
+
+
+.
+
+Finally, following the arguments of Lemma 2 that the operator norm of W s 
+
+> 2
+
+(X ) ,→ L∞(X ) is bounded, we have 
+
+∥h∗∥L∞(π) ≤ R ∥h∗∥s, 2 where R is a constant that depends on X , G 0, G 1. With probability at least 1 − 4e−τ ,
+
+∥h∗ − ˆhλN ∥L2(π) ≤ 24 τ N − sd (log N ) s+1  
+
+> d
+
+(1 + (1 + R)M + M 2) ∥h∗∥s, 2 = Cτ N − sd (log N ) s+1  
+
+> d
+
+∥h∗∥s, 2,
+
+for C := 24(1 + (1 + R)M + M 2), which concludes the proof. 
+
+Corollary 2. Let X be a compact domain in Rd and x1: N are N i.i.d samples from π. ˆIKQ := 
+
+EX∼π [k(X, x 1: N )] ( k(x1: N , x 1: N ) + N λ N IN )−1 h∗(x1: N ) is the KQ estimator defined in (5) . Suppose conditions (A1)-(A3) are satisfied. Take λN ≍ N − 2sd (log N ) 2s+2  
+
+> d
+
+, then there exists N0 > 0 such that for N > N 0,
+
+ˆIKQ −
+
+Z
+
+> X
+
+h∗(x)dπ (x) ≤ Cτ N − sd (log N ) s+1  
+
+> d
+
+(B.8) 
+
+holds with probability at least 1 − 4e−τ . Here C is a constant that is independent of N .
+
+18 Nested Expectations with Kernel Quadrature 
+
+The proof of Corollary 2 is a direct application of Proposition 4 after observing the following. 
+
+ˆIKQ −
+
+Z
+
+h∗(x)dπ (x) ≤
+
+Z
+
+> X
+
+ˆhλN (x) − h∗(x) dπ (x) = ∥h∗ − ˆhλN ∥L1(π) ≤ ∥ h∗ − ˆhλN ∥L2(π).
+
+Remark B.1. We prove in Proposition 4 that the generalization error of ˆhλN in noiseless regression setting is ˜O(N − sd ),which is faster than the minimax optimal rate O(N − s 
+
+> 2s+d
+
+) in standard regression setting. The fast rate is expected because we are in the noiseless regime so “overfitting” is not a problem — hence our choice of regularization parameter λN ≍
+
+N − 2sd (log N ) 2s+2  
+
+> d
+
+decays to 0 at a faster rate than λN ≍ N − 2s 
+
+> 2s+d
+
+in standard kernel ridge regression (Fischer and Steinwart, 2020, Corollary 5). The ˜O(N − sd ) rate is also optimal (up to logarithm terms) and cannot be further improved because it matches the lower bound of interpolation (Sections 1.3.11 and 1.3.1 of Novak (2006), Section 1.2, Chapter V of Ritter (2000)). 
+
+Remark B.2 (Comparison to existing upper bound of kernel (Bayesian) quadrature) . The upper bound in Corollary 2 matches existing analysis based on scattered data approximation in the literature of both kernel quadrature and Bayesian quadrature (Sommariva and Vianello, 2006; Briol et al., 2019; Wynne et al., 2021) and is known to be minimax opti-mal (Novak, 2016; 2006). Existing analysis takes λ = 0 and requires the Gram matrix k(x1: N , x 1: N ) to be invertible, in contrast, our result allows a positive regularization parameter λN ≍ N − 2sd (log N ) 2s+2  
+
+> d
+
+which improves numerical stability of matrix inversion in practice. One closely-related work is Bach (2017), but it requires i.i.d samples from an intractable distribution. 
+
+## C. Proof of Theorem 1 
+
+Remark C.1. In this section, we use p(x; θ) to denote the density pθ (x) so that we can use p(x; ·) to denote the mapping 
+
+θ 7 → pθ (x). Although we introduce a shorthand notation of kernel mean embedding in the main text, μπ = EX∼π [k(X, ·)] ,in this section we are going to write it out with its explicit formulation. 
+
+For any θ ∈ Θ, ˆFKQ : Θ → R and ˆJKQ : Θ → R are two functions that generalize the definition of ˆFKQ (θt) and ˆJKQ (θt)
+
+in (7) to all θ ∈ Θ. To be more specific, for any θ ∈ Θ, given samples x(θ)1: N := x(θ)1 , . . . , x (θ)
+
+> N
+
+⊤ consisting of N i.i.d. samples from Pθ ,
+
+ˆJKQ (θ; x(θ)1: N ) := 
+
+Z 
+
+> X
+
+kX (x, x (θ)1: N )dPθ (x)
+
+ 
+
+kX (x(θ)1: N , x (θ)1: N ) + N λ X IN
+
+−1
+
+g(x(θ)1: N , θ ), (C.9) 
+
+ˆFKQ (θ; x(θ)1: N ) := f ( ˆJKQ (θ; x(θ)1: N )) , (C.10) where we explicitly specify the dependence of samples x(θ)1: N on θ in the above two equations. Next, we define 
+
+¯JKQ (θ) := Ex(θ)1: N ∼Pθ
+
+h ˆJKQ (θ; x(θ)1: N )
+
+i
+
+=
+
+Z
+
+ˆJKQ (θ; x1: N )
+
+> N
+
+Y
+
+> i=1
+
+p(xi; θ)dx 1: N ,
+
+¯FKQ (θ) := Ex(θ)1: N ∼Pθ
+
+h ˆFKQ (θ; x(θ)1: N )
+
+i
+
+=
+
+Z
+
+ˆFKQ (θ; x1: N )
+
+> N
+
+Y
+
+> i=1
+
+p(xi; θ)dx 1: N ,
+
+(C.11) which marginalize out the dependence on samples x(θ)1: N . We can see that ¯JKQ ∈ L2(Q) since g(x, ·) ∈ W sΘ 
+
+> 2
+
+(Θ) ⊂
+
+L2(Θ) ∼= L2(Q) from Assumption (1) and (3); and p(xi; ·) ∈ L2(Q). Also ¯FKQ ∈ L2(Q) because f is Lipschitz continuous from Assumption (4). Therefore, the absolute error |I − ˆINKQ | can be decomposed as follows: 
+
+I − ˆINKQ 
+
+=
+
+Z
+
+> Θ
+
+F (θ)q(θ)dθ −
+
+Z 
+
+> Θ
+
+kΘ(θ, θ 1: T )q(θ)dθ 
+
+
+
+(kΘ(θ1: T , θ 1: T ) + T λ ΘIT )−1 ˆFKQ (θ1: T )
+
+≤
+
+Z
+
+> Θ
+
+F (θ)q(θ)dθ −
+
+Z
+
+> Θ
+
+¯FKQ (θ)q(θ)dθ 
+
++
+
+Z
+
+> Θ
+
+¯FKQ (θ)q(θ)dθ −
+
+Z 
+
+> Θ
+
+kΘ(θ, θ 1: T )q(θ)dθ 
+
+
+
+(kΘ(θ1: T , θ 1: T ) + T λ ΘIT )−1 ˆFKQ (θ1: T )
+
+19 Nested Expectations with Kernel Quadrature 
+
+≤ Eθ∼Q
+
+ F (θ) − ¯FKQ (θ) | {z }
+
+> Stage I error
+
++ ¯FKQ (·) − k(·, θ 1: T )( kΘ(θ1: T , θ 1: T ) + T λ ΘIT )−1 ˆFKQ (θ1: T ) L2(Q)
+
+| {z }
+
+> Stage II error
+
+. (C.12) The last inequality holds because ∥ · ∥ L1(Q) ≤ ∥ · ∥ L2(Q). Next, we analyze Stage I error and Stage II error separately. 
+
+Stage I Error From Assumption (4), f is Lipschitz continuous and the Lipschitz constant is bounded by S4,
+
+¯FKQ (θ) − F (θ) = Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ)
+
+≤ Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ)
+
+≤ S4 Ex(θ)1: N ∼Pθ
+
+ˆJKQ (θ; x(θ)1: N ) − J(θ) , (C.13) where the first inequality holds by Jensen inequality and the last inequality holds by Lipschitz continuity of f . Define 
+
+ˆg(x, θ ; x(θ)1: N ) = kX (x, x (θ)1: N )( kX (x(θ)1: N , x (θ)1: N ) + N λ X IN )−1g(x(θ)1: N , θ ). (C.14) Here ˆg(·, θ ; x(θ)1: N ) ∈ L2(Pθ ) because the Sobolev reproducing kernel kX is bounded and measurable; and g(·, θ ) ∈ L2(Pθ )
+
+by Assumption (3). Thus, 
+
+ˆJKQ (θ; x(θ)1: N ) − J(θ) =
+
+Z
+
+(ˆ g(x, θ ; x(θ)1: N ) − g(x, θ )) p(x; θ)dx ≤ ˆg(·, θ ; x(θ)1: N ) − g(·, θ ) L2(Pθ )
+
+. (C.15) Based on Assumption (2), g(·, θ ) ∈ W sX 
+
+> 2
+
+(X ) for any θ ∈ Θ. Therefore, based on Proposition 4, if one takes λX ,N ≍
+
+N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+, then there exists N0 such that for N > N 0,
+
+ˆg(·, θ ; x(θ)1: N ) − g(·, θ ) L2(Pθ )
+
+≤ Cτ N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+∥g(·, θ )∥sX ,2, (C.16) holds with probability at least 1 − 4e−τ . The probability is taken over the distribution of x(θ)1: N , i.e Pθ . Here C is a constant independent of N . Hence, with Lemma 4, we have 
+
+Ex(θ)1: N ∼Pθ
+
+ˆg(·, θ ; x(θ)1: N ) − g(·, θ ) L2(Pθ )
+
+≤ CN − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+∥g(·, θ )∥sX ,2. (C.17) By plugging the above inequality back into (C.15), we obtain 
+
+Ex(θ)1: N ∼Pθ
+
+ˆJKQ (θ; x(θ)1: N ) − J(θ) ≤ CN − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+∥g(·, θ )∥sX ,2.
+
+Therefore, the Stage I error can be upper bounded by 
+
+Eθ∼Q F (θ) − ¯FKQ (θ) ≤ S4 Ex(θ)1: N ∼Pθ
+
+ˆJKQ (θ; x(θ)1: N ) − J(θ) ∥g(·, θ )∥sX ,2
+
+≤ S4S1CN − sX 
+
+> dX
+
+(log N ) sX +1 
+
+> dX
+
+= C3N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+, (C.18) where C3 := S4S1C is a constant independent of N .
+
+Stage II Error The upper bound on the stage II error is done in five steps. In step one, we prove that ˆJKQ (·; x(θ)1: N ) ∈
+
+W sΘ 
+
+> 2
+
+(Θ) given fixed samples x(θ)1: N . In step two, we show that J ∈ W sΘ 
+
+> 2
+
+(Θ) . In step three, we upper bound 
+
+∥ ˆJKQ (·; x(θ)1: N )∥sΘ,2 through the triangular inequality that ∥ ˆJKQ (·; x(θ)1: N )∥sΘ,2 ≤ ∥ J∥sΘ,2 + ∥J − ˆJKQ (·; x(θ)1: N )∥sΘ,2. In step four, we upper bound ¯FKQ (θ) = Ex(θ)1: N
+
+h
+
+f
+
+ ˆJKQ (·; x(θ)1: N )
+
+i 
+
+through marginalizing out the samples x(θ)1: N . In the last step, we use kernel ridge regression bound proved in Proposition 3 to upper bound the stage II error. 20 Nested Expectations with Kernel Quadrature 
+
+Step One. In this step, we are going to show that ˆJKQ lies in the Sobolev space W sΘ 
+
+> 2
+
+(Θ) given fixed samples x(θ)1: N . Notice that the dependence of ˆJKQ (θ) on θ is through two mappings: θ 7 → R 
+
+> X
+
+kX (x, x (θ)1: N )p(x; θ)dx and θ 7 → g(x(θ)1: N , θ ). We are going to show that θ 7 → R 
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)p(x; θ)dx lies in the Sobolev space W sΘ 
+
+> 2
+
+(Θ) for any i ∈ { 1, . . . , N }. To this end, we are going to demonstrate it possesses weak derivatives up to and including order sΘ that lie in L2(Θ) . Take 
+
+φ : Θ → R to be any infinitely differentiable function with compact support in Θ (commonly denoted as φ ∈ C∞ 
+
+> c
+
+(Θ) ), with its standard, non-weak derivative of order β denoted by ∂β φ. Since θ 7 → p(x; θ) ∈ W sΘ 
+
+> 2
+
+(Θ) , for any |β| ≤ sΘ it has a weak derivative θ 7 → Dβθ p(x; θ) ∈ L 2(Θ) . Then, 
+
+Z
+
+> Θ
+
+φ(θ)
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)Dβθ p(x; θ)dx (i)
+
+=
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)
+
+Z
+
+> Θ
+
+φ(θ)Dβθ p(x; θ)dθdx 
+
+> (ii )
+
+= ( −1) |β|
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)
+
+Z
+
+> Θ
+
+∂β φ(θ)p(x; θ)dθdx (iii )
+
+= (−1) |β|
+
+Z
+
+> Θ
+
+∂β φ(θ)
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)p(x; θ)dxdθ. 
+
+(C.19) In the above chain of derivations, we are allowed to swap the integration order in (i) by the Fubini theorem (Rudin, 1964) because kX is bounded and the fact that θ 7 → φ(θ) · Dβθ p(x; θ) ∈ L1(Θ) since Dβθ p(x; ·) ∈ L2(Θ) (Assumption (3)) and 
+
+φ ∈ L2(Θ) ; (ii ) holds by definition of weak derivatives for Dβθ p(x; θ); and (iii ) holds again by the Fubini theorem. By definition of weak derivatives, (C.19) shows that R 
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)p(x; θ)dx has a weak derivative of order β of the form 
+
+Dβθ
+
+Z 
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)p(x; θ)dx 
+
+
+
+=
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)Dβθ p(x; θ)dx 
+
+Also, since kX is bounded and θ 7 → Dβθ p(x; θ) ∈ L 2(Θ) , the weak derivative above is in L2(Θ) . Consequently, we have 
+
+X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)p(x; θ)dx 
+
+> 2
+
+dθ = X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)Dβθ p(x; θ)dx 
+
+> 2
+
+dθ 
+
+> (i)
+
+≤ Vol (X ) X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Z
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)Dβθ p(x; θ)dx 2
+
+dθ 
+
+> (ii )
+
+≤ Vol (X ) X
+
+> |β|≤ sΘ
+
+κ2
+
+Z
+
+> Θ
+
+Z
+
+> X
+
+Dβθ p(x; θ) 2
+
+dxdθ 
+
+> (iii )
+
+= Vol (X )κ2
+
+Z
+
+> X
+
+∥p(x; ·)∥2 
+
+> sΘ,2
+
+dx. 
+
+In the above chain of derivations, (i) holds because | R 
+
+> X
+
+f (x)dx |2 ≤ Vol (X ) R 
+
+> X
+
+|f (x)|2dx for compact X , (ii ) holds because kX is upper bounded by κ and R 
+
+> Θ
+
+|Dβθ p(x; θ)|2dθ < ∞ from Assumption (3), (iii ) holds because p(x; ·) ∈
+
+W sΘ 
+
+> 2
+
+(Θ) for any x ∈ X based on Assumption (3). Also, one can interchange the order of integration in (iii ) by the Fubini’s theorem (Rudin, 1964). As a result, for any i, j ∈ { 1, . . . , N }, we have f1,i : θ 7 → R 
+
+> X
+
+kX (x, x (θ) 
+
+> i
+
+)p(x; θ)dx ∈ W sΘ 
+
+> 2
+
+(Θ) and f2,j : θ 7 → g(x(θ) 
+
+> j
+
+, θ ) ∈
+
+W sΘ 
+
+> 2
+
+(Θ) from Assumption (3). Therefore, we know from Lemma 3 that their product f1,i · f2,j ∈ W sΘ 
+
+> 2
+
+(Θ) hence ˆJKQ as a linear combination of f1,i · f2,j is in W sΘ 
+
+> 2
+
+(Θ) .
+
+Step Two. In this step, we are going to show that J : θ 7 → R 
+
+> X
+
+g(x, θ )p(x; θ)dx is also in the Sobolev space W sΘ 
+
+> 2
+
+(Θ) . Since both g(x, ·) ∈ W sΘ 
+
+> 2
+
+(Θ) and p(x; ·) ∈ W sΘ 
+
+> 2
+
+(Θ) , we know from Lemma 3 that θ 7 → g(x, θ ) · p(x, θ ) ∈ W sΘ 
+
+> 2
+
+(Θ) . By following the same steps as in (C.19), we obtain that for any |β| ≤ sΘ,
+
+Dβθ
+
+Z
+
+> X
+
+g(x, θ )p(x; θ)dx =
+
+Z
+
+> X
+
+Dβθ
+
+
+
+g(x, θ )p(x; θ)
+
+
+
+dx. (C.20) We are now ready to study the Sobolev norm of J,
+
+∥J∥2 
+
+> sΘ,2
+
+:= X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ
+
+Z
+
+> X
+
+p(x; θ)g(x, θ )dx 
+
+> 2
+
+dθ 
+
+21 Nested Expectations with Kernel Quadrature 
+
+> (i)
+
+= X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Z
+
+> X
+
+Dβθ
+
+
+
+p(x; θ)g(x, θ )
+
+
+
+dx 
+
+> 2
+
+dθ 
+
+> (ii )
+
+≤ Vol (X )
+
+Z
+
+> X
+
+X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ
+
+
+
+p(x; θ)g(x, θ )
+
+ 2
+
+dθdx 
+
+> (iii )
+
+= Vol (X )
+
+Z
+
+> X
+
+∥p(x; ·)g(x, ·)∥2 
+
+> sΘ,2
+
+dx 
+
+> (iv )
+
+≤ Vol (X )2S22 S23 (C.21) Here, (i) holds by (C.20), (ii ) holds since | R 
+
+> X
+
+f (x)dx |2 ≤ Vol (X ) R 
+
+> X
+
+|f (x)|2dx for compact X , (iii ) follows from the definition of Sobolev norm, and (iv ) holds by Lemma 3 and Assumption (3) that ∥g(x, ·)∥sΘ,2 ≤ S2, ∥p(x; ·)∥sΘ,2 ≤ S3.
+
+Step Three. In this step, we study the Sobolev norm of ˆJKQ for some fixed x(θ)1: N , by upper bounding it with 
+
+∥J − ˆJKQ (·; x(θ)1: N )∥sΘ,2 + ∥J∥sΘ,2. Since g(x(θ) 
+
+> i
+
+, ·) ∈ W sΘ 
+
+> 2
+
+(Θ) by Assumption (3), it holds that ˆg(x, ·; x(θ)1: N ) =
+
+kX (x, x (θ)1: N )( kX (x(θ)1: N , x (θ)1: N ) + N λ X IN )−1g(x(θ)1: N , ·) is in W sΘ 
+
+> 2
+
+(Θ) for any fixed x(θ)1: N . Therefore, 
+
+p(x; ·)
+
+
+
+g(x, ·) − ˆg(x, ·; x(θ)1: N )
+
+
+
+> sΘ,2
+
+≤ ∥ p(x; ·)∥sΘ,2 g(x, ·) − ˆg(x, ·; x(θ)1: N ) sΘ,2
+
+≤ S3 g(x, ·) − ˆg(x, ·; x(θ)1: N ) sΘ,2
+
+, (C.22) where the first inequality holds by Lemma 3 and the second inequality holds by Assumption (3) that ∥p(x; ·)∥sΘ,2 ≤ S3.Now, we consider the Sobolev norm of ˆJKQ − J,
+
+ˆJKQ (·; x(θ)1: N ) − J 2
+
+> sΘ,2
+
+= X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ
+
+Z
+
+> X
+
+p(x; θ)
+
+
+
+g(x, θ ) − ˆg(x, θ ; x(θ)1: N )
+
+
+
+dx 
+
+> 2
+
+dθ 
+
+> (i)
+
+= X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Z
+
+> X
+
+Dβθ
+
+
+
+p(x; θ)
+
+
+
+g(x, θ ) − ˆg(x, θ ; x(θ)1: N )
+
+  
+
+dx 
+
+> 2
+
+dθ 
+
+> (ii )
+
+≤ Vol (X )
+
+Z
+
+> X
+
+X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ
+
+
+
+p(x; θ)
+
+
+
+g(x, θ ) − ˆg(x, θ ; x(θ)1: N )
+
+  2
+
+dθdx 
+
+> (iii )
+
+= Vol (X )
+
+Z
+
+> X
+
+p(x; ·)
+
+
+
+g(x, ·) − ˆg(x, ·; x(θ)1: N )
+
+ 2
+
+> sΘ,2
+
+dx 
+
+> (iv )
+
+≤ Vol (X )S23
+
+Z
+
+> X
+
+g(x, ·) − ˆg(x, ·; x(θ)1: N ) 2
+
+> sΘ,2
+
+dx, (C.23) where the above chain of derivations (i) — (iv) follow the exact same reasoning as (C.19) and (C.21). Next, notice that 
+
+Z
+
+> X
+
+g(x, ·) − ˆg(x, ·; x(θ)1: N ) 2
+
+> sΘ,2
+
+dx =
+
+Z
+
+> X
+
+X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ
+
+
+
+g(x, θ ) − ˆg(x, θ ; x(θ)1: N )
+
+ 2
+
+dθdx 
+
+= X
+
+> |β|≤ sΘ
+
+Z
+
+> Θ
+
+Dβθ g(·, θ ) − Dβθ ˆg(·, θ ; x(θ)1: N ) 2  
+
+> L2(X)
+
+dθ. (C.24) By Assumption (2), Dβθ g(·, θ ) ∈ W sX 
+
+> 2
+
+(X ) for any |β| ≤ sΘ. Therefore, by applying Proposition 4 with h∗(·) := 
+
+Dβθ g(·, θ ), and ˆhλ(·) := Dβθ ˆg(·, θ ; x(θ)1: N ) = kX (·, x (θ)1: N )( kX (x(θ)1: N , x (θ)1: N ) + N λ X IN )−1Dβθ g(x(θ)1: N , θ ; x(θ)1: N ), we get that 
+
+Dβθ g(·, θ ) − Dβθ ˆg(·, θ ; x(θ)1: N ) L2(Pθ )
+
+≤ Cτ N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+Dβθ g(·, θ ) sX ,2
+
+(C.25) holds with probability at least 1 − 4e−τ , for a C that only depends on X , G 0,X , G 1,X . From Assumption (1), we know that 
+
+L2(Pθ ) ∼= L2(X ) (they are norm equivalent) and ∥f ∥L2(X ) ≤ Vol (X )−1G−10,X ∥f ∥L2(Pθ ) for any f ∈ L2(Pθ ). Therefore, 22 Nested Expectations with Kernel Quadrature 
+
+for any θ ∈ Θ and any |β| ≤ sΘ, with probability at least 1 − 4e−τ ,
+
+Dβθ g(·, θ ) − Dβθ ˆg(·, θ ; x(θ)1: N ) L2(X )
+
+≤ Cτ Vol (X )−1G−10,X N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+Dβθ g(·, θ ) sX ,2
+
+≤ Cτ Vol (X )−1G−10,X N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+S1. (C.26) By plugging (C.26) into (C.24), and then plugging the result into (C.23), we get that with probability at least 1 − 4e−τ ,
+
+ˆJKQ (·; x(θ)1: N ) − J sΘ,2
+
+≤
+
+ X
+
+> |β|≤ sΘ
+
+1
+
+ Cτ G −10,X Vol (X )−1S1S3N − sX 
+
+> dX
+
+(log N ) sX +1 
+
+> dX
+
+=
+
+sΘ + dΘ − 1
+
+dΘ − 1
+
+
+
+Cτ G −10,X Vol (X )−1S1S3N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+. (C.27) By combining this result with the bound ∥J∥sΘ,2 ≤ Vol (X )S2S3 proven in (C.21), we get that with probability at least 
+
+1 − 4e−τ and any N > N 0 it holds that 
+
+ˆJKQ (·; x(θ)1: N ) sΘ,2
+
+≤ ˆJKQ (·; x(θ)1: N ) − J sΘ,2
+
++ ∥J∥sΘ,2
+
+≤
+
+sΘ + dΘ − 1
+
+dΘ − 1
+
+
+
+Cτ G −10,X Vol (X )−1S1S3N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ Vol (X )S2S3
+
+≤ 2Vol (X )S2S3, (C.28) where N0 is defined as the smallest integer for which the first term is subsumed by the second term. 
+
+Step Four. In this step, we are going to upper bound the Sobolev norm of ¯FKQ . From Chapter 5, Exercise 16 of (Evans, 2022), we have ˆFKQ = f ◦ ˆJKQ is in W sΘ 
+
+> 2
+
+(Θ) because f has bounded derivatives up to including sΘ + 1 and 
+
+∥ ˆJ(·; x(θ)1: N )∥sΘ,2 ≤ Vol (X )S2S3 with probability at least 1 − 4e−τ proved in (C.28). Hence, ∥ ˆFKQ (·; x(θ)1: N )∥sΘ,2 ≤ C6
+
+holds with probability at least 1 − 4e−τ . Next, recall the definition of ¯FKQ (θ) in (C.11), 
+
+¯FKQ (θ) = Ex(θ)1: N ∼Pθ
+
+h ˆFKQ 
+
+
+
+θ; x(θ)1: N
+
+i 
+
+=
+
+Z
+
+> X
+
+· · · 
+
+Z
+
+> X
+
+ˆFKQ (θ; x(θ)1: N )p(x(θ)1 ; θ)p(x(θ)2 ; θ) · · · p(x(θ) 
+
+> N
+
+; θ)dx (θ)1 dx (θ)2 · · · dx (θ) 
+
+> N
+
+.
+
+For any i = 1 , . . . , N , we know that ∥p(x(θ) 
+
+> i
+
+; ·)∥sΘ,2 ≤ S3 from Assumption (3) and ∥ ˆFKQ (·; x(θ)1: N )∥sΘ,2 ≤ C6 proved above. Therefore, from Lemma 3 we have ∥p(x(θ) 
+
+> i
+
+; ·) ˆFKQ (·; x(θ)1: N )∥sΘ,2 is bounded, so x(θ) 
+
+> i
+
+7 → p(x(θ) 
+
+> i
+
+; ·) ˆFKQ (·; x(θ)1: N ) is Bochner integrable with respect to the Lebesgue measure LX . From Lemma 5, we have, 
+
+¯FKQ sΘ,2 ≤
+
+Z
+
+> X
+
+· · · 
+
+Z
+
+> X
+
+ˆFKQ (·; x(θ)1: N )
+
+> N
+
+Y
+
+> n=1
+
+p(x(θ) 
+
+> n
+
+; ·)
+
+> sΘ,2
+
+dx (θ)1 dx (θ)2 · · · dx (θ)
+
+> N
+
+≤
+
+Z
+
+> X
+
+· · · 
+
+Z
+
+> X
+
+ˆFKQ (·; x(θ)1: N ) sΘ,2
+
+> N
+
+Y
+
+> n=1
+
+∥p(x(θ) 
+
+> n
+
+; ·)∥sΘ,2
+
+!
+
+dx (θ)1 dx (θ)2 · · · dx (θ)
+
+> N
+
+≤ C6SN 
+
+> 3
+
+Vol (X )N
+
+≤ C6. (C.29) The last inequality holds by S3 ≤ 1 from Assumption (3) and X = [0 , 1] dX so Vol (X ) = 1 .
+
+Step Five. We are now ready to upper bound the stage II error, which was defined as Stage II error = ¯FKQ (·) − k (·, θ 1: T ) ( kΘ (θ1: T , θ 1: T ) + T λ ΘIT )−1 ˆFKQ (θ1: T ) L2(Q)
+
+.
+
+The idea is to treat the stage II error as the generalization error of kernel ridge regression—which can be bounded via Proposition 3. Given i.i.d. observations (θ1, ˆFKQ (θ1, x (θ1)1: N )) , . . . , (θT , ˆFKQ (θT , x (θT )1: N )) , the target of interest in the context 23 Nested Expectations with Kernel Quadrature 
+
+of regression is the conditional mean, which in our case is precisely ¯FKQ (θ) = Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) defined in (C.11). Alternatively, ˆFKQ (θ; x(θ)1: N ) can be treated as noisy observation of the target function ¯FKQ (θ) where the observation noise is defined as r : Θ → R with r(θ; x(θ)1: N ) = ˆFKQ (θ; x(θ)1: N ) − ¯FKQ (θ). So we automatically have Ex(θ)1: N ∼Pθ
+
+[r(θ)] = 0 . For any positive integer m ≥ 2,
+
+Ex(θ)1: N ∼Pθ
+
+[|r(θ)|m] = Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − ¯FKQ (θ) m
+
+> (i)
+
+≤ 2m−1 Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ) m
+
++ 2 m−1 ¯FKQ (θ) − F (θ) m
+
+= 2 m−1 Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ) m
+
++ 2 m−1 Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ) m
+
+≤ 2m−1 Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ) m
+
++ 2 m−1 Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ) m
+
+= 2 m Ex(θ)1: N ∼Pθ
+
+ˆFKQ (θ; x(θ)1: N ) − F (θ) m
+
+≤ 2mSm 
+
+> 4
+
+Ex(θ)1: N ∼Pθ
+
+ˆJKQ (θ; x(θ)1: N ) − J(θ) m
+
+> (ii )
+
+≤ 2mm!Sm 
+
+> 4
+
+Sm 
+
+> 1
+
+CmN −m sX 
+
+> dX
+
+(log N )m sX +1  
+
+> dX
+
+. (C.30) In the above chain of derivations, (i) holds because (a + b)m ≤ 2m−1(am + bm). (ii ) holds because we know from (C.15) and (C.16) that | ˆJKQ (θ; x(θ)1: N ) − J(θ)| ≤ Cτ N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+S1 holds with probability at least 1 − 4e−τ , and so 
+
+Ex(θ)1: N ∼Pθ
+
+| ˆJKQ (θ; x(θ)1: N ) − J(θ)|m can be bounded via Lemma 4. Therefore, by comparing (C.30) with (A.1), we can see that the observation noise r indeed satisfy the Bernstein noise moment condition with 
+
+σ = L = 2 S4S1CN − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+= C7N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+,
+
+for C7 := 2 S4S1C a constant independent of N, T . Before we employ Proposition 3, we need to check the Assumptions (S1)—(S4). Assumption (S1) is satisfied for our choice of kernel kΘ. Assumption (S2) is satisfied due to Assumption (1). Assumption (S3) is satisfied due to (C.29). Assumption (S4) is satisfied for the Bernstein noise moment condition verified above. Next, we compute all the constants in Proposition 3 in the current context. N (λΘ) is the effective dimension defined in Lemma 1 upper bounded by DΘλ−dΘ/2sΘ 
+
+> Θ
+
+, kα with α = 2sΘ 
+
+> dΘ
+
+defined in Lemma 2 is upper bounded by a constant MΘ,
+
+∥ΣQ∥ is the norm of the covariance operator defined in (E.40). Hence 
+
+gλΘ := log 
+
+
+
+2eN (λΘ) ∥ΣQ∥ + λΘ
+
+∥ΣQ∥
+
+
+
+, AλΘ,τ := 8 k2
+
+> α
+
+τ g λΘ λ− dΘ2sΘ 
+
+> Θ
+
+,LλΘ := max 
+
+
+
+L, λ   
+
+> 12−dΘ4sΘ
+> Θ
+
+ ∥ ¯FKQ ∥L∞(Q) + kα∥ ¯FKQ ∥sΘ,2
+
+
+
+.
+
+Applying Proposition 3 shows that, for T > A λΘ,τ ,
+
+¯FKQ − k (·, θ 1: T ) ( kΘ (θ1: T , θ 1: T ) + T λ ΘIT )−1 ˆFKQ (θ1: T ) 2
+
+> L2(Q)
+
+≤ 576 τ 2
+
+T L2DΘλ− dΘ2sΘ 
+
+> Θ
+
++ M 2Θλ1− dΘ2sΘ 
+
+> Θ
+
+¯FKQ  
+
+> 2
+> sΘ,2
+
++ 2 M 2Θ
+
+L2
+
+> λΘ
+
+T λ− dΘ2sΘ
+
+> Θ
+
+!
+
++ ¯FKQ  
+
+> 2
+> sΘ,2
+
+λΘ, (C.31) holds with probability at least 1 − 4e−τ . We take λΘ ≍ T −2 sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2  
+
+> dΘ
+
+, then similar to the derivations from (B.7), 
+
+lim  
+
+> T→∞
+
+AλΘ,τ 
+
+T ≤ lim   
+
+> T→∞
+
+16(log T )− sΘ+1  
+
+> sΘ
+
+k2
+
+> α
+
+τ log ( T ) = 0 . (C.32) It means there exists a finite T0 > 0 such that T > A λΘ,τ holds for any T > T 0. Notice that, with probability at least 
+
+1 − 4e−τ ,
+
+∥ ¯FKQ ∥L∞(Q) = ∥ ¯FKQ ∥L∞(Θ) ≤ RΘ∥ ¯FKQ ∥sΘ,2 ≤ RΘC6 (C.33) 24 Nested Expectations with Kernel Quadrature 
+
+based on (C.29) and the fact that W sΘ
+
+2 (Θ) ,→ L∞(Θ) with ∥W sΘ
+
+2 (Θ) ,→ L∞(Θ) ∥ ≤ RΘ, we have 
+
+LλΘ ≤ max {L, T − sΘ 
+
+> dΘ
+
++ 12 (log T ) sΘ+1 2sΘ2sΘ−dΘ 
+
+> dΘ
+
+(RΘ + MΘ) C6}
+
+= max {C7N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
+, T − sΘ 
+
+> dΘ
+
++ 12 (log T ) sΘ+1 2sΘ2sΘ−dΘ 
+
+> dΘ
+
+(RΘ + MΘ) C6}.
+
+So the above (C.31) can be further upper bounded by 
+
+≤ 576 τ 2
+
+T
+
+
+
+C27 N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+DΘT (log T )− sΘ+1  
+
+> sΘ
+
++ M 2ΘT − 2sΘ 
+
+> dΘ
+
++1 (log T ) sΘ+1  
+
+> sΘ2sΘ−dΘ
+> dΘ
+
+C26
+
+
+
++ 576 τ 2
+
+T · 2M 2Θ
+
+max 
+
+
+
+C27 N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+, T −2 sΘ 
+
+> dΘ
+
++1 (log T ) sΘ+1  
+
+> sΘ2sΘ−dΘ
+> dΘ
+
+(RΘ + MΘ)2 C26
+
+
+
+T T (log T )− sΘ+1 
+
+> sΘ
+
++ C26 T −2 sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2 
+
+> dΘ
+
+= 576 τ 2
+
+
+
+C27 N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+DΘ(log T )− sΘ+1  
+
+> sΘ
+
++ M 2ΘT − 2sΘ 
+
+> dΘ
+
+(log T ) sΘ+1  
+
+> sΘ2sΘ−dΘ
+> dΘ
+
+C26
+
+
+
++ 576 τ 2 · 2M 2Θ max 
+
+
+
+C27 N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+T −1, T − 2sΘ 
+
+> dΘ
+
+(log T ) sΘ+1  
+
+> sΘ2sΘ−dΘ
+> dΘ
+
+(RΘ + MΘ)2 C26
+
+
+
+· (log T )− sΘ+1 
+
+> sΘ
+
++ C26 T −2 sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2 
+
+> dΘ
+
+(i)
+
+≤ 576 τ 2C27 N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
+DΘ + 576 τ 2M 2ΘT − 2sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2  
+
+> dΘ
+
+C26
+
++ 576 τ 2 · 2M 2ΘC27 N −2 sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
++ 576 τ 2 · 2M 2ΘT − 2sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2  
+
+> dΘ
+
+(RΘ + MΘ)2 C26 + C26 T −2 sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2 
+
+> dΘ
+
+=: τ 2 
+
+C28 N − 2sX 
+
+> dX
+
+(log N ) 2sX +2  
+
+> dX
+
++ C29 T − 2sΘ 
+
+> dΘ
+
+(log T ) 2sΘ+2 
+
+> dΘ
+
+
+
+.C8, C 9 are two constants independent of N, T . In (i), we use max {a1, a 2} ≤ a1 + a2, we also use the following 
+
+(log T ) sΘ+1  
+
+> sΘ2sΘ−dΘ
+> dΘ
+
+≤ (log T ) 2sΘ+2  
+
+> dΘ
+
+, (log T )− sΘ+1  
+
+> sΘ
+
+≤ 1.
+
+Therefore, we have that, Stage II error := ¯FKQ − k(·, θ 1: T )( kΘ(θ1: T , θ 1: T ) + T λ ΘIT )−1 ˆFKQ (θ1: T ) L2(Q)
+
+≤ τ
+
+
+
+C8N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ C9T − sΘ 
+
+> dΘ
+
+(log T ) sΘ+1 
+
+> dΘ
+
+
+
+, (C.34) holds with probability at least 1 − 8e−τ .
+
+Combine stage I and stage II error Combining the stage I error of (C.18) and the stage II error of (C.34), we obtain 
+
+I − ˆINKQ ≤ Stage I error + Stage II error 
+
+≤ C3N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ τ
+
+
+
+C8N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ C9T − sΘ 
+
+> dΘ
+
+(log T ) sΘ+1 
+
+> dΘ
+
+
+
+≤ τ
+
+
+
+(C8 + C3)N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ C9T − sΘ 
+
+> dΘ
+
+(log T ) sΘ+1 
+
+> dΘ
+
+
+
+=: τ
+
+
+
+C1N − sX 
+
+> dX
+
+(log N ) sX +1  
+
+> dX
+
++ C2T − sΘ 
+
+> dΘ
+
+(log T ) sΘ+1 
+
+> dΘ
+
+
+
+,
+
+holds with probability at least 1 − 8e−τ . Here C1, C 2 are two constants independent of N, T so the proof concludes here. 
+
+## D. Multi-Level Nested Kernel Quadrature 
+
+In this section, we are going to introduce a novel method that combines nested kernel quadrature (NKQ) with multi-level construction as mentioned in Section 4. 25 Nested Expectations with Kernel Quadrature 
+
+D.1. Multi-Level Monte Carlo for Nested Expectation 
+
+First, we briefly review multi-level Monte Carlo (MLMC) applied to nested expectations I = Eθ∼Q[f (EX∼Pθ [g(X, θ )])] 
+
+introduced in Section 9 of Giles (2015) and Giles and Goda (2019). At each level ℓ, we are given Tℓ samples θ1: Tℓ sampled i.i.d from Q and we have Nℓ samples x(θt)1: Nℓ sampled i.i.d from Pθt for each t = 1 , . . . , T ℓ. The MLMC implementation is to construct an estimator Pℓ at each level ℓ such that I can be decomposed into the sum of Pℓ.
+
+I ≈ Eθ∼Q[PL] = Eθ∼Q [P0] + 
+
+> L
+
+X
+
+> ℓ=1
+
+Eθ∼Q [Pℓ − Pℓ−1] , Pℓ := f 1
+
+NℓNℓX
+
+> n=1
+
+g
+
+
+
+x(θ) 
+
+> n
+
+, θ 
+
+!
+
+.
+
+The estimator Yℓ for Eθ∼Q[Pℓ − Pℓ−1] is 
+
+Yℓ = 1
+
+TℓTℓX
+
+> t=1
+
+f 1
+
+NℓNℓX
+
+> n=1
+
+g
+
+
+
+x(t) 
+
+> n
+
+, θ t
+
+!
+
+− 12 f
+
+ 1
+
+Nℓ−1
+
+> Nℓ−1
+
+X
+
+> n=1
+
+g
+
+
+
+x(t) 
+
+> n
+
+, θ t
+
+ − 12 f
+
+ 1
+
+Nℓ−1
+
+> Nℓ
+
+X
+
+> n=Nℓ−1+1
+
+g
+
+
+
+x(t) 
+
+> n
+
+, θ t
+
+ ,Y0 := 1
+
+T0
+
+> T0
+
+X
+
+> t=1
+
+f 1
+
+N0
+
+> N0
+
+X
+
+> n=1
+
+g
+
+
+
+x(t) 
+
+> n
+
+, θ t
+
+!
+
+.
+
+Compared with (3) in the main text, notice that here we use the ‘antithetic’ approach which further improves the perfor-mance of MLMC (Giles, 2015, Section 9). The MLMC estimator for nested expectation can be written as 
+
+ˆIMLMC := 
+
+> L
+
+X
+
+> ℓ=0
+
+Yℓ. (D.35) At each level ℓ, the cost of Yℓ is O(Nℓ ×Tℓ) and the expected squared error E[( Yℓ −Eθ∼Q[Pℓ −Pℓ−1]) 2] = O(N −2 
+
+> ℓ
+
+×T −1 
+
+> ℓ
+
+)
+
+provided that f has bounded second order derivative (Giles, 2015, Section 9) 1. Here the expectation is taken over the randomness of samples. So the total cost and expected absolute error of MLMC for nested expectation can be written as Cost = O
+
+> L
+
+X
+
+> ℓ=0
+
+Nℓ × Tℓ
+
+!
+
+, E |I − ˆIMLMC | = O
+
+> L
+
+X
+
+> ℓ=0
+
+N −1 
+
+> ℓ
+
+× T − 12
+
+> ℓ
+
+!
+
+. (D.36) Theorem 1 of (Giles, 2015) shows that, in order to reach error threshold ∆, one can take Nℓ ∝ 2ℓ and Tℓ ∝ 2−2ℓ∆−2.Therefore, one has E |I − ˆIMLMC | = O(∆) along with Cost = O(∆ −2).
+
+D.2. Multi-Level Kernel Quadrature for Nested Expectation (MLKQ) 
+
+In this section, we present multi-level kernel quadrature applied to nested expectation (MLKQ). Note that MLKQ is different from the multi-level Bayesian quadrature proposed in Li et al. (2023) because our MLKQ is designed specifically for nested expectations. At each level ℓ, we have Tℓ samples θ1: Tℓ sampled i.i.d from Q and we have Nℓ samples x(θt)1: Nℓ
+
+sampled i.i.d from Pθt for each t = 1 , . . . , T ℓ. Different from MLMC above, we define 
+
+I ≈ Eθ∼Q[PNKQ ,L ] = Eθ∼Q [PNKQ ,0] + 
+
+> L
+
+X
+
+> ℓ=1
+
+Eθ∼Q [PNKQ ,ℓ − PNKQ ,ℓ −1] , PNKQ ,ℓ := Ex(θ)1: Nℓ ∼Pθ
+
+f
+
+ ˆJKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+ 
+
+.
+
+The estimator YNKQ ,ℓ for Eθ∼Q[PNKQ ,ℓ − PNKQ ,ℓ −1] when ℓ ≥ 1 is the difference of two nested kernel quadrature estimator defined in (8). 
+
+YNKQ ,ℓ := Eθ∼Q [kΘ (θ, θ 1: Tℓ )] ( KΘ,T ℓ + TℓλΘ,ℓ ITℓ )−1  ˆFKQ 
+
+
+
+θ1: Tℓ ; x(θ1: Tℓ )1: Nℓ
+
+
+
+− ˆFKQ 
+
+
+
+θ1: Tℓ ; x(θ1: Tℓ )1: Nℓ−1
+
+ 
+
+where ˆFKQ (θ1: Tℓ ; x(θ1: Tℓ )1: Nℓ ) is a vectorized notation for [ ˆFKQ (θ1; x(θ1)1: Nℓ ), . . . , ˆFKQ (θTℓ ; x(θTℓ )1: Nℓ )] ∈ RTℓ and similarly for 
+
+ˆFKQ (θ1: Tℓ ; x(θ1: Tℓ )1: Nℓ−1 ). At level 0, YNKQ ,0 := Eθ∼Q [kΘ (θ, θ 1: T0 )] ( KΘ,T 0 + T0λΘ,0IT0 )−1 ˆFKQ (θ1: T0 ). The multi-level 
+
+> 1
+
+Section 9 of (Giles, 2015) uses variance E[Y 2 
+
+> ℓ
+
+], which is equivalent to the expected square error since Yℓ is an unbiased estimate of 
+
+Eθ∼Q[Pℓ − Pℓ−1].
+
+26 Nested Expectations with Kernel Quadrature 
+
+nested kernel quadrature estimator is constructed as 
+
+ˆIMLKQ := 
+
+> L
+
+X
+
+> ℓ=0
+
+YNKQ ,ℓ .
+
+Same as MLMC above, the cost of YNKQ ,ℓ is O(Nℓ ×Tℓ). The following theorem studies the error |YNKQ ,ℓ −Eθ∼Q[PNKQ ,ℓ −
+
+PNKQ ,ℓ −1]|.
+
+Theorem 2. Let X = [0 , 1] dX and Θ = [0 , 1] dΘ . At level ℓ ≥ 1, θ1, . . . , θ Tℓ are Tℓ i.i.d. samples from Q and x(t)1 , . . . , x (t)
+
+> Nℓ
+
+are Nℓ i.i.d. samples from Pθt for all t ∈ { 1, · · · , T ℓ}. Both kernels kX and kΘ are Sobolev reproducing kernels of smoothness sX > d X /2 and sΘ > d Θ/2. Suppose the Assumptions (1), (2), (3), (4) in Theorem 1 hold. Suppose 
+
+2 dX 
+
+> sX
+
+Nℓ−1 > N ℓ > N ℓ−1. Then, for sufficiently large Nℓ ≥ 1 and Tℓ ≥ 1, with λX ,ℓ ≍ N −2 sX 
+
+> dX
+> ℓ
+
+· (log Nℓ) 2sX +2  
+
+> dX
+
+and 
+
+λΘ,ℓ ≍ T − 2sΘ2sΘ+dΘ 
+
+> ℓ
+
+,
+
+YNKQ ,ℓ − Eθ∼Q[PNKQ ,ℓ − PNKQ ,ℓ −1] ≲ τ
+
+
+
+N − sX 
+
+> dX
+> ℓ
+
+(log N ) sX +1  
+
+> dX
+
+× T − sΘ2sΘ+dΘ
+
+> ℓ
+
+
+
+holds with probability at least 1 − 12 e−τ .
+
+The proof of the theorem is relegated to Appendix D.3. Under Theorem 2, the expected error E[YNKQ ,ℓ −Eθ∼Q[PNKQ ,ℓ −PNKQ ,ℓ −1]] = ˜O(N − sX 
+
+> dX
+> ℓ
+
+×T − sΘ2sΘ+dΘ 
+
+> ℓ
+
+) based on Lemma 4, up to logarithm terms. Here, the expectation is taken over the randomness of samples. Therefore, similarly to (D.36), the total cost and expected absolute error of multi-level nested kernel quadrature can be written as Cost = O
+
+> L
+
+X
+
+> ℓ=0
+
+Nℓ × Tℓ
+
+!
+
+, E |I − ˆIMLKQ | = ˜O
+
+> L
+
+X
+
+> ℓ=0
+
+N − sX 
+
+> dX
+> ℓ
+
+× T − sΘ2sΘ+dΘ
+
+> ℓ
+
+!
+
+. (D.37) If we take Nℓ ∝ 2 dX 
+
+> sXℓ
+
+∆− dX 
+
+> 2sX
+
+, T ℓ ∝ 2− 2sΘ+dΘ 
+
+> sΘℓ
+
+∆− 2sΘ+dΘ2sΘ , then the error E |I − ˆIMLKQ | = ˜O(∆) and the cost is 
+
+> L
+
+X
+
+> ℓ=0
+
+Nℓ × Tℓ =
+
+> L
+
+X
+
+> ℓ=0
+
+2 dX   
+
+> sXℓ−2sΘ+dΘ
+> sΘℓ
+
+!
+
+· ∆−1− dX   
+
+> 2sX−dΘ2sΘ
+
+≤
+
+> L
+
+X
+
+> ℓ=0
+
+2  
+
+> dX
+> sX−2
+> 
+> ℓ
+
+!
+
+· ∆−1− dX   
+
+> 2sX−dΘ2sΘ
+
+= O(∆ −1− dX   
+
+> 2sX−dΘ2sΘ
+
+).
+
+Equivalently, to reach error O(∆) , the cost is ˜O(∆ −1− dX   
+
+> 2sX−dΘ2sΘ
+
+).
+
+Remark D.1 (Comparison of MLKQ and MLMC) . To reach a given threshold ∆, the cost of MLKQ is ˜O(∆ −1− dX   
+
+> 2sX−dΘ2sΘ
+
+),which is smaller than the cost of MLMC O(∆ −2) when the problem has sufficient smoothness, i.e. when dX 
+
+> sX
+
++ dΘ 
+
+> sΘ
+
+< 2.If we compare (D.36) and (D.37) , the superior performance of MLKQ can be explained by the faster rate of convergence in terms of Nℓ at each level when dX 
+
+> sX
+
+≤ 1. Nevertheless, we can see in (D.37) that the MLKQ rate at each level in terms of Tℓ is O(T − sΘ2sΘ+dΘ 
+
+> ℓ
+
+) which is slower than the MLMC rate O(T − 12 
+
+> ℓ
+
+) in (D.36) . An empirical study of MLKQ is included in Figure 6 which shows that MLKQ is better than MLMC in some settings but both are outperformed by NKQ by a huge margin. A more refined analysis of MLKQ is reserved for future work. 
+
+D.3. Proof of Theorem 2 
+
+The proof uses essentially the same analysis as in Step Five of Appendix C which translates |Yℓ − Eθ∼Q[Pℓ − Pℓ−1]| into the generalization error of kernel ridge regression. First, we know that by following the same derivations as in (C.29) that 
+
+¯FKQ ,ℓ (θ) := Ex(θ)1: Nℓ ∼Pθ
+
+h ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+i 
+
+, ¯FKQ ,ℓ ∈ W sΘ 
+
+> 2
+
+(Θ) and ¯FKQ ,ℓ sΘ
+
+≤ C6,
+
+¯FKQ ,ℓ −1(θ) := Ex(θ)1: Nℓ−1 ∼Pθ
+
+h ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ−1
+
+i 
+
+, ¯FKQ ,ℓ −1 ∈ W sΘ 
+
+> 2
+
+(Θ) and ¯FKQ ,ℓ −1 sΘ
+
+≤ C6.
+
+27 Nested Expectations with Kernel Quadrature 
+
+Given i.i.d. observations (θ1, ˆFKQ (θ1, x (θ1)1: Nℓ ) − ˆFKQ (θ1, x (θ1)1: Nℓ−1 )) , . . . , (θTℓ , ˆFKQ (θTℓ , x (θTℓ )1: Nℓ ) − ˆFKQ (θTℓ , x (θTℓ )1: Nℓ−1 )) , the target of interest in the context of regression is the conditional mean, which in our case is precisely 
+
+θ 7 → ¯FKQ ,ℓ (θ) − ¯FKQ ,ℓ −1(θ) = Ex(θ)1: Nℓ ∼Pθ
+
+h ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+i 
+
+− Ex(θ)1: Nℓ−1 ∼Pθ
+
+h ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ−1
+
+i 
+
+.
+
+Alternatively, ˆFKQ (θ, x (θ)1: Nℓ ) − ˆFKQ (θ, x (θ)1: Nℓ−1 )) can be viewed as noisy observation of the true function ¯FKQ ,ℓ − ¯FKQ ,ℓ −1
+
+where the noise satisfied the following condition. For each θ ∈ Θ and positive integer m ≥ 2, similar to (C.30) we have, 
+
+E
+
+h ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+
+
+− ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ−1
+
+i 
+
+−
+
+
+
+Ex(θ)1: Nℓ ∼Pθ
+
+ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+
+
+− Ex(θ)1: Nℓ−1 ∼Pθ
+
+ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ−1
+
+ m
+
+≤ 2m E ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+
+
+− Ex(θ)1: Nℓ ∼Pθ
+
+ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ
+
+ m
+
++ 2 m E ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ−1
+
+
+
+− Ex(θ)1: Nℓ−1 ∼Pθ
+
+ˆFKQ 
+
+
+
+θ; x(θ)1: Nℓ−1
+
+ m
+
+≲ N −m sX
+
+> dX
+
+ℓ (log Nℓ)m sX +1  
+
+> dX
+
++ N −m sX
+
+> dX
+
+ℓ−1 (log Nℓ−1)m sX +1 
+
+> dX
+
+≲ N −m sX
+
+> dX
+
+ℓ (log Nℓ)m sX +1  
+
+> dX
+
+,
+
+where the second last inequality follows by replicating the same steps in (C.30), and the last inequality is true because 
+
+2dX /s X Nℓ−1 > N ℓ > N ℓ−1. As a result, by replicating the steps for (C.31), we have 
+
+|YNKQ ,ℓ − Eθ∼Q[PNKQ ,ℓ − PNKQ ,ℓ −1]|2
+
+≤   ¯FKQ ,ℓ − ¯FKQ ,ℓ −1
+
+ − kΘ (·, θ 1: Tℓ ) ( KΘ,T ℓ + TℓλΘ,ℓ ITℓ )−1  ˆFKQ 
+
+
+
+θ1: Tℓ ; x(θ1: Tℓ )1: Nℓ
+
+
+
+− ˆFKQ 
+
+
+
+θ1: Tℓ ; x(θ1: Tℓ )1: Nℓ−1
+
+ 2
+
+L2(Q)
+
+≲ τ 2
+
+
+
+T −1
+
+ℓ λ− dΘ2sΘ
+
+Θ,ℓ N − 2sX
+
+> dX
+
+ℓ (log Nℓ) 2sX +2  
+
+> dX
+
++ λ1− dΘ2sΘ
+
+Θ,ℓ T −1
+
+ℓ ¯FKQ ,ℓ − ¯FKQ ,ℓ −1
+
+2
+
+sΘ + λ− dΘ2sΘ
+
+Θ,ℓ T −1− 2sΘ
+
+> dΘ
+
+ℓ ¯FKQ ,ℓ − ¯FKQ ,ℓ −1
+
+2
+
+sΘ
+
+
+
++ ¯FKQ ,ℓ − ¯FKQ ,ℓ −1
+
+2
+
+sΘ λΘ,ℓ , (D.38) holds with probability at least 1 − 4e−τ . Next, we are going to upper bound ¯FKQ ,ℓ − ¯FKQ ,ℓ −1 sΘ . To this end, notice that 
+
+¯FKQ ,ℓ − ¯FKQ ,ℓ −1
+
+2
+
+sΘ ≤ 2 ¯FKQ ,ℓ − F 2
+
+sΘ + 2 ¯FKQ ,ℓ −1 − F 2
+
+sΘ .
+
+Using the same steps in (C.29) and (C.27) subsequently, we have 
+
+¯FKQ ,ℓ − F sΘ
+
+≤ ˆFKQ 
+
+
+
+·; x(θ)1: Nℓ
+
+
+
+− F sΘ
+
+· SNℓ
+
+3 · Vol (X )Nℓ ≲ ˆJKQ 
+
+
+
+·; x(θ)1: Nℓ
+
+
+
+− J sΘ
+
+≲ N − sX
+
+> dX
+
+ℓ (log Nℓ) sX +1  
+
+> dX
+
+,
+
+holds with probability at least 1 − 4e−τ . Similarly, we have ¯FKQ ,ℓ −1 − F sΘ
+
+≲ N − sX
+
+> dX
+
+ℓ−1 (log Nℓ−1) sX +1  
+
+> dX
+
+holds with probability at least 1 − 4e−τ . Consequently, we have ∥ ¯FKQ ,ℓ − ¯FKQ ,ℓ −1∥sΘ ≲ N − sX
+
+> dX
+
+ℓ (log Nℓ) sX +1  
+
+> dX
+
+holds with probability at least 1 − 8e−τ . Therefore, plugging it back to (D.38), we obtain 
+
+|YNKQ ,ℓ − Eθ∼Q[PNKQ ,ℓ − PNKQ ,ℓ −1]|2
+
+≲ τ 2
+
+
+
+T −1
+
+ℓ λ− dΘ2sΘ
+
+Θ,ℓ N − 2sX
+
+> dX
+
+ℓ (log Nℓ) 2sX +2  
+
+> dX
+
++ λ1− dΘ2sΘ
+
+Θ,ℓ T −1
+
+ℓ N − 2sX
+
+> dX
+
+ℓ (log Nℓ) 2sX +2 
+
+> dX
+
++λ− dΘ2sΘ
+
+Θ,ℓ T −1− 2sΘ
+
+> dΘ
+
+ℓ N − 2sX
+
+> dX
+
+ℓ (log Nℓ) 2sX +2  
+
+> dX
+
++ N − 2sX
+
+> dX
+
+ℓ (log Nℓ) 2sX +2  
+
+> dX
+
+λΘ,ℓ 
+
+
+
+,
+
+holds with probability at least 1 − 12 e−τ . Therefore, by taking λΘ,ℓ ≍ T − 2sΘ2sΘ+dΘ
+
+ℓ , we obtain with probability at least 
+
+1 − 8e−τ ,
+
+|YNKQ ,ℓ − Eθ∼Q[PNKQ ,ℓ − PNKQ ,ℓ −1]| ≲ τ T − sΘ2sΘ+dΘ
+
+ℓ × N − sX
+
+> dX
+
+ℓ (log Nℓ) sX +1  
+
+> dX
+
+.
+
+The proof is concluded. 28 Nested Expectations with Kernel Quadrature 
+
+## E. Further Background and Auxiliary Lemmas 
+
+All the results in this section are existing results in the literature. We provide them here and prove some of them in the specific context of Sobolev spaces explicitly for the convenience of the reader. 
+
+More technical notions of Sobolev spaces and the Sobolev embedding theorem In the main text, we provide in (4) the standard definition of Sobolev spaces W s 
+
+> 2
+
+(X ) when s ∈ N. Actually, Sobolev spaces W s 
+
+> 2
+
+(X ) can be extended to s that are positive real numbers. Such extension could be realized through real interpolation spaces (see (Bennett and Sharpley, 1988, Definition 1.7)), W s 
+
+> 2
+
+(X ) := [ W k 
+
+> 2
+
+(X ), W k+1 2 (X )] r, 2 where k ∈ N, s ∈ (k, k + 1) , r = s − ⌊ s⌋.2 Actually, such interpolation relations hold for any 0 ≤ s, t and 0 < r < 1 (Adams and Fournier, 2003, Section 7.32), 
+
+W k 
+
+> 2
+
+(X ) = W s 
+
+> 2
+
+(X ), W t 
+
+> 2
+
+(X ) 
+
+> r, 2
+
+, k = (1 − r)s + rt. (E.39) A special case of the above relation is W s 
+
+> 2
+
+(X ) = [ L2(X ), W t 
+
+> 2
+
+(X )] s/t, 2.The Sobolev embedding theorem (Adams and Fournier, 2003), when applied to W s 
+
+> 2
+
+(X ), states that if s > d 
+
+> 2
+
+(where d
+
+is the dimension of X ), then W s 
+
+> 2
+
+(X ) can be continuously embedded into C0(X ), the space of continuous and bounded functions. In other words, for every equivalence class [f ] ∈ W s 
+
+> 2
+
+(X ), there exists a unique continuous and bounded representative f ∈ C0(X ), and the embedding map I : W s 
+
+> 2
+
+(X ) → C0(X ), defined by I([ f ]) = f , is continuous. This continuous embedding I can be written as W s 
+
+> 2
+
+(X ) ,→ C0(X ). Since every continuous linear operator is bounded, we have 
+
+∥W s 
+
+> 2
+
+(X ) ,→ C0(X )∥ bounded by a constant that only depends on s, X .
+
+More technical notions of reproducing kernel Hilbert spaces (RKHSs) For bounded kernels, sup x∈X k(x, x ) ≤ κ,its associated RKHS H can be canonically injected into L2(π) using the operator ιπ : H → L2(π), f 7 → f with its adjoint ι∗ 
+
+> π
+
+: L2(π) → H given by ι∗ 
+
+> π
+
+f (·) = R k(x, ·)f (x)dπ (x). ιπ and its adjoint can be composed to form a L2(π)
+
+endomorphism Tπ := ιπ ι∗ 
+
+> π
+
+called the integral operator , and a H endomorphism 
+
+Σπ := ι∗ 
+
+> π
+
+ιπ =
+
+Z
+
+k(·, x ) ⊗ k(·, x )dπ (x), (E.40) (where ⊗ denotes the tensor product such that (a ⊗ b)c := ⟨b, c ⟩Ha for a, b, c ∈ H ) called the covariance operator . Both 
+
+Σπ and Tπ are compact, positive, self-adjoint, and they have the same eigenvalues ϱ1 ≥ · · · ϱi ≥ · · · ≥ 0. Please refer to Section 2 of Chen et al. (2024a) for more details. 
+
+Lemma 1 (Effective dimension N (λ)). Let X ⊂ Rd be a compact domain, π be a probability measure on X with density 
+
+p : X → R. k : X × X → R is a Sobolev reproducing kernel of order s > d 
+
+> 2
+
+. {ϱm}m≥0 are the eigenvalues of the integral operator Tπ . Define the effective dimension N : (0 , ∞) → [0 , ∞) as N (λ) := P 
+
+> m≥1
+> ϱm
+> ϱm+λ
+
+. If p(x) ≥ G > 0 for any 
+
+x ∈ X , then N (λ) ≤ Dλ − d 
+
+> 2s
+
+with constant D that only depends on G and X .Proof. First, we study the asymptotic behavior of the eigenvalues (ϱm)m≥1 of the integral operator Tπ . Theorem 15 of (Steinwart et al., 2009) shows that the eigenvalues ϱm share the same asymptotic decay rate as the squares of the entropy number e2 
+
+> m
+
+(Iπ ) of the embedding Iπ : W s 
+
+> 2
+
+(X ) → L2(π). Denote LX as the Lebesgue measure on X . Since p(x) ≥ G
+
+for any x ∈ X , we know dLX 
+
+> dπ
+
+≤ G−1Vol (X )−1 so ∥L2(π) ,→ L2(X )∥ ≤ G−1Vol (X )−1, and consequently we have from Equation (A.38) of Steinwart (2008) that 
+
+em (Iπ ) ≤ em (ILX ) ∥L2(π) ,→ L2(X )∥ ≤ G−1Vol (X )−1em (ILX ) .
+
+Moreover, (Edmunds and Triebel, 1996, Equation 4 on p. 119) shows that the entropy number em (ILX ) ≤ ˜cm −s/d 
+
+for some constant ˜c, so we have em (Iπ ) ≤ G−1Vol (X )−1 ˜cm −s/d and consequently we have ϱm ≍ e2 
+
+> m
+
+(Iπ ) ≤
+
+G−2Vol (X )−2 ˜c2m−2s/d =: c2m−2s/d .Next, we have 
+
+X
+
+> m≥1
+
+ϱm
+
+ϱm + λ ≤ X
+
+> m≥1
+
+11 + λc −12 m2s/d ≤
+
+Z ∞
+
+> 0
+
+c2
+
+c2 + λt 2s/d dt = λ− d
+
+> 2s
+
+Z ∞
+
+> 0
+
+c2
+
+c2 + τ 2s/d dτ 
+
+> 2
+
+Strictly speaking, the definition of (4) extended to real numbers s actually corresponds to the complex interpolation space of Sobolev spaces. Fortunately, complex interpolation spaces and real interpolation spaces coincide under Hilbert spaces (Hytonen et al., 2016, Corollary C.4.2), which is precisely our setting since p = 2 .
+
+29 Nested Expectations with Kernel Quadrature 
+
+= λ− d
+
+> 2s
+
+Z ∞
+
+> 0
+
+11 + 
+
+
+
+τ c − d
+
+> 2s
+> 2
+
+ 2sd
+
+dτ = λ− d
+
+> 2s
+
+Z ∞
+
+> 0
+
+11 + u 2sd
+
+c2 
+
+> d
+> 2s
+
+du = λ− d 
+
+> 2s
+
+c2
+
+> d
+> 2s
+> πd
+> 2s
+
+sin   πd 
+
+> 2s
+
+ =: Dλ − d 
+
+> 2s
+
+,
+
+where D is a constant that depends on the domain X and G.
+
+Lemma 2. Let X ⊂ Rd be a compact domain, π be a probability measure on X with density p : X → R. k : X × X → R
+
+is a Sobolev reproducing kernel of order s > d 
+
+> 2
+
+. {ϱm, e m}m≥0 are the eigenvalues and eigenfunctions of the integral operator Tπ . If there exists G0, G 1 > 0 such that G0 ≤ p(x) ≤ G1 for any x ∈ X , then 
+
+kα := sup 
+
+> x∈X
+
+X
+
+> m≥1
+
+ϱαme2
+
+> m
+
+(x) ≤ M, (E.41) 
+
+holds for any d 
+
+> 2s
+
+< α . Here, M is a constant that depends on X and G1, G 0.Proof. If t > d 
+
+> 2
+
+, W t 
+
+> 2
+
+(X ) can be continuously embedded into L∞(X ) the space of bounded functions (Adams and Fournier, 2003, Case A, Theorem 4.12). Hence, the operator W s 
+
+> 2
+
+(X ) ,→ L∞(X ) is a continuous linear operator between two normed vector spaces, hence a bounded operator. And L2(π) is norm equivalent to L2(X ) because G0 ≤ p(x) ≤ G1 for any x ∈ X .Notice that kα defined here is exactly ∥kαν ∥∞ defined in Equation 16 of (Fischer and Steinwart, 2020), so we know from Theorem 9 of Fischer and Steinwart (2020) that 
+
+sup 
+
+> x∈X
+
+X
+
+> m≥1
+
+ϱαme2 
+
+> i
+
+(x) = [L2(π), W s 
+
+> 2
+
+(X )] α, 2 ,→ L∞(X ) .
+
+Notice that [L2(π), W s 
+
+> 2
+
+(X )] α, 2 ∼= [ L2(X ), W s 
+
+> 2
+
+(X )] α, 2 ∼= W sα  
+
+> 2
+
+(X ), and notice the fact that W sα  
+
+> 2
+
+(X ) ,→ L∞(X ) for any 
+
+sα > d 
+
+> 2
+
+, the right hand side of the above equation is bounded. Therefore, we have (E.41) holds for any d 
+
+> 2s
+
+< α .
+
+Lemma 3. Let X ⊂ Rd be a bounded domain with Lipschitz continuous boundary and W s 
+
+> 2
+
+(X ) be a Sobolev space with 
+
+s > d 
+
+> 2
+
+. If functions f : X → R and g : X → R lie in W s 
+
+> 2
+
+(X ), then their product f · g also lies in W s 
+
+> 2
+
+(X ) and satisfies 
+
+∥f · g∥s ≤ ∥ f ∥s∥g∥s.Proof. This is Theorem 7.4 of Behzadan and Holst (2021) with s1 = s2 = s and p1 = p2 = 2 .
+
+Lemma 4. For a positive valued random variable R, and c > 0 such that P(R ≤ cτ ) ≥ 1 − exp( −τ ) for any positive τ ,it holds that E[Rm] ≤ com! for all integers m ≥ 1. co is some constant that only depends on c, m .Proof. Notice that R is essentially a sub-exponential random variable. Since a sub-exponential random variable is equivalent to the square root of a sub-Gaussian random variable, from Proposition 2.5.2 of Vershynin (2018), we have 
+
+E[Rm] = E[√R2m] ≤ 2coΓ( m + 1) = 2 com!. Here Γ denotes the gamma function and co is some constant that only depends on c, m .
+
+Lemma 5. For a mapping F from a compact domain X ⊂ Rd to a Hilbert space H, given a measure μ on X , if F is 
+
+μ-Bochner integrable, then R F (x)dμ (x) ∈ H and additionally ∥ R F (x)dμ (x)∥H ≤ R ∥F (x)∥H dμ (x).Proof. This is Definition A.5.20 of Steinwart (2008). 
+
+## F. Additional Experimental Details 
+
+F.1. “Change of Variable” Trick for Kernel Quadrature 
+
+In the main text, we have shown that the two major bottlenecks of KQ/NKQ are: • The closed-form KME EX∼P[k(X, x )] .• The O(N 3) computational cost of inverting the Gram matrix k(x1: N , x 1: N ).30 Nested Expectations with Kernel Quadrature 10 2 10 3 10 4 10 5 10 6                  
+
+> Cost
+> 10 −8
+> 10 −7
+> 10 −6
+> 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> ∆ =  |I − ˆI|
+> λ0= 0 .001
+> λ0= 0 .01
+> λ0= 0 .1
+> λ0= 1 .0
+> λ0= 10 .0
+> 10 210 310 410 510 6
+> Cost
+> 10 −7
+> 10 −6
+> 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> γ= 0 .1
+> γ= 1 .0
+> γ= 10 .0
+> γ=median
+> 10 210 310 410 510 6
+> Cost
+> 10 −7
+> 10 −6
+> 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> Matern −1.5Gaussian Matern −0.5
+
+Figure 5. Further ablation studies in the synthetic experiment. Left: NKQ with different proportionality coefficients λ0 for regularization parameter λX , λ Θ. Middle: NKQ with different kernel lengthscales γ in both stages. Right: NKQ with different kernels in both stages. The nested Monte Carlo (NMC) in blue is presented as a benchmark in all figures. 
+
+Fortunately, both two challenges can be solved with the “change of variable” trick. Here, we only present the idea for KQ but the same holds for NKQ in both stages. The integral of interest is I = R 
+
+> X
+
+h(x)P(dx ). Suppose we can find a continuous transformation Φ such that X = Φ( U ),where U ∼ U is another random variable which is easy to sample from. Then the integral I can be equivalently expressed as I = R 
+
+> U
+
+h(Φ( u)) dU(u), by a direct application of change of variables theorem (Section 8.2 of (Stirzaker, 2003). Now the integrand changes from h : X → R to h ◦ Φ : U → R and the kernel quadrature estimator becomes 
+
+ˆIKQ = EU ∼U[kU (U, u 1: N )] ( kU (u1: N , u 1: N ) + N λ IN )−1 (h ◦ Φ)( u1: N ).
+
+Here kU is a reproducing kernel on U. Since U is a simple probability distribution, we can find its closed-form KME in Table 1 in Briol et al. (2019) or the ProbNum package (Wenger et al., 2021), which addresses the first challenge. Additionally, notice that both the Gram matrix k(u1: N , u 1: N ) and the KME EU ∼U[k(U, u 1: N )] are independent of h and 
+
+Φ, so the KQ weights wKQ  
+
+> 1: N
+
+= EU ∼U[k(U, u 1: N )] ( k(u1: N , u 1: N ) + N λ IN )−1 can be pre-computed and stored. As a result, KQ becomes a simple weighted average of function evaluations PNi=1 wKQ  
+
+> i
+
+h(xi). Therefore, the computational cost reduces to linear cost O(N ) and hence the second challenge is addressed. The downside of the “change of variable” trick is that the Sobolev smoothness of h ◦ Φ : U → R is unclear when Φ is not smooth, so we lose the theoretical convergence rate from Theorem 1. 
+
+F.2. Synthetic Experiment Assumptions from Theorem 1 We would like to check whether the assumptions made in Theorem 1 hold in this syn-thetic experiment. Recall that we use both kX and kΘ to be Mat´ ern-3/2 kernels so we need to verify Assumptions (1) — (4) with sΘ = sX = 2 .1. Both distributions Pθ and Q are uniform distributions over [0 , 1] , so Assumption (1) is satisfied. 2. Dβθ g(·, θ ) ∈ W 22 (X ) and Dβθ p(·, θ ) ∈ L2(X ) for β = 0 , 1, 2 so Assumption (2) is satisfied. 3. Both g(x, ·), p (x, ·) ∈ W 22 (Θ) so Assumption (3) is satisfied. 4. f ∈ C3(R) so Assumption (4) is satisfied. The synthetic problem can be modified to have higher dimensions d. In this synthetic experiment, we set both dX = dΘ =
+
+d. For a = [ a1, . . . , a d]⊤ ∈ Rd, define ∥a∥b = ( Pdi=1 abi )1/b .
+
+x ∼ U[0 , 1] d, θ ∼ U[0 , 1] d, g(x, θ ) = ∥x∥2.52s + ∥θ∥2.52 , f (z) = z2, (F.42) The true value of the nested expectation can be computed in closed-form: I = 16 49 d2 + 25 294 d. In Figure 2, we study the mean absolute error of NMC and NKQ as dimension d grows. We see that NKQ outperforms NMC by a huge margin in low dimensions, but the performance gap closes down in higher dimensions, which is expected because the rate proved in 31 Nested Expectations with Kernel Quadrature 
+
+Corollary 1 is O(∆ − dX   
+
+> sX−dΘ
+> sΘ
+
+) which becomes larger when dimension increases yet the smoothness of the problem remains the same. In Figure 5, we conduct a series of ablation studies on the hyperparameter of NKQ in the synthetic experiment. Although Theorem 1 suggests choosing the regularization parameters λX , λ Θ that are proportionate to N −2 sX 
+
+> dX
+
+and T −2 sΘ 
+
+> dΘ
+
+respec-tively, it is unclear in practice how to pick the exact proportionality coefficients λ0. Figure 5 Left shows that λ0 = 1 .0 and 
+
+λ0 = 0 .1 give the best performances, while using λ0 too big ( λ0 = 10 .0) suffers from slower convergence rate and using 
+
+λ0 too small ( λ0 = 0 .01 , 0.001 ) causes numerical issues when N, T become large. Figure 5 Middle shows that kernel lengthscale, if too big ( γ = 10 .0) or too small ( γ = 1 .0), would result in worse performance for NKQ and that the widely-used median heuristic is good enough to select a satisfying lengthscale. Figure 5 Right shows that NKQ with Mat´ ern-3/2 kernels has better performance than with Mat´ ern-1/2 kernels, which agrees with Theorem 1 indicating that it is preferable to use Sobolev kernels with the highest permissible orders of smoothness. Interestingly, we see that NKQ with Gaussian kernels has similar performance as with Mat´ ern-3/2 kernels. Similar phenomenon have been shown both theoretically and empirically that kernel ridge regression with Gaussian kernels are optimal in learning Sobolev space functions when the lengthscales are chosen appropriately (Hang and Steinwart, 2021; Eberts and Steinwart, 2013). 
+
+F.3. Risk Management in Finance 
+
+In this experiment, we consider specifically an asset whose price S(τ ) at time τ follows the Black-Scholes formula S(τ ) = 
+
+S0 exp  σW (τ ) − σ2τ / 2 for τ ≥ 0, where σ is the underlying volatility, S0 is the initial price and W is the standard Brownian motion. The financial derivative we are interested in is a butterfly call option whose payoff at time τ can be expressed as ψ(S(τ )) = max( S(τ ) − K1, 0) + max( S(τ ) − K2, 0) − 2 max( S(τ ) − (K1 + K2)/2, 0) . We follow the setting in (Alfonsi et al., 2021; 2022; Chen et al., 2024b) assuming that a shock occur at time η, at which time the option price is S(η) = θ, and this shock multiplies the option price by 1 + s. The option price at maturity time ζ is denoted as 
+
+S(ζ) = x. To summarize, the expected loss caused by the shock can be expressed as the following nested expectation: 
+
+I = E[f (J(θ))] , f (J(θ)) = max( J(θ), 0) , J(θ) = 
+
+Z ∞
+
+> 0
+
+g(x)Pθ (dx ), g(x) = ψ(x) − ψ((1 + s)x).
+
+Following the setting in (Alfonsi et al., 2021; 2022; Chen et al., 2024b), we consider the initial price S0 = 100 , the volatility σ = 0 .3, the strikes K1 = 50 , K 2 = 150 , the option maturity ζ = 2 and the shock happens at η = 1 with strength 
+
+s = 0 .2. The option price at which the shock occurs are θ1: T sampled from the log normal distribution deduced from the Black-Scholes formula θ1: T ∼ Q = Lognormal(log S0 − σ2 
+
+> 2
+
+η, σ 2η). Then x(t)1: N are sampled from another log normal distribution also deduced from the Black-Scholes formula x(t)1: N ∼ Pθt = Lognormal(log θt − σ2 
+
+> 2
+
+(ζ − η), σ 2(ζ − η)) for 
+
+t = 1 , . . . , T .In this experimental setting, although both g only depends on x and it is a combination of piece-wise linear functions so 
+
+g ∈ W 12 (X ). The probability density function of Pθ is infinitely times differentiable Notice that log normal distribution LogNormal( ¯ m, ¯σ2) can be expressed as the following transformation from uniform distribution over [0 , 1] .
+
+u ∼ U [0 , 1] , exp(Ψ −1(u)¯ σ + ¯ m) ∼ LogNormal( ¯ m, ¯σ2).
+
+Here, Ψ−1 is the inverse cumulative distribution function of a standard normal distribution. Therefore, we can use the “change of variables” trick from Appendix F.1 such that we have closed-form KME against uniform distribution from 
+
+Probnum (Wenger et al., 2021), and also the computational complexity of NKQ becomes O(N × T ). Although Ψ−1 is infinitely times differentiable, we still use Mat´ ern-1/2 kernels in both stages to be conservative of the smoothness of the integrand after applying the “change of variables” trick. 
+
+F.4. Health Economics 
+
+In the medical world, it is important to compare the cost and the relative advantages of conducting extra medical exper-iments. The expected value of partial perfect information (EVPPI) quantifies the expected gain from conducting extra experiments to obtain precise knowledge of some unknown variables (Brennan et al., 2007): EVPPI = E
+
+h
+
+max  
+
+> c
+
+Jc(θ)
+
+i
+
+− max  
+
+> c
+
+E
+
+h
+
+Jc(θ)
+
+i
+
+, Jc(θ) = 
+
+Z
+
+> X
+
+gc(x, θ )Pθ (dx )
+
+32 Nested Expectations with Kernel Quadrature NMC NKQ NMC (QMC) NKQ (QMC) MLMC MLKQ 10 2 10 3 10 4 10 5        
+
+> Cost
+> 10 −6
+> 10 −5
+> 10 −4
+> 10 −3
+> 10 −2
+> 10 −1
+> ∆ =  |I − ˆI|
+> Synthetic Experiment 10 210 310 410 510 6
+> Cost
+> 10 −2
+> 10 −1
+> 10 0
+> ∆ =  |I − ˆI|
+> Risk Management in Finance 10 210 310 410 510 6
+> Cost
+> 10 1
+> 10 2
+> ∆ =  |I − ˆI|
+> Health Economics
+
+Figure 6. Comparison of all the methods including MLKQ on the synthetic experiment ( Left ), risk management in finance ( Middle ) and health economics ( Right ). 
+
+where c ∈ C is a set of potential treatments and gc measures the potential outcome of treatment c. EVPPI consists of |C| + 1 
+
+nested expectations. We adopt the same experimental setup as delineated in (Giles and Haji-Ali, 2019), wherein x and θ have a joint 19-dimensional Gaussian distribution, meaning that the conditional distribution Pθ is also Gaussian. The specific meanings of all x and θ are outlined in Table 2. All these variables are independent except that θ1, θ 2, x 6, x 14 are pairwise correlated with a correlation coefficient 0.6. We are interested in estimating the EVPPI of a binary decision-making problem ( C = {1, 2})with g1(x, θ ) = 10 4(θ1x5x6 + x7x8x9) − (x1 + x2x3x4) and g2(x, θ ) = 10 4(θ2x13 x14 + x15 x16 x17 ) − (x10 + x11 x12 x4).The ground truth EVPPI under this setting is I = 538 provided in (Giles and Goda, 2019). For estimating I1 with NKQ, we select kX to be Gaussian kernel and kΘ to be Mat´ ern-1/2 kernel, because I1 contains a 
+
+max function which breaks the smoothness so we use Mat´ ern-1/2 kernel to be conservative. For estimating I2,c with NKQ, we select both to be Gaussian kernels because both g1, g 2 and the probability densities are all infinitely times continuously differentiable. We have access to the closed-form KME for both Mat´ ern-1/2 and Gaussian kernels under a Gaussian distribution from Probnum (Wenger et al., 2021). 
+
+F.5. Bayesian Optimization 
+
+For NKQ, we use the change of variable trick such that the Gaussian distribution of f|D S (z1, z 2) after S iterations can be expressed as the pushforward of a fixed uniform distribution U over [0 , 1] 2 through a continuous mapping ΦS . As a result, the KQ weights EU ∼U[kU (U, u 1: N )] ( kU (u1: N , u 1: N ) + N λ IN )−1 become independent of S, and can therefore be precomputed and stored in advance. We apply this change-of-variable trick to both Stage I and Stage II KQ steps in our NKQ algorithm, resulting in an overall O(N × T ) computational cost at each iteration, matching that of NMC. The formulas of the synthetic Dropwave , Ackley , and Cosine8 functions are provided below: 
+
+fDropwave (x, y ) = −
+
+1 + cos 
+
+
+
+12 px2 + y2
+
+
+
+0.5 ( x2 + y2) + 2 , (x, y ) ∈ [−5.12 , 5.12] 2,fAckley (x) = −20 exp ( −0.2∥x∥) − exp 12
+
+> 2
+
+X
+
+> i=1
+
+cos (2 πx i)
+
+!
+
++ 20 + exp(1) , x ∈ [−32 .768 , 32 .768] 2
+
+fCosine 8(x) = 
+
+> 8
+
+X
+
+> i=1
+
+cos (5 πx i) , x ∈ [−1, 1] 8.
+
+33 Nested Expectations with Kernel Quadrature 
+
+Variables Mean Std Meaning 
+
+X1 1000 1.0 Cost of treatment 
+
+X2 0.1 0.02 Probability of admissions 
+
+X3 5.2 1.0 Days of hospital 
+
+X4 400 200 Cost per day 
+
+X5 0.3 0.1 Utility change if response 
+
+X6 3.0 0.5 Duration of response 
+
+X7 0.25 0.1 Probability of side effects 
+
+X8 -0.1 0.02 Change in utility if side effect 
+
+X9 0.5 0.2 Duration of side effects 
+
+X10 1500 1.0 Cost of treatment 
+
+X11 0.08 0.02 Probability of admissions 
+
+X12 6.1 1.0 Days of hospital 
+
+X13 0.3 0.05 Utility change if response 
+
+X14 3.0 1.0 Duration of response 
+
+X15 0.2 0.05 Probability of side effects 
+
+X16 -0.1 0.02 Change in utility if side effect 
+
+X17 0.5 0.2 Duration of side effects 
+
+θ1 0.7 0.1 Probability of responding 
+
+θ2 0.8 0.1 Probability of responding  
+
+> Table 2. Variables in the health economics experiment.
+
+34

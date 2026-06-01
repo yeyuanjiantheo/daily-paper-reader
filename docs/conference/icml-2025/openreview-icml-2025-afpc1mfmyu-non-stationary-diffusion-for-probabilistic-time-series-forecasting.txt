@@ -1,0 +1,1465 @@
+Title: Non-stationary Diffusion For Probabilistic Time Series Forecasting
+
+URL Source: https://openreview.net/pdf?id=afpc1MFMYU
+
+Number of Pages: 19
+
+Markdown Content:
+# Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+Weiwei Ye 1 * Zhuopeng Xu 1 * Ning Gui 1
+
+# Abstract 
+
+Due to the dynamics of underlying physics and external influences, the uncertainty of time se-ries varies over time. However, existing De-noising Diffusion Probabilistic Models (DDPMs) fail to capture this non-stationary nature, con-strained by their constant variance assumption from the additive noise model (ANM). In this pa-per, we innovatively utilize the Location-Scale Noise Model (LSNM) to relax the fixed uncer-tainty assumption of ANM. A diffusion-based probabilistic forecasting framework, termed Non-stationary Diffusion (NsDiff), is designed based on LSNM that is capable of modeling the chang-ing pattern of uncertainty. Specifically, NsDiff combines a denoising diffusion-based conditional generative model with a conditional mean and a variance estimator, enabling adaptive endpoint dis-tribution modeling. Furthermore, we propose an uncertainty-aware noise schedule, which dynami-cally adjusts the noise levels to accurately reflect the data uncertainty at each step and integrates the time-varying variances into the diffusion pro-cess. Extensive experiments conducted on nine real-world and synthetic datasets demonstrate the superior performance of NsDiff compared to ex-isting approaches. Code is available at https: //github.com/wwy155/NsDiff .
+
+# 1. Introduction 
+
+Time series forecasting plays a key role in various fields such as traffic prediction (Ermagun & Levinson, 2018) and supply chain management (Chopra & Meindl, 2021). Given a historical multivariate series X, general forecasting meth-ods involve training an f (X) to predict a future series Y,which can be viewed as modeling the E[Y|X]. Although recent research has demonstrated promising capabilities to      
+
+> *Equal contribution 1School of Computer Science and Engineer-ing, Central South University, Changsha, China. Correspondence to: Ning Gui <ninggui@gmail.com >.
+> Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s).
+
+model conditional expectations (Zhou et al., 2021; Wu et al., 2020), effective decision-making, particularly in high-stakes fields like healthcare (Bertozzi et al., 2020) and finance (Li & Bastos, 2020), often requires accurately estimating the uncertainty underlying the data (Kendall & Gal, 2017; Xu et al., 2024). To address this problem, many recent studies have focused on probabilistic time series forecasting (Rasul et al., 2021; Chen et al., 2024; Li et al., 2024b), where the goal to estimate a distribution of possible future outcomes along with their associated uncertainties. Prediction Interval              
+
+> Denoise
+> Denoise
+> Denoise
+> Endpoint Distribution
+> Figure 1. A figure illustrates DDPMs with different endpoints trained to estimate the number of influenza-like disease patients weekly. We plot the endpoint distributions and prediction inter-vals of N(0 ,I)(Top), N(f(X),I)(Middle), and N(f(X), g (X))
+> (Bottom) on the left and right, respectively. The red dashed line indicates the division of the training and test dataset.
+
+The Denoising Diffusion Probabilistic Models (DDPMs) have recently gained significant attention for probabilistic time series forecasting due to their powerful ability to gener-ate high-dimensional data (Rasul et al., 2021; Tashiro et al., 2021; Li et al., 2024a). Existing DDPMs typically rely on the Additive Noise Model (ANM) (Spirtes et al., 2001), which assumes Y = f (X) + ϵ, where ϵ ∼ N (0, σ) rep-resents stationary Gaussian noise. The primary objective of these models is not only to estimate the conditional ex-pectation E[Y|X] via f (X), but also to accurately capture uncertainty by modeling the noise distribution ϵ. While DDPMs with stationary Gaussian noise have achieved sub-1Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+stantial success in domains such as computer vision and natural language generation (Ho et al., 2020; Dhariwal & Nichol, 2021; Gu et al., 2022), they are less effective for modeling non-stationary time series data, where patterns of uncertainty vary contextually (Lee et al., 2024). Figure 1 illustrates an example from the ILI (influenza-like illness) dataset, with different endpoint distributions (Left) and estimated uncertainty (Right) on different models: TimeGrad (Rasul et al., 2021), TMDM (Li et al., 2024b), and NsDiff (ours). In the upper part of Figure 1, TimeGrad (Ra-sul et al., 2021) employs the endpoint N (0, I), which fails to capture non-stationary characteristics. TMDM (Li et al., 2024a) uses N (f (X), I) as endpoint, representing changing averages. On the test dataset (shown to the right of the red dashed line), where both the number of patients and the cor-responding deviation increase, the performance differences are evident. TimeGrad fails to model both the underlying trends and deviations. In contrast, TMDM effectively cap-tures the trends through its f (X), but its stationary covari-ance I limits its ability to accurately estimate uncertainty, which is critical for the probabilistic time series forecasting. To better address non-stationarity with changing uncertainty, we introduce Location-Scale Noise Model (LSNM) into DDPMs, which relaxes the traditional Additive Noise Model (ANM) by incorporating a contextually changing variance: 
+
+Y = f (X) + pg(X)ϵ, where g(X) is an X-dependent variance model and ϵ is a standard gaussian noise. LSNM is capable of modeling both the contextual mean through 
+
+f (X) and the contextual uncertainty through pg(X). In the special case where g(X) ≡ 1, this simplifies to the standard ANM. Building upon this more flexible and expres-sive assumption, we propose the Non-stationary Diff usion Model ( NsDiff ) framework, which provides an uncertainty-aware noise schedule for diffusion process. In summary, our contributions are: • We observe that the ANM is inadequate for capturing the varying uncertainty and propose a novel framework that integrates LSNM to allow for explict uncertainty modeling. This work is the first attempt to introduce LSNM into probabilistic time series forecasting. • To fundamentally elevate the noise modeling capabili-ties of DDPM, we seamlessly integrate time-varying variances into the core diffusion process through an uncertainty-aware noise schedule that dynamically adapts the noise variance at each step. • Experimental results indicate that NsDiff achieves su-perior performance in capturing uncertainty. Specifi-cally, in comparison to the second-best recent baseline TMDM, NsDiff improves up to 66.3% on real-world datasets and 88.3% on synthetic datasets. 
+
+# 2. Related Works 
+
+2.1. DDPM for Probabilistic Forecasting 
+
+Denoising Diffusion Probabilistic Models (DDPMs) have shown promising results in the probabilistic forecasting area (Tyralis & Papacharalampous, 2022). Rasul et al. (2021) introduce TimeGrad, an autoregressive diffusion model guided by a recurrent neural network hidden state. Tashiro et al. (2021) propose a masking strategy for training diffusion models, applicable to tasks like imputation and forecasting. Alcaraz & Strodthoff (2022) extend DDPMs with a structured space model to capture long-term depen-dencies. TimeDiff (Shen & Kwok, 2023) utilized future mixup and autoregressive initialization. Li et al. (2022b) integrate multiscale denoising score matching to guide the diffusion process, ensuring generated series align with the target. DiffusionTS (Yuan & Qiao, 2024) trains the model to reconstruct the sample rather than noise, using a Fourier-based loss term. Kollovieh et al. (2024) propose a self-guiding strategy for time series generation and forecast-ing based on structured state-space models. By leveraging the bridge-based model introduced by Shi et al. (2023), Chen et al. (2023) present a convergence analysis of the Schr ¨odinger bridge algorithm and propose improvements to the diffusion process. However, these methods generally assume fixed endpoint variance, which is hard to model non-stationary time series. 
+
+2.2. Non-stationary Time Series Forecasting 
+
+To address non-stationarity, Li et al. (2022a) employ a domain-adaptation approach to predict data distributions, while Du et al. (2021) propose an adaptive RNN for dis-tribution matching to mitigate non-stationary effects. Liu et al. (2022) introduce a non-stationary Transformer with de-stationary attention to account for non-stationary factors in self-attention. Wang et al. (2022) use global and local Koop-man operators to capture patterns at different scales, and Liu et al. (2024a) apply Koopman operators to components iden-tified via Fourier transforms. Other approaches decompose stationary and non-stationary parts, such as Ogasawara et al. (2010) with local normalization, and Passalis et al. (2019) with a learnable, instance-wise normalization. RevIN (Kim et al., 2021) addresses the distribution shift using reversible normalization, and recent works (Fan et al., 2023; Liu et al., 2024b) explore finer-grained trend modeling. Jiang et al. (2023) addresses non-stationarity in chaotic systems by pre-serving invariant measures to stabilize dynamical systems over time without relying on domain-specific priors. Fourier transforms, closely linked with non-stationarity, are also been applied to tackle these issues (Fan et al., 2024; Ye et al., 2024). Despite these advances in time series forecasting, the non-stationary uncertainty in probabilistic forecasting remains largely unexplored. 2Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+# 3. Preliminary 
+
+3.1. Problem Formulation 
+
+Given a historical multivariate time series X ∈ RN ×D
+
+where N is the historical window size and D denotes the number of feature dimensions. The probabilistic forecasting task is to predict the distribution of the future multivari-ate time series Y = {p(y1), p (y2), ..., p (yM )|y ∈ RD },where M is the future window size. While previous works model the future series with ANM: Y = fϕ(X) + ϵ, we model it based on LSNM with a more generalized data model: 
+
+Y = fϕ(X) + 
+
+q
+
+gψ (X)ϵ (1) where the ϵ ∼ N (0 , σ) is Gaussian noise. The fϕ(X) and 
+
+gψ (X) can be viewed as prior knowledge with pre-trained parameters ϕ and ψ, where the fϕ(X) is modeling the con-ditional expectation E[Y|X] and gψ (X) is modeling the varying uncertainty. In this paper, we incorporate this two prior knowledge into the diffusion model to tackle the non-stationary challenge in probabilistic time series forecasting. 
+
+3.2. Denoising Diffusion Probabilistic Models 
+
+DDPMs (Ho et al., 2020) is a popular generative model to estimate the uncertainty for future time series. In the origi-nal DDPM, the future series distribution can be represented as pθ (Y0) := R pθ (Y0: T )dY1: T , where Y1, ..., YT are la-tent variables. The joint distribution is defined as a Markov chain pθ (Y0: T ) := p(YT ) QTt=1 pθ (Yt−1|Yt), where the endpoint of diffusion is set to p(YT ) := N (0 , I). To gener-ate the distribution pθ (Y0), DDPM designs two processes: a forward process to gradually add noise and a reverse pro-cess to denoise. In the forward process, the future series Y0
+
+gradually diffuses to the given prior endpoint YT without any trainable parameters. 
+
+q(Y1: T |Y0) := 
+
+> T
+
+Y
+
+> t=1
+
+q(Yt|Yt−1)
+
+q(Yt|Yt−1) := N (Yt; p1 − βtYt−1, β tI)
+
+(2) where βt ∈ (0 , 1) is a diffusion schedule for controlling the endpoint YT ∼ N (0 , I). This forward sampling can be simplified by q(Yt|Y0) = N (Yt; √¯αtY0, (1 − ¯αt)I) in practice, where αt := 1 − βt and ¯αt := Qti=1 αi.The reverse process parameterizes pθ (Yt−1|Yt) and com-pares it against forward process posteriors q(Yt−1|Yt, Y0).DDPM has shown that matching these two posteriors is equivalent to estimating the added noise η in the forward process. Thus, the parameterization of pθ (Yt−1|Yt) is: 
+
+pθ (Yt−1|Yt) := N (Yt−1; μθ (Yt, t ), 1 − ¯αt−1
+
+1 − ¯αt
+
+βtI)
+
+μθ (Yt, t ) := 1
+
+√αt
+
+(Yt − βt
+
+√1 − ¯αt
+
+ηθ )) 
+
+(3) where ηθ is the estimated noise by a denoising model, which optimizes the following objective: 
+
+EY0∼q(Y0),η∼N (0 ,I),t || η − ηθ || 2 (4) Following this basic forward and reverse process, many diffusion-based methods improve the reverse process (Rasul et al., 2021; Shen & Kwok, 2023) or prior distribution (Li et al., 2024a) with the historical time series information. However, they fix the variance of the prior distribution and focus on the expectation matching. The prior setup and training of uncertainty are largely ignored. 
+
+# 4. Methodology 
+
+In this section, we introduce the proposed NsDiff, including the design of forward and reverse process distributions, as well as the training and inference procedures of NsDiff. Furthermore, we discuss two simplified versions of NsDiff. The outline of NsDiff is given in Figure 2. 
+
+4.1. Forward and Reverse Process 
+
+In previous diffusion-based methods, the uncertainty prior was missing, and they tended to set the endpoint of diffusion 
+
+YT to N (0 , I) or N (fϕ(X), I). To improve this, we use a different noise model LSNM to form the endpoint: 
+
+p(YT |fϕ(x), g ψ (x)) := N (fϕ(X), g ψ (X)) (5) where fϕ(X) models the conditional expectation E[Y|X]
+
+which can be parameterized by any forecasting model, e.g., Dlinear (Zeng et al., 2023) or PatchTST (Nie et al., 2022). We follow previous works (Kim et al., 2021; Liu et al., 2024b) to train the prior scale of uncertainty gψ (X). We use the input variance to predict the output variance. The forward process incrementally modifies the noise at each step to approach the endpoint distribution. To seam-lessly integrate time-varying variances into the diffusion process, we propose an uncertainty-aware noise schedule, and incorporate data variance into the forward process dis-tribution q(Yt | Yt−1, f ϕ(X), g ψ (X), σY0 ). Specifically, given well-pretrained models fϕ, gψ , and a prior state Yt−1,we control the scaled variance to transition from the actual variance σY0 at the starting point to the endpoint gψ (X).The resulting distribution is normally distributed as: 
+
+N (Yt; √αtYt−1 + (1 − √αt)fϕ(X),
+
+(β2 
+
+> t
+
+gψ (X) + αtβtσY0 )
+
+| {z }
+
+> σt
+
+) (6) where the shared coefficient βt is a noise scaling con-stant. As the noise step t increases, the term βtgψ (X)
+
+grows and αtσY0 decreases. At t = T , where αt = 0 ,the variance converges to the assumed endpoint gϕ(X).3Non-stationary Diffusion For Probabilistic Time Series Forecasting 𝐘 0 𝐘 1 𝐘 2 𝐘 𝑇 
+
+…… 
+
+𝐘 t
+
+𝝐 𝟐  𝝐 𝒕  𝝐 𝑻 
+
+……  𝑁 𝒇 𝝓 𝑿 , 𝒈 𝝍 (𝑿 )~
+
+𝝐 𝟏 
+
+Reverse Process 
+
+# Training 
+
+# Inference  2. ෝ𝝈 𝐘 0=(−𝜆 1 + 𝜆 1                                         
+
+> 2−4𝜆 0𝜆 2)/2𝜆 0
+> 3.෡𝐘 0=1
+> ത𝛼 𝑡
+> ቆ𝐘 𝑡 −1−ത𝛼 𝑡 𝑓 𝜙 (𝐗 )−ቇҧ𝛽 𝑡 −෨𝛽 𝑡 𝑔 𝜓 (𝐗 )+෨𝛽 𝑡 ො𝜎 𝐘 0𝜼 𝜃 4.𝝁 𝜃 =𝛾 0෡𝐘 0+𝛾 1𝐘 𝑡 +𝛾 2𝑓 𝜙 𝐗
+> 1. 𝜼 𝜃 ,𝝈 𝜃 =𝜉 𝜃 𝐘 𝑡 ,𝑓 𝜙 𝐗 ,𝑔 𝜓 𝐗 ,𝑡
+
+Parameter Estimation 
+
+> Follow Step
+> 1,2,3,4
+
+Forward Process 
+
+Loss          
+
+> 𝑝 𝜃 𝐘 𝑡 −1∣𝐘 𝑡 ,∗=𝑁 𝝁 𝜃 ,𝝈 𝜃 𝑝 𝜃 𝐘 1∣𝐘 2,∗
+
+෡𝐘 0
+
+Uncertainty -Aware 
+
+LSNM 
+
+Endpoint 
+
+Pretrained 𝝐 𝒕  ← 𝒈 𝝍 𝑿            
+
+> 𝓛 =𝔼 [𝜼 −𝜼 𝜽 𝟐
+> 𝟐
+> noise match
+> +෍
+> 𝒊
+> ෥𝝈 𝒊
+> 𝝈 𝜽 ,𝒊
+> −෍
+> 𝒊
+> 𝐥𝐨𝐠 ෥𝝈 𝒊
+> 𝝈 𝜽 ,𝒊
+> uncertainty optimization
+> ]
+
+𝒖𝒔𝒊𝒏𝒈 𝜼 𝜃 , 𝝈 𝜃 = 𝜉 𝜃 𝐘 𝑡 , 𝑓 𝜙 𝐗 , 𝑔 𝜓 𝐗 , 𝑡 
+
+𝑬𝒔𝒕𝒊𝒎𝒂𝒕𝒊𝒏𝒈 𝑞 𝐘 𝒕 −𝟏 ∣ 𝐘 𝑡 , 𝐘 0, 𝒇 𝝓 𝑿 , 𝑔 𝜓 𝐗 , 𝝈 𝐘 0
+
+𝐘 t𝐘 t−𝟏 
+
+← 𝝈 𝐘 𝟎  Ground Truth Variance 
+
+> Endpoint Variance
+
+Sample 
+
+𝐘 𝑡 −1 𝐘 𝑇 𝐘 t
+
+……  
+
+> Denoise (Sample)
+
+𝐘 0 𝐘 1
+
+> Predicted Distribution
+
+Figure 2. The outline of NsDiff. It integrates a LSNM-based endpoint and an uncertainty-aware noise schedule. During the training phase, a noise and variance estimator, ξθ , is optimized to approximate the reverse process distribution. During inference, it samples from LSNM endpoint and use the estimated reverse distribution to iteratively denoise and generate the final prediction. 
+
+This enables DDPM to adaptively adjust the noise lev-els at each step to capture the data uncertainty. The for-ward distribution admits a closed-form sampling distribution 
+
+q(Yt|Y0, f ϕ(X), g ψ (X), σY0 ) with an arbitrary timestep 
+
+t:
+
+N (Yt; √¯αtY0 + (1 − √¯αt)fϕ(X),
+
+( ¯βt − ˜βt)gψ (X) + ˜βtσY0
+
+| {z }
+
+> ¯σt
+
+) (7) where we define the following coefficients: 
+
+˜αt := 
+
+> t−1
+
+X
+
+> k=0
+> t
+
+Y
+
+> i=t−k
+
+αi, ¯βt := 1 − ¯αt
+
+ˆαt := 
+
+> t−1
+
+X
+
+> k=0
+> t
+
+Y
+
+> i=t−k
+
+αi
+
+!
+
+αt−k, ˜βt := ˜ αt − ˆαt.
+
+(8) we leave the detailed derivation of ¯σt to Appendix A.1, and all these coefficients are positive numbers. Notably, under a perfect estimator (assuming gψ (X) = σY0 ), ¯σt simplifies to ¯βtgϕ(X), and with the additional assumption of σY0 = I,it degenerates to the earlier constant variance settings ( ¯βtI). More detailed discussions and derivations can be found in Section 4.6 and Appendix A.5. In the reverse process, the posteriors of Yt−1 are tractable when conditioned on Y0, which can be restated as: 
+
+q(Yt−1|Yt, Y0, f ϕ(X), g ψ (X), σY0 ) := N (Yt−1; ˜μ, ˜σ)
+
+(9) where 
+
+˜μ := γ0Y0 + γ1Yt + γ2fϕ(X) (10) 
+
+˜σ := σtσt−1
+
+αtσt−1 + σt
+
+(11) and γ0,1,2 in ˜μ are given as: 
+
+γ0 := 
+
+√¯αt−1σt
+
+αt ¯σt−1 + σt
+
+, γ1 := 
+
+√αt ¯σt−1
+
+αt ¯σt−1 + σt
+
+γ2 := 
+
+√αt(αt − 1) ¯ σt−1 + (1 − √¯αt−1)σt
+
+αt ¯σt−1 + σt
+
+(12) We leave the derivation in Appendix A.2. We follow the basic step of DDPM to parameterize a denoise model 
+
+pθ (Yt−1|Yt, f ϕ(X), g ψ (X)) to match the forward process posteriors q(Yt−1|Yt, f ϕ(X), g ψ (X), σY0 ).
+
+4.2. Loss Function 
+
+We approximate the denoising transition step 
+
+pθ (Yt−1|Yt, f ϕ(X), g ψ (X)) to the ground-truth de-4Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+noising transition step q(Yt−1|Yt, f ϕ(X), g ψ (X), σY0 )
+
+by optimizing the KL divergence (Hershey & Olsen, 2007) between the posterior distribution q and the parametrized distribution pθ . Like classic DDPM, we optimize only the diagonal variance term, denoted as ˜σ and σθ respectively. The loss is defined as the KL divergence of the noise matching term: 
+
+L = E [DKL (N x; ˜μ, ˜σ∥N (y; μθ , σθ ))] 
+
+∝ E
+
+"
+
+|| η − ηθ || 22 + X
+
+> i
+
+˜σi
+
+σθ,i 
+
+− X
+
+> i
+
+log 
+
+ ˜σi
+
+σθ,i 
+
+#
+
+(13) where ηθ is the estimated noise and η is the ground truth noise. The first term ensures the estimation of the posterior mean, while the rest terms guarantee the estimation of the variance. We provide the proof in Appendix A.3. 
+
+4.3. Pretraining fϕ and gψ
+
+To train fψ , we follow prior work (Li et al., 2024a) and utilize the Non-stationary Transformer (Liu et al., 2022) as the backbone model. The training process is identical to that of standard supervised time series models (Zhou et al., 2021). For the training of gψ (X), we use a sliding window approach to extract the estimated ground truth variance, similar to references (Kim et al., 2021; Liu et al., 2024b; Ye et al., 2024). Specifically, given time series label Y0 the estimated ground truth variance is defined as: 
+
+σY0 = Var(SlidingWindow( Y0)) (14) thus, the training of gψ (X) is formulated as a supervised task. In our implementation, we utilize a sliding stride of 1 and a window size of 96. The function gψ is implemented as a three-layer MLP, with outputs passed through the softplus activation (Zheng et al., 2015) to ensure positivity. Further implementation details can be found in Appendix C.2 and we examine the necessity of pretraining in Appendix B.2. 
+
+4.4. Training NsDiff 
+
+The target of NsDiff training is to match posterior distri-bution q by parameterizing pθ . Like traditional DDPM, NsDiff can be trained end-to-end by sampling a random t
+
+and noise η from uniform and Gaussian distributions re-spectively. According to Eq. 13, we build an estimation model ξθ (Yt, f ϕ(X), g ψ (X), t ) during the training process to match the noise and variance. The overall procedure is presented in Algorithm 1. 
+
+4.5. Inference 
+
+The target of the inference phase is to recur-sively sample from the parameterized distribution 
+
+pθ (Yt−1 | Yt, f ϕ(X), g ψ (X)) , we provide a detailed 
+
+Algorithm 1 Training 
+
+Input: Data X, target Y, model fϕ, noise and variance estimation model ξθ , total timesteps T
+
+Pre-train fϕ(X) to predict E(Y|X)
+
+Pre-train gψ (X) to predict Var (Y|X)
+
+repeat 
+
+Draw Y0 ∼ q(Y0 | X)
+
+Draw t ∼ Uniform ({1, . . . , T })
+
+Draw η ∼ N (0, I)
+
+Compute Yt:
+
+Yt = √¯αtY0 + (1 − √¯αt)fϕ(X)+
+
+q
+
+( ¯βt − ˜βt)gψ (X) + ˜βtσY0 η ▷ using Eq. 7 Compute estimated noise and variance: 
+
+ηθ , σθ = ξθ (Yt, f ϕ(X), g ψ (X), t )
+
+Compute loss L ▷ using Eq. 13 Numerical optimization step on ∇θ L
+
+until Convergence process in Algorithm 2. At the inference phase, according to Eq. 10 and 11, the calculation of the parameters for the reverse distribution requires estimating both Y0 and σY0 .For the estimation of Y0, we follow prior work (Han et al., 2022) and utilize the relationship between Yt and Y0 as defined in Eq. 7. However, the estimation of σY0 lacks a direct correspondence with Yt. To estimate σY0 , one straightforward approach is to directly use gψ (X). However, it demands a perfect predictor and does not incorporate the reverse process into parameter estimation. Actually, Eq. 11 can be expanded as a quadratic equation with respect to 
+
+σY0 . Thus, we utilize the quadratic expansion of Eq. 11 to approximate σY0 , we leave the detailed derivation at Appendix A.4. Specifically, expanding Eq. 11 gives the following solvable equation: 
+
+λ0σ2 
+
+> Y0
+
++ λ1σY0 + λ2 = 0 (15) where the coefficients are 
+
+λ0 := αtβt ˜βt−1
+
+λ1 := β2 
+
+> t
+
+˜βt−1 + αtβt( ¯βt−1 − ˜βt−1)gψ (X)−
+
+σθ (αt ˜βt−1 + αtβt)) 
+
+λ2 := gψ (X)2β2 
+
+> t
+
+( ¯βt−1 − ˜βt−1)−
+
+σθ gψ (X)( αt ¯βt−1 − αt ˜βt−1 + β2 
+
+> t
+
+)
+
+(16) 
+
+λ0 is a positive value, and according to Vieta’s theo-rem (Lang, 2012), when λ2 < 0, the equation has exactly one positive root. The constraint for λ2 < 0 is equivalent to: 
+
+gψ (X) < σθ
+
+ αt
+
+β2
+
+> t
+
++ 1¯βt−1 − ¯βt−1
+
+
+
+(17) Therefore, the solvability of the equation is governed by the noise level parameter βt. Under the typical DDPM param-eterization (Ho et al., 2020), where βt ranges from 0.0001 5Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+Algorithm 2 Inference 
+
+Input: data X, models fϕ, gψ , and ξθ
+
+Initialize YT ∼ N (fϕ(X), g ψ (X)) 
+
+for t = T to 1 do if t > 1 then 
+
+Draw z ∼ N (0, I)
+
+end if 
+
+Compute ηθ , σθ = ξθ (Yt, f ϕ(X), g ψ (X), t )
+
+Compute ˆσY0 = −λ1+√λ21−4λ0λ2 
+
+> 2λ0
+
+▷ using Eq. 18 Compute ˆY0 = 1√ ¯αt Yt − (1 − √¯αt) fϕ(X) −
+
+q
+
+( ¯βt − ˜βt)gψ (X) + ˜βt ˆσY0 ηθ
+
+!
+
+▷ using Eq. 7 
+
+if t > 1 then 
+
+Set Yt−1 = γ0 ˆY0 + γ1Yt + γ2fϕ(X) + √σθ z
+
+else 
+
+Set Yt−1 = ˆY0
+
+end if end for Output: Y0
+
+to 0.02, the coefficient on the right-hand side of Eq. 17 be-comes sufficiently large, thereby ensuring the equation’s solvability. Hence, by solving the quadratic equation in Eq. 15, we can estimate the value of σY0 during inference stage, the specific formula is given by Eq. 18: 
+
+ˆσY0 = −λ1 + pλ21 − 4λ0λ2
+
+2λ0
+
+(18) Experimentally, the approach exhibits consistent solvabil-ity across all datasets. We provide more discussions in Appendix A.4. 
+
+4.6. Simplified Variants of NsDiff 
+
+In this section, we discuss two simplified versions of NsDiff by simplifying the variance terms in Eq. 7. We summarize these two variants in Table 1, and provide the ablation results in Section 5.3.                    
+
+> Table 1. NsDiff Variants. Variants Endpoint Forward Noise w/o LSNM Nfϕ(X),I)βtI
+> w/o UANS N(fϕ(X), g ψ(X)) βtgψ(X)
+> NsDiff N(fϕ(X), g ψ(X)) β2
+> tgψ(X) + βtαtσY0
+
+Perfect Estimator (w/o UANS) : Assuming a perfect vari-ance estimator gψ (X) = σY0 , Eq. 6 becomes the following: 
+
+N (Yt; √αtYt−1 + (1 − √αt)fϕ(X),
+
+(1 − αt) gψ (X)) (19) Further derivations show that this is simply a constant mul-tiplication of the variance term from prior works (Han et al., 2022), and the training of the variance is not necessary. How-ever, this estimation of uncertainty has two main drawbacks. First, assuming a perfect estimator inherently introduces bias. In addition, this approach estimates the variance with-out leveraging the denoising process, as the variance is fully determined by pretrained gψ (X).
+
+Unit Variance (w/o LSNM) : Assuming a known unit vari-ance, i.e., gψ (X) = σY0 = I, Eq. 6 becomes: 
+
+N (Yt; √αtYt−1 + (1 − √αt)fϕ(X), (1 − αt) I). (20) which is consistent with previous work (Han et al., 2022). TMDM (Li et al., 2024a) is a typical probabilistic fore-casting model built under this assumption. The results for TMDM are presented in Section 5.2 and 5.3, where we con-duct experiments on real and synthetic datasets, respectively. We provide detailed derivations and more discussions in Appendix A.5. 
+
+# 5. Experiments 
+
+5.1. Experiment Setup Datasets : Nine popular real-world datasets with diverse characteristics are selected, including Electricity (ECL), ILI, ETT {h1, h2, m1, m2 }, ExchangeRage (EXG), Traffic, and SolarEnergy (Solar). Table 2 summarizes basic statistics for these datasets. To estimate uncertainty variation between the train and test datasets, we use the ratio of test variance to train variance, selecting the highest value across dimensions to capture non-stationary uncertainty. A detailed notebook on this calculation is available in our repository. For dataset splits, we follow previous time series prediction works (Wu et al., 2022; Li et al., 2024b): the ETT datasets are split 12/4/4 months for train/val/test, while others are split 7:1:2. Details can be found in Appendix C.1.                                          
+
+> Table 2. Dataset properties, including total dimentions, total tim-steps, prediction steps, evaluated uncertainty variation. Dataset Dim. Steps Pred.steps Uncert.Var. ETTm1 769,680 192 2.53 ETTm2 769,680 192 1.27 ETTh1 717420 192 2.50 ETTh2 717,420 192 1.29 EXG 87,588 192 0.85 ILI 7966 36 8.26 ECL 321 26,304 192 3.94 Traffic 862 17,544 192 181.83 Solar 137 52,560 192 0.92
+
+Baselines : We selected five strong probabilistic forecast-ing baselines for comparison, including TimeGrad (Rasul et al., 2021), CSDI (Tashiro et al., 2021), TimeDiff (Shen 6Non-stationary Diffusion For Probabilistic Time Series Forecasting                                                                                                                                      
+
+> Table 3. Experiment result on nine real-world datasets, bold face indicate best result. Models Datasets ETTh1 ETTh2 ETTm1 ETTm2 ECL EXG ILI Solar Traffic TimeGrad CRPS 0.606 1.212 0.647 0.775 0.397 0.826 1.140 0.293 0.407 (2021) QICE 6.731 9.488 6.693 6.962 7.118 9.464 6.519 7.378 4.581 CSDI CRPS 0.492 0.647 0.524 0.817 0.577 0.855 1.244 0.432 1.418 (2022) QICE 3.107 5.331 2.828 8.106 7.506 7.864 7.693 9.957 13.613 TimeDiff CRPS 0.465 0.471 0.464 0.316 0.750 0.433 1.153 0.700 0.771 (2023) QICE 14.931 14.813 14.795 13.385 15.466 14.556 14.942 14.914 15.439 DiffusionTS CRPS 0.603 1.168 0.574 1.035 0.633 1.251 1.612 0.470 0.668 (2024) QICE 6.423 9.577 5.605 9.959 8.205 10.411 10.090 6.627 5.958 TMDM CRPS 0.452 0.383 0.375 0.289 0.461 0.336 0.967 0.350 0.557 (2024) QICE 2.821 4.471 2.567 2.610 10.562 6.393 6.217 9.342 10.676 NsDiff CRPS 0.392 0.358 0.346 0.256 0.290 0.324 0.806 0.300 0.378 (ours) QICE 1.470 2.074 2.041 2.030 6.685 5.930 5.598 6.820 3.601
+
+& Kwok, 2023), TMDM (Li et al., 2024a) and Diffu-sionTS (Yuan & Qiao, 2024). Specifically, TMDM denoises from N (fϕ(X), I) while others denoise from N (0, I).
+
+Experiment Settings : Experiments are conducted under popular long-term multivariate forecasting settings, using an input length of 168 in all experiments. All experiments are run with seeds {1, 2, 3} for 10 epochs. We use the best result from the validation set to evaluate the model on the test set. The learning rate is set to 0.001, batch size of 32 and the number of timesteps T = 20 , consistent with prior work (Rasul et al., 2021). We employ a linear noise schedule with β1 = 10 −4 and βT = 0 .02 , in line with the setup used in conventional DDPM (Ho et al., 2020). At inference, we generate 100 samples to estimate the distribution. For the baseline models, we utilize their default parameters. 
+
+Metrics : Following prior work (Li et al., 2024a), we use two probabilistic forecasting metrics: Quantile Interval Cover-age Error (QICE) (Han et al., 2022) and Continuous Ranked Probability Score (CRPS) (Matheson & Winkler, 1976). For both metrics, smaller values indicate better performance. Detailed formula is provided in Appendix C.3. We provide point forecast results at Appendix B.1. 
+
+5.2. Main Experiments 
+
+To evaluate the performance of NsDiff in probabilistic mul-tivariate time series forecasting, we tested it on nine real-world datasets and compared it to five competitive baselines. The results, summarized in Table 3, show that NsDiff consis-tently achieves state-of-the-art (SOTA) performance, with superior uncertainty estimation capabilities, except on the Solar dataset, which exhibits low uncertainty variation (0.92 shown in Table 2). Compared to the second-best and pre-vious SOTA TMDM, which uses an endpoint distribution of N (fϕ(X), I), NsDiff demonstrates significant improve-ments, particularly in the uncertainty interval estimation metric (QICE). For example, QICE is reduced by 47.9% on ETTh1, 53.6% on ETTh2, 20.5% on ETTm1, and 66.3% on Traffic. Notably, on the Traffic dataset, which has the highest uncertainty variation (181.83), NsDiff achieves the most significant improvement, underscoring its strength in handling high-uncertainty scenarios. 
+
+Sample Showcases To provide a clearer understanding of NsDiff’s performance, we visualize a sample from the ETTh1 dataset in Figure 3. As shown, NsDiff effectively captures the uncertainty, even under the distribution shift be-tween input and output. In contrast, TMDM, while capable of detecting mean variations, fails to adequately model the uncertainty due to its assumption of uncertainty invariance. Other models, such as TimeGrad, CSDI, and TimeDiff, which begin denoising from N (0, I), struggle to capture both the mean and variance. For example, as seen on the right side of the figure, TimeGrad predicts a stable trend instead of the observed downward shift. This highlights the limitations of these models in handling non-stationary behavior. In contrast, NsDiff excels at modeling such non-stationary dynamics while providing accurate uncertainty estimation, demonstrating its robustness and effectiveness in challenging forecasting scenarios. We provide other show-cases in Appendix D. 
+
+5.3. Experiments On Synthetic Data 
+
+To accurately evaluate NsDiff’s performance under time-varying conditions, we designed two synthetic datasets using the LSNM. Specifically, the formula used is Y =
+
+m[t] + v[t]ϵ, where m and v defines the level of trend and uncertainty variation. In the linear setting, m increases linearly from 1 to 10, and v follows the same pattern. In con-trast, for the quadratic setting, v grows quadratically from 1 to 100. The total length of the generated dataset is 7588, and we predict univariate features. The results of these ex-periments are summarized in Table 4. Further details about 7Non-stationary Diffusion For Probabilistic Time Series Forecasting TimeGrad CSDI TimeDiff TMDM NsDiff 
+
+> ETTh1
+
+Figure 3. The 95% prediction intervals of a ETTh1 sample, the black line is the true values, the red area represents the prediction interval. 
+
+the dataset construction can be found in Appendix C.1.2. 
+
+Table 4. Performace comparision for synthetic datasets Variance Linear Quadratic Models CRPS QICE CRPS QICE TimeGrad 1.129 3.669 2.204 10.740 CSDI 1.100 3.332 1.866 5.050 TimeDiff 1.274 10.314 2.495 14.670 DiffusionTS 1.454 9.290 2.123 11.273 TMDM 1.111 4.542 2.217 11.404 NsDiff 1.057 0.987 1.777 1.336 
+
+As shown in Table 4, NsDiff achieves remarkable perfor-mance under conditions with varying variance. Compared to the previous model, TMDM, in terms of QICE, NsD-iff improves performance by 78.3% on the linear-growing variance dataset, and this improvement increases to 88.3% on the quadratic-growing variance dataset. These results demonstrate the superior performance of NsDiff in captur-ing uncertainty shifts. 
+
+Synthetic Dataset Showcases. To visually illustrate whether NsDiff can capture the uncertainty shift between the training and test datasets, we provide an example of a lin-ear synthetic dataset in Figure 4, where the estimations for training and extended testing samples are plotted. As shown in the figure, both TMDM and NsDiff effectively capture the uncertainty within the training set. However, in the testing area (to the right of the red dashed line), TMDM assumes invariant uncertainty, while NsDiff successfully captures the uncertainty shift. This clearly demonstrates that NsDiff ef-fectively captures the distribution shift between the training and test datasets, whereas previous methods under ANM fail to do so. CRPS: 1.111 
+
+> QICE: 4.542
+> CRPS: 1.057
+> QICE: 0.987
+
+Figure 4. The estimated variance and ground truth in linear vari-ance dataset, the variance is estimated using 100 samples. The red dashed line indicates the split of training and extended test sets. 
+
+5.4. Ablation Experiments 
+
+This section compares two simplified variants of NsDiff discussed in Section 4.6, the ablation experiments are con-ducted on ETTh1 dataset. The abaltion variants are : (1) w/o LSNM: without LSNM assumption, which assumes condi-tional unit constant variance ( σY0 = I) (2) w/o UANS: without uncertainty-aware noise schedule, which assumes a perfect noise estimator ( σY0 = gψ (X)). The results, presented in Table 5, show that NsDiff achieves the best performance, not only in overall metrics but also in the sta-bility of results (lower variance). Notably, while assuming a perfect uncertainty estimator (w/o UANS) improves CRPS by introducing variable uncertainty, it remains suboptimal in QICE compared to w/o LSNM and exhibits higher variance. This is likely due to potential overfitting of the variance esti-mator, as it fully relies on gψ (X). These findings highlight the importance of a controllable noise schedule, rather than solely relying on a perfect gψ (X).
+
+Table 5. Variants information and ablation experiment results. Metrics Forward Noise QICE CRPS w/o LSNM βtI 2.821 ±0.718 0.452 ±0.027 
+
+w/o UANS βtgψ (X) 3.184 ±0.787 0.413 ±0.015 
+
+NsDiff β2 
+
+> t
+
+gψ (X) + βtαtσY0 1.470 ±0.207 0.392 ±0.009 
+
+# 6. Conclusion 
+
+In this paper, we present Non-stationary Diffusion (NsDiff), a novel class of conditional Denoising Diffusion Proba-bilistic Models (DDPMs) specifically designed to advance probabilistic forecasting. NsDiff represents the first attempt to integrate the Location-Scale Noise Model (LSNM) into probabilistic forecasting, providing a more flexible and ex-pressive framework for uncertainty representation in the data. We introduce an uncertainty-aware noise schedule, which enhances the noise modeling capabilities of DDPMs by incorporating time-varying variances directly into the diffusion process. NsDiff provides a generalized framework that extends the flexibility of existing models; by incorpo-rating a pretrained mean and variance estimator along with the designed noise schedule, NsDiff enables accurate un-certainty estimation, thereby opening new opportunities for advancing research in probabilistic forecasting. 8Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+# Acknowledgements 
+
+This work is supported in part by the National Natural Sci-ence Foundation of China (Grant No. 6247075381) and par-tially funded by Huaneng Headquarters Technology Projects with No. HNKJ23-HF97. We would also like to thank the anonymous reviewers for their constructive feedback and suggestions. 
+
+# Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here. 
+
+# References 
+
+Alcaraz, J. M. L. and Strodthoff, N. Diffusion-based time series imputation and forecasting with structured state space models. arXiv preprint arXiv:2208.09399 , 2022. Bertozzi, A. L., Franco, E., Mohler, G., Short, M. B., and Sledge, D. The challenges of modeling and forecasting the spread of covid-19. Proceedings of the National Academy of Sciences , 117(29):16732–16738, 2020. Chen, Y., Deng, W., Fang, S., Li, F., Yang, N. T., Zhang, Y., Rasul, K., Zhe, S., Schneider, A., and Nevmyvaka, Y. Provably convergent schr ¨odinger bridge with applica-tions to probabilistic time series imputation. In Interna-tional Conference on Machine Learning , pp. 4485–4513. PMLR, 2023. Chen, Y., Goldstein, M., Hua, M., Albergo, M. S., Boffi, N. M., and Vanden-Eijnden, E. Probabilistic forecast-ing with stochastic interpolants and f \” ollmer processes. 
+
+arXiv preprint arXiv:2403.13724 , 2024. Chopra, S. and Meindl, P. Supply Chain Management: Strategy, Planning, and Operation . Pearson, 8 edition, 2021. Dhariwal, P. and Nichol, A. Diffusion models beat gans on image synthesis. Advances in neural information processing systems , 34:8780–8794, 2021. Du, Y., Wang, J., Feng, W., Pan, S., Qin, T., Xu, R., and Wang, C. Adarnn: Adaptive learning and forecasting of time series. In Proceedings of the 30th ACM international conference on information & knowledge management , pp. 402–411, 2021. Ermagun, A. and Levinson, D. Spatiotemporal traffic fore-casting: review and proposed directions. Transport Re-views , 38(6):786–814, 2018. Fan, W., Wang, P., Wang, D., Wang, D., Zhou, Y., and Fu, Y. Dish-ts: a general paradigm for alleviating distribution shift in time series forecasting. In Proceedings of the AAAI conference on artificial intelligence , volume 37, pp. 7522–7529, 2023. Fan, W., Yi, K., Ye, H., Ning, Z., Zhang, Q., and An, N. Deep frequency derivative learning for non-stationary time series forecasting. arXiv preprint arXiv:2407.00502 ,2024. Gu, S., Chen, D., Bao, J., Wen, F., Zhang, B., Chen, D., Yuan, L., and Guo, B. Vector quantized diffusion model for text-to-image synthesis. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pp. 10696–10706, 2022. Han, X., Zheng, H., and Zhou, M. Card: Classification and regression diffusion models. Advances in Neural Information Processing Systems , 35:18100–18115, 2022. Hershey, J. R. and Olsen, P. A. Approximating the kull-back leibler divergence between gaussian mixture mod-els. In 2007 IEEE International Conference on Acoustics, Speech and Signal Processing-ICASSP’07 , volume 4, pp. IV–317. IEEE, 2007. Ho, J., Jain, A., and Abbeel, P. Denoising diffusion proba-bilistic models. Advances in neural information process-ing systems , 33:6840–6851, 2020. Jiang, R., Lu, P. Y., Orlova, E., and Willett, R. Training neural operators to preserve invariant measures of chaotic attractors. Advances in Neural Information Processing Systems , 36:27645–27669, 2023. Kendall, A. and Gal, Y. What uncertainties do we need in bayesian deep learning for computer vision? Advances in neural information processing systems , 30, 2017. Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.-H., and Choo, J. Reversible instance normalization for accurate time-series forecasting against distribution shift. In International Conference on Learning Representations , 2021. Kollovieh, M., Ansari, A. F., Bohlke-Schneider, M., Zschiegner, J., Wang, H., and Wang, Y. B. Predict, refine, synthesize: Self-guiding diffusion models for probabilis-tic time series forecasting. Advances in Neural Informa-tion Processing Systems , 36, 2024. Lai, G., Chang, W.-C., Yang, Y., and Liu, H. Modeling long-and short-term temporal patterns with deep neural networks. In The 41st international ACM SIGIR confer-ence on research & development in information retrieval ,pp. 95–104, 2018. 9Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+Lang, S. Algebra , volume 211. Springer Science & Business Media, 2012. Lee, S., Lee, K., and Park, T. Ant: Adaptive noise sched-ule for time series diffusion models. arXiv preprint arXiv:2410.14488 , 2024. Li, A. W. and Bastos, G. S. Stock market forecasting using deep learning and technical analysis: a systematic review. 
+
+IEEE access , 8:185232–185242, 2020. Li, W., Yang, X., Liu, W., Xia, Y., and Bian, J. Ddg-da: Data distribution generation for predictable concept drift adaptation. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 36, pp. 4092–4100, 2022a. Li, Y., Lu, X., Wang, Y., and Dou, D. Generative time series forecasting with diffusion, denoise, and disentanglement. 
+
+Advances in Neural Information Processing Systems , 35: 23009–23022, 2022b. Li, Y., Chen, W., Hu, X., Chen, B., Zhou, M., et al. Transformer-modulated diffusion models for probabilis-tic multivariate time series forecasting. In The Twelfth International Conference on Learning Representations ,2024a. Li, Y., Chen, W., Hu, X., Chen, B., Zhou, M., et al. Transformer-modulated diffusion models for probabilis-tic multivariate time series forecasting. In The Twelfth International Conference on Learning Representations ,2024b. Liu, Y., Wu, H., Wang, J., and Long, M. Non-stationary transformers: Exploring the stationarity in time series forecasting. Advances in Neural Information Processing Systems , 35:9881–9893, 2022. Liu, Y., Li, C., Wang, J., and Long, M. Koopa: Learning non-stationary time series dynamics with koopman predictors. 
+
+Advances in Neural Information Processing Systems , 36, 2024a. Liu, Z., Cheng, M., Li, Z., Huang, Z., Liu, Q., Xie, Y., and Chen, E. Adaptive normalization for non-stationary time series forecasting: A temporal slice perspective. Ad-vances in Neural Information Processing Systems , 36, 2024b. Matheson, J. E. and Winkler, R. L. Scoring rules for contin-uous probability distributions. Management science , 22 (10):1087–1096, 1976. Nie, Y., Nguyen, N. H., Sinthong, P., and Kalagnanam, J. A time series is worth 64 words: Long-term forecasting with transformers. arXiv preprint arXiv:2211.14730 , 2022. Ogasawara, E., Martinez, L. C., De Oliveira, D., Zimbr ˜ao, G., Pappa, G. L., and Mattoso, M. Adaptive normal-ization: A novel data normalization approach for non-stationary time series. In The 2010 International Joint Conference on Neural Networks (IJCNN) , pp. 1–8. IEEE, 2010. Passalis, N., Tefas, A., Kanniainen, J., Gabbouj, M., and Iosifidis, A. Deep adaptive input normalization for time series forecasting. IEEE transactions on neural networks and learning systems , 31(9):3760–3765, 2019. Rasul, K., Seward, C., Schuster, I., and Vollgraf, R. Au-toregressive denoising diffusion models for multivariate probabilistic time series forecasting. In International Con-ference on Machine Learning , pp. 8857–8868. PMLR, 2021. Shen, L. and Kwok, J. Non-autoregressive conditional diffusion models for time series prediction. In Inter-national Conference on Machine Learning , pp. 31016– 31029. PMLR, 2023. Shi, Y., De Bortoli, V., Campbell, A., and Doucet, A. Diffu-sion schr ¨odinger bridge matching. Advances in Neural Information Processing Systems , 36:62183–62223, 2023. Spirtes, P., Glymour, C., and Scheines, R. Causation, pre-diction, and search . MIT press, 2001. Tashiro, Y., Song, J., Song, Y., and Ermon, S. Csdi: Con-ditional score-based diffusion models for probabilistic time series imputation. Advances in Neural Information Processing Systems , 34:24804–24816, 2021. Tyralis, H. and Papacharalampous, G. A review of proba-bilistic forecasting and prediction with machine learning. 
+
+arXiv preprint arXiv:2209.08307 , 2022. Wang, R., Dong, Y., Arik, S. ¨O., and Yu, R. Koopman neural forecaster for time series with temporal distribution shifts. 
+
+arXiv preprint arXiv:2210.03675 , 2022. Wu, H., Hu, T., Liu, Y., Zhou, H., Wang, J., and Long, M. Timesnet: Temporal 2d-variation modeling for gen-eral time series analysis. In The eleventh international conference on learning representations , 2022. Wu, Z., Pan, S., Long, G., Jiang, J., Chang, X., and Zhang, C. Connecting the dots: Multivariate time series forecasting with graph neural networks. In Proceedings of the 26th ACM SIGKDD international conference on knowledge discovery & data mining , pp. 753–763, 2020. Xu, Z., Li, Y., Liu, C., and Gui, N. Ordering-based causal discovery for linear and nonlinear relations. arXiv preprint arXiv:2410.05890 , 2024. 10 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+Ye, W., Deng, S., Zou, Q., and Gui, N. Frequency adaptive normalization for non-stationary time series forecasting. 
+
+arXiv preprint arXiv:2409.20371 , 2024. Yuan, X. and Qiao, Y. Diffusion-ts: Interpretable diffu-sion for general time series generation. arXiv preprint arXiv:2403.01742 , 2024. Zeng, A., Chen, M., Zhang, L., and Xu, Q. Are transformers effective for time series forecasting? In Proceedings of the AAAI conference on artificial intelligence , volume 37, pp. 11121–11128, 2023. Zheng, H., Yang, Z., Liu, W., Liang, J., and Li, Y. Im-proving deep neural networks using softplus units. In 
+
+2015 International joint conference on neural networks (IJCNN) , pp. 1–4. IEEE, 2015. Zhou, H., Zhang, S., Peng, J., Zhang, S., Li, J., Xiong, H., and Zhang, W. Informer: Beyond efficient transformer for long sequence time-series forecasting. Proceedings of the AAAI Conference on Artificial Intelligence , 35(12): 11106–11115, 2021. 11 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+# A. Deriviation 
+
+A.1. Closed-form for Forward Process Distribution of Y0
+
+Following the original DDPM, we first αt := 1 − βt and ¯αt := Qti=1 αi, where βt ∈ (0 , 1) is a diffusion schedule. To simplify the deriviation, we further define ¯βt := 1 − ¯αt and σt = (1 − αt)2 gψ (X) + (1 − αt) αtσY0 . With the forward distribution in Eq. 6, expanding the forward process starting from t to 0 gives the following deriviation: 
+
+Yt = √αtYt−1 + (1 − √αt) fϕ(X) + √σtηt,
+
+= √αt
+
+√αt−1Yt−2 +  1 − √αt−1
+
+ fϕ(X) + √σt−1ηt−1
+
+ + (1 − √αt) fϕ(X) + √σtηt,
+
+= √αtαt−1Yt−2 + √αt
+
+ 1 − √αt−1
+
+ fϕ(X) + (1 − √αt) fϕ(X) + √αt
+
+√σt−1ηt−1 + √σtηt,
+
+= √αtαt−1Yt−2 +  1 − √αtαt−1
+
+ fϕ(X) + pαtσt−1 + σtηt−1,
+
+= √αtαt−1
+
+√αt−2Yt−3 + (1 − √αt−2)fϕ(X) + √σt−2ηt−2) +  1 − √αtαt−1
+
+ fϕ(X) + pαtσt−1 + σtηt−1,
+
+= √αtαt−1αt−2Yt−3 +  1 − √αtαt−1αt−2
+
+ fϕ(X) + pαtαt−1σt−2 + αtσt−1 + σtηt−2,
+
+· · · 
+
+Yt = √αtαt−1 · · · α1Y0 + [1 − √αtαt−1 · · · α1] fϕ(X) + 
+
+vuuut
+
+> t−1
+
+X
+
+> k=0
+
+
+
+> t
+
+Y
+
+> j=t−k+1
+
+αj
+
+ σt−kη0
+
+(21) Eq. 21 describes the relationship between Yt and Y0. To simplify the notation, we further give the following definition: 
+
+σt = ( α2 
+
+> t
+
+− αt + (1 − αt)) gψ (X) + ( αt − α2 
+
+> t
+
+)σY0 (22) 
+
+> t−1
+
+X
+
+> k=0
+
+
+
+> t
+
+Y
+
+> j=t−k+1
+
+αj
+
+ (1 − αt−k) = (1 − αt) + αt(1 − αt−1) + ( αtαt−1)(1 − αt−2) + . . . = 1 −
+
+> t
+
+Y
+
+> i=1
+
+αi (23) 
+
+> t−1
+
+X
+
+> k=0
+
+
+
+> t
+
+Y
+
+> j=t−k+1
+
+αj
+
+ αt−k = αt + αtαt−1 + αtαt−1αt−2 + . . . =
+
+> t−1
+
+X
+
+> k=0
+> t
+
+Y
+
+> i=t−k
+
+αi (24) 
+
+> t−1
+
+X
+
+> k=0
+
+
+
+> t
+
+Y
+
+> j=t−k+1
+
+αj
+
+ α2 
+
+> t−k
+
+= α2 
+
+> t
+
++ αtα2 
+
+> t−1
+
++ αtαt−1α2 
+
+> t−2
+
++ . . . =
+
+> t−1
+
+X
+
+> k=0
+
+(
+
+> t
+
+Y
+
+> i=t−k
+
+αi)αt−k (25) where we define above Eq. 23, 24 and 25 as ¯αt, ˜αt, ˆαt respectively. Eq. 21 becomes the following form: 
+
+Yt = √¯αtY0 + (1 − √¯αt)fϕ(X) + 
+
+q
+
+(ˆ αt − ˜αt + 1 − ¯αt)gψ (X) + ( ˜ αt − ˆαt)σY0
+
+| {z }√ ¯σt
+
+η0 (26) 
+
+= √¯αtY0 + (1 − √¯αt)fϕ(X) + 
+
+q
+
+( ¯βt − ˜βt)gψ (X) + ˜βtσY0
+
+| {z }√ ¯σt
+
+η0 (27) where we define ˜βt = ˜ αt − ˆαt and ¯σt = ( ¯βt − ˜βt)gψ (X) + ˜βtσY0 . Eq. 27 gives the relationship between Yt and Y0,which admits the closed-form sampling distribution given Y0 with an arbitrary timestep t.
+
+A.2. Reverse Posterior Distribution 
+
+To simplify the notation of the following derivation, we first give the following definition: 
+
+A = Yt − (1 − √αt) fϕ(X) (28) 
+
+B = √¯αt−1Y0 + (1 − √¯αt−1) fϕ(X) (29) 12 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+With above definition, the conditional distribution of reverse process is: 
+
+q (Yt−1 | Yt, Y0, X) ∝ q (Yt | Yt−1, f ϕ(X), g ψ (X)) q (Yt−1 | Y0, f ϕ(X), g ψ (X)) 
+
+∝ exp − 12
+
+ A − √αtYt−1
+
+2
+
+σt
+
++ (Yt−1 − B)2
+
+¯σt−1
+
+!! 
+
+= exp 
+
+
+
+− 12
+
+ A2 − 2√αtAY t−1 + αt(Yt−1)2
+
+σt
+
++ (Yt−1)2 − 2BY t−1 + B2
+
+¯σt−1
+
+ 
+
+∝ exp 
+
+
+
+− 12
+
+ αt
+
+σt
+
+(Yt−1)2 − 2√αtA
+
+σt
+
+Yt−1 + 1¯σt−1
+
+(Yt−1)2 − 2B
+
+¯σt−1
+
+Yt−1
+
+ 
+
+= exp 
+
+
+
+− 12
+
+ αt
+
+σt
+
++ 1¯σt−1
+
+
+
+(Yt−1)2 − 2
+
+ √αtA
+
+σt
+
++ B
+
+¯σt−1
+
+
+
+Yt−1
+
+
+
+(30) then, the parameter ˜μ in the posteriors of Yt−1 is equivalent to: 
+
+˜μ = 
+
+> √αtA
+> σt
+
++ B 
+
+> ¯σt−1
+> αt
+> σt
+
++ 1¯σt−1
+
+=
+
+√αtA ¯σt−1 + Bσt
+
+αt ¯σt−1 + σt
+
+=
+
+√αt
+
+ Yt −  1 − √αt
+
+ fϕ(X) ¯σt−1 + ( √¯αt−1Y0 + (1 − √¯αt−1) fϕ(X)) σt
+
+αt ¯σt−1 + σt
+
+=
+
+
+
+√¯αt−1σt
+
+αt ¯σt−1 + σt
+
+| {z }
+
+> γ0
+
+ Y0 +
+
+
+
+√αt ¯σt−1
+
+αt ¯σt−1 + σt
+
+| {z }
+
+> γ1
+
+ Yt +
+
+
+
+√αt(αt − 1) ¯ σt−1 + (1 − √¯αt−1)σt
+
+αt ¯σt−1 + σt
+
+| {z }
+
+> γ2
+
+ fϕ(X)
+
+(31) where, the specific form can be written as: 
+
+γ0 =
+
+√¯αt−1σt
+
+αt ¯σt−1 + σt
+
+=
+
+√¯αt−1(β2 
+
+> t
+
+gψ (X) + αtβtσY0 )
+
+gψ (X)( αt ¯βt−1 − αt ˜βt−1 + β2 
+
+> t
+
+) + σY0 (αt ˜βt−1 + αtβt)
+
+γ1 =
+
+√αtσt
+
+αt ¯σt−1 + σt
+
+=
+
+√¯αt−1( ¯βt − ˜βt)gψ (X) + ˜βtσY0
+
+gψ (X)( αt ¯βt−1 − αt ˜βt−1 + β2 
+
+> t
+
+) + σY0 (αt ˜βt−1 + αtβt)
+
+γ2 =
+
+√αt(αt − 1) ¯ σt−1 + (1 − √¯αt−1)σt
+
+αt ¯σt−1 + σt
+
+= (β2 
+
+> t
+
+(1 − √¯αt−1) − √αtβt( ¯βt−1 − ˜βt−1)) gψ (X) + αtβt(1 − √¯αt−1 − √αtβt ˜βt−1)) σY0
+
+gψ (X)( αt ¯βt−1 − αt ˜βt−1 + β2 
+
+> t
+
+) + σY0 (αt ˜βt−1 + αtβt)
+
+(32) Similarly, for the parameter ˜σ in the posteriors of Yt−1, we have: 
+
+˜σ = 1 
+
+> αt
+> σt
+
++ 1¯σt−1
+
+= σt ¯σt−1
+
+αt ¯σt−1 + σt
+
+= (β2 
+
+> t
+
+gψ (X) + αtβtσY0 )(( ¯βt−1 − ˜βt−1)gψ (X) + ˜βt−1σY0 )
+
+gψ (X)( αt ¯βt−1 − αt ˜βt−1 + β2 
+
+> t
+
+) + σY0 (αt ˜βt−1 + αtβt)
+
+(33) 
+
+A.3. Loss Function 
+
+Firstly, KL divergence between two gaussians can be given as: 
+
+L = E [DKL (q (Yt−1 | Yt, f ϕ(X), g ψ (X)) ∥ pθ (Yt−1 | Yt, f ϕ(X), g ψ (X))] = E [DKL (N (Yt−1; ˜μ, ˜σ)∥N (Yt−1; μθ , σθ ))] = E
+
+"
+
+12 (μθ − ˜μ)⊤ Σ−1 
+
+> θ
+
+(μθ − ˜μ) + Tr 
+
+
+
+Σ−1 
+
+> θ
+
+˜Σ
+
+
+
+− log det( ˜Σ)det ( Σθ ) − C
+
+!# 
+
+∝ E
+
+"
+
+|| μθ − ˜μ|| 22 + X
+
+> i
+
+˜σi
+
+σθ,i 
+
+− X
+
+> i
+
+log( ˜σi
+
+σθ,i 
+
+)
+
+#
+
+(34) 13 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+where Σ is a diagonal matrix representing the covariance matrix and σ represents its diagonal vector. Let μθ be in the form similar to equation 10, and replace Y0 with Yt using Eq. 27, it gives: 
+
+μθ = γ0
+
+
+
+1
+
+√¯αt
+
+(Yt − (1 − √¯αt)fϕ(X) −
+
+q
+
+( ¯βt−1 − ˜βt−1)gψ (X) + ˜βt−1σY0 ηθ )
+
+| {z }
+
+> Y0
+
+ + γ1Yt + γ2fϕ(X) (35) Replacing ˜μ with equation 10 in μθ − ˜μ, defined as: 
+
+μθ − ˜μ = γ0
+
+q
+
+( ¯βt−1 − ˜βt−1)gψ (X) + ˜βt−1σY0 (η − ηθ )
+
+∝ (η − ηθ )
+
+(36) Using Eq. 36, the loss function can be derived as: 
+
+L = E
+
+"
+
+|| η − ηθ || 22 + X
+
+> i
+
+˜σi
+
+σθ,i 
+
+− X
+
+> i
+
+log 
+
+ ˜σi
+
+σθ,i 
+
+#
+
+(37) where the first term || η − ηθ || 22 is matching the noise in each step and the remainder P 
+
+> i
+> ˜σi
+> σθ,i
+
+− P 
+
+> i
+
+log 
+
+ ˜σi
+
+> σθ,i
+
+
+
+is optimizing the uncertainty. Specifically, assume that ˜σ = σθ = 1, which degenerates to the general version of the DDPM: L =
+
+E || η − ηθ || 22
+
+.
+
+A.4. Estimating σY0 Through σθ
+
+At inference time, the calculation of γ0,1,2 requires estimating σY0 . One straightforward approach is to directly use g(x);however, this method assumes a perfect predictor and does not involve the reverse process in parameter estimation. Since the predictor has already provided an estimate of the reverse noise, we utilize the quadratic expansion of equation 33 to approximate σY0 .By substituting the predicted σθ into equation 33 and rearranging terms, we obtain: 
+
+αtβt ˜βt−1
+
+| {z }
+
+> λ0
+
+σ2 
+
+> Y0
+
++
+
+(β2 
+
+> t
+
+˜βt−1 + αtβt( ¯βt−1 − ˜βt−1)) gψ (X) − σθ (αt ˜βt−1 + αtβt)) 
+
+| {z }
+
+> λ1
+
+ σY0
+
++ gψ (X)2β2 
+
+> t
+
+( ¯βt−1 − ˜βt−1) − σθ gψ (X)( αt ¯βt−1 − αt ˜βt−1 + β2 
+
+> t
+
+)
+
+| {z }
+
+> λ2
+
+= 0 (38) when λ2 < 0, the quadratic equation has exactly one positive root using the Vieta theorem λ2 
+
+> λ0
+
+> 0. ˆσY0 is given by: 
+
+ˆσY0 = −λ1 + pλ21 − 4λ0λ2
+
+2λ0
+
+(39) The constraint λ2 < 0 can be described by the following inequality: 
+
+gψ (X) < σθ
+
+ αt
+
+β2
+
+> t
+
++ 1¯βt−1 − ˜βt−1
+
+
+
+(40) where the coefficient of right-hand side is a very large value; specifically, under our default beta settings with beta start from 0.0001 to 0.02, this value is sufficiently large to ensure the sovlability of Eq. 39; experimentally, the results can be obtained in all datasets and samples. 14 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+A.5. Simplified Versions of NsDiff 
+
+A.5.1. P ERFECT ESTIMATOR 
+
+Given a perfect estimator gψ (X), substituting this into Eq. 6, we obtain the variance σt = βtgψ (X). Substituting this into Eq. 22, Eq. 27 becomes: 
+
+Yt = √¯αtY0 +  1 − √¯αt
+
+ fϕ(X) + 
+
+q
+
+(1 − ¯αt) gψ (X)η0 (41) hence, we have ¯σt = p(1 − ¯αt) gψ (X). Further follows the deriviation of Appendix A.2 by replacing A, B, σt and ¯σt ,we obtain following results: 
+
+˜μ =
+
+√¯αt−1
+
+1 − ¯αt
+
+βtY0 + 1 − ¯αt−1
+
+1 − ¯αt
+
+Yt
+
+√αt + 1 + (√¯αt − 1)  √αt + √¯αt−1
+
+
+
+1 − ¯αt
+
+fϕ(X) (42) 
+
+˜σ = (1 − ¯αt) gψ (X) (43) for the loss function, the posterior variance is known in inference time; hence the training for the variance ˜σ is not necessary. This variant can be simply trained using L = E || η − ηθ || 22
+
+. Furthermore, in this result, the variance is simply a constant scaling of the variance in previous work (Ho et al., 2020; Han et al., 2022; Li et al., 2024a). A.5.2. U NIT VARIANCE 
+
+Assuming a unit endpoint variance ( gψ (X)=1) gives an identical posterior mean in Eq. 42 and and variance with only the coefficient: 
+
+˜μ =
+
+√¯αt−1
+
+1 − ¯αt
+
+βtY0 + 1 − ¯αt−1
+
+1 − ¯αt
+
+Yt
+
+√αt + 1 + (√¯αt − 1)  √αt + √¯αt−1
+
+
+
+1 − ¯αt
+
+fϕ(X) (44) 
+
+˜σ = (1 − ¯αt) (45) this is also trained in L = E || η − ηθ || 22
+
+. Note that TMDM (Li et al., 2024a) is a typical work under this setting. 
+
+# B. Other Results and Discussions 
+
+B.1. Point Forecast Results 
+
+In time series forecasting tasks, mean square error (MSE) and mean average error (MAE) reflect the point estimation accuracy. We provide the results evaluated on these two metrics in Table 6 and Table 7 of the real and syncthetic datasets respectively:    
+
+> Table 6. MAE/MSE result on nine real-world datasets, bold face indicate best result.
+
+Models Datasets ETTh1 ETTh2 ETTm1 ETTm2 ECL EXG ILI Solar Traffic TimeGrad MSE 0.813 1.496 0.831 0.967 0.504 1.058 1.414 0.446 0.535 (2021) MAE 1.062 3.462 1.218 1.690 0.505 1.567 4.197 0.475 0.983 CSDI MSE 0.708 0.900 0.752 1.069 0.822 1.081 1.481 0.675 0.925 (2022) MAE 0.949 1.226 1.002 1.723 1.007 1.701 4.515 0.763 1.731 TimeDiff MSE 0.479 0.485 0.477 0.333 0.764 0.446 1.169 0.713 0.784 (2023) MAE 0.517 0.456 0.537 0.268 0.879 0.402 3.958 0.821 1.350 DiffusionTS MSE 0.774 1.411 0.744 1.232 0.856 1.564 1.788 0.740 0.815 (2024) MAE 1.089 3.273 1.030 2.372 1.072 3.628 6.053 0.749 1.473 TMDM MSE 0.607 0.490 0.455 0.395 0.359 0.430 1.175 0.316 0.425 (2024) MAE 0.696 0.512 0.494 0.315 0.257 0.334 3.636 0.250 0.679 NsDiff MSE 0.523 0.490 0.455 0.352 0.306 0.412 0.985 0.307 0.373 (ours) MAE 0.594 0.514 0.488 0.281 0.209 0.300 2.846 0.242 0.637 
+
+15 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+Note that TimeDiff is a model speciffically designed for long-term point forecasting. As in this Table, in datasets with high non-stationarity, NsDiff still achieves SOTA, attributed to the dynamic mean and variance endpoint and the uncertainty-aware noise schedule.    
+
+> Table 7. MAE/MSE result on two synthetic datasets, bold face indicate best result.
+
+Variance Linear Quadratic Models MSE MAE MSE MAE TimeGrad 1.546 3.726 2.629 10.677 CSDI 1.516 3.641 2.553 10.204 TimeDiff 1.537 3.776 2.649 11.275 DiffusionTS 1.738 4.766 2.504 9.620 TMDM 1.514 3.639 2.582 10.403 NsDiff 1.512 3.616 2.490 9.543 
+
+On the synthetic dataset, the advantages of NsDiff are more pronounced, due to the high variation of both mean and variance in the dataset. This proves NsDiff’s performance under non-stationary environment. 
+
+B.2. Effects of Pretraining 
+
+Although NsDiff follows the pretraining paradigm to stabilize training and achieve optimal performance, end-to-end training remains a viable alternative. Our experiments demonstrate that the networks can be trained jointly without significant performance degradation. For instance, when evaluating on the ETTh1 dataset with and without pretraining, we observe comparable results in the CRPS metric. We report the results in Table 8.    
+
+> Table 8. The comparison between pretraining and end-to-end training, bold face indicate best result.
+
+epoch pretrain end-to-end 1 0.4181 0.4407 2 0.4041 0.4227 3 0.3977 0.4045 4 0.3926 0.4004 5 0.3889 0.3868 
+
+6 0.3795 0.3873 As can be seen, although joint train experiences a slight performance degradation (1.86%), it still outperforms the previous state-of-the-art TMDM (0.452). However, compared to pretraining, co-training is slightly harder to converge. 
+
+B.3. Computation Efficiency 
+
+To analyse the computational efficiency of NsDiff, we compare the training and inference memory and time cost and performance, and report the results in Table 9.    
+
+> Table 9. Computation efficiency comparison, bold face indicate best result.
+
+Model Mem.Train(MB) Mem.Inference(MB) Tim.Train(ms) Tim.Inference(ms) CRPS QICE TimeGrad 27.47 8.61 47.89 8319.29 0.606 6.731 CSDI 109.81 22.61 60.50 446.70 0.492 3.107 TimeDiff 15.66 3.40 33.93 238.78 0.465 14.931 DiffusionTS 65.03 79.23 94.51 8214.53 0.603 6.423 TMDM 221.58 213.46 33.26 237.37 0.452 2.821 NsDiff 68.20 57.75 32.13 208.07 0.392 1.470 
+
+As shown in Table 9, compared to previous SOTA TMDM, NsDiff achieves SOTA and has smaller memory costs and higher 16 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+efficiency. This is because NsDiff does not introduce additional hidden variables and only adds a small number of basic operations. It should be noted that while NsDiff does not achieve the lowest memory cost, primarily due to its default use of the relatively heavy Non-stationary Transformer mean estimator (Liu et al., 2022), the NsDiff framework itself is model-agnostic. As such, the mean estimator can be replaced with a lighter conditional expectation forecasting model e.g. DLinear (Zeng et al., 2023) to optimize memory efficiency. 
+
+# C. Reproducibility 
+
+We provide all relevant data, code, and notebooks at https://github.com/wwy155/NsDiff .
+
+C.1. Datasets 
+
+C.1.1. R EAL DATASET 
+
+Nine real-world datasets with varying levels of uncertainty were chosen, including: (1) Electricity 1 - which documents the hourly electricity usage of 321 customers from 2012 to 2014. (2) ILI 2 - which tracks the weekly proportion of influenza-like illness (ILI) patients relative to the total number of patients, as reported by the U.S. Centers for Disease Control and Prevention from 2002 to 2021. (3) ETT (Zhou et al., 2021) - which includes data from electricity transformers, such as load and oil temperature, recorded every 15 minutes between July 2016 and July 2018. (4) Exchang (Lai et al., 2018) - which logs the daily exchange rates of eight countries from 1990 to 2016. (5) Traffic 3 - which provides hourly road occupancy rates measured by 862 sensors on San Francisco Bay area freeways from January 2015 to December 2016. (6) SolarEnergy 4 - a dataset from the National Renewable Energy Laboratory containing solar power output data collected from 137 photovoltaic plants in Alabama in 2007. C.1.2. S YNTHETIC DATASETS 
+
+To accurately evaluate the performance of NsDiff under time-varying conditions, we design two synthetic datasets using the LSNM. Specifically, the data generation follows the formula: 
+
+Y = m[t] + v[t]ϵ,
+
+where m and v define the trend level and the uncertainty variation, respectively. The results of these experiments are summarized in Table 4. We provide the generation codes below: 
+
+Linear Synthetic Dataset:                                   
+
+> import numpy as np
+> def generate_synthetic_data(length): means =np.linspace(1, 10, length) #means from 1to 10 stddev =np.linspace(1, 10, length) #standard deviations from 1to 10 data =np.zeros(length)
+> for tin range (length): data[t] =np.random.normal(loc=means[t], scale=stddev[t])
+> return data
+
+Quadratic Synthetic Dataset:               
+
+> import numpy as np
+> def generate_synthetic_data(length): means =np.linspace(1, 10, length) #means from 1to 10
+> 1https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014
+> 2https://gis.cdc.gov/grasp/fluview/fluportaldashboard.html
+> 3http://pems.dot.ca.gov/
+> 4http://www.nrel.gov/grid/solar-power-data.html
+
+17 Non-stationary Diffusion For Probabilistic Time Series Forecasting                     
+
+> stddev =np.linspace(1, 10, length) #standard deviations from 1to 10 data =np.zeros(length)
+> for tin range (length): data[t] =np.random.normal(loc=means[t], scale=stddev[t]*stddev[t])
+> return data
+
+In the linear setting, m increases linearly from 1 to 10, and v follows the same pattern. In contrast, for the quadratic setting, 
+
+v grows quadratically from 1 to 100. The total length of the generated dataset is 7588, and we predict univariate feature. 
+
+C.2. gψ (X) implementation 
+
+C.2.1. COMPUTE σY0
+
+The ground truth variance can be estimated in various ways, such as using specific dates or a sliding window. Given the proven success of employing sliding windows in time series analysis to predict variance (Liu et al., 2024b), we adopt the sliding window approach to extract the ground truth variance. The Python code for computing σY0 is provided below.                                                              
+
+> def y_sigma(x, y, window_size=96): """ Compute variance using asliding window. Args: x(torch.Tensor): Input tensor (B, T, N). y(torch.Tensor): Output tensor (B, O, N). window_size (int): Sliding window size (default: 96). Returns: torch.Tensor: Variance tensor (B, O, N). """ all_data =torch.cat([x, y], dim=1) #Combine input and output windows = all_data.unfold(1, window_size, 1) #Create sliding windows sigma =windows.var(dim=3, unbiased=False) #Compute variance
+> return sigma[:, -y.shape[1]:, :] #Extract output step variance
+
+C.2.2. A RCHETECUTURE 
+
+The architecture of a pretrained variance estimator can take various forms. Without loss of generality, we employ a simple 3-layer Multi-Layer Perceptron (MLP) as the variance estimator. The MLP is configured with a hidden size of 512 and utilizes ReLU activations between the layers. The PyTorch implementation of this architecture is provided below:    
+
+> nn.Sequential( nn.Linear(seq_len, hidden_size), nn.ReLU(), nn.Linear(hidden_size, hidden_size), nn.ReLU(), nn.Linear(hidden_size, pred_len) )
+
+C.3. Metrics CRPS: The continuous ranked probability score (CRPS) (Matheson & Winkler, 1976) measures the compatibility of a cumulative distribution function (CDF) F with an observation x as 
+
+CRPS( F, x ) = 
+
+Z
+
+> R
+
+(F (z) − I{x ≤ z})2 dz (46) where Iz<q is an indicator function. Employing the empirical CDF of F , i.e. ˆF (z) = 1
+
+> S
+
+PSs=1 I x0,s ≤ z} with S samples 
+
+x0,s ∼ F as a natural approximation of the predictive CDF, CRPS can be directly computed by samples from DDPM. We generated 100 samples to approximate the distribution F .18 Non-stationary Diffusion For Probabilistic Time Series Forecasting 
+
+QICE: The quantile interval calibration error (QICE) (Han et al., 2022) quantifies the deviation between the proportion of true data contained within each quantile interval (QI) and the optimal proportion, which is 1/M for all intervals. To compute QICE, we divide the generated y-samples into M quantile intervals with roughly equal sizes, corresponding to the boundaries of the estimated quantiles. Under the optimal scenario, when the learned distribution matches the true distribution, each QI should contain approximately 1/M of the true data. QICE is formally defined as the mean absolute error between the observed and optimal proportions, and can be expressed as: 
+
+QICE := 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+rm − 1
+
+M , (47) where rm = IN
+
+PNn=1 Iyn≥ˆylow mn · Iyn≤ˆyhigh mn
+
+. Here, Icondition is an indicator function. The terms ˆylow m 
+
+> n
+
+and ˆyhigh m 
+
+> n
+
+denote the lower and upper boundaries of the m-th quantile interval, respectively. Intuitively, under ideal conditions with sufficient samples, QICE should approach 0, indicating that each QI contains the expected proportion of data. Following Li et al. (2024a), we calculate the QICE by partitioning the probability range into ten equal decile-based intervals. 
+
+# D. ShowCases 
+
+We present additional results in Figure 5, which clearly demonstrate that NsDiff effectively captures the inherent uncertainty in the data, even in the presence of significant variations. Notably, in the ILI dataset, NsDiff accurately identifies the reduced variance, a feature that other methods fail to detect. Moreover, on the ExchangeRate dataset—a highly volatile financial dataset—NsDiff successfully identifies both the substantial variance and the overall trend, providing precise interval estimates. In contrast, other methods exhibit notable shortcomings: for instance, TimeGrad predicts an excessively large downward trend, CSDI produces overly wide intervals, and TMDM fails to adequately cover the data range. These results underscore the robustness and accuracy of NsDiff in handling diverse and challenging datasets. ExcahgeRate  ILI  ETTm2  ETTm1 
+
+> TimeGrad CSDI TimeDiff TMDM NsDiff
+> ETTh2
+
+Figure 5. The 95% prediction intervals comparison with other models. 
+
+19

@@ -1,0 +1,2065 @@
+Title: title
+
+URL Source: https://openreview.net/pdf?id=v8ipdsBPEx
+
+Number of Pages: 28
+
+Markdown Content:
+# Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Thomas Y.L. Lin 1 Jerry Yao-Chieh Hu 2 3 Paul W. Chiou 4 Peter Lin 5 6 
+
+Abstract 
+
+We revisit the Bayesian Black–Litterman (BL) portfolio model and remove its reliance on sub-jective investor views. Classical BL requires an investor “view”: a forecast vector q and its un-certainty matrix Ω that describe how much a chosen portfolio should outperform the market. Our key idea is to treat (q, Ω) as latent variables and learn them from market data within a single Bayesian network. Consequently, the resulting posterior estimation admits closed-form expres-sion, enabling fast inference and stable portfo-lio weights. Building on these, we propose two mechanisms to capture how features interact with returns: shared-latent parametrization and feature-influenced views; both recover classical BL and Markowitz portfolios as special cases. Empiri-cally, on 30-year Dow-Jones and 20-year sector-ETF data, we improve Sharpe ratios by 50% and cut turnover by 55% relative to Markowitz and the index baselines. This work turns BL into a fully data-driven, view-free, and coherent Bayesian framework for portfolio optimization. 
+
+1 Introduction 
+
+We propose a Bayesian reformulation of the Black-Litterman model for portfolio optimization. Our moti-vation comes from the early works of the model (Black & Litterman, 1992; Lee, 2000; Salomons, 2007; Idzorek, 2007) where human experts are required to specify the              
+
+> *Equal contribution 1Department of Physics, National Tai-wan University, Taipei, Taiwan 2Department of Computer Sci-ence, Northwestern University, Evanston, IL, USA 3Center for Foundation Models and Generative AI, Northwestern Univer-sity, Evanston, IL, USA 4D’Amore-McKim School of Business, Northeastern University, Boston, MA, USA 5Gamma Paradigm Capital, New York, NY, USA 6Whiting School of Engineer-ing, Johns Hopkins University, Baltimore, MD, USA. Corre-spondence to: Thomas Y.L. Lin <b12202026@ntu.edu.tw >,Jerry Yao-Chieh Hu <jhu@u.northwestern.edu >, Paul W. Chiou
+> <w.chiou@northeastern.edu >, Peter Lin <peter.lin@jhu.edu >.
+> Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s).
+
+value of investor views and corresponding uncertainties 
+
+(q, Ω) . For example, the i-th views “the 2nd asset will out-perform the 1st asset by 9 ± 3%” is encoded as {Pi =[−1, 1, ..., 0]; qi = 0 .09; Ω ii = 0 .03 2}. Across decades, this heuristic framework attracts many research (Beach & Orlov, 2007; Palomba, 2008; Duqi et al., 2014; Silva et al., 2017; Deng, 2018; Kara et al., 2019; Kolm & Ritter, 2021) working on this estimation. Among them, one common approach is to take asset features and generate (q, Ω) by external models. However, relying on external estimators in these methods leads to incoherent parameter learning and error propagation across the separate models. In this work, we offer a new approach. Our reformulation recasts the Black-Litterman model as a Bayesian network to integrate the features. Under different scenarios, we identify two potential effects caused by the features and accordingly present this network as specific models. Under the scenarios without subjective investor views, this network treats q and Ω as latent — rather than externally estimated — parameters, and thereby estimates posterior distribution over both asset returns r and their parameters θ directly from data, i.e., features. In summary, our approach provides a unification of feature integration and parameter inference within a single framework, ensuring coherent estimations and mitigating error propagation. 
+
+Contributions. Our contributions include: • Eliminating Subjective Human Input. We introduce a Bayesian network formulation of the Black-Litterman model, treating (q, Ω) as latent variables. This enables direct estimation from feature data, bypassing heuristic human inputs and potential bias while subsuming the classical Black-Litterman model as a special case. • Unified Feature Integration and Parameter Inference. 
+
+Unlike prior works, our approach avoids error propaga-tion from external estimators by unifying feature integra-tion and parameter inference into a single framework. • Empirical Outperformance. Our model achieves a 49.8% mean improvement in Sharpe ratios over the Markowitz model (0.66–0.87 vs. 0.35–0.62) and market indices (S&P 500, DJIA) on 20-year and 30-year datasets, respectively. It achieves a 55.1% reduction in turnover rates while showing robustness to hyperparameters. 1Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Organization. Section 2 includes preliminaries. Section 3 introduces our models and their theoretical analysis. Sec-tion 4 presents empirical studies to backup our work. Ap-pendix A offers a practical guide for our models. We defer conclusions and related works to Section 5 and Appendix B. 
+
+2 Preliminaries 
+
+Consider m assets, and let r ∈ Rm be the returns of the 
+
+m assets. Consider k sets of specified portfolio weights on the m assets, and encode each weight into each row of a portfolio weight matrix P ∈ Rk×m. Let q ∈ Rk be the investor views on the k specified portfolio returns and encode the variance of each view into diagonal elements of a diagonal uncertainty matrix Ω ∈ Rk×k. Larger Ωii 
+
+implies greater uncertainty in (P E[r]) i and Ωii = 0 implies absolute certainty. Markowitz (1952) introduces the theory of portfolio opti-mization, suggesting a suitable portfolio weight is the opti-mal trade-off between the mean and variance of the portfolio. To be concrete, we provide a formal definition below. 
+
+Definition 2.1 (Unconstrained Risk-Adjusted Mean-Vari-ance Optimization) . Let r ∈ Rm be the returns of the m
+
+assets, er denote the unobserved (or future) asset returns, and 
+
+δ ∈ [0 , ∞] be a risk-adjusted coefficient. The optimization goal is to find w ∈ Rm maximizing the objective function: 
+
+max 
+
+> w
+
+
+
+wT E[er] − δ
+
+2 wT Cov[ er]w
+
+
+
+.
+
+One major challenge of this framework is the reliance on estimating er:
+
+Problem 1 (Predictive Estimation of Unobserved Asset Re-turns) . Let r ∈ Rm represent the returns of the m assets and 
+
+er denote the unobserved (or future) asset returns. Precisely, given observed data D, the goal is to estimate unobserved asset returns er ∼ p(r|D).In this work, we refer to methods addressing such estima-tion challenge (Problem 1) as portfolio models or simply portfolios. Following the predictive estimation of er, we apply the mean-variance optimization framework to obtain a decision vector w, referred to as portfolio weights. A basic approach, termed the traditional Markowitz model (Markowitz, 1952), involves predicting the expected returns and the covariance matrix of asset returns directly from historical data using the sample mean and sample covari-ance. This method relies on the assumption that historical estimates are accurate representations of future parameters. However, in practice, estimation errors in the expected re-turns and covariance matrix lead to extreme and highly sensitive portfolio weights (Michaud, 1989; DeMiguel et al., 2009). To mitigate this issue, the Black-Litterman model integrates the market equilibrium with investor views by Black-Litterman formula, thereby producing more stable and diversified portfolio weights (Black & Litterman, 1992). The following context elaborates on this model in detail. 
+
+Black-Litterman. Black-Litterman (BL) model outputs a posterior of the asset returns mean E[r], termed Black-Litterman formula, by Bayes’ theorems, taking investor views and market equilibrium price as input. Upon this, the model offers a predictive estimate er on asset returns: 
+
+Theorem 2.1 (Black-Litterman (BL) Formula and Predic-tive Estimation, Theorem 1 of (Satchell & Scowcroft, 2007)) .
+
+Let r ∈ Rm be the vector of asset returns with covariance 
+
+Σ := Cov[ r]. Let P ∈ Rk×m be the portfolio weight matrix for k specified portfolios, and (q, Ω) ∈ Rk ×Rk×k represent investor views and their uncertainty. Let Π ∈ Rm repre-sent the market equilibrium price and τ > 0 be a scaling factor. Assume a prior P E[r] ∼ N (q, Ω) and a likelihood 
+
+Π | E[r] ∼ N  E[r], τ Σ, then the posterior mean of r
+
+given Π is 
+
+E[r | Π] ∼ N
+
+
+
+G−1
+
+> τ
+
+(τ Σ) −1Π + P ⊤Ω−1 q, G −1
+
+> τ
+
+
+
+,
+
+where Gτ := ( τ Σ) −1 + P ⊤ Ω−1 P . Moreover, the predic-tive distribution er := r|Π is 
+
+er ∼ N
+
+
+
+G−1
+
+> τ
+
+(τ Σ) −1Π + P ⊤Ω−1q, Σ + G−1
+
+> τ
+
+
+
+.
+
+The Black-Litterman formula (Theorem 2.1) is a well-known result of the Black-Litterman model. However, the derivation lacks explanations of the assumptions used. Most early works, including the original paper (Black & Litter-man, 1992), provide heuristic derivation, while many (Lee, 2000; Salomons, 2007; Idzorek, 2007) share different under-lying assumptions. This inconsistency leads to confusion for both the analysis of the model and a rigorous inter-pretation with Bayesian statistics. To solve the issues, the Black-Litterman-Bayes (BLB) model (Kolm & Ritter, 2017) provides a reformulation of the Black-Litterman model. 
+
+Black-Litterman-Bayes (BLB). Kolm & Ritter (2017) introduce the Black-Litterman-Bayes model to perform Bayesian inference on θ, treating the market equilibrium as prior and the investor views as likelihood: 
+
+Definition 2.2 (BLB Model (θ, r, q, Ω) , Modified from Def-inition 1 of (Kolm & Ritter, 2017)) . Let r ∈ Rm be the returns of the m assets, parametrized by θ, with r ∼ p(r|θ).Let q ∈ Rk represent the views on the returns of the k speci-fied portfolio and Ω ∈ Rk×k be the uncertainty matrix. The Black-Litterman-Bayes (BLB) model is a portfolio model composed of three fundamental density functions: 1. Parametrized Asset Returns: p(r|θ), the distribution of asset returns given the parameter. 2. Prior: π(θ), representing market equilibrium. 3. Likelihood: L(θ|q, Ω) := p(q, Ω|θ), capturing the rela-tionship between the parameter and the investor views. 2Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Appendix C.1 details modelings of the prior and likelihood. To recap, the Black-Litterman-Bayes model is a portfolio model aiming to address the estimation challenge of asset re-turns (Problem 1). It solves the problem by using Bayesian inference to obtain the posterior of the model parameter 
+
+p(θ|q, Ω) , and subsequently produce the predictive estima-tion of unobserved asset returns er. Following the estimation, we apply the mean-variance optimization framework (Defi-nition 2.1) to obtain the portfolio weights wBLB .The intuition of the model is to simulate the dynamics of how the market adapts to new information after observing it. Here, the market equilibrium represents the initial state, and the investor views approximates the unobserved information. When there is no investor views, the model remains in the initial state of market equilibrium. Here we show the Black-Litterman formula (Theorem 2.1) is the posterior estimation on θ of the Black-Litterman-Bayes model under Assumptions C.1 and C.2: 
+
+Lemma 2.1 (Estimations by BLB Model) . Let the market capitalization weight on m assets be wcap ∈ Rm and δ ∈
+
+[0 , ∞] be a risk-adjusted coefficient. Let P ∈ Rk×m be the portfolio weight matrix for k specified portfolios. Given a BLB model (θ, r, q, Ω) (Definition 2.2), assume 
+
+r ∼ N (θ, Σ) , (2.1) 
+
+θ ∼ N (θ0, Σ0), (2.2) 
+
+P θ = q + ϵ, ϵ ∼ N (0 , Ω) , (2.3) where Σ, Σ0 ∈ Rm×m are given intrinsic and prior covari-ance. The posterior mean is 
+
+p(θ|q, Ω) = N  θ; G−1 Σ−10 θ0 + P TΩ−1q , G −1 ,
+
+(2.4) where G := Σ −10 + P TΩ−1P . The predictive estimation of unobserved asset returns er := r|q, Ω is 
+
+er ∼ N  er; G−1δ(Σ −10 Σ+ I)wcap + P TΩ−1q, Σ + G−1 .
+
+(2.5) 
+
+Proof. See Appendix E.1 for a detailed proof. Lemma 2.1 provides a solution to Problem 1. With the predictive estimation of asset returns er, the mean-variance optimization framework (Definition 2.1) determines the port-folio weights wBLB . However, it relies on the subjective investor views and corresponding uncertainty (q, Ω) 1.
+
+> 1Besides providing the Bayesian inference formulation of the Black-Litterman model (Definition 2.2), the original work (Kolm & Ritter, 2017) and its follow-up work (Kolm & Ritter, 2021) consider external data, specifically factors in Arbitrage Pricing Theory (APT) model. Yet, these works focus on how their Black-Litterman-Bayes (BLB) approach applies to the APT model and do not address the issues of subjective investor views.
+
+To address this issue, in this work, we propose a Bayesian reformulation of the Black-Litterman model without the need for subjective (q, Ω) from humans. 
+
+3 Method 
+
+In this work, we recast the Black-Litterman model as Bayesian networks for principled estimation of both investor views and asset returns, eliminating the need for subjective inputs. This Bayesian formulation serves as a conceptual baseline for subsequent portfolio model specifications. In Section 3.1, we introduce the Bayesian Black-Litterman network, which underpins the Black-Litterman-Bayes model (Kolm & Ritter, 2017). Building on this, Section 3.2 extends the network to incorporate external features, yield-ing the feature-integrated Black-Litterman network. We then examine two scenarios: • In Section 3.3, where investor views are observed, we illustrate the corresponding network (Figure 2) and define the M ixed-effect Black- Litterman (M-BL) model (Defini-tion 3.3). • In Section 3.4, where no subjective views are given, we present two alternative probabilistic graphical models (Figure 3) and define the S hared-L atent-Parametrization Black-Litterman (SLP-BL) and Feature-I nfluenced-V iews Black- Litterman (FIV-BL) models (Definitions 3.4 and 3.6). 
+
+3.1 Bayesian Black-Litterman Network 
+
+We introduce a Black-Litterman network (θ, r, q, Ω) with the two causal relationships. First, the asset returns r are realizations of the process governed by its parameter θ. Sec-ond, the investor views q are formed based on θ with an associated error term ϵ ∼ N (0 , Ω) . We visualize this con-ceptual network in Figure 1. 
+
+θ
+
+r q, Ω
+
+Figure 1: Black-Litterman network (θ, r, q, Ω) .
+
+3.2 Bayesian Feature-Integrated Black-Litterman Network 
+
+Building upon the Black-Litterman Network, we introduce a feature-integrated Black-Litterman network as a Black-Litterman network that integrates features F and their ef-fects. Specifically, features F exert two causal effects: • Effect 1 : Features F are extracted from the parameter θ.3Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+• Effect 2 : Features F influence the formation of views q.We quantitatively specify Effect 1 and 2 in Sections 3.3 and 3.4. 
+
+3.3 General Scenario: Features with Observed Views 
+
+In this section, we discuss the general scenario where views are observed (Problem 2) by specifying the two causal ef-fects introduced in Section 3.2. Incorporating these effects into the network, we showcase it in Figure 2 and define the Mixed-effect Black-Litterman (M-BL) model (Defini-tion 3.3) based on it. Then, we estimate posterior distribu-tion over both asset returns r and their parameter θ (Corol-lary 3.1.1 and Theorem 3.1). Consider the following problem: 
+
+Problem 2 (Feature-and-Views Hybrid Predictive Estima-tion) . Let r ∈ Rm represent the returns of the m assets and er denote the unobserved (or future) asset returns. Let 
+
+q ∈ Rk represent the views on returns of the k portfolios. Let fi ∈ Rd represent the features on the i-th asset and 
+
+F ∈ Rm×dm be a block-diagonal matrix defined as 
+
+F := diag( f T 
+
+> 1
+
+, f T 
+
+> 2
+
+, . . . , f T
+
+> m
+
+).
+
+Given D := ( q, Ω, F, ΩF ) where (q, Ω, F ) are estimated from observations of asset returns, views, and features 
+
+{(rl, q l, F l)}nl=1 and ΩF is the homoscedastic error matrix corresponding to the observations {Fl}nl=1 , the goal is to estimate unobserved asset returns er ∼ p(r|D).We aim to solve Problem 2 by feature-integrated Black-Litterman network, incorporating a mix of two causal effects of features in Section 3.2. Specifically, • Effect 1 : Features F are extracted from the parameter 
+
+θ. Consequently, the features F , along with their error term ϵF ∼ N (0 , ΩF ), share the common parameter θ
+
+with asset returns r and investor views q.• Effect 2 : Features F influence the formation of views q.Consequently, the features F and the parameter θ jointly determine the views q with an uncertain ϵ ∼ N (0 , Ω) .We visualize the network in Figure 2 under this general scenario. 
+
+θ
+
+r
+
+q, Ω
+
+F
+
+ΩF
+
+Figure 2: Feature-Integrated BL network with features and observed views (θ, r, q, Ω, F, ΩF ).To capture Effect 1, we define a θ ↔ F relationship: 
+
+Definition 3.1 (θ ↔ F Linear Model) . Given features 
+
+F ∈ Rm×dm , let r ∈ Rm be the returns of the m assets, parametrized by θ, with r ∼ p(r|θ). Define regression intercept vector αF ∈ Rm, regression coefficient vector 
+
+βF ∈ Rdm , random error ϵF ∈ Rm, and error matrix ΩF ∈
+
+Rm×m such that: 
+
+θ = αF + F β F + ϵF , ϵF ∼ N (0 , ΩF ).
+
+To capture Effect 2, we define a q ↔ F ↔ θ relationship: 
+
+Definition 3.2 (q ↔ F ↔ θ Linear Model) . Given features 
+
+F ∈ Rm×dm and portfolio weight matrix for k specified portfolios P ∈ Rk×m, let r ∈ Rm be the returns of the m
+
+assets, parametrized by θ, with r ∼ p(r|θ) and q ∈ Rk be the views on returns of the k portfolios. Define regression intercept vector α ∈ Rm, regression coefficient vector β ∈
+
+Rdm , scale constant γ ∈ R, random error ϵ ∈ Rm, and uncertainty matrix Ω ∈ Rm×m such that: 
+
+q + ϵ = P (α + F β + γθ ), ϵ ∼ N (0 , Ω) . (3.1) 
+
+Remark 3.1 (Rationale) . (3.1) extends the classical noisy views model q + ϵ = P θ (Black & Litterman, 1992) to incorporate the features F , where the LHS remains the 
+
+k-dimensional noisy views and the RHS generalizes the classical P θ term by introducing a feature-driven term α +
+
+F β , and a scaled parameter γθ . It recovers the classical model when α = 0 , β = 0 , and γ = 1 .By mixing two effects of the features characterized by the two linear models (Definitions 3.1 and 3.2), we showcase the feature-integrated Black-Litterman network as the following Mixed-effect Black-Litterman (M-BL) model: 
+
+Definition 3.3 (M ixed-effect Black-Litterman (M-BL) Model (θ, r, q, Ω, F, ΩF )). Let r ∈ Rm be the returns of the m assets, parametrized by θ, with r ∼ p(r|θ). Let 
+
+q ∈ Rk represent the views on the returns of the k specified portfolio and Ω ∈ Rk×k be the uncertainty matrix. Let 
+
+F ∈ Rm×dm be the features of the m assets and error ma-trix ΩF ∈ Rm×m The M-BL model is a portfolio model composed of four fundamental density functions: 1. Parametrized Asset Returns: p(r|θ), the distribution of asset returns given the parameter. 2. Prior: π(θ), representing market equilibrium. 3. Likelihood of Features: L(θ|F, ΩF ) := p(F, ΩF |θ), the 
+
+θ ↔ F relationship (Definition 3.1). 4. Observation Likelihood: L(θ, F |q, Ω) := p(q, Ω|θ, F ),the q ↔ F ↔ θ relationship (Definition 3.2). We show the posterior estimation on θ of the M-BL model: 
+
+Theorem 3.1 (Parameter Estimation of the M-BL Model) .
+
+Given a M-BL model (θ, r, q, Ω, F, ΩF ) (Definition 3.3) and regression parameters (αF , β F α, β, γ ) ∈ Rm × Rdm ×
+
+4Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Rm × Rdm × R, assume 
+
+θ ∼ N (θ0, Σ0), (3.2) 
+
+θ = αF + F β F + ϵF , ϵF ∼ N (0 , ΩF ), (3.3) 
+
+q + ϵ = P (α + F β + γθ ), ϵ ∼ N (0 , Ω) . (3.4) Define GM := Σ −10 +(Ω F )−1 +γ2P TΩ−1P . The posterior mean is 
+
+p(θ|q, Ω, F, ΩF ) = N (θ; μθ|q, Ω,F, ΩF , (GM )−1),
+
+where 
+
+μθ|q, Ω,F, ΩF = ( GM )−1 Σ−10 θ0 + (Ω F )−1(αF + F β F )+γP TΩ−1(q − P α − P F β ) .
+
+Proof. See Appendix E.2 for a detailed proof. The posterior estimation of parameter θ enables a predictive estimation on er:
+
+Corollary 3.1.1 (Predictive Estimation by the M-BL Model) .
+
+Define GM := Σ −10 + (Ω F )−1 + P TΩ−1P . Assume r ∼
+
+N (θ, Σ) . Then, under Theorem 3.1, M-BL model gives the predictive estimation of unobserved asset returns er := r |
+
+q, Ω, F, ΩF as 
+
+er ∼ N (θ; μθ|q, Ω,F, ΩF , Σ + ( GM )−1),
+
+where 
+
+μθ|q, Ω,F, ΩF = ( GM )−1 Σ−10 θ0 + (Ω F )−1(αF + F β F )+γP TΩ−1(q − P α − P F β ) .
+
+Remark 3.2 (Classical Black-Litterman Recovery) . M-BL model recovers classical Black-Litterman model when: 1. Features becomes uninformative, i.e., uncertainty ap-proaches infinity : ΩF → ∞ , equivalently (Ω F )−1 → 0,so the error matrix (Ω F )−1 disappears from GM .2. The q ↔ F ↔ θ linear model (Definition 3.2) reduces to the classical noisy views model (Black & Litterman, 1992) : (α, β, γ ) = (0 , 0, 1) , so the residual (q − P α −
+
+P F β ) → q.Under these conditions, we have 
+
+GM → Σ−10 + P TΩ−1P = G, 
+
+and thus, we recover (2.5): 
+
+r|q, Ω ∼ N
+
+
+
+G−1 Σ−10 θ0 + P TΩ−1q , Σ + G−1
+
+.
+
+Remark 3.3 (Ground-Truth Limit) . Corollary 3.1.1 accu-rately and precisely predict ground-truth asset returns with: 1. Perfect information : Ω → 0, equivalently Ω−1 → ∞ .2. Accurate views : q → P r ⋆ where r⋆ is true asset returns. 3. The q ↔ F ↔ θ linear model (Definition 3.2) reduces to the classical noisy views model (Black & Litterman, 1992) : (α, β, γ ) = (0 , 0, 1) , so the residual (q − P α −
+
+P F β ) → q.The M-BL posterior mean satisfies: 
+
+lim 
+
+> Ω→0
+> q→r⋆
+
+μθ|q, Ω,F, ΩF = ( GM )−1
+
+
+
+P TΩ−1(P r ⋆ − P α − P F β )
+
+| {z }
+
+> dominant term
+
++ Σ −10 θ0 + (Ω F )−1(αF + F β F )
+
+| {z }
+
+> bounded
+
+
+
+= ( GM )−1[P TΩ−1P r ⋆ + o(Ω −1)] = r⋆ (a.s.) where the last step follows GM = Σ−10 + (Ω F )−1 +
+
+P TΩ−1P → P TΩ−1P, (GM )−1o(Ω −1) → 0. As a re-sult, Corollary 3.1.1 becomes 
+
+er d
+
+−→ δr⋆ as Ω → 0, q → P r ⋆
+
+where δr⋆ denotes the Dirac measure at r⋆.Corollary 3.1.1 estimates asset returns under the general scenario where views are observed, i.e., solves Problem 2. It generalizes the classical Black-Litterman model, recov-ering its form when features are uninformative, and ap-proaches the true returns with accurate and precise views (Remarks 3.2 and 3.3). With the predictive estimation of asset returns er, the mean-variance optimization framework (Definition 2.1) determines the portfolio weights wM−BL .
+
+3.4 Scenario: Features with Latent Views 
+
+In the previous section, we solve Problem 2 with features and observed views. However, an investor using the Black-Litterman model may not be an expert at quantifying the views. In this section, we discuss the scenario without the views (Problem 3) by specifying two effects of the features introduced in Section 3.2 and treating q and Ω as latent variables. Incorporating the effects into the network, we showcase two graphical forms in Figure 2 and define the Shared-L atent-Parametrization Black-L itterman (SLP-BL) and F eature-Influenced-V iews Black-L itterman (FIV-BL) models (Definitions 3.4 and 3.6) based on them. Then, we estimate posterior distribution over both asset returns r and their parameter θ (Corollary 3.1.1 and Theorem 3.1). Consider the following problem: 
+
+Problem 3 (Feature-Integrated Predictive Estimation) . Let 
+
+r ∈ Rm represent the returns of the m assets and er denote the unobserved (or future) asset returns. Let fi ∈ Rd rep-resent the features of the i-th asset and F ∈ Rm×dm be a block-diagonal matrix defined as 
+
+F := diag( f T 
+
+> 1
+
+, f T 
+
+> 2
+
+, . . . , f T
+
+> m
+
+).
+
+5Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Given D := ( F, ΩF ) where F is estimated from observa-tions of asset returns and features {(rl, F l)}nl=1 and ΩF is the homoscedastic error matrix corresponding to the obser-vations {Fl}nl=1 , the goal is to estimate unobserved asset returns er ∼ p(r|D).
+
+We aim to solve Problem 3 by feature-integrated Black-Litterman network. We approach this by considering the two causal effects in Section 3.2 and treating the views and uncertainty matrix (q, Ω) as latent parameters. Specifically, • Effect 1 : Features F are extracted from the parameter 
+
+θ. Consequently, the features F , along with their error term ϵF ∼ N (0 , ΩF ), share the common parameter θ
+
+with asset returns r and investor views q.• Effect 2 : Features F influence the formation of views 
+
+q. In this scenario, the features F , along with their error term ϵF ∼ N (0 , ΩF ), are related to the latent views q
+
+through a separate equation from the parameter θ.However, in this section, we do not mix the two effects. 
+
+Remark 3.4 (Rationale of Differentiating Effect 1 and 2) .
+
+We differentiate the two effects because, in the scenario without investor views, the previous M-BL model (Defi-nition 3.3) estimates the parameter θ directly by (F, Ω) ,meaning Effect 1 dominates over Effect 2 when both are present. If, in the general scenario where views are observed, Effect 2 is more significant than Effect 1, then, when views are latent, the ignorance of Effect 2 leads to biased estima-tion. This matches the intuition: if we select the features not directly related to the asset (Effect 1) but highly influence the investor views (Effect 2), such as macroeconomic indi-cators like interest rates or CPI, then using these features to estimate asset returns directly is biased. To avoid this bias, we differentiate the two effects with two modeling strate-gies. One handles the case where Effect 1 dominates, and the other handles the case where Effect 2 is more significant. We showcase the feature-integrated Black-Litterman net-work as two configurations: one incorporating Effect 1 and another incorporating Effect 2. Intuitively, the first better captures generic features while the second more effectively handles the non-asset-related features. This implies that, in practice, if an investor takes generic fea-tures of assets (e.g. indicators derived from the time series of each asset, as shown in our experiment), configuration 1 should be used. If an investor takes features not specific to individual assets (e.g. interest rates), configuration 2 should be used. The two configurations are not contradicting, so one can take both types of features and incorporate them correspondingly. We visualize two configurations of the network in Figure 3 and define one model for each configuration accordingly. 
+
+θ
+
+r q, Ω F, ΩF
+
+> Configuration 1: Shared Latent Parametrization.
+
+θ
+
+r Ω q
+
+F, ΩF
+
+> Configuration 2: Feature-Influenced Views.
+
+Figure 3: Feature-Integrated Black-Litterman network with fea-tures and latent Views (θ, r, q, Ω, F, ΩF ).
+
+CONFIGURATION 1: S HARED LATENT PARAMETRIZATION 
+
+To capture Effect 1, we follow the θ ↔ F relationship (Definition 3.1). By incorporating Effect 1, we showcase the feature-integrated Black-Litterman network as Shared-Latent-Parametrization Black-Litterman (SLP-BL) model: 
+
+Definition 3.4 (SLP-BL model (θ, r, q, Ω, F, ΩF )). Let r ∈
+
+Rm be the returns of the m assets, parametrized by θ, with 
+
+r ∼ p(r|θ). Let q ∈ Rk represent the views on the returns of the k specified portfolio and Ω ∈ Rk×k be the uncertainty matrix. Let F ∈ Rm×dm be the features of the m assets and error matrix ΩF ∈ Rm×m The SLP-BL model is a portfolio model composed of four fundamental density functions: 1. Parametrized Asset Returns: p(r|θ), the distribution of asset returns given the parameter. 2. Prior: π(θ), representing market equilibrium. 3. Likelihood of Views: L(θ|q, Ω) := p(q, Ω|θ), the rela-tionship between the parameter and the views. 4. Likelihood of Features: L(θ|F, ΩF ) := p(F, ΩF |θ), the 
+
+θ ↔ F relationship (Definition 3.1). We show the posterior estimation on θ of the SLP-BL model: 
+
+Theorem 3.2 (Parameter Estimation of the SLP-BL Model) .
+
+Given a SLP-BL model (θ, r, q, Ω, F, ΩF ) (Definition 3.4) and regression parameters (αF , β F ) ∈ Rm × Rdm , assume 
+
+θ ∼ N (θ0, Σ0), (3.5) 
+
+θ = αF + F β F + ϵF , ϵF ∼ N (0 , ΩF ). (3.6) Define GF := Σ −10 + (Ω F )−1. The posterior mean is 
+
+p(θ|F, ΩF ) = N  θ; ( GF )−1 Σ−10 θ0
+
++(Ω F )−1(αF + F β F ) , (GF )−1 .
+
+Proof. See Appendix E.3 for a detailed proof. 6Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+The posterior estimation of parameter θ enables a predictive estimation on er:
+
+Corollary 3.2.1 (Predictive Estimation by the SLP-BL Model) . Define GF := Σ −10 + (Ω F )−1. Assume r ∼
+
+N (θ, Σ) . Then, under Theorem 3.2, SLP-BL model gives the predictive estimation of unobserved asset returns er := 
+
+r|F, ΩF as 
+
+er ∼ N  GF Σ−10 θ0
+
++(Ω F )−1(αF + F β F ) , Σ + ( GF )−1 .
+
+Remark 3.5 (Features Replace Views) . Corollary 3.1.1 is equialvent to classical Black-Litterman model if: 1. Features recover investor views : αF + F β F → P −1q
+
+2. Error matrix recovers uncertainty : (Ω F )−1 → P TΩ−1P
+
+Under these conditions, we have GF → Σ−10 +P TΩ−1P =
+
+G, and thus recover (2.5): 
+
+r|q, Ω ∼ N
+
+
+
+G−1 Σ−10 θ0 + P TΩ−1q , Σ + G−1
+
+.
+
+Corollary 3.2.1 estimates asset returns without the views, i.e., solves Problem 3. With the predictive estimation of asset returns er, the mean-variance optimization framework (Definition 2.1) outputs the portfolio weights wSLP −BL . See Appendix A for the selection of {Σ, Σ0, θ 0, α F , β F , ΩF }.CONFIGURATION 2: F EATURE -I NFLUENCED VIEWS 
+
+To capture Effect 2, we define a q ↔ F relationship by a multivariate linear model with local dependency: 
+
+Definition 3.5 (q ↔ F Linear Model) . Given features 
+
+F ∈ Rm×dm and portfolio weight matrix for k specified portfolios P ∈ Rk×m, let q ∈ Rk be the views on returns of the k portfolios. Define regression intercept vector α ∈
+
+Rm, regression coefficient vector β ∈ Rdm , random error 
+
+ϵF ∈ Rm, and error matrix ΩF ∈ Rm×m such that: 
+
+q = P (α + F β + ϵF ), ϵF ∼ N (0 , ΩF ),
+
+Furthermore, define β1, β 2, . . . , β m ∈ Rd as m partitions of the vector β such that: 
+
+β = βT 
+
+> 1
+
+, β T 
+
+> 2
+
+, . . . , β T
+
+> m
+
+T .
+
+This captures the relationship without the loss of generality: 
+
+Remark 3.6 (Noisy Implied Asset Returns) . Based on the intuition that the views q are formed on the returns of the k
+
+specified portfolios, define the noisy implied asset returns 
+
+rF := α + F β + ϵF
+
+such that: q = P r F . Then, the dependency between each element of this implied asset returns and d features becomes local: 
+
+rFi = αi + Fi, :β + ϵFi = αi + βT 
+
+> i
+
+fi + ϵFi , i ∈ [m].
+
+Remark 3.6 allows estimations of regression parameters and the error matrix (α, β, ΩF ) based on the observations 
+
+{(rl, F l)}nl=1 . See Appendix A for details. We now introduce the final piece in this configuration: Re-garding the uncertainty matrix Ω, a simplified assumption is that when an investor forms views based on features, the error matrix ΩF captures all the information about this un-certainty. This would suggest omitting Ω from our model due to the replacement with ΩF . Yet, in the general case, Ω
+
+remains necessary as it represents the intrinsic uncertainty of the views, regardless of the (F, ΩF )2. Additionally, re-taining Ω allows our model to remain applicable when both 
+
+(q, Ω) and F are observed. To treat Ω as a latent parameter, a prior π(Ω) must be specified to enable Bayesian inference. By incorporating Effect 2 of the features characterized by the q ↔ F linear models (Definition 3.5) and a given prior 
+
+π(Ω) , we showcase the feature-integrated Black-Litterman network as the following Feature- Influenced- V iews Black-Litterman (FIV-BL) model: 
+
+Definition 3.6 (FIV-BL model (θ, r, q, Ω, F, ΩF )). Let r ∈
+
+Rm be the returns of the m assets, parametrized by θ, with 
+
+r ∼ p(r|θ). Let q ∈ Rk represent the views on the returns of the k specified portfolio and Ω ∈ Rk×k be the uncertainty matrix. Let F ∈ Rm×dm be the features of the m assets and error matrix ΩF ∈ Rm×m The FIV-BL model is a portfolio model composed of five fundamental density functions: 1. Parametrized Asset Returns: p(r|θ), the distribution of asset returns given the parameter. 2. Prior: π(θ), representing market equilibrium. 3. Likelihood of Views: L(θ|q, Ω) := p(q, Ω|θ), the rela-tionship between the parameter and the views. 4. Views given Features: p(q|F, ΩF ), the q ↔ F relation-ship (Definition 3.5). 5. Prior on Uncertainty Matrix: π(Ω) , representing intrin-sic uncertainty of the views. The FIV-BL model marginalizing out latent parameters 
+
+(q, Ω) to estimate the posterior of θ:
+
+Theorem 3.3 (Parameter Estimation of the FIV-BL Model) .
+
+Let P ∈ Rk×m be the portfolio weight matrix for k spec-ified portfolios. Given a FIV-BL model (θ, r, q, Ω, F, ΩF )
+
+(Definition 3.6), regression parameters (α, β ) ∈ Rm × Rdm ,and a prior π(Ω) , assume 
+
+θ ∼ N (θ0, Σ0) (3.7) 
+
+P θ = q + ϵ, ϵ ∼ N (0 , Ω) , (3.8) 
+
+q = P (α + F β + ϵF ), ϵF ∼ N (0 , ΩF ), (3.9)        
+
+> 2This concept is similar to the existence of the intrinsic covari-ance Σregardless of the prior parameter (θ0,Σ0)of θin Lem-mas 2.1 and C.1.
+
+7Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+where θ0 ∈ Rm and Σ0 ∈ Rm×m are given prior mean and covariance, and (ϵ, ϵ F ) are mutually independent. Define 
+
+G := Σ −10 + P TΩ−1P . The posterior mean distribution is: 
+
+p(θ|F, ΩF ) = 
+
+Z
+
+N  θ; μθ|Ω,F, ΩF , Σθ|Ω,F, ΩF
+
+ π(Ω) dΩ,
+
+(3.10) where 
+
+(
+
+μθ|Ω,F, ΩF = G−1  Σ−10 θ0 + P TΩ−1P (α + F β ) ,
+
+Σθ|Ω,F, ΩF = G−1 + G−1P TΩ−1 P ΩF P TΩ−1P G −1.
+
+Proof. See Appendix E.4 for a detailed proof. 
+
+Remark 3.7 (Posterior Collapse Under Perfect Views) . If we omit the intrinsic uncertainty matrix by Ω → 0, or equivalently Ω−1 → 0, we have 
+
+G → P TΩ−1P , μθ|Ω,F, ΩF → G−1  P TΩ−1P (α + F β ) ,
+
+Σθ|Ω,F, ΩF → G−1 + G−1P TΩ−1 P ΩF P TΩ−1P G −1.
+
+Thus, the posterior collapses to 
+
+θ|F, ΩF = θ|Ω, F, ΩF ∼ N (α + F β, ΩF ),
+
+effectively recovering the θ ↔ F relationship θ = α+F β +
+
+ϵF (Definition 3.1) except losing the prior information on θ.Furthermore, reintroducing this prior leads to Theorem 3.2. The integral (3.10) is a form of Infinite Gaussian Mixture model (IGMM) (Rasmussen, 1999). In general, there is no further closed-form solution for it unless Ω is restricted to a special conjugate family or effectively collapses to a point mass (i.e., Ω is known and fixed). In non-conjugate settings, the expression remains a continuous mixture of Gaussian distributions, and must be evaluated or approximated nu-merically (e.g. via Monte Carlo or approximation methods (Newman & Barkema, 1999; Kruschke, 2010; Wainwright et al., 2008; Blei et al., 2017)). Since there is no trivial conjugate prior π(Ω) for the likeli-hood θ|Ω, F, ΩF , here we offer an approximation method. We first substitute Ω with Σθ|Ω,F, ΩF . Then, we approxi-mate the mean of the likelihood μθ|Ω,F, ΩF as a constant. Finally, we assign a conjugate prior to Σθ|Ω,F, ΩF as an Inverse-Wishart (IW) distribution. This allows us to obtain a tractable joint distribution p(θ, F, ΩF ) — specifically a Normal-Inverse-Wishart (NIW) distribution. As a result, the posterior mean distribution p(θ|F, ΩF ) follows a student-t distribution after marginalizing out Σθ|Ω,F, ΩF :
+
+Corollary 3.3.1 (Conjugate Prior) . Consider a FIV-BL model (θ, r, q, Ω, F, ΩF ) (Definition 3.6) with constants 
+
+(P, Σ, θ 0, Σ0, α, β, Ω0) ∈ Rk×m ×Rm×m ×Rm ×Rm×m ×
+
+Rm ×Rdm ×Rk×k. Define G := Σ −10 +P TΩ−1P . Assume 
+
+θ|Ω, F, ΩF ∼ N (μ′, Σ′),where 
+
+(μ′ := G−1
+
+
+
+Σ−10 θ0 + P TΩ−10 P [α + F β ]
+
+
+
+,
+
+Σ′ := G−1 + G−1P TΩ−1 P ΩF P TΩ−1P G −1.
+
+Assume Σ′ have an Inverse-Wishart prior: 
+
+π(Σ ′) = IW (Σ ′; Ψ ′, ν ′), (Ψ ′, ν ′) ∈ Rm × R (3.11) Then the marginal posterior of θ given (F, ΩF ) follows a multivariate-t distribution: 
+
+p(θ | F, ΩF ) ∼ tν′
+
+
+
+θ; μ′, Ψ′
+
+> ν′−m+1
+
+
+
+.
+
+Proof. See Appendix E.5 for a detailed proof. Since t-distribution lacks a conjugate prior, we omit intrinsic covariance Σ in estimating unobserved asset returns er:
+
+Corollary 3.3.2 (Approximated Predictive Estimation by the FIV-BL Model) . Assume r ∼ N (θ, Σ) . Under Theo-rem 3.3, considering θ|Ω, F, ΩF ∼ N (μ′, Σ′), assume: 
+
+Σ′ ∼ IW (Ψ ′, ν ′),μ′ is a constant G−1  Σ−10 θ0 + P TΩ−10 P (α + F β ) .
+
+Then, as Σ → 0, FIV-BL model gives the predictive estima-tion er := r|F, ΩF as 
+
+er ∼ tν′
+
+er; μ′, Ψ′
+
+ν′ − m + 1 
+
+
+
+.
+
+Corollary 3.3.2 also estimates asset returns without the views, i.e., solves Problem 3. With the predictive es-timation of asset returns er, the mean-variance optimiza-tion framework (Definition 2.1) determines the portfolio weights wFIV −BL . See Appendix A for the selection of 
+
+{Σ, Σ0, θ 0, P, α, β, ΩF , Ψ′, ν ′, Ω0}.
+
+4 Proof-of-Concept Experiments 
+
+Depart from the classic Black-Litterman model that relies on subjective investor views, our model estimates the poste-rior distribution over asset returns directly from the feature data. To demonstrate this concept, we consider the setting without subjective investor views. Specifically, we focus on integrating asset-specific features, as discussed in Re-mark 3.4, and choose the SLP-BL model (Definition 3.4) accordingly. We show the model works under this setting and consistently outperforms the benchmarks. 
+
+Dataset I: SPDR Sector ETFs. We collect adjusted daily closing prices and volume for 11 Sector ETFs (Table 4) from April 13, 2004 to February 22, 2024 (20 years). To avoid selection bias, the portfolio selection list is updated in sync with the introduction of new sectors. 
+
+Dataset II: Dow Jones Index. We collect adjusted daily closing prices and volume for 41 stocks (Table 5) that have been part of the Dow Jones index from January 5, 1994 to 8Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+February 22, 2024 (30 years). To avoid selection bias, the portfolio selection list is updated in sync with the index. 
+
+Backtest Task. We backtest our SLP-BL model for each dataset period. On each monthly rebalance day, the model outputs a portfolio weight wSLP −BL that maximizes the Sharpe ratio (Definition F.1), a standardized mean-variance optimization framework (Definition 2.1). In the model, the prior is set as traditional Markowitz model and the features are selected based on nine generic indicators (Table 3) de-rived from asset-specific data. We follow Appendix A for the choice of {Σ, Σ0, θ 0, α F , β F , ΩF } except that, to avoid the issues of mismatch scale, we use price and indicators data to derive the regression parameters. 
+
+Benchmarks and Evaluation. The benchmarks of our port-folio model are set as (i) market index (e.g. S&P500 and DJIA) (ii) equal-weighted portfolio model (iii) traditional Markowitz model. We evaluate the models with the follow-ing metrics: Cumulative Return, Compound Annual Growth Rate (CAGR), Sharpe Ratio, Maximum Drawdown, and Volatility. We present the results for five pairs of traditional Markowitz model and our Black-Litterman model with vary-ing rolling window lengths of historical returns: 50 days, 80 days, 100 days, 120 days, and 150 days. 
+
+Results. The SLP-BL model consistently outperforms both traditional Markowitz model and market indices across two datasets (Tables 1, 2 and 6 and Figures 4, 5, 8 and 9). This is attributed to the more stable portfolio weights based on Bayesian framework, as shown by Figures 6 and 7. Table 1: Performance on SPDR Sector ETFs Dataset. Cumulative Return (%) ↑
+
+CAGR (%) ↑
+
+Sharpe Ratio ↑
+
+Max Drawdown (-%) ↓
+
+Volatility (%/ann.) ↓
+
+EQW 450.74 6.11 0.61 44.90 16.40 S&P500 545.77 6.69 0.59 55.19 19.03 MV (50d) 134.12 3.00 0.35 53.11 15.99 BL (50d) 541.99 6.67 0.66 46.56 16.24 MV (80d) 291.21 4.85 0.50 38.58 16.33 BL (80d) 609.66 7.04 0.69 46.78 16.12 MV (100d) 411.83 5.84 0.57 36.37 16.91 BL (100d) 602.75 7.01 0.70 46.05 15.91 MV (120d) 412.87 5.84 0.57 36.10 17.12 BL (120d) 587.50 6.93 0.70 46.11 15.74 MV (150d) 249.11 4.44 0.45 47.49 17.37 BL (150d) 556.13 6.75 0.68 44.54 15.91 
+
+5 Discussion and Conclusion 
+
+We propose a Bayesian reformulation of the Black-Litterman model for portfolio optimization without the need for subjective investor views. Our key contribution is a unified Bayesian network that integrates features and infers parameters. In the case of observed views (Problem 2), the network estimates asset returns based on a mix of two fea-ture effects (Theorem 3.1, Corollary 3.1.1), generalizing the classical Black-Litterman model and recovering ground-truth estimation with perfect views (Remark 3.3). In the case Table 2: Performance on Dow Jones Index Dataset. Cumulative Return (%) ↑
+
+CAGR (%) ↑
+
+Sharpe Ratio ↑
+
+Max Drawdown (-%) ↓
+
+Volatility (%/ann.) ↓
+
+EQW 4,606.66 9.22 0.75 58.90 19.54 DJIA 932.51 5.49 0.52 53.78 17.97 MV (50d) 774.08 5.09 0.45 63.35 20.83 BL (50d) 3,980.23 8.86 0.78 42.42 17.84 MV (80d) 1,081.47 5.82 0.51 53.98 20.26 BL (80d) 4,603.82 9.22 0.84 39.95 16.81 MV (100d) 1,529.60 6.60 0.55 56.06 20.59 BL (100d) 4,557.03 9.19 0.85 39.92 16.56 MV (120d) 1,577.61 6.67 0.57 46.73 20.07 BL (120d) 4,819.83 9.33 0.87 39.81 16.42 MV (150d) 2,208.84 7.45 0.62 41.02 20.03 BL (150d) 3,405.78 8.49 0.80 40.42 16.51                   
+
+> "2%
+>  
+> 
+> 
+> 
+>  
+> 
+> 3,3+"2)4% %230- 
+> 3,3+"2)4% %230-1 .' #"+% .& .$%+1 "-$ %-#(,"0* -$)#%1
+>   /"3+ %)'(2%$
+>  .5 .-%1
+> !   
+>   $
+>  $
+>  $
+>   $
+>   $
+>    $
+>   $
+>   $
+>    $
+>    $
+
+Figure 4: Cumulative Return on SPDR Sectors ETFs Dataset.                      
+
+> "2%
+> 
+> 
+> 
+>  
+> 
+>  
+>  
+>  
+> 
+> 3,3+"2)4% %230- 
+> 3,3+"2)4% %230-1 .' #"+% .& .$%+1 "-$ %-#(,"0* -$)#%1
+>   /"3+ %)'(2%$
+>  .5 .-%1
+> !   
+>   $
+>  $
+>  $
+>   $
+>   $
+>    $
+>   $
+>   $
+>    $
+>    $
+
+Figure 5: Cumulative Return on Dow Jones Index Dataset. 
+
+of latent views (Problem 3), we differentiate the feature ef-fects to handle distinct features (Remark 3.4). Accordingly, we present two models: the first provides closed-form asset return estimation (Theorem 3.2, Corollary 3.2.1), while the second results in a mixture model that requires numerical methods (Theorem 3.3, Corollary 3.3.1, Corollary 3.3.2). Numerically, our model works without investor views and demonstrates consistent, hyperparameter-robust improve-ments over the Markowitz model and market indices across long-term, real-world datasets (Section 4). 9Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Impact Statement 
+
+This work improves portfolio optimization by reducing sub-jective human inputs. It enhances transparency and pro-motes data-driven decision-making. The framework ben-efits both institutional and individual investors with more reliable and fair strategies. However, data-driven models may amplify biases, so careful evaluation is needed for fair outcomes. Overall, this work advances financial modeling and emphasizes ethical implementation. 
+
+Acknowledgments 
+
+TL would like to thank Gamma Paradigm Research and NTU ABC Lab for support. JH would like to thank Han Liu, Mimi Gallagher, Sara Sanchez, Dino Feng and Andrew Chen for enlightening discussions on related topics, and the Red Maple Family for support. The authors would like to thank the anonymous reviewers and program chairs for con-structive comments. JH is supported by the Northwestern University. The content is solely the responsibility of the authors and does not necessarily represent the official views of the funding agencies. 
+
+References 
+
+Abdelhakmi, A. and Lim, A. A multi-period black-litterman model. arXiv preprint arXiv:2404.18822 , 2024. Aroian, L. A. The probability function of the product of two normally distributed variables. The Annals of Mathe-matical Statistics , pp. 265–271, 1947. Barry, C. B. Portfolio analysis under uncertain means, vari-ances, and covariances. The Journal of Finance , 29(2): 515–522, 1974. Beach, S. L. and Orlov, A. G. An application of the black– litterman model with egarch-m-derived views for inter-national portfolio management. Financial Markets and Portfolio Management , 21:147–166, 2007. Bildirici, M. and Ersin, ¨O. ¨O. Improving forecasts of garch family models with the artificial neural networks: An application to the daily returns in istanbul stock ex-change. Expert Systems with Applications , 36(4):7355– 7362, 2009. Black, F. and Litterman, R. Global portfolio optimization. 
+
+Financial Analysts Journal , 48(5):28–43, 1992. Blei, D. M., Kucukelbir, A., and McAuliffe, J. D. Varia-tional inference: A review for statisticians. Journal of the American Statistical Association , 112(518):859–877, 2017. Brown, S. J. Optimal portfolio choice under uncertainty: a Bayesian approach. The University of Chicago, 1976. Chen, S. D. and Lim, A. E. A generalized black–litterman model. Operations Research , 68(2):381–410, 2020. Cheung, W. The augmented black–litterman model: A ranking-free approach to factor-based portfolio construc-tion and beyond. Quantitative Finance , 13(2):301–316, 2013. Christensen, I. and Li, F. Predicting financial stress events: A signal extraction approach. Journal of Financial Sta-bility , 14:54–65, 2014. DeMiguel, V., Garlappi, L., and Uppal, R. Optimal versus naive diversification: How inefficient is the 1/n portfolio strategy? The Review of Financial Studies , 22(5):1915– 1953, 2009. Deng, Q. A generalized vecm/var-dcc/adcc framework and its application in the black-litterman model: Illustrated with a china portfolio. China Finance Review Interna-tional , 8(4):453–467, 2018. Duqi, A., Franci, L., and Torluccio, G. The black–litterman model: the definition of views based on volatility fore-casts. Applied Financial Economics , 24(19):1285–1296, 2014. Ellison, A. M. Bayesian inference in ecology. Ecology Letters , 7(6):509–520, 2004. Finkel, J. R., Manning, C. D., and Ng, A. Y. Solving the problem of cascading errors: Approximate bayesian infer-ence for linguistic annotation pipelines. In Proceedings of the 2006 Conference on Empirical Methods in Natural Language Processing , pp. 618–626, 2006. Garlappi, L., Uppal, R., and Wang, T. Portfolio selection with parameter and model uncertainty: A multi-prior approach. The Review of Financial Studies , 20(1):41–81, 2007. Gelman, A., Carlin, J. B., Stern, H. S., and Rubin, D. B. 
+
+Bayesian Data Analysis . Chapman and Hall/CRC, 1995. Geyer, A. and Lucivjansk ´a, K. The black-litterman approach and views from predictive regressions: Theory and imple-mentation. Journal of Portfolio Management , 42(4):38, 2016. G ´omez, V. and Maravall Herrero, A. Seasonal adjustment and signal extraction in economic time series . Banco de Espa˜ na. Servicio de Estudios, 1998. Greyserman, A., Jones, D. H., and Strawderman, W. E. Portfolio selection using hierarchical bayesian analysis and mcmc methods. Journal of Banking & Finance , 30 (2):669–678, 2006. 10 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Guo, C., Pleiss, G., Sun, Y., and Weinberger, K. Q. On calibration of modern neural networks. In Thirty-Fourth International Conference on Machine Learning (ICML) ,pp. 1321–1330. PMLR, 2017. Gupta, A. K. and Nagar, D. K. Matrix variate distributions .Chapman and Hall/CRC, 2018. Hoff, P. D. A first course in Bayesian statistical methods ,volume 580. Springer, 2009. Huang, K. Y. and Jane, C.-J. A hybrid model for stock mar-ket forecasting and portfolio selection based on arx, grey system and rs theories. Expert Systems with Applications ,36(3):5387–5392, 2009. Huang, S.-H., Miao, Y.-H., and Hsiao, Y.-T. Novel deep reinforcement algorithm with adaptive sampling strategy for continuous portfolio optimization. IEEE Access , 9: 77371–77385, 2021. Idzorek, T. A step-by-step guide to the black-litterman model: Incorporating user-specified confidence levels. In 
+
+Forecasting Expected Returns in the Financial Markets ,pp. 17–38. Elsevier, 2007. Jorion, P. Bayes-stein estimation for portfolio analysis. 
+
+Journal of Financial and Quantitative Analysis , 21(3): 279–292, 1986. Kalymon, B. A. Estimation risk in the portfolio selection model. Journal of Financial and Quantitative Analysis , 6 (1):559–582, 1971. Kara, M., Ulucan, A., and Atici, K. B. A hybrid approach for generating investor views in black–litterman model. 
+
+Expert Systems with Applications , 128:256–270, 2019. Kendall, A. and Gal, Y. What uncertainties do we need in bayesian deep learning for computer vision? Advances in Neural Information Processing Systems (NeurIPS) , 30, 2017. Kim, H. Y. and Won, C. H. Forecasting the volatility of stock price index: A hybrid model integrating lstm with multiple garch-type models. Expert Systems with Appli-cations , 103:25–37, 2018. Klein, R. W. and Bawa, V. S. The effect of estimation risk on optimal portfolio choice. Journal of Financial Economics , 3(3):215–231, 1976. Kolm, P. and Ritter, G. On the bayesian interpretation of black–litterman. European Journal of Operational Research , 258(2):564–572, 2017. Kolm, P. N. and Ritter, G. Factor investing with black– litterman–bayes: incorporating factor views and priors in portfolio construction. Journal of Portfolio Management ,47(2):113–126, 2021. Kruschke, J. K. Bayesian data analysis. Wiley Interdisci-plinary Reviews: Cognitive Science , 1(5):658–676, 2010. Lee, W. Theory and methodology of tactical asset allocation ,volume 65. John Wiley & Sons, 2000. Markowitz, H. Portfolio selection. The Journal of Finance ,7(1):77–91, 1952. ISSN 00221082, 15406261. URL 
+
+http://www.jstor.org/stable/2975974 .Meucci, A. Risk and asset allocation , volume 1. Springer, 2005. Michaud, R. O. The markowitz optimization enigma: Is ‘optimized’ optimal? Financial Analysts Journal , 45(1): 31–42, 1989. Michaud, R. O. and Michaud, R. Estimation error and portfolio optimization: a resampling solution. Available at SSRN 2658657 , 2007. Muirhead, R. J. Aspects of multivariate statistical theory .John Wiley & Sons, 2009. Murphy, K. P. Machine learning: a probabilistic perspective .MIT Press, 2012. Newman, M. E. and Barkema, G. T. Monte Carlo methods in statistical physics . Clarendon Press, 1999. Olivares-Nadal, A. V. and DeMiguel, V. A robust perspec-tive on transaction costs in portfolio optimization. Oper-ations Research , 66(3):733–739, 2018. Palomba, G. Multivariate garch models and the black-litterman approach for tracking error constrained port-folios: an empirical analysis. Global Business and Eco-nomics Review , 10(4):379–413, 2008. P ´erez-Cruz, F., Afonso-Rodriguez, J. A., and Giner, J. Es-timating garch models using support vector machines. 
+
+Quantitative Finance , 3(3):163, 2003. Qiu, H., Han, F., Liu, H., and Caffo, B. Robust portfolio optimization. Advances in Neural Information Processing Systems (NeurIPS) , 28, 2015. Rasmussen, C. The infinite gaussian mixture model. 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 12, 1999. Reneau, A. D., Hu, J. Y.-C., Gilani, A., and Liu, H. Feature programming for multivariate time series prediction. In 
+
+Fortieth International Conference on Machine Learning (ICML) , pp. 29009–29029. PMLR, 2023. Salomons, A. The black-litterman model hype or improve-ment? PhD thesis, Faculty of Science and Engineering, 2007. 11 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Satchell, S. and Scowcroft, A. A demystification of the black-litterman model: Managing quantitative and tradi-tional portfolio construction. In Forecasting Expected Returns in the Financial Markets , pp. 39–53. Elsevier, 2007. Silva, T., Pinheiro, P. R., and Poggi, M. A more human-like portfolio optimization approach. European Journal of Operational Research , 256(1):252–260, 2017. Silverman, B. W. Density estimation for statistics and data analysis . Routledge, 2018. Teplova, T., Evgeniia, M., Munir, Q., and Pivnitskaya, N. Black-litterman model with copula-based views in mean-cvar portfolio optimization framework with weight con-straints. Economic Change and Restructuring , 56(1): 515–535, 2023. Tu, J. and Zhou, G. Incorporating economic objectives into bayesian priors: Portfolio choice under parameter uncer-tainty. Journal of Financial and Quantitative Analysis ,45(4):959–986, 2010. Tu, J. and Zhou, G. Markowitz meets talmud: A combina-tion of sophisticated and naive diversification strategies. 
+
+Journal of Financial Economics , 99(1):204–215, 2011. Ulf, H. and Raimond, M. Portfolio choice and estimation risk. a comparison of bayesian to heuristic approaches. 
+
+ASTIN Bulletin: The Journal of the IAA , 36(1):135–160, 2006. Wainwright, M. J., Jordan, M. I., et al. Graphical models, exponential families, and variational inference. Founda-tions and Trends® in Machine Learning , 1(1–2):1–305, 2008. Yang, L., Couillet, R., and McKay, M. R. A robust statistics approach to minimum variance portfolio optimization. 
+
+IEEE Transactions on Signal Processing , 63(24):6684– 6697, 2015. Zhou, G. Beyond black-litterman: letting the data speak. 
+
+Journal of Portfolio Management , 36(1):36, 2009. 12 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+# Appendix 
+
+A Hyperparameter Selections 14 B Related Work 15 
+
+B.1 Bayesian Portfolio Optimization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15 B.2 Data-Driven Black-Litterman Model . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15 
+
+C Supplementary Theoretical Backgrounds 16 
+
+C.1 Prior and Likelihood of the Black-Litterman-Bayes model . . . . . . . . . . . . . . . . . . . . . . . . . 16 
+
+D Axillary Lemmas 16 
+
+D.1 Integral of the Product of Two Gaussian Distributions . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16 D.2 Sufficient Statistic for Ω in Corollary 3.3.1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 D.3 Integral of Normal-Inverse-Wishart (NIW) distribution . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 D.4 Regression Estimators . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 
+
+E Proofs of Main Text 20 
+
+E.1 Proof of Lemma 2.1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 E.2 Proof of Theorem 3.1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 21 E.3 Proof of Theorem 3.2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 E.4 Proof of Theorem 3.3 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 E.5 Proof of Corollary 3.3.1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23 
+
+F Experimental Details 24 
+
+F.1 Sharpe Ratio Maximization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 F.2 Table of Indicators . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 24 F.3 Tables of Datasets . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25 F.4 Figures of Asset Allocation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26 F.5 Turnover Rate Analysis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 27 13 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+A Hyperparameter Selections 
+
+Here we provide a practical guide to derive hyperparameter set {Σ, Σ0, θ 0, α F , β F , ΩF } for Shared- Latent-Parametrization Black- Litterman model (SLP-BL model, Definition 3.4) and {Σ, Σ0, θ 0, P, α, β, ΩF , Ψ′, ν ′, Ω0} for Feature-I nfluenced-Views Black-Litterman model (FIV-BL model, Definition 3.6) Among the entries of {Σ, Σ0, θ 0}, a practitioner first approximate Σ using sample variance given {rl}nl=1 and let Σ0 = τ Σ
+
+be a matrix proportional to the covariance matrix, following (Salomons, 2007). Numerous papers (Black & Litterman, 1992; Lee, 2000; Ellison, 2004; Idzorek, 2007; Salomons, 2007) address the choice of the scaling factor τ , mostly suggesting a constant in (0 , 1] . Given the approximated Σ and Σ0, one obtains θ0 by Lemma C.1. In this work, we take P = I as a m × m identity matrix because the features F are asset-specific (Problems 2 and 3). Given the historical observations {(rl, F l)}nl=1 in (Problems 2 and 3), define: 
+
+r := 1
+
+n
+
+> n
+
+X
+
+> l=1
+
+rl, erl := rl − r, F := 1
+
+n
+
+> n
+
+X
+
+> l=1
+
+Fl, eFl := Fl − F . 
+
+The following context suggests how {(rl, F l)}nl=1 enables estimating {bΩF , bαF , bβF , bα, bβ}. We estimate the error matrix bΩF
+
+based on kernel density estimation on every feature. Specifically, consider a rule-of-thumb bandwidth parameter (Silverman, 2018): 
+
+h =
+
+ 4
+
+dm + 2 
+
+ 2
+
+> dm +4
+
+n− 2
+
+> dm +4
+
+where m is the number of assets, d the number of features for each asset, and n the sample size. Recall that fi ∈ Rd represent the features on the i-th asset and be part of the features F ∈ Rm×dm :
+
+F := diag( f T 
+
+> 1
+
+, f T 
+
+> 2
+
+, . . . , f T
+
+> m
+
+).
+
+we scale element-wise variances of fi, or Var (fi,j ) for j-th feature of the i-th asset by h to construct the diagonal matrix 
+
+eH = diag( h · Var (f1,1), . . . , h · Var (fm,d )) .
+
+Then, for each asset return ri, we compute the ordinary least squares (OLS) coefficients Bi and intercept ai by predictors 
+
+fi3. These coefficients are aggregated into a block-diagonal matrix B ∈ Rm×dm . The covariance estimate is bΩF = B eHB T.For {bαF , bβF }, we conduct maximum likelihood estimation based on the θ − F model (Definition 3.1) and r ∼ N (θ, Σ) .By Lemma D.4, we obtain 
+
+bαF = r − F bβF , bβF =
+
+ nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF + Σ) −1 eFl
+
+−1 nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF + Σ) −1erl.
+
+For {bα, bβ}, we conduct maximum likelihood estimation in the q − F model (Definition 3.5), assuming that the observed returns rl are samples from the noisy implied asset returns rF defined in Remark 3.6. By Lemma D.4, we obtain 
+
+bα = r − F bβ, bβ =
+
+ nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1 eFl
+
+−1 nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1erl.
+
+For {Ψ′, ν ′, Ω0}, the conjugate prior parameters (Ψ ′, ν ′) in Σ′ ∼ IW (Ψ ′, ν ′) have distinct roles: Ψ′ encodes prior knowledge about the covariance shape and scale, acting as a ”pseudo-covariance matrix” with mean E[Σ ′] = Ψ ′/(ν′ −m+1) 
+
+(if ν′ > m − 1). Larger Ψ′ implies stronger prior beliefs about higher covariances. The degrees of freedom ν′ control prior strength, functioning as an effective sample size. Smaller ν′ allows the data to dominate, while larger ν′ enforces Ψ′. For a weakly informative prior, the rule of thumb is to set Ψ′ = I (minimal informative scale matrix) and ν′ = m + 2 , assuming no strong prior correlations. Gelman et al. (1995); Hoff (2009); Murphy (2012) discuss details on this topic. Selecting (Ψ ′, ν ′) allows us to compute the approximated constant Ω0. Since Σ′ is a deterministic function of (Ω , F, ΩF ),
+
+Ω is likewise a deterministic function of (Σ ′, F, ΩF ). Therefore, we let Ω0 = Ω(Σ ′
+
+> 0
+
+, F, ΩF ) where Σ′ 
+
+> 0
+
+= Ψ ′/(ν′ − m + 1) 
+
+is the mean of the distribution IW (Ψ ′, ν ′).
+
+> 3One may adjust the targetted data to avoid the issues of misaligned scale. For example, price versus momentum indicators.
+
+14 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+B Related Work 
+
+B.1 Bayesian Portfolio Optimization Why Bayesian? To address the parameter estimation risk in traditional portfolio optimization shown by (Markowitz, 1952; Kalymon, 1971), Barry (1974); Klein & Bawa (1976); Brown (1976) advocate Bayesian framework upon prior information in portfolio optimization. Foundational works by (Jorion, 1986) and (Black & Litterman, 1992) demonstrate how Bayesian shrinkage improves covariance estimation, reducing overfitting and highly sensitive weight in Markowitz-style allocations (Meucci, 2005; DeMiguel et al., 2009). Subsequent studies on robust Bayesian portfolio optimization include multiple approaches such as uncertainty estimation (Qiu et al., 2015; Yang et al., 2015), alternative prior specifications (e.g., heavy-tailed or non-conjugate priors) (Garlappi et al., 2007; Tu & Zhou, 2010; 2011), advanced sampling methods (Michaud & Michaud, 2007; Huang et al., 2021), and regularized optimization considering transaction costs (Olivares-Nadal & DeMiguel, 2018). 
+
+Issues Around the Bayesian Framework. While these methods leverage analytical tractability to incorporate historical data or expert views (Ulf & Raimond, 2006), they often rely on restrictive assumptions (e.g., conjugate priors) or subjective expert inputs. Recent advancements, such as Markov chain Monte Carlo (MCMC) methods (Greyserman et al., 2006), relax these constraints, enabling inference in more complex hierarchical or time-series models. Meanwhile, contemporary approaches increasingly emphasize data-driven techniques for deriving expert inputs, including investor views in the Black-Litterman model (Black & Litterman, 1992). 
+
+B.2 Data-Driven Black-Litterman Model Why Data-Driven? Across decades, the heuristic framework for deriving investor views (q, Ω) in the Black-Litterman model attracts research working on estimating investor views (Beach & Orlov, 2007; Palomba, 2008; Duqi et al., 2014; Silva et al., 2017; Deng, 2018; Kara et al., 2019; Kolm & Ritter, 2021; Teplova et al., 2023). Early efforts to estimate (q, Ω) 
+
+employ historical return data within GARCH frameworks, framing view derivation as a time series prediction task (Beach & Orlov, 2007; Palomba, 2008; Duqi et al., 2014), but financial time-series data often exhibit high noise and insufficient signal-to-noise ratios for reliable prediction (G´ omez & Maravall Herrero, 1998; Christensen & Li, 2014). 
+
+Advancement in Generating Views. Recent advances mitigate the previously mentioned weaknesses in time series forecasting by integrating econometric models and machine learning — e.g., GARCH with neural networks (Bildirici & Ersin, 2009) or LSTM (Kim & Won, 2018), support vector machines (P ´erez-Cruz et al., 2003; Kara et al., 2019), grey systems (Huang & Jane, 2009), and feature programming (Reneau et al., 2023). To embrace richer information, recent studies incorporate external data sources such as macroeconomic indicators (Zhou, 2009; Cheung, 2013), factors (Geyer & Lucivjansk´ a, 2016; Kolm & Ritter, 2017; 2021). 
+
+Neglected Issues from a Whole Perspective. However, while these advanced methods achieve high forecast accuracy in isolation, errors can propagate through subsequent optimization pipelines when estimators (q, Ω) are naively embedded in the Black-Litterman framework. Finkel et al. (2006) addresses such issues of error propagation in multi-stage pipelines. Furthermore, in some works, estimating q and Ω independently risks misaligned confidence assumptions. Without joint modeling, overconfidence in views (low Ω) might amplify errors in q, and thus distort portfolio weights. Guo et al. (2017); Kendall & Gal (2017) discuss such confidence calibration and uncertainty estimation. 
+
+Introduction of Bayesian Network. Meanwhile, prior work has explored the use of Bayesian networks for the Black-Litterman model, which serve distinct purposes such as transferring the approach to factor models (Kolm & Ritter, 2017; 2021), addressing multiple expert views (Chen & Lim, 2020), or generalizing to multi-period frameworks (Abdelhakmi & Lim, 2024). Yet, these approaches still rely on human experts to specify the parameters (q, Ω) .
+
+Our Work. To bridge these gaps—subjective inputs, error propagation, and incoherent estimation — we propose our Bayesian network reformulation of the Black-Litterman model. This framework unifies historical or external features and latent investor views (q, Ω) into a single Bayesian network, enabling inference over parameters (Theorems 3.2 and 3.3) and asset returns (Corollaries 3.2.1 and 3.3.2) directly from data. This eliminates reliance on heuristic inputs or disjointed estimators, ensuring coherent estimation and fully data-driven portfolio optimization. 15 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+C Supplementary Theoretical Backgrounds 
+
+C.1 Prior and Likelihood of the Black-Litterman-Bayes model 
+
+Here we show how to model the prior and likelihood in the Black-Litterman-Bayes model (Definition 2.2). To obtain the prior π(θ), an investor sets a market portfolio and lets the prior be the market portfolio estimation. In the absence of views q,the BLB model reduces to this market portfolio, producing an estimation (exactly the prior) on asset returns and outputting a market portfolio weight wmarket 4 by Definition 2.1. For example, if the investor takes the traditional Markowitz model as the market portfolio, it would produce a normal distribution of the historical asset returns as the prior π(θ).A commonly used market portfolio is market capitalization-weighted portfolio 5. In this case, the market portfolio weight is the market capitalization weight wcap 6:
+
+Assumption C.1 (Market Capitalization Equilibrium Prior) . In the absence of views q, the BLB model (Definition 2.2) produces an estimation of asset returns er such that the mean-variance optimization framework (Definition 2.1) has an optimal argument w⋆ = wcap . In other words, er satisfied: 
+
+argmax 
+
+> w
+
+
+
+wT E[er] − δ
+
+2 wT Var[ er]w
+
+
+
+= wcap , (C.1) where δ ∈ [0 , ∞] is a given risk-adjusted coefficient. With Assumption C.1, we use a reverse optimization technique to derive the prior: 
+
+Lemma C.1 (Reverse Optimization for Prior, page 139 of (Satchell & Scowcroft, 2007)) . Let r ∈ Rm be m asset returns, parametrized by θ, with r ∼ p(r|θ). Let the market capitalization weight on the m assets be wcap ∈ Rm and δ ∈ [0 , ∞] be a risk-adjusted coefficient. Assume 
+
+r ∼ N (θ, Σ) , θ ∼ N (θ0, Σ0),
+
+where Σ, Σ0 ∈ Rm×m are given intrinsic and prior covariance. Then the prior mean is 
+
+θ0 = δ(Σ + Σ 0)wcap . (C.2) To obtain the likelihood function L(θ|q), we assume a probabilistic relationship between parameter θ and views q:
+
+Assumption C.2 (Classical Noisy Views Model, page 35 of (Black & Litterman, 1992)) . Let r ∈ Rm be the returns of the m assets, parametrized by θ, with r ∼ p(r|θ). Let P ∈ Rk×m be the specified portfolio weight matrix. Let q ∈ Rk
+
+represent the views on the returns of the k specified portfolio and Ω ∈ Rk×k be the uncertainty matrix. Assume 
+
+P θ = q + ϵ, ϵ ∼ N (0 , Ω) .
+
+Under Assumptions C.1 and C.2, we can derive the Black-Litterman formula (Theorem 2.1) as the posterior estimation on θ
+
+of the Black-Litterman-Bayes model (Definition 2.2). 
+
+D Axillary Lemmas 
+
+D.1 Integral of the Product of Two Gaussian Distributions Lemma D.1 (Integral of the Product of Two Gaussian Distributions, page 266 of (Aroian, 1947)) . Let x ∈ Rn, and let 
+
+N (x; μ1, Σ1) and N (x; μ2, Σ2) be two multivariate Gaussian distributions with means μ1, μ 2 ∈ Rn and positive definite covariance matrices Σ1, Σ2 ∈ Rn×n, respectively. Then, the integral of their product over Rn is given by: 
+
+Z
+
+N (x; μ1, Σ1)N (x; μ2, Σ2)dx = N (μ1; μ2, Σ1 + Σ 2). (D.1) 
+
+Proof. The product of two Gaussian PDFs is 
+
+N (x; μ1, Σ1)N (x; μ2, Σ2) = 1(2 π)n|Σ1|1/2|Σ2|1/2 exp 
+
+
+
+− 12 Q
+
+
+
+, (D.2) 
+
+> 4Idzorek (2007) names it Implied Equilibrium Return Vector.
+> 5A market capitalization-weighted portfolio performs a market capitalization-weighted index (e.g., S&P 500).
+> 6The weight vector proportional to each asset’s market cap.
+
+16 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+where Q = ( x − μ1)⊤Σ−11 (x − μ1) + ( x − μ2)⊤Σ−12 (x − μ2).Expanding and combining terms: 
+
+Q = x⊤(Σ −11 + Σ −12 )x − 2x⊤(Σ −11 μ1 + Σ −12 μ2) + c
+
+= ( x − A−1b)⊤A(x − A−1b) − b⊤A−1b + c, 
+
+with A = Σ −11 + Σ −12 , b = Σ −11 μ1 + Σ −12 μ2, and c = μ⊤ 
+
+> 1
+
+Σ−11 μ1 + μ⊤ 
+
+> 2
+
+Σ−12 μ2.Substituting back to (D.2): 
+
+N (x; μ1, Σ1)N (x; μ2, Σ2)= 1(2 π)n|Σ1|1/2|Σ2|1/2 exp 
+
+
+
+− 12 (x − A−1b)⊤A(x − A−1b) + 12 b⊤A−1b − 12 c
+
+
+
+.
+
+Integrate over x ∈ Rn:
+
+Z
+
+> Rn
+
+N (x; μ1, Σ1)N (x; μ2, Σ2)dx = (2 π)n/ 2|A−1|1/2
+
+(2 π)n|Σ1|1/2|Σ2|1/2 exp 
+
+ 12 b⊤A−1b − 12 c
+
+
+
+. (D.3) Using |A−1| = |Σ1|| Σ2||Σ1+Σ 2| , we have 
+
+|A−1|1/2
+
+|Σ1|1/2|Σ2|1/2 = 1
+
+|Σ1 + Σ 2|1/2 . (D.4) Simplify the exponential term in (D.3) using the identity: 
+
+12 b⊤A−1b − 12 c = − 12 (μ1 − μ2)⊤(Σ 1 + Σ 2)−1(μ1 − μ2). (D.5) Thus, by (D.4) and (D.5), (D.3) becomes 
+
+Z
+
+N (x; μ1, Σ1)N (x; μ2, Σ2)dx = 1(2 π)n/ 2|Σ1 + Σ 2|1/2 exp 
+
+
+
+− 12 (μ1 − μ2)⊤(Σ 1 + Σ 2)−1(μ1 − μ2)
+
+
+
+= N (μ1; μ2, Σ1 + Σ 2).
+
+This completes the proof. 
+
+D.2 Sufficient Statistic for Ω in Corollary 3.3.1 Lemma D.2. Consider the hierarchical model where 
+
+θ | Ω, A, B ∼ N  μ(Ω , A, B ), , Σ(Ω , A, B ),
+
+with Ω as a parameter matrix, and A and B as fixed matrices. The mean μ(Ω , A, B ) and covariance Σ(Ω , A, B ) depend on 
+
+(Ω , A, B ). Then, the conditional distribution p(θ|Ω, A, B ) can be expressed only in terms of Σ(Ω , A, B ), A, B if and only if, for all pairs (Ω 1, Ω2) such that Σ(Ω 1, A, B ) = Σ(Ω 2, A, B ), we also have μ(Ω 1, A, B ) = μ(Ω 2, A, B ). That is, 
+
+μ(Ω , A, B ) is determined by Σ(Ω , A, B ), A, B 
+
+⇔ p(θ | Ω, A, B ) = p θ | Σ(Ω , A, B ), A, B .
+
+Proof. If 
+
+μ(Ω 1, A, B ) = μ(Ω 2, A, B ),
+
+whenever Σ(Ω 1, A, B ) = Σ(Ω 2, A, B ), then for a given value of Σ, the pair (μ, Σ) does not depend on which Ω generated 
+
+Σ. Hence specifying Σ(Ω , A, B ), A, B alone suffices to determine the normal distribution of θ. Thus p(θ | Ω, A, B ) = 
+
+p(θ | Σ(Ω , A, B ), A, B ). Conversely, if 
+
+p(θ | Ω, A, B ) = p θ | Σ(Ω , A, B ), A, B .
+
+Then any two values Ω1 and Ω2 yielding the same Σ(Ω 1, A, B ) and Σ(Ω 2, A, B ) must produce the same distribution for θ.Since θ is normally distributed, its mean must also match, i.e., μ(Ω 1, A, B ) = μ(Ω 2, A, B ). This completes the proof. 17 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+D.3 Integral of Normal-Inverse-Wishart (NIW) distribution Lemma D.3. Given a joint Normal-Inverse-Wishart (NIW) distribution 
+
+p(θ, Σ′) = N IW (θ, Σ′; μ′, 1, Ψ′, ν ′), θ | Σ′ ∼ N (μ′, Σ′), Σ′ ∼ IW (Ψ ′, ν ′),
+
+the marginal distribution of θ is a multivariate t-distribution: 
+
+θ ∼ tν′
+
+
+
+μ′, Ψ′
+
+ν′ − m + 1 
+
+
+
+,
+
+with degrees of freedom ν′, location parameter μ′, and scale matrix Ψ′ 
+
+> ν′−m+1
+
+.
+
+Proof. To derive the marginal distribution of θ, we integrate out Σ′:
+
+p(θ) = 
+
+Z
+
+p(θ | Σ′)p(Σ ′) dΣ′. (D.6) The conditional distribution p(θ | Σ′) is: 
+
+p(θ | Σ′) = 1(2 π)m/ 2|Σ′|1/2 exp 
+
+
+
+− 12 (θ − μ′)⊤(Σ ′)−1(θ − μ′)
+
+
+
+. (D.7) The marginal distribution p(Σ ′) is: 
+
+p(Σ ′) = |Ψ′|ν′/2
+
+2ν′m/ 2Γm(ν′/2) |Σ′|−(ν′+m+1) /2 exp 
+
+
+
+− 12 tr(Ψ ′(Σ ′)−1)
+
+
+
+. (D.8) Substituting (D.7) and (D.8) into (D.6): 
+
+p(θ) ∝
+
+Z
+
+|Σ′|−(ν′+m+2) /2 exp 
+
+
+
+− 12
+
+(θ − μ′)⊤(Σ ′)−1(θ − μ′) + tr(Ψ ′(Σ ′)−1)
+
+dΣ′.
+
+Let S = ( θ − μ′)( θ − μ′)⊤ + Ψ ′, then: 
+
+p(θ) ∝
+
+Z
+
+|Σ′|−(ν′+m+2) /2 exp 
+
+
+
+− 12 tr  (Σ ′)−1S
+
+dΣ′. (D.9) Using the matrix integral identity ((Muirhead, 2009, Chapter 7.2) or (Gupta & Nagar, 2018, Chapter 1.4)): 
+
+Z
+
+|Σ|−(a+m+1) /2 exp 
+
+
+
+− 12 tr(Σ −1B)
+
+
+
+dΣ ∝ | B|−a/ 2,
+
+we identify a = ν′ + 1 and B = S. (D.9) becomes: 
+
+p(θ) ∝ | S|−(ν′+1) /2. (D.10) Expand |S| using the matrix determinant lemma: 
+
+|S| = |Ψ′|  1 + ( θ − μ′)⊤(Ψ ′)−1(θ − μ′) . (D.11) Substituting (D.11) back to (D.10), we have 
+
+p(θ) ∝
+
+
+
+1 + (θ − μ′)⊤(Ψ ′)−1(θ − μ′)
+
+ν
+
+−(ν+m)/2
+
+,
+
+where ν = ν′ − m + 1 . This matches the kernel of a multivariate t-distribution: 
+
+θ ∼ tν
+
+
+
+μ′, Ψ′
+
+ν
+
+
+
+= tν′
+
+
+
+μ′, Ψ′
+
+ν′ − m + 1 
+
+
+
+.
+
+This completes the proof. 18 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+D.4 Regression Estimators Lemma D.4 (Estimation of α, β under Homoscedastic and Correlated Errors) . Consider a multivariate linear regression model: 
+
+r = α + F β + ϵF , ϵF ∼ N (0 , ΩF ), (D.12) where ΩF is a constant positive definite covariance matrix across observations (i.e. the error term ϵF is homoscedastic but potentially correlated). Given observations {(rl, F l)}nl=1 , the maximum likelihood estimators (MLE) for (α, β ) are: 
+
+bα = r − F bβ, bβ =
+
+ nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1 eFl
+
+−1 nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1erl,
+
+where 
+
+r = 1
+
+n
+
+> n
+
+X
+
+> l=1
+
+rl, erl = rl − r, F = 1
+
+n
+
+> n
+
+X
+
+> l=1
+
+Fl, eFl = Fl − F . 
+
+Proof. The log-likelihood function for the model is: 
+
+log L(α, β ) = − n
+
+2 log |bΩF | − 12
+
+> n
+
+X
+
+> l=1
+
+(rl − α − Flβ)⊤(bΩF )−1(rl − α − Flβ) + const . (D.13) Differentiate the log-likelihood (D.13) with respect to α and set it to zero: 
+
+∂∂α log L(α, β ) = − 12
+
+> n
+
+X
+
+> l=1
+
+∂∂α 
+
+h
+
+(rl − α − Flβ)⊤(bΩF )−1(rl − α − Flβ)
+
+i
+
+=
+
+> n
+
+X
+
+> l=1
+
+(bΩF )−1(rl − α − Flβ) = 0 .
+
+Summing over all observations: 
+
+> n
+
+X
+
+> l=1
+
+(bΩF )−1rl − n(bΩF )−1α −
+
+> n
+
+X
+
+> l=1
+
+(bΩF )−1Flβ = 0 .
+
+Solving for bα:
+
+bα = r − F bβ. (D.14) Differentiate the log-likelihood (D.13) with respect to β and set it to zero: 
+
+∂∂β log L(α, β ) = − 12
+
+> n
+
+X
+
+> l=1
+
+∂∂β 
+
+h
+
+(rl − α − Flβ)⊤(bΩF )−1(rl − α − Flβ)
+
+i
+
+=
+
+> n
+
+X
+
+> l=1
+
+F ⊤ 
+
+> l
+
+(bΩF )−1(rl − α − Flβ) = 0 . (D.15) Using the expression for bα (D.14), we have 
+
+rl − bα − Flβ = rl − (r − F bβ) − Flβ = ( rl − r) − (Fl − F )β = erl − eFlβ. 
+
+Substituting back to (D.15) with α = bα:
+
+> n
+
+X
+
+> l=1
+
+F ⊤ 
+
+> l
+
+(bΩF )−1(erl − eFlβ) = 0 .
+
+Since Pnl=1 erl = 0 and Pnl=1 eFl = 0 , we have: 
+
+> n
+
+X
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1erl −
+
+> n
+
+X
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1 eFlβ = 0 .
+
+19 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+Solving for bβ:
+
+bβ =
+
+> n
+
+X
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1 eFl
+
+!−1 nX
+
+> l=1
+
+eF ⊤ 
+
+> l
+
+(bΩF )−1erl.
+
+Since ϵF is neither uncorrelated nor homoscedastic, remaining bΩF is essential to obtain unbiased estimates of β.This completes the proof. 
+
+E Proofs of Main Text 
+
+E.1 Proof of Lemma 2.1 
+
+We separate the proof into two parts. One for (2.4) and another for (2.5): 
+
+Proof of (2.4) .
+
+p(θ|q, Ω) ∝ L(θ|q, Ω) π(θ)= exp 
+
+
+
+− 12 (q − P θ )TΩ−1(q − P θ )
+
+
+
+exp 
+
+
+
+− 12 (θ − θ0)TΣ−10 (θ − θ0)
+
+  By (2.2) and (2.3) 
+
+= exp 
+
+
+
+− 12
+
+ θTP TΩ−1P θ − 2qTΩ−1P θ + qTΩ−1q + θTΣ−10 θ − 2θT 
+
+> 0
+
+Σ−10 θ + θT 
+
+> 0
+
+Σ−10 θ0
+
+
+
+= exp 
+
+
+
+− 12
+
+θT(P TΩ−1P + Σ −10 )θ − 2( qTΩ−1P + θT 
+
+> 0
+
+Σ−10 )θ + qTΩ−1q + θT 
+
+> 0
+
+Σ−10 θ0
+
+
+
+, (E.1) where the third equation is the result of the symmetric property of Σ0 and Ω.To simplify the above expression, we introduce 
+
+G := Σ −10 + P TΩ−1P, D := Σ −10 θ0 + P TΩ−1q, A := θT 
+
+> 0
+
+Σ−10 θ0 + qTΩ−1q, 
+
+then, we have: 
+
+θTGθ − 2DTθ + A = ( Gθ )TG−1Gθ − 2DTG−1Gθ + A
+
+= ( Gθ − D)TG−1(Gθ − D) + A − DTG−1D
+
+= ( θ − G−1D)TG(θ − G−1D) + A − DTG−1D. 
+
+Therefore, (E.1) becomes 
+
+p(θ|q, Ω) ∝ exp 
+
+
+
+− 12 (θ − G−1D)TG(θ − G−1D)
+
+
+
+= N (θ; G−1D, G −1).
+
+This completes the proof. 
+
+Proof of (2.5) . From (2.1), we have: 
+
+p(r|θ) = N (r; θ, Σ) . (E.2) From Lemma C.1, we have: 
+
+θ0 = δ(Σ + Σ 0)wcap . (E.3) From (2.4), we have: 
+
+p(θ|q) = N  θ; G−1  Σ−10 θ0 + P TΩ−1q , G −1 . (E.4) Thus, 
+
+er ∼ p(r|q) = 
+
+Z
+
+p(er|θ)p(θ|q)dθ 
+
+20 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+=
+
+Z
+
+N (er; θ, Σ) N  θ; G−1(Σ −10 θ0 + P TΩ−1q), G −1 dθ  By (E.2) and (E.4) 
+
+= N  er; G−1(Σ −10 θ0 + P TΩ−1q), Σ + G−1  From Lemma D.1 
+
+= N  er; G−1 δ(Σ −10 Σ + I)wcap + P TΩ−1q , Σ + G−1 .  By (E.3) 
+
+This completes the proof. 
+
+E.2 Proof of Theorem 3.1 
+
+Proof of Theorem 3.1. The posterior θ given the data is proportional to the product of three Gaussian densities: 
+
+p(θ|q, Ω, F, ΩF ) ∝ p(q|θ, F, Ω) 
+
+| {z }
+
+> Observation Likelihood
+
+· p(θ|F, ΩF )
+
+| {z }
+
+> Features Likelihood
+
+· π(θ)
+
+|{z} 
+
+> Prior
+
+, (E.5) where the observation likelihood, features likelihood, and prior distribution are respectively: 
+
+p(q|θ, F, Ω) = exp 
+
+
+
+− 12 [q − P (α + F β + γθ )] ⊤ Ω−1 [q − P (α + F β + γθ )] 
+
+
+
+,  By (3.4) 
+
+p(θ|F, ΩF ) = exp 
+
+
+
+− 12
+
+θ − (αF + F β F )⊤ (Ω F )−1 θ − (αF + F β F )
+
+,  By (3.3) 
+
+π(θ) = exp 
+
+
+
+− 12 (θ − θ0)⊤Σ−10 (θ − θ0)
+
+
+
+.  By (3.2) 
+
+Combining all quadratic forms in the exponent (ignoring constants) of p(θ|q, Ω, F, ΩF ), we have 
+
+− 12
+
+h
+
+(θ − θ0)⊤Σ−10 (θ − θ0) + [ θ − (αF + F β F )] ⊤(Ω F )−1[θ − (αF + F β F )] + [ q − P α − P F β − γP θ ]⊤Ω−1[q − P α − P F β − γP θ ]
+
+i
+
+= − 12
+
+h
+
+θ⊤Σ−10 θ − 2θ⊤ 
+
+> 0
+
+Σ−10 θ + θ⊤ 
+
+> 0
+
+Σ−10 θ0
+
++ θ⊤(Ω F )−1θ − 2( αF + F β F )⊤(Ω F )−1θ + ( αF + F β F )⊤(Ω F )−1(αF + F β F )+ γ2θ⊤P ⊤Ω−1P θ − 2γ(q − P α − P F β )⊤Ω−1P θ 
+
++ ( q − P α − P F β )⊤Ω−1(q − P α − P F β )
+
+i
+
+= − 12
+
+h
+
+θ⊤ Σ−10 + (Ω F )−1 + γ2P ⊤Ω−1P | {z }
+
+> GM
+
+θ
+
+− 2θ⊤ Σ−10 θ0 + (Ω F )−1(αF + F β F ) + γP ⊤Ω−1(q − P α − P F β )| {z }
+
+> b
+
++ constant 
+
+i
+
+,
+
+where the second step groups similar terms and the first step expands the quadratic form. Completing the square in the form 
+
+− 12
+
+ θ − μθ|q, Ω,F, ΩF
+
+⊤ GM  θ − μθ|q, Ω,F, ΩF
+
+ ,
+
+the posterior distribution (E.5) becomes: 
+
+p(θ|q, Ω, F, ΩF ) = N  θ; μθ|q, Ω,F, ΩF , (GM )−1
+
+where 
+
+GM := Σ −10 + (Ω F )−1 + γ2P ⊤Ω−1P, μθ|q, Ω,F, ΩF := ( GM )−1b
+
+= ( GM )−1 Σ−10 θ0 + (Ω F )−1(αF + F β F ) + γP ⊤Ω−1(q − P α − P F β )
+
+This completes the proof. 21 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+E.3 Proof of Theorem 3.2 
+
+Proof of Theorem 3.2. From the θ ↔ F model (Definition 3.1), 
+
+L(θ|F, ΩF ) = p(F, ΩF |θ) ∝ exp 
+
+
+
+− 12 [F β F − (θ − αF )] T(Ω F )−1[F β F − (θ − αF )] 
+
+
+
+.
+
+Thus, we have 
+
+p(θ|F, ΩF ) ∝ L(θ|F, ΩF )π(θ)
+
+∝ exp 
+
+
+
+− 12 [F β F − (θ − αF )] T(Ω F )−1[F β F − (θ − αF )] 
+
+
+
+exp 
+
+
+
+− 12 (θ − θ0)TΣ−10 (θ − θ0)
+
+
+
+ By (3.6) and (3.5) 
+
+∝ exp 
+
+
+
+− 12
+
+(θ − αF − F β F )T(Ω F )−1(θ − αF − F β F ) + ( θ − θ0)TΣ−10 (θ − θ0)
+
+.
+
+∝ exp 
+
+
+
+− 12
+
+θT[(Ω F )−1 + Σ −10 ]θ − 2[Σ −10 θ0 + (Ω F )−1(αF + F β F )] Tθ + const 
+
+∝ exp 
+
+
+
+− 12
+
+θTGF θ − 2( DF )Tθ + const 
+
+,
+
+∝ exp 
+
+
+
+− 12
+
+h
+
+(θ − μθ|F, ΩF )TGF (θ − μθ|F, ΩF ) − μT 
+
+> θ|F, ΩF
+
+GF μθ|F, ΩF + const 
+
+i
+
+, (E.6) where GF := (Ω F )−1 + Σ −10 and DF := Σ −10 θ0 + (Ω F )−1(αF + F β F ) and 
+
+μθ|F, ΩF = ( GF )−1DF = ( GF )−1 Σ−10 θ0 + (Ω F )−1(αF + F β F ) .
+
+Substituting back to (E.6), the posterior distribution is: 
+
+p(θ|F, ΩF ) = N  θ; ( GF )−1 Σ−10 θ0 + (Ω F )−1(αF + F β F ) , (GF )−1 .
+
+This completes the proof. 
+
+E.4 Proof of Theorem 3.3 
+
+Proof of Theorem 3.3. The first two relations (3.7) and (3.8), from (2.4), leads to: 
+
+p(θ|q, Ω) = N  θ; G−1  Σ−10 θ0 + P TΩ−1q , G −1 , (E.7) where G := Σ −10 + P TΩ−1P . The third relation (3.9) leads to 
+
+p(q|F, ΩF ) = N (q; P (α + F β ), P ΩF P T). (E.8) Then, the posterior mean distribution 
+
+p(θ|F, ΩF ) = 
+
+Z Z 
+
+p(θ, q, Ω|F, ΩF )dqd Ω,
+
+=
+
+Z Z 
+
+p(θ, q |Ω, F, ΩF )dq 
+
+
+
+π(Ω) dΩ,
+
+=
+
+Z Z 
+
+p(θ|q, Ω) p(q|F, ΩF )dq 
+
+
+
+π(Ω) dΩ, (E.9) where the last step follows the conditional independence between θ and (F, ΩF ) given (q, Ω) . Also, it is clear to see that 
+
+θ|Ω, F, ΩF ∼
+
+Z
+
+p(θ|q, Ω) p(q|F, ΩF )dq. (E.10) Both p(θ|q, Ω) (E.7) and p(q|F, ΩF ) (E.8) are Gaussian, so the inside integral of (E.9) is also Gaussian, with 
+
+Z
+
+p(θ|q, Ω) p(q|F, ΩF )dq = N  θ; μθ|Ω,F, ΩF , Σθ|Ω,F, ΩF
+
+ .
+
+By the law of total expectation, 
+
+μθ|Ω,F, ΩF = E[θ|Ω, F, ΩF ]
+
+22 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+=
+
+Z
+
+E[θ|q, Ω] p(q|F, ΩF )dq  By (E.10) 
+
+=
+
+Z
+
+G−1  Σ−10 θ0 + P TΩ−1q N  q; P (α + F β ), P ΩF P T dq  By (E.7) and (E.8) 
+
+= G−1  Σ−10 θ0 + P TΩ−1P (α + F β ) .  By R q · p(q|F, ΩF )dq = E[q|F, ΩF ].
+
+Using the law of total variance, 
+
+Σθ|Ω,F, ΩF = Var[ θ|Ω, F, ΩF ]= EVar[ θ|q, Ω, F, ΩF ] + Var E[θ|q, Ω, F, ΩF ]  By the law of total variance 
+
+= EVar[ θ|q, Ω]  + Var E[θ|q, Ω]   By conditional independence 
+
+=
+
+Z
+
+Var[ θ|q, Ω] 
+
+| {z }
+
+> G−1
+
+p(q|F, ΩF )dq + Var 
+
+h
+
+E[θ | q, Ω] 
+
+| {z }
+
+> G−1
+
+Σ−10 θ0+P TΩ−1q
+
+i  By (E.7) 
+
+= G−1 + G−1P TΩ−1Var[ q]Ω −1P G −1  By R p(q|F, ΩF ) = 1 and Var[ M q ] = M Var[ q]M −1
+
+= G−1 + G−1P TΩ−1 P ΩF P TΩ−1P G −1.  By (E.8) 
+
+This completes the proof. 
+
+E.5 Proof of Corollary 3.3.1 
+
+Proof of Corollary 3.3.1. From Lemma D.2, we have 
+
+θ|Σ′, F, ΩF ∼ N (μ′, Σ′) .
+
+From (3.11), we have 
+
+Σ′ ∼ IW (Ψ ′, ν ′)
+
+We obtain the joint distribution by definition of the Normal-Inverse-Wishart distribution: 
+
+p(θ, Σ′|F, ΩF ) = p(θ|Σ′, F, ΩF )π(Σ ′)= N (μ′, Σ′) IW (Ψ ′, ν ′)= N IW (μ′, 1, Ψ′, ν ′). (E.11) Then the posterior mean distribution becomes 
+
+p(θ|F, ΩF ) = 
+
+Z
+
+p(θ, Σ′|F, ΩF )dΣ′,
+
+=
+
+Z
+
+N IW (θ, Σ′; μ′, 1, Ψ′, ν ′)dΣ′,  By (E.11) 
+
+= tν′
+
+
+
+θ; μ′, Ψ′
+
+ν′ − m + 1 
+
+
+
+,
+
+where the last step follows Lemma D.3. This completes the proof. 23 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+F Experimental Details 
+
+F.1 Sharpe Ratio Maximization 
+
+In our experiment (Section 4), we consider a standardized version of the mean-variance optimization framework (Defini-tion 2.1), taking Sharpe ratio as its maximization objective: 
+
+Definition F.1 (Mean-Variance Optimization on Sharpe ratio) . Let r ∈ Rm be the returns of the m assets and er be its prediction. The optimization problem, under the constraint of (1) no leverage and (2) long only, is: 
+
+max 
+
+> w
+
+wT E[er]
+
+pwT Cov[ er]w
+
+!
+
+s.t. 
+
+> n
+
+X
+
+> i=1
+
+wi = 1 and wi ≥ 0.
+
+F.2 Table of Indicators Indicator Description Hyperparameters 
+
+ATR Measures market volatility based on price range. Window length (default 14) ADX Measures the strength of a trend. Window length (default 14) EMA Weighted moving average prioritizing re-cent prices. Window length (default 14) MACD Difference between short- and long-term EMAs, indicates momentum shifts. Fast EMA window length (12), Slow EMA window length (26), Signal window length (9) SMA Average of prices over a specified window length, indicating short-term trends. Window length (default 20) RSI Momentum oscillator identifying over-bought/oversold conditions. Window length (default 14) BB (Upper & Lower) Measures price volatility, expanding during high volatility and contracting during low. Window length (default 20), Stan-dard deviation multiplier (default 2) OBV (normalized) Volume indicator combined with price, nor-malized to range [0, 1]. None (computed from price and vol-ume) Table 3: Common Indicators Used 24 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+F.3 Tables of Datasets 
+
+Table 4: S&P Sector ETF Components ETF Ticker Start Date End Date XLB 2004-04-13 2024-02-22 XLE 2004-04-13 2024-02-22 XLF 2004-04-13 2024-02-22 XLI 2004-04-13 2024-02-22 XLK 2004-04-13 2024-02-22 XLP 2004-04-13 2024-02-22 XLU 2004-04-13 2024-02-22 XLV 2004-04-13 2024-02-22 XLY 2004-04-13 2024-02-22 XLRE 2015-10-08 2024-02-22 XLC 2018-06-19 2024-02-22 Table 5: DJIA Components Stock Ticker Start Date End Date AA 1994-01-05 2013-09-22 AIG 2004-04-08 2008-09-21 AAPL 2015-03-19 2024-02-22 AMGN 2020-08-31 2024-02-22 AXP 1994-01-05 2024-02-22 BA 1994-01-05 2024-02-22 BAC 2008-02-19 2013-09-22 C 1999-11-01 2009-06-07 CAT 1994-01-05 2024-02-22 CSCO 2009-06-08 2024-02-22 CVX 2008-02-19 2024-02-22 DD 1994-01-05 2019-04-01 DIS 1994-01-05 2024-02-22 FL 1994-01-05 1997-03-17 GE 1994-01-05 2018-06-25 GS 2013-09-23 2024-02-22 GT 1994-01-05 1999-11-01 HD 1999-11-01 2024-02-22 HON 1994-01-05 2024-02-22 HPQ 1997-03-17 2013-09-22 IBM 1994-01-05 2024-02-22 INTC 1999-11-01 2024-02-22 IP 1994-01-05 2004-04-08 JNJ 1997-03-17 2024-02-22 JPM 1994-01-05 2024-02-22 KO 1994-01-05 2024-02-22 MCD 1994-01-05 2024-02-22 MMM 1994-01-05 2024-02-22 MO 1994-01-05 2008-02-18 MRK 1994-01-05 2024-02-22 MSFT 1999-11-01 2024-02-22 NKE 2013-09-23 2024-02-22 PFE 2004-04-08 2024-02-22 PG 1994-01-05 2024-02-22 T 1994-01-05 2015-03-18 TRV 1997-03-17 2024-02-22 UNH 2012-09-24 2024-02-22 VZ 2004-04-08 2024-02-22 WBA 2018-06-26 2024-02-22 WMT 1994-01-05 2024-02-22 XOM 1994-01-05 2024-02-22 25 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+F.4 Figures of Asset Allocation  
+
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> '
+> 
+> 
+> 
+> 
+> 
+> 
+> $%'$!  $   '
+
+&&'  !!$' $# (%  " 
+
+>  
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+
+Figure 6: Asset Allocation of traditional MV model (rolling window: 100 days) on SPDR Sectors ETFs Dataset.  
+
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> '
+> 
+> 
+> 
+> 
+> 
+> 
+> $%'$!  $   '
+
+&&'  !!$' $# (%  " 
+
+>  
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+
+Figure 7: Asset Allocation of SLP-BL model (rolling window: 100 days) on SPDR Sectors ETFs Dataset. 
+
+26 Latent Variable Estimation in Bayesian Black-Litterman Models 
+
+F.5 Turnover Rate Analysis 
+
+## Average Turnover Rate (%) on Dow Jones Index Dataset Average Turnover Rate (%) on SPDR Sector ETFs Dataset MV (50d) 65.48 61.75 BL (50d) 34.85 24.30 MV (80d) 53.94 49.38 BL (80d) 25.62 19.56 MV (100d) 47.79 48.73 BL (100d) 23.41 18.63 MV (120d) 44.30 41.72 BL (120d) 20.89 18.09 MV (150d) 39.70 38.84 BL (150d) 19.17 17.00 
+
+Table 6: Average Turnover Rate (%) for SLP-BL and Markowitz model on the Dow Jones Index and SPDR Sector ETFs Datasets.           
+
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>  
+>       
+>  
+>     
+
+Figure 8: Turnover rate of traditional MV model (rolling window: 100 days) on Dow Jones Index Dataset. 
+
+27 Latent Variable Estimation in Bayesian Black-Litterman Models           
+
+> 
+> 
+> 
+> 
+> 
+> 
+>  
+>       
+>  
+>     
+
+Figure 9: Turnover rate of SLP-BL model (rolling window: 100 days) on Dow Jones Index Dataset. 
+
+28

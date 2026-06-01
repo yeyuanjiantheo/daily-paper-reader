@@ -1,0 +1,4080 @@
+Title: Contextual Online Decision Making with Infinite-Dimensional Functional Regression
+
+URL Source: https://openreview.net/pdf?id=hFnM9AqT5A
+
+Number of Pages: 27
+
+Markdown Content:
+# Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Haichen Hu 1 2 Rui Ai 3 Stephen Bates 4 David Simchi-Levi 2 3 
+
+## Abstract 
+
+Contextual sequential decision-making is funda-mental to machine learning, with applications in bandits, sequential hypothesis testing, and online risk control. These tasks often rely on statistical measures like expectation, variance, and quantiles. In this paper, we propose a universal algorithmic framework that learns the full underlying distribu-tion, enabling a unified approach to all contextual online decision-making problems. The challenge lies in the uncountably infinite-dimensional re-gression, where existing contextual bandit algo-rithms all yield infinite regret. We innovatively propose an efficient infinite-dimensional func-tional regression oracle for contextual cumulative distribution functions (CDFs) and model every da-tum as a combination of context-dependent CDF basis functions. Our analysis reveals that the de-cay rate of the eigenvalue sequence of the design integral operator governs the regression error rate, and consequently, the utility regret rate. Specif-ically, when the eigenvalue sequence exhibits a polynomial decay of order 1 
+
+> γ
+
+≥ 1, the utility re-gret is bounded by eO
+
+
+
+T 3γ+2 2( γ+2) 
+
+
+
+. The case that 
+
+γ = 0 can recover the existing optimal rate in con-textual bandits literature with finite-dimensional regression and so as exponential decay. We also provide a numerical method to compute the eigen-value sequence of integral operators, enabling the practical implementation of our framework.        
+
+> 1Center for Computational Science and Engineering, MIT, Cambridge, United States 2Department of CEE, MIT, Cambridge, United States 3Institute for Data, Systems, and Society, MIT, Cam-bridge, United States 4Department of EECS, MIT, Cambridge, United States. Correspondence to: Haichen Hu <huhc@mit.edu >.
+> Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s).
+
+## 1. Introduction 
+
+Contextual sequential online experimentation has been over-whelmingly important for online platforms, healthcare com-panies, and other businesses (Tewari & Murphy, 2017; Saha et al., 2020; Beygelzimer et al., 2011; Avadhanula et al., 2022). A decision maker (DM) might face a wide range of tasks, and different tasks lead to various adaptive algo-rithm designs. For example, for maximizing the total reward, there are all kinds of contextual bandit algorithms (Chu et al., 2011). For minimizing the total hypothesis testing error, we have online hypothesis testing algorithms (Wei et al., 2007). To rectify a pre-trained machine learning model, many on-line calibration algorithms have been developed (Fasiolo et al., 2021). Some common structures appear to be obscured behind these examples. At each round, the DM first receives some context, such as past consumption records or symptoms in a healthcare setting. Then, the DM chooses an action to apply according to this context and his objective. For example, in online hypothesis testing, the actions could be “reject” and “accept”, while in contextual bandits, the action is to choose and pull an arm. Commonly, there is an underlying distribution Px,a associated with every context x and action 
+
+a. The DM makes decisions based on the estimation of its various statistics. In the context of bandits, the primary statistic of interest is the expectation, whereas in risk control, attention is directed toward variance (Li et al., 2022; F ¨uss et al., 2024). Please refer to Ayala-Romero et al. (2024); Bouneffouf (2016); Sun et al. (2016); Li et al. (2019); Han et al. (2021); Kong (2024) for more examples. The essential difficulty behind all these online decision-making examples is the uncertainty of the outcomes under different actions. In revenue management, the decision maker is not sure about the mean reward, while in financial portfolio management, he is mostly uncertain about both mean and variance (Gupta et al., 2021). Moreover, in online quantile calibration, the key concern turns to the unknown quantile function (Bastani et al., 2022). Note that no matter what kind of statistic we aim to know, as long as we learn the distribution Px,a , the decision maker knows exactly how to make the decision. Therefore, it raises 1Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+a question: 
+
+Is it possible to consider a more general (robust and adaptive) online decision-making setting based on infinite-dimensional functional regression? 
+
+Specifically, we are looking for a general solution with infinite-dimensional functional regression of cumulative dis-tribution functions (CDFs). Another motivation for considering infinite-dimensional models is the practical success of high-dimensional mod-els, such as AI products based on transformer architec-tures. Traditional finite-dimensional analysis fails to explain the strong performance of deep learning models. To fully address this challenge, our paper directly focuses on the infinite-dimensional regression problem. 
+
+Roadmap: We present our results in the following structure. In Section 2.1, we introduce our general sequential decision-making model with infinite-dimensional functional regres-sion. Then in Section 2.2, we introduce the mathematical concepts, tools, and assumptions in functional analysis and operator theory that are essential for our infinite-dimensional regression. In Section 3, we put forward an efficient algo-rithm to carry out the functional regression and establish its oracle inequality. We further present our sequential decision-making procedure (Algorithm 2) in Section 4 and prove its theoretical guarantee in theorem 4.1. 
+
+1.1. Related Works 
+
+Our work is intimately related to the lines of work on con-textual bandits (Tewari & Murphy, 2017; Zhou et al., 2023; Zhou, 2015; Bouneffouf et al., 2020; Agarwal et al., 2014; Chu et al., 2011), operation learning (Mollenhauer et al., 2022; Kovachki et al., 2024; Adcock et al., 2024; Foster et al., 2018; Foster & Rakhlin, 2020) and functional re-gression (Morris, 2015; Ramsay & Silverman, 2002; Zhang et al., 2022; Azizzadenesheli et al.; Yeh et al., 2023; Hou et al., 2023). Due to limited space, we discuss these and more related works in Appendix A. 
+
+Notation: For any measure space (B, B, n ), we use 
+
+L2(B, n ) to denote the square-integrable function space which is also a Hilbert space with inner product ⟨· , ·⟩ =R 
+
+> B
+
+f (x)g(x)dn (x) and norm || f || L2(B,n ) = p⟨f, f ⟩. O(·)
+
+and o(·) stand for Bachmann–Landau asymptotic notations up to constants. Meanwhile, eO stands for the asymptotic notations up to logarithmic terms. For any n ∈ N, [n] de-notes the set {1, · · · , n }, and Iy (t) denotes the indicator function I {y ≤ t}. Unless otherwise stated, when we write the eigenvalue sequence {λi}, it is arranged in a decreasing order. 
+
+## 2. Model setup and Operator Eigendecay 
+
+2.1. Model Setup 
+
+There are two main bodies of our framework, Functional Regression Model and Decision-Making Model. We first focus on the functional regression model. 
+
+Infinite-dimensional Functional-Regression: Assume a feature space X and a finite action space A =
+
+{a1, · · · , a K }. For any context x ∈ X and action a, there is an associated random variable Ya,x which takes values in some bounded Borel set S ⊂ R with m(S) = 1 , where m
+
+is some measure on the real line ♮. We assume Ya,x has a cumulative distribution function F ∗(x, a, s ) satisfying the following Assumption 2.1 and Assumption 2.2. 
+
+Assumption 2.1. We have access to a function family of CDF basis Φ = {ϕ(x, a, w, s )}w∈Ω indexed by a com-pact set Ω ⊂ Rd with d-dimensional Lebesgue measure 
+
+ν(Ω) = 1 . That is, given any x ∈ X , a ∈ A , w ∈ Ω,
+
+0 ≤ ϕ(x, a, w, s ) ≤ 1 is a CDF of some S valued random variable. For any x, a , there is an unknown non-negative coefficient function θ∗ ∈ L2(Ω , ν ) such that 
+
+F ∗(x, a, s ) = 
+
+Z
+
+> Ω
+
+θ∗(w)ϕ(x, a, w, s )dν (w)= ⟨θ∗(·), ϕ (x, a, ·, s )⟩ .
+
+We also set R 
+
+> Ω
+
+θ∗(w)dν (w) = 1 to ensure that F ∗(x, a, s )
+
+is a cumulative distribution function. For boundedness, we assume that || θ∗|| L2(Ω ,ν ) ≤ M for some constant M .The dimension of this functional regression problem is infi-nite, as the number of the functions in candidate model class 
+
+Φ can be uncountably infinite, which makes solving this problem extremely hard. Modeling the basis model class 
+
+Φ could be problem-driven; different tasks have different families. Generally, we use spline functions, trigonometric functions, truncated Gaussian mixtures, neural networks, and the Bernoulli random variable mixture to model the basis distribution family in different applications. Please see Zhang et al. (2022) for numerical details. Furthermore, we assume that the candidate model class Φ,parametrized by the set Ω, has Lipschitz-continuity with respect to w ∈ Ω. This assumption is common in learning theory (see Xu & Zeevi (2020)). Our goal in our functional regression model is to derive an accurate coefficient function estimation bθD .
+
+Assumption 2.2. ϕ(x, a, ·, s ) is L0-Lipschitz continuous, 
+
+|ϕ(x, a, w, s ) − ϕ(x, a, r, s )| ≤ L0|| w − r|| ∞.
+
+We now turn to our Decision-Making Model.    
+
+> ♮m(S)can be any finite number. Our m(S) = 1 assumption here is just for notation convenience.
+
+2Contextual Online Decision Making with Infinite-Dimensional Functional Regression      
+
+> Figure 1. Data Ddrives the functional regression and decision-making for statistical task T.
+
+Decision-making Model: To incorporate all the sequen-tial decision-making examples in our framework, we assume that the objective of the decision-maker is relevant to the cu-mulative distribution function itself, rather than only some concrete statistics such as mean, variance, quantile and so on. To be specific, we assume that there is a known utility func-tional T defined on function space L2(S, m ). At each round 
+
+t, the context xt is drawn i.i.d. from some unknown distri-bution QX . Given any context x, if the DM applies action a,then one data point will be sampled and observed according to distribution function F ∗(x, a, s ), and the utility of action 
+
+a under x is T (F ∗(x, a, s )) . The goal of the decision maker is to maximize the total utility in T rounds of interaction, i.e., max {at}Tt=1 
+
+PTt=1 T (F ∗(xt, a t, s )) .Analogous to the bandit setting, the policy π is a map-ping from the feature space X to the action space prob-ability simplex ∆( A). Given any x, we denote a∗(x)
+
+as the action that maximizes the utility, i.e., a∗(x) =argmax a T (F ∗(x, a, s )) . For any policy sequence {πt}Tt=1 ,the performance measure is utility regret, which is the dif-ference between the optimal policy π∗(x) = δa∗(x)(·)† and 
+
+{πs}Ts=1 :Reg ({πt}Tt=1 )
+
+≜
+
+> T
+
+X
+
+> t=1
+
+T (F ∗(xt, a ∗(xt), ·) − T (F ∗(x, π t(x), ·)) .
+
+Assumption 2.3. The known functional T is L-Lipschitz continuous with respect to the norm || · || L2(S,m ).Assumption 2.3 is essential since it ensures that an accurate estimation about the underlying distribution results in a good approximation of the corresponding utility functional value. Finally, we end this section with some practical applications and their corresponding utility functionals T
+
+and their Lipschitz constant L.
+
+Example 2.4 (Contextual Bandits) . Define the functional as 
+
+T : F → R 
+
+> S
+
+xdF (x), which is a known functional in terms of F . Given any context x, F ∗(x, a, s ) is the conditional      
+
+> †δais the Dirac function of a, i.e., δa(x) = 1 only if x=a, otherwise, δa(x) = 0
+
+reward distribution of arm a given context x. Consequently, 
+
+T (F ∗(x, a, s )) is the mean reward of arm a given x, and we recover the contextual bandit problem. We assume that the reward is bounded in interval S =[a, b ] and illustrate that contextual bandits satisfy our model assumption in Section 2. Note that T (F ) = R xdF (x), and integrating by parts, we have that for any two CDFs F1, F 2,
+
+|T (F1) − T (F2)| =
+
+Z
+
+> S
+
+F1(s) − F2(s)ds 
+
+≤(b − a)1/2|| F1 − F2|| L2(S),
+
+The inequality is by integrating by parts and Cauchy-Schwarz inequality. So contextual bandit satisfies Assump-tion 2.3 with constant L = ( b − a)1/2.
+
+Example 2.5 (Sequential Hypothesis Testing (Naghshvar & Javidi, 2013)) . M hypotheses {H1, · · · , H M } are of in-terest, among which only one holds true. ai is to choose hypothesis Hi to believe. For any true class Hi and DM’s judgment aj , there is a loss function l(Hi, a j ). The distri-bution associated with observation x and aj is the poste-rior distribution of the loss l with PMF denoted by F ∗
+
+> x,a j
+
+F ∗ 
+
+> x,a j
+
+(l(Hi, a j )) = P(Hi|x, a j ). P(Hi|x, a j ) is the poste-rior probability that Hj is true given observation x and aj .
+
+T : F → − R 
+
+> S
+
+sdF (s) is the negative expectation func-tional, where the integral stands for the Lebesgue integral. From the deduction of Example 2.4, we know that sequential hypothesis testing satisfies Assumption 2.3. 
+
+Example 2.6 (Mean-Variance (MV) bandits (Hu et al., 2022)) . In multi-armed bandits (MAB), denote Fi as the distribution of arm i. The mean-variance functional T :
+
+Fi 7 → ρ R xdF i(x) − (1 − ρ)( R x2dF i(x) − (R xdF i(x)2)) .MV-MAB is about finding a policy that maximizes the total mean-variance. Similar to Example 2.4, we illustrate that this example satisfies Assumption 2.3. 
+
+|T (F1) − T (F2)|≤ρ
+
+Z
+
+> S
+
+sdF 1(s) −
+
+Z
+
+> S
+
+sdF 2(s)
+
++(1 − ρ)( b − a)
+
+Z
+
+> S
+
+sdF 1(s) −
+
+Z
+
+> S
+
+sdF 2(s)
+
+≤ (ρ + (1 − ρ)( b − a)) ( b − a)1/2|| F1 − F2|| L2(S).
+
+Therefore, mean-variance bandits satisfy Assumption 2.3 with Lipschitz constant L = ( ρ + (1 − ρ)( b − a)) ( b −
+
+a)1/2.It is intuitive that a good estimation of the underlying dis-tribution may result in a good utility estimation. However, estimating the underlying CDF with an uncountable basis and arbitrary feature space is highly non-trivial. In Sec-tion 2.2, we would like to introduce some tools and as-sumptions from the functional analysis and operator theory community before we dive into our regression oracle. For 3Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+background knowledge of operator theory and functional analysis, please refer to some textbooks Conway (2000); Kubrusly (2011); Simon (2015). 
+
+2.2. Operator Eigendecay 
+
+Recall that in Section 2.1, we invoke the infinite-dimensional online decision-making problem, which makes the finite-dimensional linear algebra analysis invalid. There-fore, we turn to functional analysis and operator theory in infinite-dimensional spaces to handle our learning problem instead. One core object of the intersection regarding func-tional analysis and learning theory is the operator , which is intrinsically defined as mappings from infinite-dimensional spaces to infinite-dimensional spaces. In functional analysis, a very powerful tool to study the properties of many oper-ators, especially Hilbert-Schmidt operators, is their eigen-value and eigenfunction sequences. Specifically, in this pa-per, we care about the decay rate of the eigenvalue sequence (eigendecay ), which is the essential factor that determines our approximation accuracy (theorem 3.6) and utility regret bound (theorem 4.1). In this subsection, we present all the mathematical concepts, theorems, and assumptions regard-ing the eigendecay rate of several important operators which will be utilized in Section 3. 
+
+Definition 2.7. For any (w, r ) ∈ Ω × Ω, define the following linear integral operator, integral kernel, and mapping: 
+
+Lx,a :θ(w) 7 →
+
+Z
+
+> Ω
+
+Z
+
+> S
+
+θ(r)ϕ(x, a, w, s )ϕ(x, a, r, s )dm (s)dν (r),
+
+Kx,a :( w, r ) 7 →
+
+Z
+
+> S
+
+ϕ(x, a, w, s )ϕ(x, a, r, s )dm (s),ψx,a :L2(Ω , ν ) × S → R, (θ, s ) 7 → ⟨ θ(·), ϕ (x, a, ·, s )⟩ .
+
+By Fubini’s theorem, we have 
+
+∀ w ∈ Ω, Lx,a (θ)( w) = 
+
+Z
+
+> Ω
+
+θ(r)Kx,a (w, r )dν (r)=
+
+Z
+
+> S
+
+ϕ(x, a, w, s )ψx,a (θ, t )dm (s).
+
+Theorem 2.8. For any x ∈ X and a ∈ A , Lx,a is a compact, linear, positive and self-adjoint Hilbert-Schmidt integral operator with ||L x,a || ≤ 1.
+
+By the Riesz-Schauder theorem and the spectral decom-position theorem (Reed & Simon, 1978), if we denote 
+
+{λi(L)x,a }∞ 
+
+> i=1
+
+as its eigenvalue sequence in decreasing or-der and {ei(Lx,a )} as the corresponding eigenfunctions, then it holds that 
+
+Lx,a (θ) = 
+
+> ∞
+
+X
+
+> i=1
+
+λi(Lx,a ) ⟨θ, e i(Lx,a )⟩ ei(Lx,a ),
+
+where λ1(Lx,a ) ≥ λ2(Lx,a ) ≥ · · · > 0 and λi(Lx,a ) → 0.The eigenvalues and eigenfunctions play a crucial role in our algorithm and analysis. Hence, we further examine them and state additional properties below. All proofs are deferred to Appendix C. By Gohberg et al. (2012); Ferreira & Menegatto (2013), we call the Hilbert-Schmidt integral operator Lx,a traceable if P∞ 
+
+> i=1
+
+λi(Lx,a ) < ∞. For any traceable operator, we could analyze the decay rate of its eigenvalue sequence, and the eigenvalue decay rate of these integral operators has been well studied in functional analysis (Ferreira & Menegatto, 2013; Volkov, 2024; Levine, 2023; Carrijo & Jord ˜ao, 2020). Specifically, for our integral operator Lx,a , we observe the following properties. 
+
+Property 2.9 . For any x, a , the integral operator Lx,a satis-fies • P∞ 
+
+> i=1
+
+λi(Lx,a ) = R
+
+> Ω
+
+R 
+
+> S
+
+ϕ(x, a, w, s )2dm (s)dν (w) ≤ 1.• For any i, ∃C > 0 such that λi(Lx,a ) ≤ Ci .• λi(Lx,a ) = o( 1 
+
+> i
+
+).For many concrete integral operators, Property 2.9 could be further strengthened and the decay rate of the eigenvalue se-quence could be established. For example, one might show polynomial eigendecay and even exponential eigendecay (Carrijo & Jord ˜ao, 2020). Intuitively, a larger eigenvalue implies that more ‘information’ is stored in the direction of the corresponding eigenfunction. Therefore, faster decaying of the eigenvalue sequence means that more ‘information’ is concentrated in several large eigenvalues and the corre-sponding eigenfunctions. In this paper, we use a single positive parameter γ in Assumption 2.10 to describe the decay rate of the eigenvalue sequence and characterize this phenomenon, which is called γ-dominating eigendecay .
+
+Assumption 2.10 (γ-dominating eigendecay) . Denoting all the bounded linear operators on L2(Ω , ν ) as B(L2(Ω , ν )) ,we assume that the set {L x,a : x ∈ X , a ∈ A} ⊂B(L2(Ω , ν )) is convex and satisfies the existence of a se-quence {τi}∞ 
+
+> i=1
+
+such that • for some 0 < γ ≤ 1 and s0 < ∞, P∞ 
+
+> k=1
+
+τ γk ≤ s0,
+
+• for ∀x, a, λ k(Lx,a ) < τ k ≤ O ( 1 
+
+> k
+
+), ∀k. 
+
+We name the sequence {τi}∞ 
+
+> i=1
+
+as “ γ-dominating sequence”. Intuitively, Assumption 2.10 states that the decay rate of the eigenvalue sequence of any operator L in the integral operator set {L x,a : x ∈ X , a ∈ A} could be “dominated” by some polynomially converging series. The rate parameter 
+
+γ is a key factor in our analysis. In Section 3, we will prove that parameter γ influences the error rate of the functional 4Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+regression oracle and therefore determines our utility regret rate. Finally we remark that our assumption in Assumption 2.10 essentially claims that the eigenvalue sequence {λk} decays with a polynomial order in magnitude. It is quite common to assume polynomial or even exponential eigendecay rate of large matrix or neural network operators (Yeh et al., 2023; Vakili & Olkhovskaya, 2024; Goel & Klivans, 2017; Agarwal & Gonen, 2018). 
+
+## 3. Functional Regression and Oracle Inequality 
+
+3.1. Functional Regression 
+
+In Section 3.1, we provide a method about how to esti-mate our coefficient function θ∗(w), given a dataset D =
+
+{(xj , a j , y j )}nj=1 . Here, yj is sampled according to CDF 
+
+F ∗(xj , a j , s ).The intuition of functional regression oracle is to use the operator’s spectral decomposition. In ordinary least squares regression min || Y −Xθ|| 2, the normal matrix XT X plays a crucial role (Goldberger, 1991). Here, we require an operator that behaves similarly. 
+
+Definition 3.1 (Design Integral Operator) . For any given dataset D = {(xj , a j , y j )}nj=1 whose |D| = n, we define the design integral operator UD as ∀w ∈ Ω,
+
+UD (θ)( w) ≜
+
+> n
+
+X
+
+> j=1
+
+Lxi,a i (θ)( w)=
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> Ω
+
+θ(r)Kxj ,a j (w, r )dν (r).
+
+Moreover, we denote the spectral decomposition of UD as P∞ 
+
+> i=1
+
+λi(UD )ei 
+
+> UD
+
+.Using Theorem 2.8, one could verify that UD is also a linear, positive, self-adjoint and Hilbert-Schmidt integral operator. Therefore, we have λi(UD ) → 0, and UD is not invertible. In finite-dimensional regression, people often handle non-invertibility with regularization terms λ|| θ|| 2, leading to an error that scales with the problem dimension. However, since our dimension is infinite, adding this regularization term is infeasible. Zhang et al. (2022) considers a differ-ent data-driven regularization, but the term will scale with the cardinality |D| = n, thus it’s inapplicable to obtain convergence results. Rather than regularization, we consider a truncation of the function series P∞ 
+
+> i=1
+
+λi(UD )ei 
+
+> UD
+
+according to the eigen-value sequence {λi(UD )}. Specifically, we define the trun-cated finite rank operator bUD,ε .
+
+Definition 3.2. For any small number ε > 0, the truncated integral operator bUD,ε is defined as 
+
+bUD,ε : θ 7 →
+
+> ND,ε
+
+X
+
+> i=1
+
+λi(UD ) θ, e i 
+
+> UD
+
+ei 
+
+> UD
+
+,
+
+where ND,ε is the smallest number such that for ∀i ≥
+
+ND,ε + 1 , λ i(UD ) < nε. ε is some hyper-parameter which will be determined later. Since we arrange the eigenvalues in a decreasing order, we have that for ∀i ≤ N, λ i(UD ) ≥ nε. Despite the fact that 
+
+bUD,ε is not invertible, it is still possible to define its pseudo-inverse as follows. 
+
+Definition 3.3. The pseudo-inverse of the operator bUD,ε is defined as 
+
+bU†D,ε : θ 7 →
+
+> ND,ε
+
+X
+
+> i=1
+
+1
+
+λi(UD ) θ, e i 
+
+> UD
+
+ei 
+
+> UD
+
+.
+
+We set ε = ε∗ ≜ n− 2 
+
+> γ+2
+
+to conduct functional regression. With a bit of abuse of notation, we also use Nε to denote 
+
+ND,ε , and abbreviate bUD,ε ∗ , bU†D,ε ∗ as bUD and bU†D .After obtaining bUD and bU†D , there are two remaining steps of our functional regression. The first step is to compute the following function: 
+
+θD = U†D
+
+Z
+
+> Sn
+
+X
+
+> j=1
+
+Iyj (t)ϕ(xj , a j , w, s )dm (s)
+
+ .
+
+The motivation for calculating it lies in its ability to solve the following least squares optimization problem presented in Theorem 3.4. Intuitively, for any data point (xi, a i), the un-derlying targeted distribution function is F ∗(xi, a i, s ) = R 
+
+> Ω
+
+θ∗(w)ϕ(xi, a i, w, s )dν (w). Normally, to learn the function θ∗(w), we need to observe the whole function 
+
+F ∗(xi, a i, s ) = R 
+
+> Ω
+
+θ∗(w)ϕ(xi, a i, w, s )dν (w) and solve an inverse problem to obtain θ∗. However, due to our bandit feedback nature, we only have one sample yi from this distribution. Thus, considering the L2 error between the real empirical counterpart Iyi (t) and any candidate distri-bution function R 
+
+> Ω
+
+θ(w)ϕ(xi, a i, w, s )dν (w) for all n data points, we obtain the following loss function l(θ, D) in The-orem 3.4. 
+
+Theorem 3.4. We define the loss function l(θ, D) on dataset 
+
+D as 
+
+l(θ, D) ≜
+
+> n
+
+X
+
+> j=1
+
+∥Iyi (s)−
+
+Z
+
+> Ω
+
+θ(w)ϕ(xi, a i, w, s )dν (w)∥2
+
+> L2(S,m )
+
+.
+
+Then, θD solves the following optimization problem, 
+
+P ) : min    
+
+> θ∈Span( e1,··· ,e Nε∗)
+
+l(θ, D), (1) 5Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+where Span( X) denotes the linear subspace spanned by the vector group X.
+
+After obtaining θD , in order to ensure that our estimated coefficient function satisfies Assumption 2.1, we project it onto the set C = θ ≥ 0 : R 
+
+> Ω
+
+θdν = 1 , || θ|| L2(Ω ,ν ) ≤ M
+
+in the following norm. 
+
+Definition 3.5. We define the following norm for any posi-tive self-adjoint bounded linear operator U:
+
+|| θ|| U ≜ p⟨θ, U(θ)⟩.
+
+Correspondingly, we define the projection PD onto set C
+
+under the norm || · || UD as 
+
+PD (x) ≜ argmin 
+
+> y∈C
+
+|| y − x|| 2 
+
+> UD
+
+.
+
+The second step is to project θD onto set C by PD , i.e., 
+
+bθD ≜ PD (θD ).This process yields our estimated coefficient function bθD . At the end of this section, we summarize the functional regression oracle FuncReg in Algorithm 1. 
+
+Algorithm 1 Regression Oracle: FuncReg 
+
+Require: Basis function family {ϕ(x, a, w, t )}w∈Ω,dataset D = {xi, a i, y i}ni=1 , {τi}∞
+
+> i=1
+
+, 0 < γ ≤ 1.Define the integral operator 
+
+UD (θ)( w) = 
+
+> n
+
+X
+
+> j=1
+
+Lxi,a i (θ)( w)=
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> Ω
+
+Kxj ,a j (w, r )θ(r)dν (r).
+
+Compute the spectral decomposition of UD ∗, say 
+
+UD (θ) = 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨θ, e i⟩ ei.
+
+Define ε∗ = n− 2 
+
+> γ+2
+
+and construct the truncated operator 
+
+bUD and its pseudo-inverse bU†D according to Definition 3.2 and Definition 3.3. Solve the optimization problem 1 and obtain solution θD .Compute the projection bθD = PD (θD ).
+
+Return: bθD .
+
+3.2. Oracle Inequality 
+
+In this section, we give two versions of oracle inequalities. The first one is for the fixed design that D is arbitrarily 
+
+> ∗
+
+We present a concrete numerical method to compute eigenval-ues in Appendix F. 
+
+given, whereas the second one is for the random design that {(xi, a i)}ni=1 are sampled from some unknown joint distribution Q. , 
+
+Theorem 3.6. Under Assumption 2.1 and Assumption 2.10, given dataset D = {(xj , a j , y j )}nj=1 and setting ε∗ =
+
+n− 2 
+
+> γ+2
+
+, then with probability at least 1 − δ, the estimated coefficient function bθD from Algorithm 1 satisfies 
+
+|| bθD − θ∗|| UD ≤ E δ 
+
+> D
+
+(n)
+
+≜
+
+vuut2 2 log( 1
+
+δ ) + 
+
+> Nε∗
+
+X
+
+> i=1
+
+log(1 + λi(UD )) 
+
+!
+
++ n γγ+2 M. 
+
+Theorem 3.6 provides a theoretical guarantee about our regression error when the given D has cardinality |D| = n.Nevertheless, Theorem 3.6 cannot be directly used, as there exists an agnostic term PNε∗ 
+
+> i=1
+
+log(1 + λi(UD )) related to the dataset D. The following important lemma gives us an upper bound of Eδ 
+
+> D
+
+(n) which is independent of D.
+
+Lemma 3.7. For any dataset D = {(xi, a i, y i)}ni=1 whose 
+
+|D| = n, by choosing ε = ε∗ = n −2 
+
+> γ+2
+
+, we have 
+
+Eδ 
+
+> D
+
+(n) = 
+
+vuut2 2 log( 1
+
+δ ) + 
+
+> Nε∗
+
+X
+
+> i=1
+
+log(1 + λi)
+
+!
+
++ n γγ+2 M
+
+≤E δ (n) ≜ 2 log(1 /δ )1/2 +
+
+
+
+2ps0 log(1 + n) + M
+
+
+
+n γγ+2 .
+
+With Lemma 3.7, we derive the following corollary which is independent of D.
+
+Corollary 3.8. Under Assumption 2.1 and Assumption 2.10, given dataset D = {(xj , a j , y j )}nj=1 and setting ε∗ =
+
+n− 2 
+
+> γ+2
+
+, then with probability at least 1 − δ, we have 
+
+|| bθD − θ∗|| UD ≤ E δ (n).
+
+When the data points are sampled i.i.d. according to some distribution, we could further give an oracle inequality for random design. Taking it into consideration, our oracle inequality for random design helps to bound the L2 error between the ground truth CDF and our estimated CDF. We first state some mild assumptions in random design. 
+
+Assumption 3.9. We assume that for any x, a, w, r ,there exists a constant η > 0 such that Kx,a (w, r ) =R 
+
+> S
+
+ϕ(x, a, w, s )ϕ(x, a, r, s )dm (s) ≥ η > 0.Assumption 3.9 plays a role in guaranteeing the integral operator will not map a function far from 0 ∈ L2(Ω , ν ) to some near-zero point, which is a bit similar to the concept of proper mapping in convex analysis (Magaril-Il’yaev & Tikhomirov, 2003). With Assumption 2.1, we know that 
+
+Ω×Ω is also compact in R2d. Thus, we have N (t, Ω×Ω, ||· || ∞) ≤   At
+
+2d for some number A, delayed to Lemma B.9. 6Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+We finally transfer the estimation error of bθD to the L2 error between cumulative distribution functions, 
+
+|| bθD − θ∗|| 2
+
+> UD
+
+=
+
+DbθD − θ∗, UD
+
+bθD − θ∗E 
+
+=
+
+> n
+
+X
+
+> j=1
+
+DbθD − θ∗, Lxj ,a j
+
+bθD − θ∗E 
+
+=
+
+> n
+
+X
+
+> j=1
+
+Z 
+
+> X,A
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+bθD − θ∗
+
+(w)ϕ(xj , a j , w, s )dν (w)
+
+
+
+×
+
+Z 
+
+> Ω
+
+bθD − θ∗
+
+(r)ϕ(xj , a j , r, s )dν (r)
+
+
+
+dm (s)=
+
+> n
+
+X
+
+> j=1
+
+h
+
+|| bFD (xj , a j , s ) − F ∗(xj , a j , s )|| 2
+
+> L2(S,m )
+
+i
+
+.
+
+Consequently, combining Theorem 3.6 with some concen-tration analysis and Lemma 3.7, we have the following theorem. 
+
+Theorem 3.10. Given some dataset D = {(xj , a j , y j )}nj=1 
+
+where (xj , y j ) i.i.d. 
+
+∼ Q, we define bFD (x, a, s ) ≜
+
+R 
+
+> Ω
+
+bθD (w)ϕ(x, a, w, s )dν (w) to be our estimated cumula-tive distribution function under x, a . For any 0 ≤ δ ≤ 1/2,we have that with probability at least 1 − 2δ,
+
+E(x,a )∼Q
+
+h
+
+|| bFD (x, a, s ) − F ∗(x, a, s )|| 2
+
+> L2(S,m )
+
+i
+
+≤ C(d, L 0, δ, A, η )Eδ (n)2
+
+n ,
+
+where 
+
+C(d, L 0, δ, A, η )=
+
+
+
+1 + (48 pd log(2 L0A) + 2 plog(1 /δ )) /η 
+
+
+
+is some constant that does not influence the L2 error rate with respect to n.
+
+## 4. Algorithm 
+
+We provide an algorithm in Section 4 that incorporates our functional regression oracle to minimize the expected utility regret. It is computationally expensive to calculate eigenvalues and corresponding eigenfunctions of an integral operator. Hence, it is desirable to develop algorithms with a low-frequency oracle call property. Inspired by Simchi-Levi & Xu (2021); Qian et al. (2024), we design an Inverse Gap Weighting policy in a batched version possessing the low-frequency oracle call property. Before delving into the specific algorithm, the following statement indicates that a well-bounded estimation error implies a well-bounded decision-making error. 
+
+Theorem 4.1. Given some dataset D = {(xj , a j , y j )}nj=1 
+
+where (xj , a j , y j ) i.i.d. 
+
+∼ Q, we define bFD (x, a, s ) ≜
+
+R 
+
+> Ω
+
+bθD (w)ϕ(x, a, w, s )dν (w) as our estimated cumulative distribution function. For any 0 < δ < 1, we have that with probability at least 1 − δ,
+
+E(x,a )∼Q
+
+
+
+T ( bFD (x, a, t )) − T (F ∗(x, a, t )) 
+
+2
+
+≤ L2C(d, L 0, δ/ 2, A, η )Eδ/ 2(n)2
+
+n ,
+
+where 
+
+C(d, L 0, δ/ 2, A, η )=
+
+
+
+1 + (48 pd log(2 L0A) + 2 plog(2 /δ )) /η 
+
+
+
+.
+
+We use Est δ (n) to denote L2C(d, L 0, δ, A, η )Eδ (n)2 there-after. For any x, a , we could view T (F ∗(x, a, s )) as the unknown expected “reward” related to action a given con-text x. Therefore, we transform our abstract sequential decision-making problem into a stochastic contextual bandit problem. Although in our problem, at every round, we do not directly observe a sample point from the “reward” dis-tribution, we could still estimate it by functional regression 
+
+FuncReg , yielding the desired reduction from the sequential decision-making problem to a contextual bandit. We summarize our algorithm in Algorithm 2. For the al-gorithm structure, we first divide the whole T rounds into several epochs and geometrically increase the length of ev-ery epoch so that the low-frequency oracle call property is automatically satisfied in Algorithm 2. At the beginning of every epoch m, we call our functional regression ora-cle FuncReg based on the i.i.d. data gathered from the last epoch to get an estimation bθm. We then design our inverse gap weighting policy πm based on bθm and execute it throughout this epoch. By such a structure, we could ensure that the data generated throughout this epoch are i.i.d. so that we can use Theorem 3.10 to bound the L2 estimation error, and therefore the utility regret. To be specific, we first impose epoch schedule τm = 2 m,which means that the (m + 1) -th epoch is twice as long as the m-th epoch. Therefore, the statistical guarantee we get from epoch m + 1 is stronger than that of epoch m. As 
+
+m scales, our estimation becomes more and more accurate. The Inverse Gap Weighting policy enables us to balance the exploration and exploitation trade-off to maintain a low re-gret just assuming access to an offline regression oracle with i.i.d. input data. We now provide the theoretical guarantee of our Algorithm 2 as follows. 
+
+Theorem 4.2. For stochastic context setting, assuming that we can only call functional regression oracle ⌈log( T )⌉
+
+7Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Algorithm 2 Stochastic Contextual Decision Making with Infinite Functional Regression 
+
+Require: Functional T , feature space X , action space A = {a1 · · · , a K } , basis function family 
+
+{ϕ(x, a, w, u )}w∈Ω, regression space L2(Ω , ν ), range space of random variables (S, m ).Initialize epoch schedule 0 = ξ0 < ξ 1 < ξ 2 < · · · 
+
+for m = 1 , 2, · · · do 
+
+Obtain bθm ∈ L2(Ω , ν ) from oracle FuncReg with dataset Dm−1 = {(xt, a t, y t)}τm−1
+
+> t=τm−2+1
+
+,
+
+bθm = FuncReg (Dm−1).
+
+Define exploration parameter ςm =
+
+> 12
+
+q K  
+
+> Est δ/ 2m2(τm−1−τm−2)
+
+(for epoch 1, ς1 = 1 ). 
+
+for Round t = ξm−1 + 1 · · · , ξ m do 
+
+Observe xt.Compute the value of functional for every action 
+
+bvm(a) = T (
+
+Z
+
+> Ω
+
+bθmϕ(xt, a, w, s )dν (w)) ∀a ∈ A .
+
+Define IGW ςm policy: 
+
+pt(a) = 
+
+( 1 
+
+> K+ςm(bvm(bam)−bvm(a))
+
+for all a̸ = bam
+
+1 − P  
+
+> a̸=bat
+
+pt(a) for a = bam.
+
+Sample at ∼ pt and observe one data point from cumulative distribution function F ∗(xt, a t, s ).
+
+end for end for 
+
+times, then with probability at least 1 − δ, the expected regret of Algorithm 2 after T rounds is at most 
+
+E[Reg (T )] ≤ eC(K, L, L 0, A, d, η )
+
+
+
+(s1/20 + M ) ∨ 1
+
+
+
+∗O
+
+
+
+log(log T /δ )
+
+√T + T 3γ+2 2( γ+2) 
+
+ 
+
+,
+
+where eC(A, K, L, L 0, d, η ) is some constant that is only relevant to the parameters in the bracket. 
+
+As 0 < γ ≤ 1, the term √T is dominated by T 3γ+2 2( γ+2) and our regret rate becomes 
+
+O
+
+ eC
+
+
+
+(s1/20 + M ) ∨ 1
+
+
+
+T 3γ+2 2( γ+2) (log(log T /δ )) 
+
+
+
+,
+
+where eC = eC(K, L, L 0, A, d, η ).From Theorem 4.2, we observe that the regret rate is deter-mined by the decay speed of the eigenvalue sequence and we present a numerical method to compute these sequences in Appendix F. Specifically, when γ ↘ 0, our regret rate is closer and closer to the √T order, which matches the traditional optimal regret rate. If the eigenvalue sequence is decaying exponentially fast, then it is also decaying poly-nomially fast for any positive γ > 0. Thus, by choosing 
+
+γ ↘ 0, we conclude that the regret rate has order eO
+
+√T
+
+
+
+for any exponentially decaying eigenvalue sequence. More-over, for finite-dimensional problems, we could imagine that all the eigenvalues with an index larger than the dimension number are zero. So, we can also set γ = 0 in Theorem 4.2 and recover the optimal regret rate eO(T 1/2) up to some logarithmic factors. On the other hand, if we have no prior knowledge about the order of the dominating sequence {τi}∞ 
+
+> i=1
+
+but just know that it converges, we can simply set it to 1 and still achieve sublinear regret eO(T 5/6), as shown in Corollary 4.3. 
+
+Corollary 4.3. For the dominating sequence {τi}∞
+
+> i=1
+
+, if we only have information that it converges without any knowl-edge of the order γ, we can set γ = 1 and get 3γ+2 2( γ+2) = 56 .Therefore, we could obtain the following expected regret bound: 
+
+E[Reg (T )] ≤ eC(A, K, L, L 0, d, η )
+
+
+
+(s1/20 + M ) ∨ 1
+
+
+
+∗O
+
+
+
+T 56 log(log T /δ )
+
+
+
+.
+
+In summary, our algorithm is adaptive and robust. It not only recovers the optimal regret rate in finite-dimensional problems and infinite-dimensional problems with exponen-tial eigendecay but can still manage to achieve a sublinear regret with no prior information about the eigendecay rate as well. These properties demonstrate the versatility of our algorithm and its broad potential for application. We finish this section with a remark that in the design of Al-gorithm 2, we do not involve any information about the total round number T . If we know T in advance, we could further have a more efficient epoch schedule that reduces the offline functional regression oracle call times from O(log T ) to 
+
+O(log log T ) (Simchi-Levi & Xu, 2021; Qian et al., 2024). 
+
+## 5. Conclusion and Discussion 
+
+In this paper, we establish a general framework for stochastic contextual online decision-making with infinite-dimensional functional regression, which incorporates any application examples with Lipschitz continuous objective functionals. We study the relationship between the util-ity regret and the eigenvalue sequence decay of our de-sired integral operator. Compared with finite-dimensional linear bandits, this connection is new and crucial in func-tional regression with infinite dimensions. Furthermore, we design a computationally efficient algorithm to solve our sequential decision-making problem based on a novel infinite-dimensional functional regression oracle. 8Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Finally, we would like to discuss some interesting future research directions and we leave these interesting questions as potential next steps. 
+
+Extension to adversarial contextual decision-making: 
+
+The epoch of Algorithm 2 is designed for lower computation cost, through the low-frequency algorithm call property, of computing eigenvalues and eigenfunctions in our functional regression oracle FuncReg . We observe that the guarantee provided by our oracle in Theorem 3.6 inherently adapts to any dataset where the contexts are arbitrarily drawn. This raises a natural question: can we design an efficient online functional regression oracle (Foster & Rakhlin, 2020), built on Algorithm 1, to address adversarial contextual decision-making problems? 
+
+Minimax lower bound: In our paper, the utility regret rate is eO(T 3γ+2 2( γ+2) ). An interesting open question is whether this dependency on γ is optimal. It is worth future exploration into the minimax lower bound of the utility regret with respect to the eigenvalue decay rate γ.
+
+Extension to nonlinear functional regression: In our problem, the relationship between F ∗(x, a, s ) and Φ = 
+
+{ϕ(x, a, w, s )}w∈Ω is linear because of the linearity of inte-gration. One challenging problem is to extend our method-ology to some potential nonlinearity between F ∗(x, a, s )
+
+and our basis function family and design efficient decision-making algorithms. 
+
+## Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here. 
+
+## References 
+
+Adcock, B., Brugiapaglia, S., Dexter, N., and Moraga, S. Learning smooth functions in high dimensions: from sparse polynomials to deep neural networks. arXiv preprint arXiv:2404.03761 , 2024. Agarwal, A., Hsu, D., Kale, S., Langford, J., Li, L., and Schapire, R. Taming the monster: A fast and simple algo-rithm for contextual bandits. In International conference on machine learning , pp. 1638–1646. PMLR, 2014. Agarwal, N. and Gonen, A. Effective dimension of exp-concave optimization. arXiv preprint arXiv:1805.08268 ,2018. Ahues, M., Largillier, A., and Limaye, B. Spectral compu-tations for bounded operators . Chapman and Hall/CRC, 2001. Avadhanula, V., Baki, O. A., Bastani, H., Bastani, O., Goc-men, C., Haimovich, D., Hwang, D., Karamshuk, D., Leeper, T., Ma, J., et al. Bandits for online calibration: An application to content moderation on social media platforms. arXiv preprint arXiv:2211.06516 , 2022. Ayala-Romero, J. A., Garcia-Saavedra, A., and Costa-Perez, X. Risk-aware continuous control with neural contex-tual bandits. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pp. 20930–20938, 2024. Azizzadenesheli, K., Lu, W., Makur, A., and Zhang, Q. Sparse contextual cdf regression. Transactions on Ma-chine Learning Research .Bastani, O., Gupta, V., Jung, C., Noarov, G., Ramalingam, R., and Roth, A. Practical adversarial multivalid confor-mal prediction. Advances in Neural Information Process-ing Systems , 35:29362–29373, 2022. Beygelzimer, A., Langford, J., Li, L., Reyzin, L., and Schapire, R. Contextual bandit algorithms with super-vised learning guarantees. In Proceedings of the Four-teenth International Conference on Artificial Intelligence and Statistics , pp. 19–26. JMLR Workshop and Confer-ence Proceedings, 2011. Bouneffouf, D. Contextual bandit algorithm for risk-aware recommender systems. In 2016 IEEE Congress on Evolu-tionary Computation (CEC) , pp. 4667–4674. IEEE, 2016. Bouneffouf, D., Rish, I., and Aggarwal, C. Survey on appli-cations of multi-armed and contextual bandits. In 2020 IEEE Congress on Evolutionary Computation (CEC) , pp. 1–8. IEEE, 2020. Carrijo, A. O. and Jord ˜ao, T. Approximation tools and decay rates for eigenvalues of integral operators on a general setting. Positivity , 24:761–777, 2020. Chatelin, F. The spectral approximation of linear operators with applications to the computation of eigenelements of differential and integral operators. SIAM review , 23(4): 495–522, 1981. Chatelin, F. Spectral approximation of linear operators .SIAM, 2011. Chu, W., Li, L., Reyzin, L., and Schapire, R. Contextual bandits with linear payoff functions. In Proceedings of the Fourteenth International Conference on Artificial Intelligence and Statistics , pp. 208–214. JMLR Workshop and Conference Proceedings, 2011. 9Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Conway, J. A course in operator theory. American Mathe-matical Society , 2000. Fasiolo, M., Wood, S. N., Zaffran, M., Nedellec, R., and Goude, Y. Fast calibrated additive quantile regression. 
+
+Journal of the American Statistical Association , 116(535): 1402–1412, 2021. Ferreira, J. and Menegatto, V. Eigenvalue decay rates for positive integral operators. Annali di Matematica Pura ed Applicata , 192(6):1025–1041, 2013. Foster, D. and Rakhlin, A. Beyond ucb: Optimal and ef-ficient contextual bandits with regression oracles. In 
+
+International Conference on Machine Learning , pp. 3199– 3210. PMLR, 2020. Foster, D., Agarwal, A., Dud ´ık, M., Luo, H., and Schapire, R. Practical contextual bandits with regression oracles. In International Conference on Machine Learning , pp. 1539–1548. PMLR, 2018. F ¨uss, R., Gl ¨uck, T., Koeppel, C., and Miebs, F. An averaging framework for minimum-variance portfolios: Optimal rules for combining portfolio weights. Swiss Finance Institute Research Paper , (24-10), 2024. Gin ´e, E. and Nickl, R. Mathematical foundations of infinite-dimensional statistical models . Cambridge university press, 2021. Gnaneshwar, N. A degenerate kernel method for eigenvalue problems of compact integral operators. Advances in Computational Mathematics , 27:339–354, 2007. Goel, S. and Klivans, A. Eigenvalue decay implies polynomial-time learnability for neural networks. Ad-vances in Neural Information Processing Systems , 30, 2017. Gohberg, I., Goldberg, S., and Krupnik, N. Traces and determinants of linear operators , volume 116. Birkh ¨auser, 2012. Goldberger, A. A course in econometrics . Harvard Univer-sity Press, 1991. Gupta, V., Jung, C., Noarov, G., Pai, M. M., and Roth, A. Online multivalid learning: Means, moments, and prediction intervals. arXiv preprint arXiv:2101.01739 ,2021. Han, Q., Ruan, S., Kong, Y., Liu, A., Mohsin, F., and Xia, L. Truthful information elicitation from hybrid crowds. 
+
+arXiv preprint arXiv:2107.10119 , 2021. Hoeffding, W. Probability inequalities for sums of bounded random variables. The collected works of Wassily Hoeffd-ing , pp. 409–426, 1994. Hou, B., Sanjari, S., Dahlin, N., Bose, S., and Vaidya, U. Sparse learning of dynamical systems in rkhs: An operator-theoretic approach. In International Conference on Machine Learning , pp. 13325–13352. PMLR, 2023. Hu, H., Charpentier, A., Ghossoub, M., and Schied, A. Multiarmed bandits problem under the mean-variance setting. arXiv preprint arXiv:2212.09192 , 2022. Kohn, W. Improvement of rayleigh–ritz eigenfunctions. 
+
+SIAM Review , 14(3):399–419, 1972. Kong, Y. Peer expectation in robust forecast aggre-gation: The possibility/impossibility. arXiv preprint arXiv:2402.06062 , 2024. Kostenko, A. Trace ideals with applications (lecture notes). Kovachki, N. B., Lanthaler, S., and Stuart, A. M. Oper-ator learning: Algorithms and analysis. arXiv preprint arXiv:2402.15715 , 2024. Kubrusly, C. S. Elements of operator theory . Springer, 2011. Levine, M. On the decay rate of singular values of integral operators . PhD thesis, Master’s thesis, WORCESTER POLYTECHNIC INSTITUTE, 2023. Li, B., Wang, Q., Yu, Y., Sun, M.-Z., Chen, L.-X., Xiang, Z.-L., Zhao, F., Lv, Q.-C., and An, Z.-Y. A novel risk-control model for the online portfolio selection of high-frequency transactions. Knowledge-Based Systems , 240:108176, 2022. Li, S., Li, X., Wang, X., and Liu, J. Sequential hypothesis test with online usage-constrained sensor selection. IEEE Transactions on information theory , 65(7):4392–4410, 2019. Magaril-Il’yaev, G. and Tikhomirov, V. Convex analysis: Theory and applications. Translations of Mathematical Monographs , 2003. Mollenhauer, M., M ¨ucke, N., and Sullivan, T. Learning linear operators: Infinite-dimensional regression as a well-behaved non-compact inverse problem. arXiv preprint arXiv:2211.08875 , 2022. Morris, J. S. Functional regression. Annual Review of Statistics and Its Application , 2(1):321–359, 2015. Naghshvar, M. and Javidi, T. Active sequential hypothesis testing. THE ANNALS of STATISTICS , pp. 2703–2738, 2013. Panigrahi, B. L. Galerkin methods for eigenvalue problem of an integral operator with logarithmic kernel. The Journal of Analysis , 25(2):235–251, 2017. 10 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Qian, J., Hu, H., and Simchi-Levi, D. Offline oracle-efficient learning for contextual mdps via layerwise exploration-exploitation tradeoff. arXiv preprint arXiv:2405.17796 ,2024. Ramsay, J. O. and Silverman, B. W. Applied functional data analysis: methods and case studies . Springer, 2002. Ray, S. S. and Sahu, P. Numerical methods for solving fredholm integral equations of second kind. In Abstract and Applied Analysis , volume 2013, pp. 426916. Wiley Online Library, 2013. Reed, M. and Simon, B. IV: Analysis of Operators , volume 4. Elsevier, 1978. Saha, A., Gaillard, P., and Valko, M. Improved sleeping bandits with stochastic action sets and adversarial rewards. In International Conference on Machine Learning , pp. 8357–8366. PMLR, 2020. Shalev-Shwartz, S. and Ben-David, S. Understanding ma-chine learning: From theory to algorithms . Cambridge university press, 2014. Simchi-Levi, D. and Xu, Y. Bypassing the monster: A faster and simpler optimal algorithm for contextual bandits un-der realizability. Mathematics of Operations Research ,2021. Simon, B. Trace ideals and their applications . Number 120. American Mathematical Soc., 2005. Simon, B. Operator theory , volume 4. American Mathe-matical Soc., 2015. Sion, M. On general minimax theorems. 1958. Sun, W., Dey, D., and Kapoor, A. Risk-aware algo-rithms for adversarial contextual bandits. arXiv preprint arXiv:1610.05129 , 2016. Teschl, G. Mathematical methods in quantum mechanics ,volume 157. American Mathematical Soc., 2014. Tewari, A. and Murphy, S. A. From ads to interventions: Contextual bandits in mobile health. Mobile health: sen-sors, analytic methods, and applications , pp. 495–517, 2017. Vakili, S. and Olkhovskaya, J. Kernelized reinforcement learning with order optimal regret bounds. Advances in Neural Information Processing Systems , 36, 2024. Volkov, D. Optimal decay rates in sobolev norms for singu-lar values of integral operators. Journal of Mathematical Analysis and Applications , 537(2):128403, 2024. Wei, W., Suh, K., Wang, B., Gu, Y., Kurose, J., and Towsley, D. Passive online rogue access point detection using se-quential hypothesis testing with tcp ack-pairs. In Proceed-ings of the 7th ACM SIGCOMM conference on Internet measurement , pp. 365–378, 2007. Xu, Y. and Zeevi, A. Upper counterfactual confidence bounds: a new optimism principle for contextual bandits. 
+
+arXiv preprint arXiv:2007.07876 , 2020. Yeh, S.-Y., Chang, F.-C., Yueh, C.-W., Wu, P.-Y., Bernac-chia, A., and Vakili, S. Sample complexity of kernel-based q-learning. In International Conference on Arti-ficial Intelligence and Statistics , pp. 453–469. PMLR, 2023. Zhang, Q., Makur, A., and Azizzadenesheli, K. Functional linear regression of cumulative distribution functions. 
+
+arXiv preprint arXiv:2205.14545 , 2022. Zhou, L. A survey on contextual multi-armed bandits. arXiv preprint arXiv:1508.03326 , 2015. Zhou, T., Wang, Y., Yan, L., and Tan, Y. Spoiled for choice? personalized recommendation for healthcare decisions: A multiarmed bandit approach. Information Systems Research , 34(4):1493–1512, 2023. 11 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+## A. Related Works 
+
+Contextual Bandits Contextual bandits have been widely studied in both academia and industry, including applications such as recommendation systems (Tewari & Murphy, 2017) and healthcare (Zhou et al., 2023). Please refer to Zhou (2015); Bouneffouf et al. (2020) for comprehensive surveys. However, most theoretical results require assumptions about the dimensionality, such as the context having a finite cardinality (Agarwal et al., 2014) or the existence of a low-dimensional representation, as in linear contextual bandits (Chu et al., 2011). Our paper is the first to address the problem of contextual decision-making based on infinite-dimensional functional regression. We establish universal regret bounds for various tasks under eigenvalue decay assumptions and further derive general sublinear regrets without them. 
+
+Operator Learning. Operator learning (Mollenhauer et al., 2022; Kovachki et al., 2024; Adcock et al., 2024) studies the case where the input and output are elements in Banach spaces such as some function spaces. However, in our paper, although the objective is the distribution function, we are unable to directly observe the function itself. Instead, we can only observe one single data point sampled from this distribution. In other words, we do not have full feedback but only bandit feedback, which makes our problem much more difficult than general operator learning (Foster et al., 2018; Foster & Rakhlin, 2020). 
+
+Functional Regression. Functional data analysis focuses on analyzing data where each observation is a function defined over a continuous domain, typically sampled discretely from a population. Morris (2015); Ramsay & Silverman (2002) provide comprehensive introductions to functional regression. One subdomain, Kernel learning, for example, learning in reproducing kernel Hilbert space (RKHS) has been a hot topic in recent years (Yeh et al., 2023; Hou et al., 2023). Nonetheless, the problem we focus on is quite different from theirs, as datasets in kernel learning contain input and output points lying in some kernelized spaces, while we do not have access to data of required integral kernel Lx,a lying in an infinite-dimensional space L2(Ω , ν ) directly. Zhang et al. (2022); Azizzadenesheli et al. studies functional regression for contextual CDFs in finite dimensions. For infinite dimensions, under some special conditions, Zhang et al. (2022) also proposes a method based on some regularization term which scales with respect to the number of data points. 
+
+## B. Useful Math Theorems 
+
+Theorem B.1 (Theorem 8.2 in Gohberg et al. (2012)) . Let positive operator U(θ)( w) = R 
+
+> Ω
+
+K(w, r )θ(r)dν (r) be self-adjoint. If the kernel K(w, r ) is continuous and satisfies the Lipschitz condition, 
+
+|K(w, r 1) − K(w, r 2)| ≤ C|| s2 − s1|| ,
+
+then ∞X
+
+> j=1
+
+λj (U) < ∞
+
+i.e., U is a trace class operator. 
+
+Theorem B.2 (Theorem 8.1 in Gohberg et al. (2012)) . If a positive Hilbert-Schmidt integral operator U is associated with kernel K(·, ·). Then, if U is traceable, it holds that tr (U) = R K(x, x )dx < ∞.
+
+Theorem B.3 (Theorem 2.7 in Ferreira & Menegatto (2013)) . Assume ν is a Borel measure. Let K be a kernel in 
+
+C(Ω × Ω) ∩ L2(Ω × Ω, ν × ν) possessing an integrable diagonal. Finally, assume L possesses a L2(X , ν )-convergent spectral representation in the form 
+
+L(f ) = 
+
+> ∞
+
+X
+
+> i=1
+
+λi(L) ⟨f, e i⟩ ei, f ∈ L2(Ω , ν ),
+
+where {ei} is an orthonormal subset of L2(Ω , ν ) and the sequence {λi(L)} is a subset of a circle sector from the origin of 
+
+C with central angle less than π. Then, the following statements hold: (i) There exists ξ ∈ [0 , 2π] and l > 0 such that 
+
+> ∞
+
+X
+
+> i=1
+
+|λi(L)| ≤ (1 + l2)1/2
+
+Z
+
+> Ω
+
+Re (eiξ K(x, x )) dν (x); 
+
+12 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+(ii) If the eigenvalues of L are arranged such that |λi(L)| ≥ | λi+1 (L)|, i = 1 , 2, · · · , then 
+
+|λi(L)| ≤ (1 + l2)1/2
+
+n
+
+Z
+
+> Ω
+
+Re (eiξ K(x, x )) dν (x); 
+
+(iii) as n → ∞ ,
+
+λn(L) = o(n−1).
+
+(iv) The operator L is trace-class. 
+
+Definition B.4 (Functional Determinants) . For any traceable Hilbert-Schmidt integral operator U, we define the following number as the functional determinants of U,
+
+EU ≜
+
+> ∞
+
+X
+
+> i=1
+
+log(1 + λi(U)) .
+
+Given dataset D, we will also use the terminology ED to denote EUD when it’s clear from context. This number depicts the speed of growth of the eigenvalues of our integral operator. When the dimension is finite, one can show that the order is 
+
+ED ≃ log( |D| ).
+
+Theorem B.5 (Doob’s Maximal Martingale Inequality) . Suppose {Xk}k≥0 is a sub-martingale with Xk ≥ 0 almost surely. Then for all a > 0, we have, 
+
+P( max  
+
+> 1≤i≤k
+
+Xi ≥ a) ≤ E[Xk]
+
+a .
+
+Lemma B.6. For any a, b, c ∈ R, a > 0, we have 
+
+Z
+
+> R
+
+exp 
+
+
+
+− ax 2 + bx + c
+
+2
+
+
+
+dx =
+
+r 2πa exp 
+
+ b2 − 4ac 
+
+8a
+
+
+
+.
+
+Proof of Lemma B.6. The proof is quite direct. By calculus, we have 
+
+− ax 2 + bx + c
+
+2 = − a
+
+2
+
+
+
+x2 + ba x + ca
+
+
+
+= − a
+
+2
+
+
+
+x + b
+
+2a
+
+2
+
++ b2 − 4ac 
+
+8a .
+
+Using the fact that R 
+
+> R
+
+e−x2
+
+= √π, by change of variable u = p a
+
+> 2
+
+ x + b
+
+> 2a
+
+, just plug it in and we shall finish the proof. 
+
+Theorem B.7 (Courant-Fischer minimax theorem in Teschl (2014)) . Let A be a compact, self-adjoint operator on a Hilbert space H. Its eigenvalues are listed in decreasing order 
+
+λ1 ≥ λ2 ≥ · · · ≥ λk ≥ · · · .
+
+Let Sk ⊂ H denote a k-dimensional subspace. Then, 
+
+λk = max 
+
+> Sk
+
+min   
+
+> α∈Sk,|| α|| =1
+
+⟨x, Ax ⟩ .
+
+Theorem B.8 (Sion’s Minimax Theorem in Sion (1958)) . Let X and Y be convex sets in linear topological spaces, and assume X is compact. Let f : X × Y → R be such that i) f (x, ·) is concave and upper semicontinuous over Y for all 
+
+x ∈ X and ii) f (·, y ) is convex and lower semicontinuous over X for all y ∈ Y . Then, 
+
+inf  
+
+> x∈X
+
+sup 
+
+> y∈Y
+
+f (x, y ) = sup 
+
+> y∈Y
+
+inf  
+
+> x∈X
+
+f (x, y ).
+
+Lemma B.9 (Example 27.1 Shalev-Shwartz & Ben-David (2014)) . Suppose that A is a compact set in Rm, and set 
+
+c = max a∈A || a|| , then N (r, A, || · || ) ≤
+
+ 2c√mr
+
+m
+
+13 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+## C. Proofs in Section 2 
+
+Proof of Theorem 2.8. Recall that 
+
+Lx,a (θ)( w) = 
+
+Z
+
+> Ω
+
+Kx,a (w, r )θ(r)dν (r).
+
+By definition, we have 0 ≤ K x,a (w, r ) = Kx,a (r, w ) ≤ 1, and 
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+Kx,a (w, r )2dν (w)dν (r) ≤ 1.
+
+Thus, Lx,a is a Hilbert-Schmidt integral operator and it is compact. By Cauchy-Schwarz inequality, we have 
+
+||L x,a (θ)|| 2 
+
+> L2(Ω ,ν )
+
+≤
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(r)2dν (r)
+
+Z
+
+> Ω
+
+Kx,a (w, r )2dν (r)dν (w) ≤ || θ|| L2(Ω ,ν ).
+
+Also, 
+
+⟨θ, Lx,a (θ)⟩ =
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(w)Kx,a (w, r )θ(r)dν (r)dν (w) ≥ 0.
+
+Therefore, Lx,a is positive operator with ||L x,a || ≤ 1. By direct calculation, we have 
+
+⟨θ1, Lx,a θ2⟩ =
+
+Z
+
+> Ω
+
+θ1(w)
+
+Z
+
+> Ω
+
+Kx,a (w, r )θ2(r)dν (r)dν (w)=
+
+Z
+
+> Ω
+
+θ2(r)
+
+Z
+
+> Ω
+
+Kx,a (w, r )θ1(w)dν (w)dν (r)= ⟨L x,a (θ1), θ 2⟩ .
+
+So we finish the proof. 
+
+## D. Proofs in Section 3 
+
+Proof of Theorem 3.4. We prove this theorem for general ε > 0. We first show that Pnj=1 
+
+R 
+
+> S
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s) ∈
+
+L2(Ω , ν ). We have 
+
+|| 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s)|| 2 
+
+> L2(Ω ,ν )
+
+≤
+
+> n
+
+X
+
+> j=1
+
+|| 
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s)|| 2
+
+> L2(Ω ,ν )
+
+≤ nν (Ω) < ∞.
+
+Now we define 
+
+θ0(w) ≜ U†D,ε 
+
+Z
+
+> Sn
+
+X
+
+> j=1
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s)
+
+ .
+
+Because there are only finite terms in the summation by the definition of U†D,ε , we have 
+
+|| θ0|| L2(Ω ,ν ) < ∞.
+
+Therefore, by the Cauchy-Schwarz inequality, we have 
+
+|
+
+Z
+
+> Ω
+
+θ0(w)ϕ(xj , a j , w, s )dν (w)|≤
+
+Z
+
+> Ω
+
+|θ0(w)ϕ(xj , a j , w, s )|dν (w)
+
+≤|| θ0|| L2(Ω ,ν )|| ϕ(xj , a j , ·, s )|| L2(Ω ,ν )
+
+≤|| θ0|| L2(Ω ,ν )
+
+pν(Ω) .
+
+14 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Recall we have m(S) = 1 < ∞ and |Iyj (s)| ≤ 1 for any j ∈ [n] and s ∈ S, which implies that 
+
+L(θ0, D) < ∞.
+
+On the other hand, for any θ ∈ Span( e1 · · · , e Nε ), we have 
+
+L(θ0 + θ, D) − L(θ0, D) = 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+θ(w)ϕ(xj , a j , w, s )
+
+2
+
+dm (s)+ 2 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+θ(w)ϕ(x)j, a j , w, s )dν (w)
+
+ Z 
+
+> Ω
+
+θ0(w)ϕ(xj , a j , w, s )dν (w) − Iyj (s)
+
+
+
+dm (s)
+
+We analyze this difference term by term. First, by algebra, it holds that 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+θ(w)ϕ(xj , a j , w, s )dν (w)
+
+ Z 
+
+> Ω
+
+θ0(w)ϕ(xj , a j , w, s )dν (w)
+
+
+
+dm (s)=
+
+Z
+
+> Ω
+
+θ(w)
+
+Z
+
+> Ω
+
+θ0(r)
+
+
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+ϕ(xj , a j , w, s )ϕ(xj , a j , r, s )dm (s)
+
+ dν (w)dν (r)=
+
+Z
+
+> Ω
+
+θ(w)
+
+> n
+
+X
+
+> j=1
+
+Lxj ,a j (θ0)( w)dν (w)= ⟨θ, UD (θ0)⟩ .
+
+Recall θ, θ 0 ∈ Span( e1 · · · , e Nε ), so we have 
+
+⟨θ, UD (θ0)⟩ =
+
+D
+
+θ, bUD,ε (θ0)
+
+E
+
+.
+
+Second, by direct calculation, we also have 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+θ(w)ϕ(xj , a j , w, s )dν (w)
+
+
+
+Iyj (s)dm (s)=
+
+Z
+
+> Ω
+
+θ(w)
+
+
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s)
+
+ dν (w)=
+
+*
+
+θ, 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , ·, s )dm (s)
+
++
+
+Given the condition that θ ∈ Span( e1 · · · , e Nε ), we have 
+
+*
+
+θ, 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , ·, s )dm (s)
+
++
+
+=
+
+> Nε
+
+X
+
+> i=1
+
+⟨θ, e i⟩
+
+* nX
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , ·, s )dm (s), e i
+
++
+
+Moreover, by the definition of θ0, we know that 
+
+D
+
+θ, bUD,ε (θ0)
+
+E
+
+=
+
+> Nε
+
+X
+
+> i=1
+
+⟨θ, e i⟩
+
+*
+
+λi · 1
+
+λinX
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , ·, s )dm (s), e i
+
++
+
+=
+
+> Nε
+
+X
+
+> i=1
+
+⟨θ, e i⟩
+
+* nX
+
+> j=1
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , ·, s )dm (s), e i
+
++
+
+.
+
+15 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Thus, 
+
+L(θ0 + θ, D) − L(θ0, D) = 
+
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+θ(w)ϕ(xj , a j , w, s )
+
+2
+
+dm (s) ≥ 0.
+
+Therefore, θ0 = θD,ε and we finish the proof. 
+
+Lemma D.1. Projection PD is non-expansive, which implies that 
+
+||P D (x) − P D (z)|| UD ≤ || x − z|| UD , ∀x, z ∈ L 2(Ω , ν ).
+
+Proof of Lemma D.1. By the fact that C is convex, we define the quadratic function h(μ) = || x−((1 − μ)PD (x) + μy ) || 2
+
+> UD
+
+for any x ∈ L2(Ω , ν ), y ∈ C . We expand it to get, 
+
+h(μ) = || (x − P D (x)) −μ(y −P D (x)) || 2 
+
+> UD
+
+= || x−P D (x)|| 2 
+
+> UD
+
+−2μ ⟨x − P D (x), UD (y − P D (x)) ⟩+μ2|| y −P D (x)|| 2 
+
+> UD
+
+.
+
+The vertex of h(μ) is 
+
+μ∗ = ⟨x − P D (x), UD (y − P D (x)) ⟩|| y − P D (x)|| 2
+
+> UD
+
+.
+
+Because PD (x) = argmin y∈C || y − x|| 2 
+
+> UD
+
+, we have μ∗ ≤ 0. Thus, 
+
+⟨x − P D (x), UD (y − P D (x)) ⟩ ≤ 0.
+
+Again, we abbreviate λi as λi(UD ) and ei as ei 
+
+> UD
+
+. By the spectral representation of UD , this is equivalent to 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨x − P D (x), e i⟩ ⟨ y − P D (x), e i⟩ ≤ 0. (2) This holds for all y ∈ C , so we set y = PD (z) in Equation (2) to get 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨x − P D (x), e i⟩ ⟨P D (z) − P D (x), e i⟩ ≤ 0. (3) On the other hand, we switch x, z in Equation (3) to get, 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨P D (z) − z, e i⟩ ⟨P D (z) − P D (x), e i⟩ ≤ 0. (4) Adding Equation (4) and Equation (3) to obtain 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨P D (z) − P D (x), e i⟩ ⟨P D (z) − P D (x), e i⟩ ≤ 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨z − x, e i⟩ ⟨P D (z) − P D (x), e i⟩ .
+
+By Cauchy-Schwartz inequality, we have, 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨z − x, e i⟩ ⟨P D (z) − P D (x), e i⟩ ≤ 
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨z − x, e i⟩2
+
+!1/2 ∞X
+
+> i=1
+
+λi ⟨P D (z) − P D (x), e i⟩2
+
+!1/2
+
+.
+
+Plugging this back, we get 
+
+(
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨P D (z) − P D (x), e i⟩2)1/2 ≤
+
+> ∞
+
+X
+
+> i=1
+
+λi ⟨z − x, e i⟩2
+
+!1/2
+
+,
+
+which is exactly ||P D (x) − P D (z)|| UD ≤ || x − z|| UD . So we finish the proof. 16 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Proof of Theorem 3.6. In this section, we also first prove for a general ε, and then we replace ε by ε∗ = n− 2 
+
+> γ+2
+
+to obtain our result. For the ease of notation, we use λi to denote λi(UD ) and ei to denote ei 
+
+> UD
+
+. We first compute the difference 
+
+θD,ε − θ∗
+
+=U†D,ε 
+
+Z
+
+> Sn
+
+X
+
+> j=1
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s)
+
+ −
+
+> ∞
+
+X
+
+> i=1
+
+⟨θ∗, e i⟩ ei
+
+=U†D,ε 
+
+Z
+
+> Sn
+
+X
+
+> j=1
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s)
+
+ − U †D,ε (UD (θ∗)) − X
+
+> i≥Nε+1
+
+⟨θ∗, e i⟩ ei
+
+=U†D,ε 
+
+Z
+
+> Sn
+
+X
+
+> j=1
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s) −
+
+Z
+
+> S
+
+Z
+
+> Ω
+
+θ∗(r)ϕ(xj , a j , r, s )dν (r)ϕ(xj , a j , w, s )dm (s)
+
+ − X
+
+> i≥Nε+1
+
+⟨θ∗, e i⟩ ei.
+
+(5) We define 
+
+Vj (w) ≜
+
+Z
+
+> S
+
+Iyj (s)ϕ(xj , a j , w, s )dm (s) −
+
+Z
+
+> S
+
+Z
+
+> Ω
+
+θ∗(r)ϕ(xj , a j , r, s )dν (r)ϕ(xj , a j , w, s )dm (s),Wn ≜
+
+> n
+
+X
+
+> j=1
+
+Vj .
+
+We apply norm || · || UD on both sides of Equation (5) yielding 
+
+|| θD,ε − θ∗|| UD ≤||U †D,ε (Wn)|| UD + || X
+
+> i≥Nε+1
+
+⟨θ∗, e i⟩ ei|| UD
+
+=|| Wn|| bU†D,ε 
+
++ || X
+
+> i≥Nε+1
+
+⟨θ∗, e i⟩ ei|| UD
+
+≤|| Wn|| bU†D,ε 
+
++ nεM (6) The equality is due to the definition of bU†D,ε . Hence, our analysis only needs to focus on the first term || Wn|| bU†D,ε 
+
+. We use 
+
+Fk to denote the σ-algebra generated by all the data from (x1, a 1, y 1) to (xk, a k, y k), and F∞ is σ(∪kFk) correspondingly. By the definition of Vj , we take expectation with respect to Fj−1 and obtain 
+
+E[Vj (w)|F j−1] = 
+
+Z
+
+> S
+
+Z
+
+> Ω
+
+θ∗(r)ϕ(xj , a j , r, s )dν (r)ϕ(xj , a j , w, s )dm (s)−θ∗(r)ϕ(xj , a j , r, s )dν (r)ϕ(xj , a j , w, s )dm (s) = 0 .
+
+Therefore, {Vj }j≥1 is a martingale difference sequence and consequently, Wk = Pkj=1 Vj is a martingale. For any 
+
+α ∈ L2(Ω , ν ), we define Mk(α) ≜ exp ⟨α, W k⟩ − 12 || α|| 2 
+
+> UD
+
+. Moreover, we define M0(α) = 1 for any α. We have the following Lemma D.2 that {Mk(α)}k≥0 is a non-negative supermartingale. 
+
+Lemma D.2. {Mk(α)}k≥0 is a non-negative supermartingale. 
+
+Define ζ = {ζi}∞ 
+
+> i=1
+
+as an infinite sequence of i.i.d. standard Gaussian random variables. We use Fζ to denote the 
+
+σ(ζ1, ζ 2, · · · ). Define 
+
+β ≜
+
+> Nε
+
+X
+
+> i=1
+
+ζiei,
+
+Because there are only finite terms in the summation, it holds that 
+
+E[|| β|| 2
+
+> L2(Ω ,ν )
+
+] < ∞.
+
+17 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Thus, we have || β|| L2(Ω ,ν ) < ∞ a.s. and β ∈ L2(Ω , ν ).Denoting M k as E[Mk(β)|F ∞], we now verify that this is also a non-negative supermartingale. 
+
+E[M k|F k−1] = E[Mk(β)|F k−1]= E[E[Mk(β)|F ζ , Fk−1]|F k−1]
+
+≤ E[E[Mk−1(β)|F ζ , Fk−1]|F k−1]= E[E[Mk−1(β)|F ζ , F∞]|F k−1]= E[E[Mk−1(β)|F ∞]|F k−1]= M k−1.
+
+Furthermore, the integral of |M n| could be upper bounded by, 
+
+E[|M k|] = E[M n] = E[Mk(β)] = E[E[Mk(β)|F ζ ]] ≤ E[M0(β)] = 1 .
+
+Therefore, M k n≥k≥0 is a non-negative supermartingale with a uniform expectation upper bound. On the other hand, we can directly calculate M n. We use wi to denote ⟨Wn, e i⟩ for simplicity. Then, it holds that 
+
+Mn(β) = exp 
+
+
+
+⟨β, W n⟩ − 12 || β|| 2
+
+> UD
+
+
+
+= exp 
+
+( NεX
+
+> i=1
+
+wiζi − 12
+
+> Nε
+
+X
+
+> i=1
+
+λiζ2
+
+> i
+
+)
+
+,
+
+and 
+
+M n =
+
+Z
+
+> RNε
+
+exp 
+
+( NεX
+
+> i=1
+
+wiζi − 12
+
+> Nε
+
+X
+
+> i=1
+
+ λiζ2 
+
+> i
+
++ ζ2
+
+> i
+
+)
+
+1
+
+√2π dζ 1
+
+1
+
+√2π dζ 2 · · · 1
+
+√2π dζ Nε
+
+=
+
+> Nε
+
+Y
+
+> i=1
+
+Z 
+
+> R
+
+exp 
+
+
+
+wiζi − λi + 1 2 ζ2
+
+> i
+
+ 1
+
+√2π dζ i
+
+
+
+.
+
+Then, by Lemma B.6, we have 
+
+M n = 1
+
+qQNε
+
+> i=1
+
+(1 + λi)exp 
+
+( NεX
+
+> i=1
+
+w2
+
+> i
+
+2(1 + λi)
+
+)
+
+≥ 1
+
+qQNε
+
+> i=1
+
+(1 + λi)exp 
+
+ 12(1 + 1 /(nε )) || Wn|| 2
+
+> U†D,ε
+
+
+
+.
+
+Applying Theorem B.5, we derive 
+
+P
+
+ 1
+
+qQNε
+
+> i=1
+
+(1 + λi)exp 
+
+ 12(1 + 1 /(nε )) || Wn|| 2
+
+> U†D,ε
+
+
+
+≥ 1
+
+δ
+
+ ≤ δ, 
+
+which implies that with probability 1 − δ,
+
+|| Wn|| 2
+
+> U†D,ε
+
+< 2(1 + 1 /(nε )) 
+
+"
+
+log( 1
+
+δ ) + 12
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi)
+
+#
+
+.
+
+Combined with Equation (6), it indicates that with probability 1 − δ,
+
+|| θD,ε − θ∗|| UD ≤
+
+vuut2(1 + 1 /(nε )) 
+
+"
+
+log( 1
+
+δ ) + 12
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi)
+
+#
+
++ nεM. 
+
+Noting that projection mapping is non-expansive by Lemma D.1, we have 
+
+||P D (θD,ε ) − P D (θ∗)|| UD = || bθD,ε − θ∗|| UD ≤ || θD,ε − θ∗|| UD .
+
+18 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Finally, we conclude that 
+
+|| bθD,ε − θ∗|| UD ≤
+
+vuut(1 + 1 /nε ) 2 log( 1
+
+δ ) + 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi)
+
+!
+
++ nεM. 
+
+We define 
+
+Eδ
+
+> D,ε
+
+(n) ≜
+
+vuut2 2 log( 1
+
+δ ) + 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi)
+
+!
+
++ nεM. 
+
+Setting ε = ε∗ = n− 2 
+
+> γ+2
+
+and notice that 1 
+
+> nε
+
+= n− γγ+2 ≤ 1, So we finish the proof. 
+
+Proof of Lemma D.2. By definition, we know that Mk(α) is Fk-measurable. Consequently, it holds that 
+
+E [Mk(α)|F k−1] Mk−1(α) = E
+
+
+
+exp {α, V k} − 12
+
+Z
+
+> S
+
+ψxk ,a k (α, t )2dm (s)|F k−1
+
+
+
+=Mk−1(α) E [exp {α, V k} |F k−1]exp  12
+
+R 
+
+> S
+
+ψxk ,a k (α, t )2dm (s)
+
+Since − R 
+
+> S
+
+|ψxk ,a k (α, t )|dm (s) ≤ ⟨ α, V k⟩ ≤ R 
+
+> S
+
+|ψxk ,a k (α, t )|dm (s), according to Hoeffding’s lemma (Hoeffding, 1994), we have 
+
+E [exp {α, V k} |F k−1] ≤ exp 
+
+(
+
+48
+
+Z 
+
+> S
+
+|ψxk ,a k (α, t )|dm (s)
+
+2)
+
+≤ exp 
+
+ 12
+
+Z
+
+> S
+
+ψxk ,a k (α, t )2dm (s)
+
+
+
+.
+
+Then we have 
+
+E [Mk(α)|F k−1] ≤ Mk−1(α) exp  12
+
+R 
+
+> S
+
+ψxk ,a k (α, t )2dm (s)
+
+exp  12
+
+R 
+
+> S
+
+ψxk ,a k (α, t )2dm (s) = Mk−1(α).
+
+We finish the proof. 
+
+Proof of Lemma 3.7. For any k fixed, by Theorem B.7, we have, 
+
+λk(UD ) = max    
+
+> Sk,dim( Sk)= k
+
+min   
+
+> α∈Sk,|| α|| =1
+
+⟨α, (Lx1,a 1 + · · · + Lxn,a n )( α)⟩
+
+= max    
+
+> Sk,dim( Sk)= k
+
+min  
+
+> α∈Sk,|| α|| =1
+> n
+
+X
+
+> j=1
+
+⟨α, Lxj ,a j (α)⟩≤ max    
+
+> Sk,dim( Sk)= k
+
+min   
+
+> α∈Sk,|| α|| =1
+
+max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+n ⟨α, L(α)⟩
+
+Notice that for any Sk fixed, the set {α ∈ Sk, || α|| = 1 } is both compact and convex. By Assumption 2.10, we also know that 
+
+{L x,a : x ∈ X , a ∈ A} is convex. We regard ⟨α, L(α)⟩ as a function of both α and L. Then, function f (α, L) ≜ ⟨α, L(α)⟩
+
+is linear in L, and so f (α, L) is continuous and concave in L. On the other hand, f (α, L) is the square of some norm || · || L
+
+and thus it is convex and continuous in α. We apply Theorem B.8 to get 
+
+max    
+
+> Sk,dim( Sk)= k
+
+min   
+
+> α∈Sk,|| α|| =1
+
+max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+⟨α, L(α)⟩
+
+= max    
+
+> Sk,dim( Sk)= k
+
+max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+min   
+
+> α∈Sk,|| α|| =1
+
+⟨α, L(α)⟩
+
+= max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+max    
+
+> Sk,dim( Sk)= k
+
+min   
+
+> α∈Sk,|| α|| =1
+
+⟨α, L(α)⟩ .
+
+The last inequality holds because we can swap the order of two supremums. Using Theorem B.7 once again, we have 
+
+max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+max    
+
+> Sk,dim( Sk)= k
+
+min   
+
+> α∈Sk,|| α|| =1
+
+⟨α, L(α)⟩ = max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+λk(L).
+
+19 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Combining these parts together, it holds that 
+
+λk(UD ) ≤ n max   
+
+> L∈{L x,a :x∈X ,a ∈A}
+
+λk(L) ≤ nτ i.
+
+Thus, we have 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi(UD )) = 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi
+
+nε nε ) ≤
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + nτ i
+
+nε nε )
+
+Because for ∀1 ≤ i ≤ Nε, it holds that 
+
+nε ≤ λi ≤ nτ i,
+
+we have 
+
+> N ε
+
+X
+
+> i=1
+
+log(1 + nτ i
+
+nε nε ) = 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + nτ i) ≤
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + nτ 1−γi εγ τ γi
+
+εγ ) ≤
+
+> Nε
+
+X
+
+> i=1
+
+τ γi
+
+εγ log(1 + nτ 1−γi εγ ) ≤ log(1 + εγ n)
+
+εγNεX
+
+> i=1
+
+τi,
+
+which implies 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi(UD )) ≤ log(1 + εγ n)
+
+εγNεX
+
+> i=1
+
+τi. (7) Plugging Equation (7) back to the definition of Eδ
+
+> D,ε
+
+(n), we have, 
+
+Eδ
+
+> D,ε
+
+(n) = 
+
+vuut2 2 log( 1
+
+δ ) + 
+
+> Nε
+
+X
+
+> i=1
+
+log(1 + λi)
+
+!
+
++ nεM 
+
+≤
+
+vuut2 2 log( 1
+
+δ ) + log(1 + εγ n)
+
+εγNεX
+
+> i=1
+
+τi
+
+!
+
++ nεM 
+
+≤
+
+s
+
+2
+
+
+
+2 log( 1
+
+δ ) + log(1 + εγ n)
+
+εγ s0
+
+
+
++ nεM. 
+
+Setting ε∗ = n− 2 
+
+> γ+2
+
+, we get 
+
+Eδ 
+
+> D,ε ∗
+
+(n) ≤
+
+q
+
+4 log(1 /δ ) + 2 s0n 2γγ+2 log(1 + n) + n γγ+2 M. 
+
+The RHS has nothing to do with D but the information |D| = n. Therefore, we define Eδ (n) ≜ 2 log(1 /δ )1/2 +
+
+2ps0 log(1 + n) + M
+
+
+
+n γγ+2 . By the fact that √a + b ≤ √a + √b, we obtain, 
+
+Eδ 
+
+> D,ε ∗
+
+(n) ≤ E δ (n) = 2 log(1 /δ )1/2 +
+
+
+
+2ps0 log(1 + n) + M
+
+
+
+n γγ+2 .
+
+Thus, we finish the proof. 
+
+Proof of Theorem 3.10. Denoting Kx,a (w, r ) as gw,r (x, a ), we get a function family indexed by Ω × Ω, G =
+
+{gw,r (x, a ) : ( w, r ) ∈ Ω × Ω}. We first consider all the rational points in Ω × Ω which forms a countable subset 
+
+{(wq , r q )}∞ 
+
+> q=1
+
+and induces a countable subset of GQ = gwq ,r q (x, a ) ∞
+
+> q=1
+
+. By Theorem 3.4.5 in Gin ´e & Nickl (2021), we have, for any δ > 0,
+
+P
+
+sup 
+
+> q
+
+|gwq ,r q (x, a ) −
+
+Z 
+
+> X,A
+
+gwq ,r q (x, a )dQ | ≥ 2E
+
+sup 
+
+> q
+
+1
+
+n
+
+> n
+
+X
+
+> j=1
+
+ϵj gwq ,r q (xj , a j )
+
+ +
+
+r 2 log(1 /δ )
+
+n
+
+ ≤ δ. 
+
+20 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+By the density of rational numbers in real numbers and g is 2L0-Lipschitz continuous in (w, r ), we know that 
+
+P
+
+sup 
+
+> g∈G
+
+gw,r (x, a ) −
+
+Z 
+
+> X,A
+
+gw,r (x, a )dQ | ≥ 2E
+
+sup 
+
+> g∈G
+
+1
+
+n
+
+> n
+
+X
+
+> j=1
+
+ϵj gw,r (xj , a j )
+
+ +
+
+r 2 log(1 /δ )
+
+n
+
+ ≤ δ. 
+
+Now we try to bound the Rademacher complexity term E
+
+h
+
+sup g∈G 1
+
+> n
+
+Pnj=1 ϵj gw,r (xj , a j )
+
+i
+
+. Recall that we have N (t, Ω2, ||· || ∞) ≤ ( At )2d, || gw1,r 1 (x, a ) − gw2,r 2 (x, a )|| ∞ ≤ 2L0|| (w1, r 1) − (w2, r 2)|| ∞. Then, 
+
+N (t, G, || · || ∞) ≤ ( 2L0At )2d.
+
+Then, by Dudley’s integral entropy bound and using || g|| ∞ ≤ 1, we have 
+
+Eε sup 
+
+> g∈G
+
+1
+
+n
+
+> n
+
+X
+
+> j=1
+
+ϵj g(xj , a j ) ≤ 12 
+
+√n
+
+Z 10
+
+plog N (y, || · || ∞, G)dy ≤ 24 √d
+
+√n
+
+plog(2 L0A).
+
+For the simplicity of notation, we use Q(Kx,a (w, r )) to denote R 
+
+> X,A
+
+R 
+
+> S
+
+ϕ(x, a, w, s )ϕ(x, a, r, s )dm (s)dQ and 
+
+Qn(Kx,a (w, r )) to denote its empirical counterpart. Combining all the parts above together, we have that with prob-ability at least 1 − δ,
+
+sup 
+
+> (w,r )
+
+|Q(Kx,a (w, r )) − Qn(Kx,a (w, r )) | ≤ 48 pd log(2 L0A)
+
+√n +
+
+p2 log(1 /δ )
+
+√n .
+
+By Assumption 3.9, we get with probability at least 1 − δ,
+
+sup 
+
+> (w,r )
+
+Q(Kx,a (w, r )) 
+
+Qn(Kx,a (w, r )) − 1 ≤ 48 pd log(2 L0A)
+
+η√n +
+
+p2 log(1 /δ )
+
+η√n .
+
+Recalling that UD = Pnj=1 
+
+R 
+
+> Ω
+
+Kxj ,a j (w, r )dm (s)dν (r), our bound in Corollary 3.8 yields with probability at least 1 − δ,the following bound holds that 
+
+|| bθD − θ∗|| UD ≤ E δ (n).
+
+We use U∗ to denote the integral operator induced by kernel n R 
+
+> X,A
+
+R 
+
+> S
+
+ϕ(x, a, w, t )ϕ(x, a, r, t )dm (s)dQ x,a and UD is its empirical counterpart. Therefore, for any θ, we have that 
+
+⟨θ, U∗(θ)⟩ =
+
+Z
+
+> Ω
+
+θ(w)
+
+Z
+
+> Ω
+
+n
+
+Z 
+
+> X,A
+
+Z
+
+> S
+
+θ(r)ϕ(x, a, w, t )ϕ(x, a, r, t )dm (s)dQ x,a dν (r)dν (w)= n
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(w)θ(r)Q(K(w, r )) dν (w)dν (r),
+
+⟨θ, UD (θ)⟩ =
+
+Z
+
+> Ω
+
+θ(w)
+
+Z
+
+> Ω
+> n
+
+X
+
+> j=1
+
+Z
+
+> S
+
+θ(r)ϕ(xj , a j , w, s )ϕ(xj , a j , r, s )dm (s)dν (w)dν (r)= n
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(w)θ(r)Qn(K(w, r )) dν (w)dν (r).
+
+Combining these two equations and the concentration analysis above, we conclude that with probability at least 1 − δ,
+
+⟨θ, U∗(θ)⟩ = n
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(w)θ(r)Q(K(w, r )) dν (w)dν (r)= n
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(w)θ(r)
+
+ Q(K(w, r )) 
+
+Qn(K(w, r )) 
+
+
+
+Qn(K(w, r )) dν (w)dν (r)
+
+≤ 1 + 48 pd log(2 L0A) + 2 plog(1 /δ )
+
+η√n
+
+!
+
+n
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+θ(w)θ(r)Qn(K(w, r )) dν (w)dν (r)= 1 + 48 pd log(2 L0A) + 2 plog(1 /δ )
+
+η√n
+
+!
+
+⟨θ, UD (θ)⟩ .
+
+21 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Replacing the general θ by bθD − θ∗ an using Corollary 3.8, it holds that, with probability at least 1 − 2δ,
+
+|| bθD − θ∗|| U∗ ≤ 1 + 48 pd log(2 L0A) + 2 plog(1 /δ )
+
+η√n
+
+!1/2
+
+Eδ (n).
+
+On the other hand, by directly calculating || bθD − θ∗|| 2 
+
+> U∗
+
+, we find that 
+
+|| bθD − θ∗|| 2 
+
+> U∗
+
+=
+
+DbθD,ε − θ∗, U∗(bθD − θ∗)
+
+E
+
+=n
+
+Z 
+
+> X,A
+
+Z
+
+> Ω
+
+bθD − θ∗
+
+(w)
+
+Z
+
+> Ω
+
+bθD − θ∗
+
+(r)ϕ(x, a, w, t )ϕ(x, a, r, t )dm (s)dν (w)dν (r)dQ x,a 
+
+=n
+
+Z 
+
+> X,A
+
+Z
+
+> S
+
+Z 
+
+> Ω
+
+bθD − θ∗
+
+(w)ϕ(x, a, w, t )dν (w)
+
+ Z 
+
+> Ω
+
+bθD − θ∗
+
+(r)ϕ(x, a, r, t )dν (r)
+
+
+
+dm (s)dQ x,a 
+
+=nEx,a 
+
+h
+
+|| bFD (x, a, s ) − F ∗(x, a, s )|| 2
+
+> L2(S,m )
+
+i
+
+.
+
+Assembling all these parts, we finally get the following inequality, 
+
+Ex,a 
+
+h
+
+|| bFD (x, a, s ) − F ∗(x, a, s )|| 2
+
+> L2(S,m )
+
+i
+
+≤
+
+
+
+1 + (48 pd log(2 L0A) + 2 plog(1 /δ )) /η 
+
+
+
+Eδ (n)2
+
+n .
+
+By Lemma 3.7, we know that 
+
+Eδ (n) ≜ 2 log(1 /δ )1/2 +
+
+
+
+2ps0 log(1 + n) + M
+
+
+
+n γγ+2 .
+
+By denoting C(d, L 0, δ, A, η ) as 
+
+
+
+1 + (48 pd log(2 L0A) + 2 plog(1 /δ )) /η 
+
+
+
+, we finish our proof. 
+
+## E. Proofs in Section 4 
+
+Lemma E.1 ((Simchi-Levi & Xu, 2021)) . Assume that we are given an offline regression oracle RegOff and i.i.d. data 
+
+D = {(xi, a i, r i)}ni=1 where E[ri|xi, a i] = f ∗(xi, a i). With probability at least 1 − δ, it returns bf : X × A → R such that 
+
+Ex,a 
+
+ bf (x, a ) − f ∗(x, a )
+
+2
+
+≤ Est δ (n)
+
+n
+
+for some number Est δ (n). Then, define epoch schedule ξm = 2 m and exploration parameter ςm = 12
+
+pK/ Est δ/m 2 (ξm−1).For any t, let m(t) be the number of epochs that round t lies in. For any T large enough, with probability at least 1 − δ, the regret of Algorithm 2 after T rounds is at most 
+
+O
+
+√K 
+
+> m(T)
+
+X
+
+> m=2
+
+s
+
+Est δ/ (2 m2)(ξm−1 − ξm−2)
+
+ξm−1 − ξm−2
+
+(ξm − ξm−1)
+
+ .
+
+Proof of Theorem 4.2. From our regression oracle, we have that 
+
+Est δ (n)
+
+n = L2C(d, L 0, δ/ 2, A, η )Eδ/ 2(n)2
+
+n
+
+22 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+By applying Lemma E.1 and plugging in the choices that ξm = 2 m, we get Reg (T )
+
+≤O 
+
+√K 
+
+> m(T)
+
+X
+
+> m=2
+
+s
+
+Est δ/ (2 m2)(ξm−1 − ξm−2)
+
+ξm−1 − ξm−2
+
+(ξm − ξm−1)
+
+ + O(1) 
+
+≤O 
+
+√KL  
+
+> m(T)
+
+X
+
+> m=2
+
+pC(d, L 0, δ/ 4m2, A, η ) Eδ/ (4 m2)(ξm−1 − ξm−2)
+
+pξm−1 − ξm−2
+
+(ξm − ξm−1) + 1 
+
+
+
+≤O 
+
+√KL  
+
+> m(T)
+
+X
+
+> m=2
+
+pC(d, L 0, δ/ 4m2, A, η )2 log(4 m2/δ )1/2 +
+
+
+
+2ps0 log(1 + 2 m−2) + M
+
+
+
+(2 m−2) γγ+2 
+
+2m/ 2−1 · 2m−1 + 1 
+
+
+
+(8) By our epoch schedule, it holds that m(T ) ≤ ⌈ log 2(T )⌉. By Theorem 3.10, we know 
+
+C(d, L 0, δ/ 4m2, A, η ) = 
+
+
+
+1 + (48 pd log(2 L0A) + 2 plog(4 m2/δ )) /η 
+
+
+
+≤ 192 pd log(2 L0A)
+
+η
+
+p2 log( m/δ ).
+
+Thus, 
+
+C(d, L 0, δ/ 4m2, A, η ) ≤ O 
+
+pd log(2 L0A)
+
+η
+
+plog( m/δ )
+
+!
+
+.
+
+Therefore, for Equation (8), we further have Reg (T ) ≤O 
+
+ LpdK log(2 L0A)
+
+η
+
+plog( m/δ ) 
+
+> m(T)
+
+X
+
+> m=2
+
+
+
+(log(log T /δ )) 1/2 +
+
+p s0 log(1 + log T ) + M
+
+
+
+2 γ(m−2) (γ+2) 
+
+
+
+2m/ 2
+
+ .
+
+Denote the number L√dK log(2 L0A) 
+
+> η
+
+as eC(K, L, L 0, A, d, η ). We have, 
+
+O
+
+ LpdK log(2 L0A)
+
+η
+
+plog( m/δ ) 
+
+> m(T)
+
+X
+
+> m=2
+
+
+
+(log(log T /δ )) 1/2 +
+
+p s0 log(1 + T ) + M
+
+
+
+2 γ(m−2) (γ+2) 
+
+
+
+2m/ 2
+
+
+
+≤ eC(K, L, L 0, A, d, η )O
+
+log(log T /δ ) 
+
+> m(T)
+
+X
+
+> m=2
+
+2m/ 2 + (log log T /δ )1/2 
+
+> m(T)
+
+X
+
+> m=2
+
+p s0 log(1 + log T ) + M
+
+
+
+2 (3 γ+2) m
+
+> 2( γ+2)
+
+
+
+≤ eC(K, L, L 0, A, d, η )O
+
+
+
+log(log T /δ )√T +
+
+
+
+s1/20 + M
+
+
+
+(log log T /δ )T 3γ+2 2( γ+2) 
+
+
+
+≤ eC(K, L, L 0, A, d, η )
+
+
+
+(s1/20 + M ) ∨ 1
+
+
+
+O
+
+
+
+log(log T /δ )
+
+√T + T 3γ+2 2( γ+2) 
+
+ 
+
+.
+
+Proof of Theorem 4.1. By the L-Lipschitz continuity of T , we have 
+
+Ex,a 
+
+
+
+T ( bFD (x, a, s )) − T (F ∗(x, a, s )) 
+
+2
+
+≤ Ex,a 
+
+h
+
+L2|| bFD (x, a, s ) − F ∗(x, a, s )|| 2
+
+> L2(S,m )
+
+i
+
+Then we apply Theorem 3.10 and replace 2δ by δ in the claim of Theorem 3.10. Thus, with probability 1 − δ,
+
+E(x,a )∼Q
+
+h
+
+|| bFD (x, a, s ) − F ∗(x, a, s )|| 2
+
+> L2(S,m )
+
+i
+
+≤ C(d, L 0, δ/ 2, A, η )Eδ/ 2(n)2
+
+n .
+
+Combining these two inequalities together, we shall get our result. 23 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+## F. Computation 
+
+Given the theorems and properties we have established, a natural and fundamental question arises: how can we numerically compute the eigenvalues and eigenfunctions of an infinite-dimensional operator? In fact, within the applied functional analysis community, there is a wide range of methods for numerically solving the eigenvalues and eigenfunctions of integral operators in infinite-dimensional spaces (for example, see Chatelin (2011); Ray & Sahu (2013); Chatelin (1981); Kohn (1972); Ahues et al. (2001); Panigrahi (2017) for reference), including the Galerkin method, the Rayleigh-Ritz method, quadrature approximation methods and so on. In this section, we will briefly introduce one method based on degenerate kernels for calculating the eigenvalues and eigenfunctions as an illustration. Please see Gnaneshwar (2007) for full details. We assume that Ω = [0 , 1] and an integral operator C is defined as C[x]( s) = R 10 k(s, t )x(t)dt . The basic idea of Algorithm 3 is to construct a finite-dimensional integral kernel kNh to approximate k holding the property that the differences between their eigenvalues and eigenfunctions are small enough to be ignored. Therefore, to solve the eigenvalues and eigenfunctions for the kernel k, we can instead solve them for kNh , which is finite-dimensional and can be readily transformed into a matrix eigenvalue problem. We present the pseudo-code in Algorithm 3 and omit the theoretical approximation analysis here. Please refer to Gnaneshwar (2007) for concrete theoretical guarantees. 
+
+Algorithm 3 Degenerate Kernel Method 
+
+Require: partition number n, kernel k(s, t ), degree number r and corresponding Legendre polynomials Lr (t) =  
+
+> dr
+> dt r
+
+(t2 − 1) r .Partition [0 , 1] into n intervals, 0 = x0 < x 1 < x 2 < · · · < x n−1 < x n = 1 , Ik = [ xk−1, x k], h = max |Ik|. Set 
+
+fk(t) = 1−t 
+
+> 2
+
+xk−1 + 1+ k 
+
+> 2
+
+xk, −1 ≤ t ≤ 1.Define Pr as the space of polynomials of degree ≤ r − 1. Denote Nh = nr .Define piecewise polynomial space associated with Pr
+
+Srh =
+
+n
+
+u : [0 , 1] → R : u Ik
+
+∈ P r , 1 ≤ k ≤ n
+
+o
+
+.
+
+Find the Gauss point set (zeros set) of Lr (t) in [0 , 1] , Br = {y1 · · · , y r }.Let A = ∪nk=1 fk(Br ) = {ωi,k = fk(yi) : 1 ∈ [r], k ∈ [n]} and li(x) be the Lagrange polynomials of degree r − 1 with respect to y1 · · · , y r such that li(yj ) = δij .Define ρjp (x) = 
+
+(
+
+lj (f −1 
+
+> p
+
+(x)) x ∈ [xp−1, x p]0 otherwise .
+
+Notice ρjp ∈ S rh and ρjp (ωik ) = δji δkp , for i, j ∈ [r], k, p ∈ [n]. Set t(k−1) r+j = ωjk , z(k−1) r+j = ρjk , for k, p ∈ [n].Let Srh ⊗ S rh be the tensor product space of Srh with dimension Nh = nr .Define degenerate kernel 
+
+kNh (s, t ) = 
+
+> Nh
+
+X
+
+> i=1
+> Nh
+
+X
+
+> j=1
+
+k(ωi, ω j )zi(s)zj (t),
+
+which induces a degenerate kernel operator 
+
+CNh (x)( s) = 
+
+Z 10
+
+> Nh
+
+X
+
+> i=1
+> Nh
+
+X
+
+> j=1
+
+k(ωi, ω j )zi(s)zj (t)x(t)dt. 
+
+Solve the eigenvalue problem for the Nh-dimensional integral kernel kNh .We now provide a method to solve the eigenvalue problem for the finite-dimensional kernel kNh for completeness. 
+
+Solve eigenvalue problem for finite-dimensional kNh : Consider the following formula that 
+
+λ · g(s) = 
+
+Z 10
+
+> Nh
+
+X
+
+> i=1
+> Nh
+
+X
+
+> j=1
+
+k(ωi, ω j )zi(s)zj (t)g(t)dt. (9) 24 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Here, λ stands for the unknown eigenvalue and g is the corresponding eigenfunction. Define ci ≜
+
+> 1
+> λ
+
+R 10
+
+PNh 
+
+> j=1
+
+k(ωi, ω j )zj (t)g(t)dt, i ∈ [Nh], and c = ( c1, c 2, · · · , c Nh ) is an unknown vector in RNh which we will solve for. Then, we can rewrite Equation (9) as 
+
+g(s) = 
+
+> Nh
+
+X
+
+> i=1
+
+cizj (s). (10) Plugging Equation (10) back to the definition of ci, it holds that 
+
+ci = 1
+
+λ
+
+Z 10
+
+> Nh
+
+X
+
+> j=1
+
+k(ωi, ω j )zj (t)
+
+> Nh
+
+X
+
+> k=1
+
+ckzk(t)dt = 1
+
+λ
+
+> Nh
+
+X
+
+> j=1
+> Nh
+
+X
+
+> k=1
+
+ckk(ωi, ω j )
+
+Z 10
+
+zj (t)zk(t)dt, i ∈ [Nh], (11) which is equivalent to 
+
+λ · ci =
+
+Z 10
+
+> Nh
+
+X
+
+> j=1
+
+k(ωi, ω j )zj (t)
+
+> Nh
+
+X
+
+> k=1
+
+ckzk(t)dt =
+
+> Nh
+
+X
+
+> j=1
+> Nh
+
+X
+
+> k=1
+
+ckk(ωi, ω j )
+
+Z 10
+
+zj (t)zk(t)dt, i ∈ [Nh]. (12) Note that within the implementation of Algorithm 3, both k(ωi, ω j ) and zj (t), z k(t) are known to us. Besides, the right hand side of Equation (12) is linear with respect to c.Define bik = PNh 
+
+> j=1
+
+k(ωi, ω j ) R 10 zj (t)zk(t)dt . Then, Equation (12) is equivalent to 
+
+λ ·
+
+
+
+c1
+
+c2
+
+...
+
+cNh
+
+ =
+
+
+
+b11 b12 · · · b1Nh
+
+b21 b22 · · · b2Nh
+
+... ... ... ...
+
+bNh1 bNh2 · · · bNhNh
+
+ ·
+
+
+
+c1
+
+c2
+
+...
+
+cNh
+
+ .
+
+Equation (12) finally turns out to be a matrix eigenvalue problem with unknown eigenvector c = ( c1, c 2 · · · , c Nh )T and eigenvalue λ. We could solve this matrix eigenvalue problem to acquire (c1, c 2 · · · , c Nh ) and eigenvalue λ. Eventually, we derive the eigenfunction associated with λ for kernel kNh using Equation (10), i.e., g(s) = PNh 
+
+> i=1
+
+cizi(s).
+
+## G. Auxiliary Results 
+
+Definition G.1 (Gohberg et al. (2012)) . Let A be a compact operator in Hilbert space H and let λ1(A∗A) ≥ λ2(A∗A) ≥ · · · 
+
+be the sequence of non-zero eigenvalues of A∗A. A∗ is the adjoint operator of A. Then the j th singular value of A s j (A) is defined as 
+
+sj (A) ≜ (λj (A∗A)) 1/2.
+
+Property G.2 . For any self-adjoint positive Hilbert-Schmidt integral operator U, it holds that 
+
+λj (U) = sj (U) for ∀ j. 
+
+Proof. We denote the integral kernel of U as K. Because U is self-adjoint positive Hilbert-Schmidt integral operator, then for ∀ θ,
+
+U(θ) = 
+
+> ∞
+
+X
+
+> i=1
+
+λi(U) ⟨θ, e i⟩ ei.
+
+Therefore, 
+
+U(U(θ)) = 
+
+> ∞
+
+X
+
+> i=1
+
+λ2 
+
+> i
+
+⟨θ, e i⟩ ei.
+
+Because U∗ = U, we finish the proof. 25 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+Theorem G.3 (Corollary 3.6 in Gohberg et al. (2012)) . If A and B are compact operators on the Hilbert space H, then for any n, nX
+
+> j=1
+
+sj (A + B) ≤
+
+> n
+
+X
+
+> j=1
+
+sj (A) + 
+
+> n
+
+X
+
+> j=1
+
+sj (B).
+
+Theorem G.4 (Corollary 4.2 in Gohberg et al. (2012)) . Let A and B be compact operators on a Hilbert space H, then for any p > 0 and any k, kX
+
+> j=1
+
+spj (AB ) ≤
+
+> k
+
+X
+
+> j=1
+
+spj (A)spj (B),
+
+and kX
+
+> j=1
+
+sj (AB ) ≤
+
+> k
+
+X
+
+> j=1
+
+sj (A)sj (B).
+
+Now we introduce the functional determinant of a trace class operator. We notice here that the formal definition of functional determinant requires exterior product and tensorization of the Hilbert space H. Nonetheless, by Lidskii’s Theorem (Simon, 2005), we are able to achieve an equivalent characterization of it, so we directly use this characterization as a definition for simplicity. 
+
+Definition G.5 (Theorem 3.4.7 in Kostenko) . For any trace class operator A, the functional determinant det( I + zA ) is defined as 
+
+det( I + zA ) ≜ Y
+
+> i
+
+(1 + zλ i(A)) , ∀z ∈ C.
+
+Theorem G.6 (Theorem 3.10 in Simon (2005)) . Suppose the integral operator A is defined as Af (x) = R 
+
+> Ω
+
+K(x, y )f (y)dy ,where Ω is compact and K(x, y ) is continuous on Ω × Ω. Then, it holds that 
+
+tr (A) = 
+
+Z
+
+> Ω
+
+K(x, x )dx. 
+
+In the meanwhile, 
+
+det( I + A) = 
+
+> ∞
+
+X
+
+> i=0
+
+αm
+
+m! ,
+
+where 
+
+αm =
+
+Z
+
+> Ω
+
+Z
+
+> Ω
+
+· · · 
+
+Z
+
+> Ω
+
+det[( K(xi, x j )) 1≤i,j ≤m]dx 1dx 2 · · · dx m, ∀ m ≥ 1.
+
+We conventionally set α0 = 1 .
+
+Now we are ready to analyze the integral operator Lx,a and UD in our paper. 
+
+Lemma G.7. For any x, a , det(1 + Lx,a ) ≤ e.Proof of Lemma G.7. We apply Theorem G.6 to the operator Lx,a . The associated integral kernel is Kx,a (w, r ) = R 
+
+> S
+
+ϕ(x, a, w, t )ϕ(x, a, r, t )dm (t). Therefore, by Theorem G.6, we have 
+
+(K(wi, w j )) mi,j =1 
+
+=
+
+R ϕ(x, a, w 1, t )2dt R ϕ(x, a, w 1, t )ϕ(x, a, w 2, t )dt · · · R ϕ(x, a, w 1, t )ϕ(x, a, w m, t )dt R ϕ(x, a, w 2, t )ϕ(x, a, w 1, t )dt R ϕ(x, a, w 2, t )2dt · · · R ϕ(x, a, w 2, t )ϕ(x, a, w m, t )dt 
+
+... ... ... ...R ϕ(x, a, w m, t )ϕ(x, a, w 1, t )dt R ϕ(x, a, w m, t )ϕ(x, a, w 2, t )dt · · · R ϕ(x, a, w m, t )2dt 
+
+
+
+This is a symmetric matrix and 
+
+> m
+
+X
+
+> i=1
+
+λi(( K(wi, w j )) mi,j =1 ) = 
+
+> m
+
+X
+
+> i=1
+
+Z
+
+> S
+
+ϕ(x, a, w i, t )2dm (t) ≤ m, 
+
+26 Contextual Online Decision Making with Infinite-Dimensional Functional Regression 
+
+due to 0 ≤ ϕ ≤ 1 and m(S) = 1 . Therefore, by the AM-GM inequality, 
+
+> m
+
+Y
+
+> i=1
+
+λi(( K(wi, w j )) mi,j =1 )
+
+!1/m 
+
+≤
+
+Pmi=1 λi(( K(wi, w j )) mi,j =1 )
+
+m ≤ 1.
+
+We find that 
+
+det[( K(wi, w j )) mi,j =1 ] = 
+
+> m
+
+Y
+
+> i=1
+
+λi(( K(wi, w j )) mi,j =1 ) ≤ 1.
+
+Recalling ν(Ω) = 1 , we have that for ∀ m ≥ 1, α m ≤ R
+
+> Ω
+
+R 
+
+> Ω
+
+· · · R 
+
+> Ω
+
+1dν (w1) · · · dν (m) ≤ 1. Thus, 
+
+det(1 + Lx,a ) = 
+
+> ∞
+
+X
+
+> i=0
+
+αm
+
+m! ≤
+
+> ∞
+
+X
+
+> i=0
+
+1
+
+m! ≤ e. 
+
+27

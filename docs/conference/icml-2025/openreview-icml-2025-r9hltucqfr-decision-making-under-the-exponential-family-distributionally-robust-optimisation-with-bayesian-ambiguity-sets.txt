@@ -1,0 +1,5068 @@
+Title: Decision Making under the Exponential Family:Distributionally Robust Optimisation with Bayesian Ambiguity Sets
+
+URL Source: https://openreview.net/pdf?id=r9HlTuCQfr
+
+Number of Pages: 33
+
+Markdown Content:
+# Decision Making under the Exponential Family: Distributionally Robust Optimisation with Bayesian Ambiguity Sets 
+
+Charita Dellaporta * 1 2 Patrick O’Hara * 3 Theodoros Damoulas 2 3 4 
+
+## Abstract 
+
+Decision making under uncertainty is challeng-ing as the data-generating process (DGP) is often unknown. Bayesian inference proceeds by esti-mating the DGP through posterior beliefs on the model’s parameters. However, minimising the expected risk under these beliefs can lead to sub-optimal decisions due to model uncertainty or limited, noisy observations. To address this, we introduce Distributionally Robust Optimisation with Bayesian Ambiguity Sets (DRO-BAS) which hedges against model uncertainty by optimising the worst-case risk over a posterior-informed am-biguity set. We provide two such sets, based on the posterior expectation (DRO-BAS PE ) or the posterior predictive (DRO-BAS PP ) and prove that both admit, under conditions, strong dual formu-lations leading to efficient single-stage stochastic programs which are solved with a sample aver-age approximation. For DRO-BAS PE , this covers all conjugate exponential family members while for DRO-BAS PP this is shown under conditions on the predictive’s moment generating function. Our DRO-BAS formulations outperform existing Bayesian DRO on the Newsvendor problem and achieve faster solve times with comparable robust-ness on the Portfolio problem. 
+
+## 1. Introduction 
+
+Decision-makers regularly attempt to optimise an objective under uncertainty with only finite sampling access – via in-dependently and identically distributed (i.i.d.) observations – 
+
+> *
+
+Equal contribution 1Department of Statistics, University Col-lege London, UK 2Department of Statistics, University of Warwick, Coventry, UK 3Department of Computer Science, University of Warwick, Coventry, UK 4The Alan Turing Institute, London, UK. Correspondence to: Charita Dellaporta <h.dellaporta@ucl.ac.uk>, Patrick O’Hara <Patrick.H.O-Hara@warwick.ac.uk>. 
+
+Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s). 15 .0 17 .5 20 .0 22 .5 25 .0 27 .5 30 .0 32 .5    
+
+> μ
+> 6810 12 14
+> σ= 0 .2BAS P E
+> BAS P P
+> BDRO
+> μ, σ 2∼ΠDGP
+
+Figure 1. Visualisation of our BAS PE and BAS PP ambiguity sets versus BDRO (Shapiro et al., 2023) for Normal likelihood with Normal-Gamma posterior. BAS PE contains distributions with ex-pected (under the posterior Π) KL divergence from the model of at most ϵ. BAS PP contains distributions with KL divergence at most 
+
+ϵ from the posterior predictive distribution. BDRO minimises the 
+
+expected worst-case risk between each KL-based ambiguity set based on posterior samples μ, σ 2 ∼ Π (orange crosses). 
+
+from the data-generating process (DGP). Given the observa-tions, parametric model-based inference estimates the DGP with a distribution Pθ indexed by parameters θ ∈ Θ in pa-rameter space Θ ⊆ Rk. In a Bayesian framework, the data is combined with a prior to obtain posterior beliefs about θ
+
+and the decision maker can now minimise the risk under the Bayesian estimator. However, the estimator is likely different from the true DGP due to model and data uncertainty: the number of observa-tions may be small; the data may be noisy; and the prior or model may be misspecified. Minimising the risk under the Bayesian model inherits any estimation error, and leads to overly optimistic decisions on out-of-sample scenarios even if the estimator is unbiased: this phenomenon is called the optimiser’s curse (Kuhn et al., 2019). For example, if the number of observations is small and the prior is overly concentrated, the decision will likely be overly optimistic. To hedge against the uncertainty of the estimated distri-bution, the field of Distributionally Robust Optimisation (DRO) minimises the expected objective function under the worst-case distribution that lies in an ambiguity set. 1DRO with Bayesian Ambiguity Sets 
+
+Discrepancy-based ambiguity sets contain distributions that are close to a nominal one in the sense of some discrepancy measure such as the Kullback-Leibler (KL) divergence (Hu & Hong, 2013), Wasserstein distance (Kuhn et al., 2019) or Maximum Mean Discrepancy (Staib & Jegelka, 2019). For example, model-based methods 1 (Iyengar et al., 2023; Michel et al., 2021; 2022) consider a family of parametric models and create discrepancy-based ambiguity sets centred on the fitted model. However, these works do not capture un-certainty about the parameters which can lead to a nominal distribution far away from the DGP when the data is limited. The principled framework for capturing such uncertainty is Bayesian inference. Existing DRO methodologies like Bayesian DRO (BDRO) introduced by Shapiro et al. (2023) that are informed by parameter posterior beliefs, do not cor-respond to a worst-case risk objective and hence do not give rise to a single, interpretable worst-case risk distribution (see Figure 1). We introduce DRO with Bayesian Ambiguity Sets (DRO-BAS): a framework for robust decision-making under un-certainty based on posterior-informed ambiguity sets . Our contributions are: 1. We define Bayesian Ambiguity Sets (BAS) which lever-age posterior beliefs about the parameters of interest. We provide two distinct formulations of BAS: one con-taining distributions with small KL divergence from the posterior predictive distribution (DRO-BAS PP ) and an-other one including those with small expected KL diver-gence from the candidate model (DRO-BAS PE ). Sim-ilarly to discrepancy-based DRO, the decision maker solves a single worst-case risk minimisation problem. 2. We show that DRO-BAS PP attains a dual formulation which is an efficient single-stage stochastic program. Additionally, for models within the conjugate exponen-tial family, we demonstrate that the dual program of DRO-BAS PE is also single-stage and can be solved ex-actly when a linear objective function and a Gaussian likelihood are used. When the objective function is non-linear but convex, the duals can be solved with a sample average approximation (SAA) (also known as Monte Carlo). Finally, we provide the worst-case risk distribution form as well as finite-sample results on the optimal tolerance level. 3. On the Newsvendor problem, we show that DRO-BAS Pareto dominates existing Bayesian DRO for-mulations (Shapiro et al., 2023) when evaluating the out-of-sample mean-variance trade-off of the objective function when the number of SAA samples is small. On the real-world Portfolio problem, DRO-BAS solves 
+
+> 1For a discussion of empirical DRO vs model-based DRO methods, see Appendix E.3.
+
+instances faster than Bayesian DRO with comparable out-of-sample robustness. 
+
+## 2. Background 
+
+Let x ∈ X be a decision-making variable that is chosen to minimise a stochastic objective function f : X × Ξ → R,where X ⊆ RD is the set of feasible decisions and Ξ ⊆ RD
+
+is the data space 2. Let P⋆ ∈ P (Ξ) be the data-generating process (DGP) where P(Ξ) is the space of Borel distribu-tions over Ξ. We are given n i.i.d. observations D ≜ ξ1: n ∼
+
+P⋆. Model-based inference considers a family of models 
+
+PΘ ≜ {Pθ : θ ∈ Θ} ⊂ P (Ξ) where each Pθ has probability density function p(ξ|θ) for parameter space Θ ⊆ Rk. In a Bayesian framework, data D is combined with a prior π(θ)
+
+to obtain posterior beliefs about θ through Π( θ|D ). Under expected-value risk, Bayesian Risk Optimisation (Wu et al., 2018) solves a stochastic optimisation problem: (BRO ) min  
+
+> x∈X
+
+Eθ∼Π( θ|D ) [Eξ∼Pθ [fx(ξ)]] . (1) where fx(ξ) ≜ f (x, ξ ) is the objective function. How-ever, decision-makers sometimes seek worst-case protection. The closest work to ours, using parametric Bayesian infer-ence to inform the optimisation problem, is Bayesian DRO (BDRO) by Shapiro et al. (2023). BDRO takes an expected worst-case approach under the posterior distribution. More specifically, let Bϵ(Pθ ) ≜ {Q ∈ P (Ξ) : dKL (Q∥Pθ ) ≤ ϵ}
+
+be the KL discrepancy-based ambiguity set centered on distribution Pθ , where dKL is the KL-divergence and param-eter ϵ ∈ [0 , ∞) controls the size of the ambiguity set. Under the expected value of the posterior, BDRO solves: 
+
+(BDRO ) min  
+
+> x∈X
+
+Eθ∼Π( θ|D )
+
+"
+
+sup  
+
+> Q∈B ϵ(Pθ)
+
+Eξ∼Q[fx(ξ)] 
+
+#
+
+, (2) where Eθ∼Π( θ|D )[Y ] ≜ R 
+
+> Θ
+
+Y (θ)Π( θ | D ) dθ denotes the expectation of random variable Y : Θ → R with respect to 
+
+Π( θ | D ). A decision maker is often interested in protecting against and quantifying the worst-case risk, but BDRO does not correspond to a worst-case risk analysis. Moreover, the BDRO dual problem is a two-stage stochastic problem that involves a double expectation over the posterior and likelihood. To get a good approximation of the dual problem using SAA, a large number of samples are required, which increases the solving time of the dual problem. Gupta (2019) introduced Near-Optimal Ambiguity Sets, based on Bayesian guarantees. This method aims to find the smallest convex ambiguity set that satisfies a Bayesian Posterior Feasibility guarantee. The authors also provide         
+
+> 2For convenience, we assume the decision variable x∈ X and the random variable ξ∈Ξboth have dimension D, but our work is not restricted to this case.
+
+2DRO with Bayesian Ambiguity Sets 
+
+an upper bound on the posterior value-at-risk, constructing the ambiguity set according to the framework of Bertsimas et al. (2018). In this approach, the ambiguity set is chosen by searching over a space of potential sets and selecting the one that meets a predefined guarantee based on the posterior distribution. In contrast to BDRO, the ambiguity set is con-fined to members of the model family, and posterior beliefs are not used to inform the ambiguity set itself, but rather to guide the search for feasible sets. Alternative DRO formulations often incorporate nonpara-metric Bayesian methods. Wang et al. (2023) suggested using a nonparametric prior over the DGP P⋆ to induce distributional uncertainty. This nonparametric prior is cho-sen to be a Dirichlet Process (DP) prior with prior centring measure F ∈ P (Ξ) . The authors suggest inducing distri-butional robustness by minimising the worst-case loss over an ambiguity set for F. Bariletto & Ho (2024) also address DGP uncertainty by combining DP-based posterior beliefs about the DGP with a decision-theoretic framework that models smooth ambiguity-averse preferences, arising from the economic decision theory literature (Cerreia-Vioglio et al., 2011). This framework was recently generalised by Bariletto et al. (2024) to handle heterogeneous data sources through hierarchical DPs. Unlike the previously mentioned BDRO, these methods are not well-suited for situations where the decision-maker has a parametric model and seeks to incorporate parameter posterior beliefs. 
+
+## 3. Bayesian Ambiguity Sets 
+
+The goal of this work is to formulate a family of optimisation problems that, based on parameter posterior beliefs, produce decisions with worst-case risk protection. We introduce 
+
+Bayesian Ambiguity Sets (BAS) which achieve this through two ambiguity set constructions. We first propose a BAS based on the posterior predictive (BAS PP ) which forms a distributionally robust counterpart to the BRO objective in (1). To overcome some of its drawbacks, we further propose BAS based on a posterior expectation (BAS PE ). The difference between the two lies in the position of the posterior expectation in the constraint. The two ambiguity sets, for tolerance level ϵ, consider probability measures 
+
+Q ∈ P (Ξ) with density function q(ξ) such that: 
+
+(BAS PP ) dKL 
+
+
+
+q(ξ),
+
+Z
+
+> Θ
+
+p(ξ | θ)dΠ( θ | D )
+
+
+
+≤ ϵ, 
+
+(BAS PE )
+
+Z
+
+> Θ
+
+dKL (q(ξ), p (ξ | θ)) dΠ( θ | D ) ≤ ϵ. 
+
+3.1. BAS via Posterior Predictive (BAS PP )
+
+Given posterior Π and risk tolerance level ϵ ∈ [0 , ∞) we extend the Bayesian risk objective in (1) to a worst-case risk minimisation, controlled by ϵ. Expected-value risk in (1) is equivalent to minimising the expected risk under the posterior predictive Pn ∈ P (Ξ) that has probability density function defined by: 
+
+pn(ξ⋆ | D ) ≜
+
+Z
+
+> Θ
+
+p(ξ⋆ | θ)dΠ( θ | D ). (3) First we propose Bayesian Ambiguity Sets with the posterior predictive (BAS PP ):
+
+Bϵ(Pn) ≜ {Q ∈ P (Ξ) : dKL (Q, Pn) ≤ ϵ} (4) where Q ∈ P (Ξ) is a distribution in the ambiguity set and dKL : P(Ξ) × P (Ξ) → R is the KL divergence . The ambiguity set is informed by the posterior predictive Pn: it consists of all probability measures Q ∈ P (Ξ) which are absolutely continuous with respect to Pn, i.e. Q ≪ Pn, and have KL-divergence to Pn less than or equal to ϵ. Thus, ϵ
+
+dictates the desired amount of risk in the decision. For a given decision x, the worst-case risk is 
+
+RBϵ(Pn)(fx) ≜ sup 
+
+> Q∈B ϵ(Pn)
+
+Eξ∼Q [fx(ξ)] . (5) The posterior Π( θ | D ) targets the KL minimiser between the model family and P⋆ (Walker, 2013), hence it is natural to choose the KL divergence in (4). This is because as n →∞ the posterior collapses to θ⋆ ≜ arg min θ∈Θ dKL (P⋆, Pθ )
+
+and the posterior predictive is equal to pn(ξ⋆ | θ⋆). Thus, for a well-specified model family, which occurs when P⋆ ≡
+
+Pθ⋆ ∈ P Θ, we have that in the limit of infinite observations, 
+
+Bϵ(Pn) is a KL-based ambiguity set with P⋆ the nominal distribution. The goal of the decision maker is to choose x
+
+that minimises the worst-case risk, yielding the problem: 
+
+(DRO-BAS PP ) min  
+
+> x
+
+RBϵ(Pn)(fx) (6) Ambiguity sets of the form Bϵ(P) based on the KL-divergence have been previously suggested in a non-Bayesian DRO context by Hu & Hong (2013), who studied the optimisation of this problem for a general nominal dis-tribution P. For the dual of the worst-case risk RBϵ(P)(fx)
+
+to be well-defined, the following property of the nominal distribution P is required. 
+
+Property 3.1 (Finite moment-generating function of fx).
+
+Let P ∈ P (Ξ) . For all x ∈ X , there exists t > 0 such that: 
+
+Eξ∼P [exp( tf x(ξ))] < ∞. (7) If Pn satisfies this property, we have the following result. 
+
+Proposition 3.2. Assume Pn satisfies Property 3.1 for all D ⊂ Ξn. Then, for any ϵ > 0, the worst-case risk in (5) is: 
+
+RBϵ(Pn)(fx) = inf  
+
+> γ≥0
+
+γϵ + γ ln Epn(ξ⋆|D )
+
+h
+
+e fx (ξ)
+
+> γ
+
+i
+
+. (8) 3DRO with Bayesian Ambiguity Sets 
+
+The proof can be found in Appendix B.1. This result offers 
+
+strong duality and the resulting optimisation problem is a single-stage stochastic program. Unlike BDRO, the problem in (6) not only provides a worst-case approach but also requires sampling from only a single expectation when the posterior predictive is available. Assuming that Property 3.1 holds in Proposition 3.2 requires the moment-generating function (MGF) of fx(ξ⋆) under the posterior predictive Pn to be finite. This is a standard as-sumption made in KL-based DRO methods (Hu & Hong, 2013; Shapiro et al., 2023) ensuring that the dual objective in (8) is well-defined. However, this assumption can be violated when e.g. the model is a Normal distribution with a conjugate Normal-Gamma prior, leading to a Student-t posterior predictive (see e.g. Murphy, 2023) which has an infinite MGF. A similar problem occurs when the Expo-nential distribution with a conjugate Gamma prior is used. Thus, the use of such an ambiguity set can be limiting in the model and objective function choices. A way to overcome this limitation is to approximate the primal problem in (6) 
+
+using the ambiguity set Bϵ(ˆPn) based on a finite sample approximation ˆPn of the posterior predictive where: 
+
+ξ⋆
+
+> 1: M
+> iid
+
+∼ Pn, ˆPn,M ≜ 1
+
+M
+
+> M
+
+X
+
+> i=1
+
+δξ⋆i . (9) Although for finite M , the dual formulation can be applied with ˆPn,M , the resulting optimisation problem is always a SAA and does not solve the original primal in (6) to optimality. Hence, we offer an alternative BAS formulation based on a posterior expectation. 
+
+3.2. BAS via Posterior Expectation (BAS PE )
+
+Consider Bayesian ambiguity sets with the Posterior Expec-tation (BAS PE ) defined as: 
+
+Aϵ(Π) ≜ {Q ∈ P : Eθ∼Π[dKL (Q, Pθ )] ≤ ϵ} . (10) The ambiguity set considers all probability measures Q ∈P(Ξ) , which are absolutely continuous with respect to Pθ
+
+(Q ≪ Pθ ) for all θ ∈ Θ and have at most ϵ expected 
+
+(with respect to Π) KL divergence to Pθ . The shape of our ambiguity set is posterior-driven: we emphasise this point by taking the posterior Π as an argument to the ambiguity set Aϵ(Π) . This is contrary to standard discrepancy-based ambiguity sets Bϵ(·) as in (4) which are centred on a fixed nominal distribution. We will later prove that BAS PE can be reduced to an ambiguity set of the form Bϵ(·) for exponential family models, allowing for efficient computation. For fixed decision x, the worst-case risk is: 
+
+RAϵ(Π) (fx) ≜ sup 
+
+> Q∈A ϵ(Π)
+
+Eξ∼Q [fx(ξ)] . (11) Similarly to the BAS PP worst-case risk in (5), our formula-tion (11) is still a worst-case approach, keeping with DRO tradition, instead of BDRO’s expected worst-case formula-tion (2). The goal is to minimise the worst-case risk: (DRO-BAS PE ) min  
+
+> x
+
+RAϵ(Π) (fx). (12) We derive an upper bound for the worst-case risk in (11): 
+
+Proposition 3.3. Assume Pθ satisfies Property 3.1 for all 
+
+θ ∈ Θ. Then the worst-case risk satisfies: 
+
+RAϵ(Π) (fx) ≤ inf  
+
+> γ≥0
+
+γϵ + EΠ
+
+h
+
+γ ln EPθ
+
+h
+
+e fx (ξ)
+
+> γ
+
+ii 
+
+. (13) 
+
+Proof sketch. We introduce a Lagrangian variable γ ≥
+
+0 for the constraint Eθ∼Π[dKL (Q, Pθ )] ≤ ϵ from (10) and write the dual in terms of the convex conjugate 
+
+(EΠ [γd KL (·∥ Pθ )]) ⋆ (fx) of the expected KL-divergence. The upper bound follows by Jensen’s inequality because the conjugate is a convex function. The result follows from the convex conjugate of the KL-divergence (Bayraksan & Love, 2015; Shapiro et al., 2023). See Appendix B.2 for a detailed and full proof. While Proposition 3.3 provides a weak duality upper bound applicable to general Bayesian models, its primary purpose is to motivate the need for more tractable formulations. In particular, this bound highlights the challenges of working with expected ϕ-divergences, like the KL. To address this, Section 3.3 focuses on exponential family models, where we can move beyond the weak duality bound and derive a strong duality result in Theorem 3.6. This analysis requires the closed-form expression of the expected KL divergence (Lemma 3.5), which plays a central role in obtaining the convex conjugate and deriving novel results on tolerance levels, worst-case distributions, and tractable optimisation. 
+
+3.3. DRO-BAS PE for the Exponential Family 
+
+The convex conjugate (EΠ [γd KL (·∥ Pθ )]) ⋆ of the expected KL-divergence in the proof of Proposition 3.3 is not easy to obtain for a general Bayesian model, but if we can find an exact expression for this convex conjugate for specific mod-els, then the worst-case risk (11) can be computed exactly. In this section, we derive such an expression for exponential family models with conjugate priors. When the likelihood distribution is a member of the exponential family, there exists a conjugate prior that also belongs to the exponential family (see e.g. Diaconis & Ylvisaker, 1979). Exponential families include many of the most widely used probability distributions, making them versatile for modelling across diverse settings. Additionally, they are highly appealing due to their extensive theoretical foundation and a range of valuable properties (see Diaconis & Ylvisaker, 1979; Gutiérrez-Peña et al., 1997; Gutierrez-Pena, 1997, for a de-tailed overview.). We use the conjugate exponential family 4DRO with Bayesian Ambiguity Sets 
+
+and the convexity of the log-partition function to derive the strong dual of the worst-case risk problem in (11). The following definition is from Murphy (2023). 
+
+Definition 3.4 (Exponential family with conjugate prior) .
+
+Let p(D | η) be an exponential family likelihood with nat-ural parameter η ∈ Ω ⊆ RK , scaling constant h : Ξ → R,log-partition function A : Ω → R such that Ω ≜ {η ∈
+
+RK : A(η) < ∞} , and sufficient statistic s : Ξ → RK with likelihood function: 
+
+p(D | η) = h(D) exp  η⊤s(D) − nA (η)
+
+where h(D) = Qni=1 h(ξi) and s(D) = Pni=1 s(ξi). We consider the prior distribution: 
+
+π(η | ⌣
+
+τ , ⌣
+
+ν) = 1
+
+Z(⌣
+
+τ , ⌣
+
+ν) exp 
+
+⌣
+
+τ ⊤
+
+η − ⌣
+
+νA (η)
+
+
+
+(14) where ⌣
+
+τ , ⌣
+
+ν are prior hyperparameters and Z(⌣
+
+τ , ⌣
+
+ν) is the normalising constant. The conjugate posterior Π( η | ⌢
+
+τ , ⌢
+
+ν)
+
+has the same form as (14) with parameters ⌢
+
+τ = ⌣
+
+τ + s(D)
+
+and ⌢
+
+ν = ⌣
+
+ν + n.We start with a Lemma before presenting the main result. The proof can be found in Appendix B.3. 
+
+Lemma 3.5. Let p(ξ | η) be an exponential family likeli-hood function with natural parameter η and π(η | ⌣
+
+τ , ⌣
+
+ν),
+
+Π( η | ⌢
+
+τ , ⌢
+
+ν) a conjugate prior-posterior pair as in Definition 3.4. Let ˆη ≜ EΠ( η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[η] and define G : T → R as: 
+
+G(⌢
+
+τ , ⌢
+
+ν) ≜ EΠ( η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] − A(ˆ η)
+
+for hyperparameter space T . If for almost all η ∈ Ω the partial derivatives ∂⌢ 
+
+> ν
+
+and ∇⌢ 
+
+> τ
+
+of the posterior p.d.f. Π : Ω × T → R≥0 exist for all (⌢
+
+ν, ⌢
+
+τ ) ∈ T then: 
+
+ˆη = −∇ ⌢
+
+> τ
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+, (15) 
+
+G(⌢
+
+τ , ⌢
+
+ν) = ∂∂⌢
+
+> ν
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+− A (ˆ η) ≥ 0 (16) 
+
+and the expected KL-divergence under the posterior is: 
+
+EΠ( η|⌢  
+
+> τ , ⌢
+> ν)
+
+[dKL (Q∥Pη )] = dKL (Q, Pˆη ) + G(⌢
+
+τ , ⌢
+
+ν). (17) It is straightforward to establish the minimum tolerance level ϵmin required to obtain a non-empty BAS PE . Since the KL divergence is non-negative, under the condition of Lemma 3.5, for any Q ∈ P (Ξ) :
+
+Eη∼Π[dKL (Q∥Pη )] = dKL (Q, Pˆη ) + G(⌢
+
+τ , ⌢
+
+ν)
+
+≥ G(⌢
+
+τ , ⌢
+
+ν) ≜ ϵmin (n). (18) We are now ready to present our main result, the proof of which can be found in Appendix B.4. 
+
+Theorem 3.6. Suppose the conditions of Lemma 3.5 hold and ϵ ≥ ϵmin (n) as in (18). Furthermore, assume p(ξ | ˆη)
+
+satisfies Property 3.1 for all ˆη ∈ Ω. Then the worst-case risk RAϵ(Π) (fx) in (11) is equal to: 
+
+inf  
+
+> γ≥0
+
+γ(ϵ − G(⌢
+
+τ , ⌢
+
+ν)) + γ ln Ep(ξ|ˆη)
+
+h
+
+e fx (ξ)
+
+> γ
+
+i
+
+. (19) Observe that this dual formulation (19) closely mirrors the dual of the problem in (8), albeit with a different tolerance level and expectation law. However, in this case, assuming Property 3.1 requires fx(ξ) to have a finite MGF with re-spect to a member of the model family, namely p(ξ | ˆη).Contrary to the posterior predictive case, this is satisfied for exponential family models with many objective functions such as the linear and piecewise-linear ones we use in our experiments. The same model assumption is imposed by BDRO (Shapiro et al., 2023). Using this theorem, we can derive an immediate connection between BAS PE (10) and KL-based ambiguity sets of the form Bϵ(·) such as BAS PP :
+
+Corollary 3.7. Let ϵ′ ≜ ϵ − G(⌢
+
+τ , ⌢
+
+ν). Then in the exponen-tial family case, Aϵ(Π) ≡ B ϵ′ (Pˆη ).
+
+Hence, in the exponential family case, the two BAS formula-tions are different as they correspond to KL-based ambiguity sets with distinct nominal distributions. Additional insights on their relationship are discussed in Appendix D. It is worth noting that although the dual formulations of the DRO-BAS formulations and the PDRO method of Iyengar et al. (2023) with the KL divergence are both model-based, they are fundamentally different. Our ambiguity sets are a posteriori informed, integrating prior beliefs and data evi-dence. Consequently, the resulting nominal distribution ( Pn
+
+for DRO-BAS PP and Pˆη for DRO-BAS PE ) contains all the information from our posterior beliefs, including their un-certainty quantification, unlike the point estimator approach of PDRO. This allows us to propagate uncertainty from the posterior beliefs about the parameters to the ambiguity set. 
+
+3.4. Tolerance Level Selection 
+
+To guarantee that the DRO-BAS objectives upper-bound the expected risk under the DGP, the decision-maker aims to choose ϵ large enough so that P⋆ is contained in the ambiguity sets. For BAS PE with the exponential family, Lemma 3.5 yields a closed-form expression for the optimal radius ϵ⋆
+
+> PE
+
+(n) in the exponential family case, by noting that: 
+
+ϵ⋆
+
+> PE
+
+(n) ≜ Eη∼Π[dKL (P⋆∥Pη )] = dKL (P⋆, Pˆη ) + G(⌢
+
+τ , ⌢
+
+ν).
+
+(20) If the model is well-specified, and hence P⋆ and Pˆη be-long to the same exponential family, it is simple to obtain 5DRO with Bayesian Ambiguity Sets 
+
+ϵ⋆
+
+> PE
+
+(n) based on the prior, posterior and true parameters (see Appendix A for examples). In practice, since the true param-eters are unknown, we can empirically approximate ϵ⋆
+
+> PE
+
+(n)
+
+from data D. For any ϵ ≥ ϵ⋆
+
+> PE
+
+(n) ≥ ϵmin (n), we have that 
+
+P⋆ ∈ A ϵ(Π) , thus the worst-case risk upper bounds the true risk under the DGP: 
+
+Eξ∼P⋆ [fx(ξ)] ≤ sup 
+
+> Q∈A ϵ(Π)
+
+Eξ∼Q[fx(ξ)] . (21) For BAS PP , the inclusion of the DGP is achieved for: 
+
+ϵ⋆
+
+> PP
+
+(n) ≜ dKL (P⋆, Pn). (22) A possible approach would be to approximate this using the observed dataset and samples (ξ⋆ 
+
+> 1
+
+, . . . , ξ ⋆M ) iid 
+
+∼ Pn from the posterior predictive via dKL ( 1
+
+> n
+
+Pni=1 δξi , 1
+
+> M
+
+PMi=1 δξ⋆i ).However, this can become computationally expensive in higher dimensions if the KL is not available in closed form. Alternatively, we can use the approximation of ϵ⋆
+
+> PE
+
+(n),which is available in closed-form in the well-specified case, since ϵ⋆
+
+> PP
+
+(n) ≤ ϵ⋆
+
+> PE
+
+(n). This follows by Jensen’s inequality since the KL divergence is convex in both arguments: 
+
+ϵ⋆
+
+> PP
+
+(n) = dKL (P⋆|| EΠ[Pθ ]) ≤ EΠ[dKL (P⋆|| Pθ )] = ϵ⋆
+
+> PE
+
+(n).
+
+It follows that for any ϵ ≥ ϵ⋆
+
+> PP
+
+(n), the risk under the DGP is upper-bounded by (5). 
+
+3.5. Computation 
+
+When the objective function fx(ξ) is convex in x, the dual of DRO-BAS PP and DRO-BAS PE is a convex optimisation problem that can be solved using off-the-shelf solvers. Both DRO-BAS duals are single-stage stochastic programs which can be solved in practice using SAA. In contrast, the BDRO dual is a two-stage stochastic program where samples must be taken from both the posterior and likelihood Shapiro et al. (2023). The size of the dual programs - in terms of the num-ber of variables and size of the input data - is summarised for DRO-BAS and BDRO in Table 1. To give an exam-ple for DRO-BAS PP , the size of the input of is O(MPP D)
+
+because this is the size of the samples ξ1, . . . , ξ MPP ∼ Pn;the number of variables for DRO-BAS PP is O(D + MPP )
+
+because there are D decision variables for each dimension of x, MPP epigraphical variables for each sample ξi ∼ Pn,and one Lagrangian variable. Next, we consider the special case of DRO-BAS PE when the objective is a linear function fx(ξ) = ξT x, the likelihood is a multivariate Gaussian N (ξ | μ, Σ) , and the posterior is a Normal-inverse-Wishart. Posterior parameters ˆμ, ˆΣ can be derived from (15) for ˆη (see Appendix A.3). By the MGF of a Gaussian, we have 
+
+EN (ξ|ˆμ, ˆΣ) 
+
+
+
+exp 
+
+ ξT xγ
+
+ 
+
+= exp ˆμT xγ + xT ˆΣx
+
+2γ2
+
+!
+
+We can solve the infimum over γ in (19) to obtain 
+
+RAϵ(Π) (fx) = ˆ μT x +
+
+r
+
+2
+
+
+
+ϵ − G(ˆ μ, ˆΣ) 
+
+p 
+
+xT ˆΣx. 
+
+Importantly, the resulting minimisation dual for DRO-BAS PE over decision x is closed form and we do not need to sample from either the posterior or the likelihood. Thus, the number of variables in the dual is O(D) (the dimension of x) and the dual input size is O(D2) (the size of ˆΣ). Notably, BAS PP does not admit such a closed-form due to the absence of a finite MGF under the Student-t distribution, which in this case corresponds to the posterior predictive law. As discussed in Section 3.1, this is a limitation of DRO-BAS PP which leads to a violation of Property 3.1 and does not allow an exact dual formulation in Proposition 3.2 for many exponential family cases. 
+
+3.6. Worst-case BAS Distribution 
+
+The understanding of the structure of the proposed BAS sets is facilitated through the worst-case distributions maximis-ing the objectives in (5) and (11). Indeed, by following the argument in Hu & Hong (2013) (Eq. 8), it can be shown that, for some γ⋆(x) > 0 minimising the dual formulation in (8), the worst-case distribution maximising the DRO-BAS PP 
+
+objective in (6) has probability density equal to: 
+
+p⋆(ξ′, γ ⋆(x)) := 
+
+pn(ξ′) exp 
+
+ fx(ξ′)
+
+> γ⋆(x)
+
+
+
+Epn
+
+h
+
+exp 
+
+ fx(ξ)
+
+> γ⋆(x)
+
+i , ξ′ ∈ Ξ.
+
+This means that the distribution attaining the worst-case risk is proportional to the posterior predictive and has the same support. Similarly, it can be shown that, in the exponential family case, the distribution that attains the worst-case risk according to the DRO-BAS PE objective in (11) is: 
+
+p⋆(ξ′, γ ⋆(x)) = ˜p(ξ′)
+
+R 
+
+> Ξ
+
+˜p(ξ)dξ , ξ′ ∈ Ξ
+
+where ˜p(ξ) = h(ξ) exp (ˆ ηs (ξ) − A(ˆ η) + fx(ξ′)/γ ⋆(x)) 
+
+and γ⋆(x) minimises the dual problem in (19). Note that for BDRO, a single worst-case distribution does not exist because it considers an expected worst-case ap-proach (see (2), Figure 1) rather than a worst-case approach, as advocated by DRO methods. If we sample θj ∼ Π from the posterior for BDRO, then one can obtain a worst-case distribution for each Pθj via the argument in Eq. (8) of Hu & Hong (2013). However, notice that in general, the minimiser of an expected objective is not the same as the average of the minimisers of the individual objectives. Hence, even looking at the posterior mean or mode of the worst-case minimisers of the inner worst-case objectives in (2) would not necessarily give us a single distribution p that yields a worst-case risk of the form Eξ∼p[f (x, ξ )] corresponding to the risk minimised by BDRO. 6DRO with Bayesian Ambiguity Sets 
+
+Table 1. The number of variables and the size of the input for two cases of the dual program in terms of the dimension D (of ξ and x)and the number of likelihood samples Mξ , posterior samples Mθ , and posterior predictive samples MPP . Variables include decision, Lagrangian, and epigraphical. We note the results for DRO-BAS PE refer to the exponential family case. Property 3.1 holds for ( f , P) Linear f ; Pθ = N (μ, Σ) 
+
+Algorithm P Number of variables Input size Number of variables Input size DRO-BAS PE Pθ O(D + Mξ ) O(Mξ D) O(D) O(D2)
+
+DRO-BAS PP Pn O(D + MPP ) O(MPP D) O(D + MPP ) O(MPP D)
+
+BDRO Pθ O(D + Mθ Mξ ) O(Mθ Mξ D) O(D + Mθ ) O(Mθ D2)6000 8000 10000 80 100 120 140 160 180 Out-of-sample mean,  m()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.03 0.1 0.5 1.0 
+
+M =25 with Exponential DGP   
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO 6000 8000 10000 0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.03 0.1 0.5 1.0
+
+M =100 with Exponential DGP   
+
+> 6000 8000 10000 0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.03 0.1 0.5 1.0
+
+M =900 with Exponential DGP 2000 4000 6000 8000 100 110 120 130 140 150 Out-of-sample mean,  m() 0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.3 0.5 1.0 
+
+M =25 with 5D Normal DGP     
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO 2000 4000 6000 8000 0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.3 0.5 1.0
+
+M =100 with 5D Normal DGP     
+
+> 2000 4000 6000 8000 0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.3 0.5 1.0
+
+M =900 with 5D Normal DGP 500 550 600 650 700 Out-of-sample variance, v()32 33 34 35 36 37 Out-of-sample mean,  m()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.05 0.1 0.5 1.0 
+
+M =25 with Truncated Normal DGP      
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO 500 550 600 650 700 Out-of-sample variance, v()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.05 0.1 0.5 1.0
+
+M =100 with Truncated Normal DGP      
+
+> 500 550 600 650 700 Out-of-sample variance, v()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.05 0.1 0.5 1.0
+
+M =900 with Truncated Normal DGP 
+
+Figure 2. The out-of-sample mean-variance tradeoff for exponential DGP (top row), 5D multivariate normal DGP (middle row), and truncated normal DGP (bottom row). We vary ϵ when the total number of SAA samples is 25 (left), 100 (middle), and 900 (right) and plot the markers in bold. For illustration purposes, blurred markers/lines show the other smaller values of M ; for example, the right column shows M = 900 in bold and M = 25 , 100 in blurred. Each marker corresponds to a single value of ϵ, some of which are labelled (e.g. 
+
+ϵ = 0 .1, 0.5, 3.0). Filler markers indicate the given ϵ lies on the Pareto frontier. 
+
+## 4. Experiments 
+
+We evaluate DRO-BAS against BDRO on two classical prob-lems: the Newsvendor and the Portfolio problems. We focus our analysis on Bayesian formulations of DRO, however, we discuss empirical DRO and provide additional experi-ments in Appendix E.3. For DRO-BAS PE , if ϵ < ϵ min (n),then the problem in Theorem 3.6 is unbounded and we 7DRO with Bayesian Ambiguity Sets 
+
+ignore this configuration. For DRO-BAS PP we use a fi-nite sample approximation ˆPn,M of the posterior predic-tive Pn as in (9). For a given ϵ, we calculate the out-of-sample (OOS) mean m(ϵ) and variance v(ϵ) of the ob-jective function f across J different datasets. Further de-tails and experiments can be found in Appendix E. The code to reproduce the experiments is available at https: //github.com/PatrickOHara/mis-dro-code .
+
+4.1. DRO-BAS on the Newsvendor Problem 
+
+The goal of the Newsvendor problem is to choose an inven-tory level x ∈ RD 
+
+> ≥0
+
+of D perishable products with unknown customer demand ξ ∈ RD that minimises the cost function 
+
+fx(ξ) = h max( 0, x − ξ) + b max( 0, ξ − x), where h, b 
+
+are the holding cost and backorder cost per product unit respectively. Following Shapiro et al. (2023), we set h = 3 
+
+and b = 8 . We run DRO-BAS PE , DRO-BAS PP , and BDRO across 24 different values of ϵ ranging from 0.001 to 1. For DRO-BAS PE and DRO-BAS PP , we approximate the expec-tations over p(ξ | ˆη) and pn(ξ⋆ | D ) respectively with M
+
+samples; for BDRO, we approximate the double expecta-tion with Mθ posterior samples and Mξ likelihood samples for each posterior sample such that Mξ × Mθ = M . We evaluate the methods on two well-specified settings (an ex-ponential and a multivariate normal DGP) and one univariate misspecified setting (truncated normal DGP/normal model). For random seed j = 1 , . . . , 500 , we sample n = 20 train-ing observations from P⋆, then sample T = 50 test points. Figure 2 shows the OOS mean-variance tradeoff across all three DGPs. The middle row shows that, in the well-specified multivariate setting, both instantiations of DRO-BAS dominate BDRO in the sense that DRO-BAS forms a Pareto front for the OOS mean-variance trade-off of the objective function f . That is, for any ϵ1, let 
+
+mBDRO (ϵ1) and vBDRO (ϵ1) be the OOS mean and variance respectively of BDRO: then there exists ϵ2 for DRO-BAS with OOS mean mBAS (ϵ2) and variance vBAS (ϵ2) such that mBAS (ϵ2) < m BDRO (ϵ1) and vBAS (ϵ2) < v BDRO (ϵ1).On the top row of Figure 2 (well-specified Exponential DGP) DRO-BAS dominated BDRO for ϵBDRO ≥ 0.5 when 
+
+M = 25 , 100 , whilst all methods lie on the same Pareto front otherwise. In the misspecified case (Truncated Normal DGP with Normal likelihood), DRO-BAS PE Pareto domi-nates BDRO and DRO-BAS PP when M = 25 , 100 while all methods perform similarly when M = 900 . Finally, for fixed M , the solve times for DRO-BAS and BDRO are broadly comparable (see Table 3 in Appendix E). How-ever, BDRO requires more samples M than DRO-BAS for good out-of-sample performance, likely because BDRO must evaluate a double expectation over the posterior and likelihood, contrary to the single expectation of DRO-BAS. 0.0005 0.0010 0.0015 0.0020 0.0025 Out-of-sample variance 0.003 0.004 0.005 0.006 0.007 Out-of-sample mean 1e-05 0.0005 0.005 1.0       
+
+> G+ 1 e−05
+> G+ 0 .001
+> G+ 0 .01
+> G+ 1 .01e-05 0.0005 0.005 1.0 DRO-BAS P E
+> DRO-BAS P P
+> BDRO
+
+Figure 3. Mean-variance tradeoff of the Portfolio objective across all OOS time windows. Markers are filled similarly to Figure 2. 
+
+4.2. DRO-BAS on the Real-world Portfolio Problem 
+
+The goal of the Portfolio Problem is to choose the weight-ing of a portfolio of stocks that maximises the return. Our dataset and experimental setup follows Bruni et al. (2016) who provide weekly return data for the DowJones index on 
+
+D = 28 stocks across 1363 weeks. Given n = 52 weeks of training data Dn, we fit a model to the return ξ with Normal likelihood and conjugate Normal-inverse-Wishart prior. The test dataset DT contains the T = 12 weeks of returns im-mediately following the training dataset. We minimise the linear objective function fx(ξ) = −ξ⊤x (equivalent to max-imising the return) such that xi ≥ 0 for all i = 1 , . . . , D and PDi=1 xi = 1 . The J = 109 train and test datasets are con-structed using a sliding time window (see Appendix E.2). Since the objective is linear and the likelihood is Normal, the dual objective for DRO-BAS PE is available in closed form (see Section 3.5). For DRO-BAS PP , we sample from the posterior predictive ˆPn,M where we set M = 3600 (we found DRO-BAS PP needs a large M for good OOS perfor-mance). For BDRO, the dual program can be simplified (see Appendix C) and we need only sample M = 900 covariance matrices from an inverse-Wishart distribution. Figure 3 shows that DRO-BAS PE and BDRO have a similar OOS mean-variance tradeoff, whilst DRO-BAS PP is Pareto dominated by the other two methods. Figure 7 demonstrates that the cumulative return of DRO-BAS PE and BDRO are broadly comparable and the returns are generally larger than DRO-BAS PP . The discrepancy from DRO-BAS PE and BDRO to DRO-BAS PP is likely because the dual programs of DRO-BAS PE and BDRO can be simplified using the MGF of the Normal likelihood. The simplified dual for DRO-BAS PE and BDRO both yield a closed-form expression for the mean, whilst DRO-BAS PE also obtains the covariance 8DRO with Bayesian Ambiguity Sets                
+
+> Table 2. Average solve times in seconds (with associated standard deviation) and sample times in seconds ×10 4on the Portfolio Problem . N.A. means “not applicable” due to no sampling. ALGORITHM SOLVE TIME SAMPLE (×10 4)DRO-BAS P E 0.01 (0.01) N.A. DRO-BAS P P 1.34 (0.22) 3.48 (0.91) BDRO 4.47 (0.62) 44.45 (3.11)
+
+in closed form but BDRO must sample the covariance from the Inverse-Wishart (see Appendix C). In comparison, DRO-BAS PP samples from the posterior predictive without any closed-form expression for the mean or covariance. Table 2 shows that the solve and sample time of DRO-BAS is orders of magnitude faster than BDRO on the Portfo-lio problem. The average solve time of DRO-BAS PE and DRO-BAS PP is 0.012 and 0.213 seconds respectively, whilst BDRO takes 3.381 seconds. Similarly, the average time taken for BDRO to sample posterior covariance matrices takes 100 times more than for DRO-BAS PE to calculate the parameters ˆμ and ˆΣ, and 28 times longer than DRO-BAS PP 
+
+to sample from a Student-t distribution. Given that Fig-ure 3 shows comparable OOS mean-variance tradeoff and cumulative returns between DRO-BAS PE and BDRO, we conclude that DRO-BAS PE is the more suitable method for achieving low OOS mean-variance in this example due to its elimination of sampling and faster solve time. 
+
+## 5. Discussion 
+
+We proposed an approach to decision-making under un-certainty through two DRO objectives based on posterior-informed Bayesian ambiguity sets. By employing exponen-tial family models, the resulting problems benefit from a dual formulation which allows for the optimisation of worst-case risk criteria. This property, combined with generality across the entire exponential family, makes the approach particularly attractive for decision-making problems with statistical models. Since our dual is a single-stage stochas-tic program rather than a two-stage program, our frame-work offers computational advantages, making it feasible for larger-scale applications. Understanding the growth of the ambiguity set volume as a function of the tolerance level ϵ would aid the interpre-tation of the robustness properties of these sets and is left for future work. Moreover, although both DRO-BAS for-mulations showcased improved empirical performance and computational advantages compared to existing methodolo-gies, a theoretical analysis to identify conditions, beyond what we discussed in this work, favouring one formulation over the other would be highly beneficial. Moreover, DRO-BAS PP allows for the use of models beyond the exponential family, as long as a closed-form posterior predictive is available. On the other hand, the dual formu-lation of DRO-BAS PE takes advantage of the properties of the exponential family models since the underlying nom-inal distribution is also a member. This is in contrast to BAS PP which can lead to general forms of posterior predic-tive distributions, outside the exponential family, leading to assumption violations in the derivation of the dual prob-lem (Section 3.1). This advantage of BAS PE further offers a more efficient optimisation objective for the commonly used (see e.g. the Portfolio problem of Section 4.2) linear cost functions with a Normal likelihood (see Section 3.5). Future work will aim to generalise DRO-BAS PE to models beyond the exponential family as it is possible that this will lead to differently shaped ambiguity sets, beyond KL-based ambiguity sets with a fixed nominal distribution. These might exhibit benefits in higher dimensions where the size of KL-based ambiguity sets can grow very fast with the tol-erance level, leading to over-conservative decisions. More-over, it would be valuable to theoretically examine the effect of the Monte Carlo sampling size on the out-of-sample cost, similar to our empirical analysis in Section 4. Such an analy-sis has already been performed for the Wasserstein distance and the χ2-divergence by Iyengar et al. (2023) but has not yet been extended to the KL-divergence. Extending the BAS framework to general ϕ-divergences, which have been previously used in DRO (e.g. Bayraksan & Love, 2015; Duchi & Namkoong, 2019), represents another promising direction for future work. In particular, analysing DRO-BAS PP would require deriving the dual formulation using convex conjugate results for ϕ-divergences, though obtaining results on the tolerance level and worst-case dis-tribution may prove more difficult due to the properties of the posterior predictive and the divergence function. The DRO-BAS PE setting is even more challenging, as it involves characterising the expected ϕ-divergence under the poste-rior in closed form, which is critical for deriving its convex conjugate and establishing strong duality. Such derivations, as seen with the KL divergence, are key to obtaining re-sults on tolerance level selection, tractable objectives in specific settings, and the form of the worst-case distribution. We believe addressing these challenges could lead to new, principled BAS formulations based on a broader class of divergences. Finally, while DRO-BAS achieves worst-case robustness, it remains inherently tied to the Bayesian posterior. This dependence makes it vulnerable to severe model misspeci-fication. Future work will investigate alternative posterior formulations that are more robust to model misspecification, to enhance the BAS construction and produce more robust posterior-informed ambiguity sets. 9DRO with Bayesian Ambiguity Sets 
+
+## Acknowledgments 
+
+CD acknowledges support from EPSRC grant [EP/T51794X/1] as part of the Warwick CDT in Mathematics and Statistics, EPSRC grant [EP/Y022300/1] and the G-research travel grant. PO and TD acknowledge support from a UKRI Turing AI acceleration Fellowship [EP/V02678X/1] and a Turing Impact Award from the Alan Turing Institute. For the purpose of open access, the authors have applied a Creative Commons Attribution (CC-BY) license to any Author Accepted Manuscript version arising from this submission. 
+
+## Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here. 
+
+## References 
+
+Agrawal, A., Verschueren, R., Diamond, S., and Boyd, S. A rewriting system for convex optimization problems. 
+
+Journal of Control and Decision , 5(1):42–60, 2018. Agrawal, R. and Horel, T. Optimal bounds between f-divergences and integral probability metrics. Journal of Machine Learning Research , 22(128):1–59, 2021. Bariletto, N. and Ho, N. Bayesian nonparametrics meets data-driven robust optimization. arXiv preprint arXiv:2401.15771 , 2024. Bariletto, N., Nguyen, K., and Ho, N. Borrowing strength in distributionally robust optimization via hierarchical dirichlet processes. arXiv preprint arXiv:2405.13160 ,2024. Bayraksan, G. and Love, D. K. Data-driven stochastic programming using phi-divergences. In The operations research revolution , pp. 1–19. INFORMS, 2015. Bertsimas, D., Gupta, V., and Kallus, N. Data-driven robust optimization. Mathematical Programming , 167:235–292, 2018. Brown, L. D. Fundamentals of statistical exponential families with applications in statistical decision the-ory. Lecture Notes-Monograph Series , 9:i–279, 1986. ISSN 07492170. URL http://www.jstor.org/ stable/4355554 .Bruni, R., Cesarone, F., Scozzari, A., and Tardella, F. Real-world datasets for portfolio selection and solutions of some stochastic dominance portfolio models. Data in brief , 8:858–862, 2016. Cerreia-Vioglio, S., Maccheroni, F., Marinacci, M., and Montrucchio, L. Uncertainty averse preferences. Journal of Economic Theory , 146(4):1275–1330, 2011. Diaconis, P. and Ylvisaker, D. Conjugate priors for expo-nential families. The Annals of statistics , pp. 269–281, 1979. Diamond, S. and Boyd, S. CVXPY: A Python-embedded modeling language for convex optimization. Journal of Machine Learning Research , 17(83):1–5, 2016. Duchi, J. and Namkoong, H. Variance-based regularization with convex objectives. Journal of Machine Learning Research , 20(68):1–55, 2019. Endres, D., Pabst, K., Eckert, A.-L., and Schween, R. A collection of identities for variational inference with exponential-family models. Technical report, Philipps-Universität Marburg, 2022. Gao, R. and Kleywegt, A. Distributionally robust stochastic optimization with Wasserstein distance. Mathematics of Operations Research , 48(2):603–655, 2023. Gotoh, J., Kim, M. J., and Lim, A. E. B. Calibration of distributionally robust empirical optimization mod-els. Operations Research , 69(5):1630–1650, 2021. doi: 10.1287/opre.2020.2041. URL https://doi.org/ 10.1287/opre.2020.2041 .Gupta, V. Near-optimal bayesian ambiguity sets for distri-butionally robust optimization. Management Science , 65 (9):4242–4260, 2019. Gutierrez-Pena, E. Moments for the canonical parameter of an exponential family under a conjugate distribution. 
+
+Biometrika , 84(3):727–732, 1997. Gutiérrez-Peña, E., Smith, A., Bernardo, J. M., Consonni, G., Veronese, P., George, E., Girón, F., Martínez, M., Letac, G., and Morris, C. N. Exponential and bayesian conjugate families: review and extensions. Test , 6:1–90, 1997. Hu, Z. and Hong, L. J. Kullback-Leibler divergence con-strained distributionally robust optimization. Available at Optimization Online , 1(2):9, 2013. Iyengar, G., Lam, H., and Wang, T. Hedging against complexity: Distributionally robust optimization with parametric approximation. In International Conference on Artificial Intelligence and Statistics , pp. 9976–10011. PMLR, 2023. Kuhn, D., Esfahani, P. M., Nguyen, V. A., and Shafieezadeh-Abadeh, S. Wasserstein distributionally 10 DRO with Bayesian Ambiguity Sets 
+
+robust optimization: Theory and applications in ma-chine learning. In Operations Research & Manage-ment Science in the Age of Analytics , chapter 6, pp. 130–166. Informs, 2019. doi: 10.1287/educ.2019. 0198. URL https://pubsonline.informs. org/doi/abs/10.1287/educ.2019.0198 .Markowitz, H. Portfolio selection. The Journal of Finance , 7(1):77–91, 1952. doi: https://doi.org/10. 1111/j.1540-6261.1952.tb01525.x. URL https: //onlinelibrary.wiley.com/doi/abs/10. 1111/j.1540-6261.1952.tb01525.x .Michel, P., Hashimoto, T., and Neubig, G. Modeling the sec-ond player in distributionally robust optimization. arXiv preprint arXiv:2103.10282 , 2021. Michel, P., Hashimoto, T., and Neubig, G. Distributionally robust models with parametric likelihood ratios. arXiv preprint arXiv:2204.06340 , 2022. Murphy, K. P. Probabilistic machine learning: Advanced topics . MIT press, 2023. Petersen, K. B. and Pedersen, M. S. The matrix cookbook, October 2008. URL http://www2.imm.dtu.dk/ pubdb/p.php?3274 . Version 20081110. Shapiro, A., Dentcheva, D., and Ruszczynski, A. Lectures on stochastic programming: modeling and theory . SIAM, 2021. Shapiro, A., Zhou, E., and Lin, Y. Bayesian distributionally robust optimization. SIAM Journal on Optimization , 33 (2):1279–1304, 2023. Staib, M. and Jegelka, S. Distributionally robust optimiza-tion and generalization in kernel methods. Advances in Neural Information Processing Systems , 32, 2019. Walker, S. G. Bayesian inference with misspecified models. 
+
+Journal of statistical planning and inference , 143(10): 1621–1633, 2013. Wang, S., Wang, H., and Honorio, J. Learning against distri-butional uncertainty: On the trade-off between robustness and specificity. arXiv preprint arXiv:2301.13565 , 2023. Wu, D., Zhu, H., and Zhou, E. A Bayesian risk approach to data-driven stochastic optimization: Formulations and asymptotics. SIAM Journal on Optimization , 28(2):1588– 1612, 2018. 11 DRO with Bayesian Ambiguity Sets 
+
+# Supplementary Material 
+
+The Supplementary Material is organised as follows: Appendix A provides details for all the conjugate exponential family examples used in the experiments, while Appendix B contains the proofs of all mathematical results appearing in the main text. Additional computational details are discussed in Appendix C and further details on the relationship between DRO-BAS PE and DRO-BAS PP are provided in Appendix D. Finally, Appendix E provides additional experimental details and results. 
+
+## A. Special Cases of Exponential Family Models 
+
+We derive the values of G(⌢
+
+τ , ⌢
+
+ν) and ˆη appearing in Theorem 3.6 for different likelihoods and conjugate prior/posterior pairs used in the experiments. 
+
+A.1. Gaussian Model with Unknown Mean and Variance 
+
+This section considers a Bayesian model that estimates the unknown mean and variance of a univariate Gaussian distribution. We consider the natural parametrisation of the Normal distribution with unknown mean and unknown variance, written in its exponential family form and derive the conjugate prior and posterior parameters as well as ˆη and G(⌢
+
+τ , ⌢
+
+ν) in Theorem 3.6. Consider the Gaussian likelihood for mean μ and precision λ. Then the likelihood of dataset D is: 
+
+p(D | μ, λ ) = (2 π)− n 
+
+> 2
+
+λ n 
+
+> 2
+
+exp −√λ
+
+2
+
+> n
+
+X
+
+> i=1
+
+(ξi − μ)2
+
+!
+
+. (23) The natural parameters and log-partition function of the normal distribution are 
+
+η =
+
+η1
+
+η2
+
+
+
+=
+
+ μλ 
+
+− λ
+
+> 2
+
+
+
+, A(η) = − η21
+
+4η2
+
+− 12 ln( −2η2)
+
+respectively. Before proceeding, we revisit the gamma and digamma functions. 
+
+Definition A.1. The gamma function Γ : N → R and digamma function ψ : N → R are 
+
+Γ( z) ≜ (z − 1)! ψ(z) ≜ ddz ln Γ( z).
+
+We are now ready to prove the following Corollary, which is a special case of Theorem 3.6. 
+
+Corollary A.2. When the likelihood is a Gaussian distribution with unknown mean μ and precision λ as in (23), and the conjugate prior and posterior are normal-gamma distributions with parameters (⌣
+
+μ, ⌣
+
+κ, ⌣
+
+α, ⌣
+
+β) and (⌢
+
+μ, ⌢
+
+κ, ⌢
+
+α, ⌢
+
+β) respectively, then Theorem 3.6 holds with ˆη =
+
+ ⌢
+
+> μ(⌢
+> κ+1) 2⌢
+> β
+
+, − ⌢
+
+> κ(⌢
+> κ+1) 4⌢
+> β⌢
+> κ
+
+
+
+and G(⌢
+
+τ , ⌢
+
+ν) = 12
+
+
+
+ln ⌢
+
+α − ψ(⌢
+
+α) + 1
+
+> ⌢
+> κ
+
+
+
+.Proof. The prior distribution which leads to a conjugate posterior is the Normal-Gamma distribution with parameters hyper-parameters ⌣
+
+μ, ⌣
+
+κ, ⌣
+
+α, ⌣
+
+β:
+
+π(μ, λ | ⌣
+
+μ, ⌣
+
+κ, ⌣
+
+α, ⌣
+
+β) = N G (μ, λ | ⌣
+
+μ, ⌣
+
+κ, ⌣
+
+α, ⌣
+
+β)= N (μ | ⌣
+
+μ, (⌣
+
+κλ )−1)Ga (λ | ⌣
+
+α, ⌣
+
+β)= 1
+
+ZN G 
+
+λ⌣  
+
+> α−12
+
+exp −⌣
+
+βλ +
+
+> ⌣
+
+κλ 
+
+2 (μ − ⌣
+
+μ)2
+
+!
+
+where the normalisation constant ZN G is given by: 
+
+ZN G = ⌣
+
+β
+
+> −⌣
+> α⌣
+
+κ−1/2
+
+Γ( ⌣
+
+α)√2π. 
+
+12 DRO with Bayesian Ambiguity Sets 
+
+Following the form of the conjugate prior in Definition 3.4 we can write the prior for η as: 
+
+π(η | ⌣
+
+τ , ⌣
+
+ν) = 1
+
+Z(⌣
+
+τ , ⌣
+
+ν) exp 
+
+" ⌣
+
+κ⌣
+
+μ
+
+> ⌣
+
+κ⌣
+
+μ2
+
++ 2 ⌣
+
+β
+
+#⊤ η1
+
+η2
+
+
+
+− ⌣
+
+κ
+
+
+
+− 12 ln( −2η2) − 14 η21 η−12
+
+
+
+= 1
+
+Z(⌣
+
+τ , ⌣
+
+ν) exp 
+
+⌣
+
+τ ⊤
+
+η − ⌣
+
+νA (η)
+
+
+
+.
+
+where we set ⌣
+
+α ≜ ⌣ 
+
+> κ+1 2
+
+and it follows that: 
+
+> ⌣
+
+τ =
+
+"⌣
+
+τ 1
+
+> ⌣
+
+τ 2
+
+#
+
+=
+
+" ⌣
+
+κ⌣
+
+μ
+
+> ⌣
+
+κ⌣
+
+μ2
+
++ 2 ⌣
+
+β
+
+#
+
+, ⌣
+
+ν = ⌣
+
+κ, Z(⌣
+
+τ , ⌣
+
+ν) = 
+
+
+
+> ⌣
+
+τ 2
+
+2 −
+
+> ⌣
+
+τ 21
+
+2⌣
+
+ν
+
+  
+
+> −⌣
+> ν+1 2
+> ⌣
+
+ν− 12
+
+Γ( 
+
+> ⌣
+
+ν + 1 2 )√2π. (24) By conjugacy it follows that the posterior distribution for η with parameters ⌢
+
+τ = ⌣
+
+τ + s(D) and ⌢
+
+ν = ⌣
+
+ν + n, for sufficient statistic s(D) =  P ni=1 ξi, Pni=1 ξ2⊤, is: 
+
+Π( η | D , ⌢
+
+τ , ⌢
+
+ν) = 1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+.
+
+We can now derive G(⌢
+
+τ , ⌢
+
+ν) for the univariate Normal with Normal-Gamma prior using Lemma 3.5. First, 
+
+∂∂⌢
+
+ν
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+= ∂∂⌢
+
+ν
+
+
+
+> ⌢
+
+ν + 1 2 ln 
+
+
+
+> ⌢
+
+τ 2
+
+2 −
+
+> ⌢
+
+τ 21
+
+2⌣
+
+ν
+
+ + 12 ln ⌢
+
+ν − ln Γ 
+
+> ⌣
+
+ν + 1 2
+
+!
+
+= 12 ln 
+
+
+
+> ⌢
+
+τ 2
+
+2 −
+
+> ⌢
+
+τ 21
+
+2⌣
+
+ν
+
+ +
+
+> ⌢
+
+ν + 1 2    
+
+> ⌢
+> τ21
+> 2⌢
+> ν2
+> ⌢
+> τ2
+> 2
+
+− 
+
+> ⌢
+> τ21
+> 2⌢
+> ν
+
++ 12⌢
+
+ν − 12 ψ
+
+> ⌢
+
+ν + 1 2
+
+!
+
+= 12 ln 
+
+
+
+> ⌢
+
+τ 2
+
+2 −
+
+> ⌢
+
+τ 21
+
+2⌣
+
+ν
+
+ + (⌢
+
+ν + 1) ⌢
+
+τ 21
+
+2⌢
+
+ν(⌢
+
+τ 2
+
+> ⌢
+
+ν − ⌢
+
+τ12
+
+)+ 12⌢
+
+ν − 12 ψ
+
+> ⌢
+
+ν + 1 2
+
+!
+
+= 12 ln ⌢
+
+β + (⌢
+
+κ + 1) ⌢
+
+κ2⌢
+
+μ2
+
+2⌢
+
+κ(2 ⌢
+
+β⌢
+
+κ)+ 12κ − 12 ψ
+
+> ⌢
+
+κ + 1 2
+
+!
+
+= 12 ln ⌢
+
+β + (⌢
+
+κ + 1) ⌢
+
+μ2
+
+4⌢
+
+β
+
++ 12κ − 12 ψ
+
+> ⌢
+
+κ + 1 2
+
+!
+
+.
+
+Furthermore, we have: 
+
+ˆη ≜ −∇ ⌢ 
+
+> τ
+
+(− ln Z(⌢
+
+τ , ⌢
+
+ν)) = −∇ ⌢
+
+> τ
+
+
+
+> ⌢
+
+ν + 1 2 ln 
+
+
+
+> ⌢
+
+τ 2
+
+2 −
+
+> ⌢
+
+τ 21
+
+2⌣
+
+ν
+
+ + 12 ln ⌢
+
+ν − ln Γ 
+
+> ⌣
+
+ν + 1 2
+
+!
+
+=
+
+> ⌢
+
+τ 1(⌢
+
+ν + 1) 
+
+> ⌢
+
+τ 2
+
+> ⌢
+
+ν − ⌢
+
+τ 21
+
+, −
+
+> ⌢
+
+ν(⌢
+
+ν + 1) 2( ⌢
+
+τ 2
+
+> ⌢
+
+ν − ⌢
+
+τ 21)
+
+!
+
+=
+
+> ⌢
+
+μ(⌢
+
+κ + 1) 2⌢
+
+β, −
+
+> ⌢
+
+κ + 1 4⌢
+
+β
+
+!
+
+.
+
+Plugging this into the definition of the log-partition function we obtain: 
+
+A(ˆ η) = − ˆη21
+
+4ˆ η2
+
+− 12 ln( −2ˆ η2) = 
+
+> ⌢
+
+μ2
+
+(⌢
+
+κ + 1) 4⌢
+
+β
+
+− 12 ln 
+
+
+
+> ⌢
+
+κ + 1 2⌢
+
+β
+
+
+
+13 DRO with Bayesian Ambiguity Sets 
+
+and from Lemma 3.5 it follows that: 
+
+G(⌢
+
+τ , ⌢
+
+ν) = ∂∂⌢
+
+ν
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+− A(ˆ η)= 12 ln ⌢
+
+β + (⌢
+
+κ + 1) ⌢
+
+μ2
+
+4⌢
+
+β
+
++ 12κ − 12 ψ
+
+> ⌢
+
+κ + 1 2
+
+!
+
+−
+
+> ⌢
+
+μ2
+
+(⌢
+
+κ + 1) 4⌢
+
+β
+
++ 12 ln 
+
+
+
+> ⌢
+
+κ + 1 2⌢
+
+β
+
+
+
+= 12⌢
+
+κ − 12 ψ(⌢
+
+α) + 12 ln ⌢
+
+α. 
+
+Furthermore, for our implementation we can reparametrise ˆη back to standard parameterization to obtain: 
+
+ˆλ = −2ˆ η2 =
+
+> ⌢
+
+α
+
+> ⌢
+
+β, ˆμ = ˆη1
+
+ˆλ = ⌢
+
+μ. 
+
+Tolerance level ϵ In the well-specified case, where we assume that P⋆ ≜ P⋆θ for some θ⋆ ∈ Θ, it is easy to obtain the required size of the ambiguity set exactly. Let θ⋆ ≜ (μ⋆, λ ⋆−1) and P⋆ ≜ N (μ⋆, λ ⋆−1). Using Corollary A.2 we obtain: 
+
+ϵ⋆
+
+> PE
+
+(n) = Eμ,λ ∼N G (μ,λ |⌢
+
+> μ, ⌢
+> κ, ⌢
+> α, ⌢
+> β)
+
+dKL (P⋆, N (ξ | μ, λ −1)) 
+
+= dKL 
+
+P⋆ ∥ N 
+
+⌢
+
+μ, 
+
+> ⌢
+
+β
+
+> ⌢
+
+α
+
+ + 12
+
+ 1
+
+> ⌢
+
+κ + ln ⌢
+
+α − ψ(⌢
+
+α)
+
+
+
+= ln 
+
+vuutλ⋆
+
+> ⌢
+
+β
+
+> ⌢
+
+α
+
+ + λ⋆−1 + ( μ⋆ − ⌢
+
+μ)2
+
+2
+
+> ⌢
+> β
+> ⌢
+> α
+
+− 12 + 12
+
+ 1
+
+> ⌢
+
+κ + ln ⌢
+
+α − ψ(⌢
+
+α)
+
+
+
+= 12
+
+ln 
+
+
+
+λ⋆⌢
+
+β
+
+
+
++ λ⋆−1 + ( μ⋆ − ⌢
+
+μ)2
+
+> ⌢
+> β
+> ⌢
+> α
+
+− 1 + 1
+
+> ⌢
+
+κ − ψ(⌢
+
+α)
+
+ .
+
+Posterior predictive distribution For completeness, we remind the reader of the posterior predictive distribution, which is needed for the implementation of DRO-BAS PP . Under the setting of Corollary A.2, the posterior predictive distribution is the following Student-t distribution 3:
+
+Pn ≡ t2⌢
+
+> α
+
+ξ | ⌢
+
+μ, 
+
+> ⌢
+
+β(⌢
+
+κ + 1) 
+
+> ⌢
+
+α⌢
+
+κ
+
+ .
+
+A.2. Exponential Likelihood with Conjugate Gamma Prior 
+
+We now consider the natural parametrisation of the Exponential distribution, written in its exponential family form and re-derive the conjugate prior and posterior parameters as well as ˆη and G(⌢
+
+τ , ⌢
+
+ν) in Theorem 3.6. Consider the Gaussian likelihood of dataset D for rate parameter λ > 0:
+
+p(D | λ) = exp −λ
+
+> n
+
+X
+
+> i=1
+
+ξi + n ln λ
+
+!
+
+.
+
+The natural parameter and log-partition function of the Exponential distribution are: 
+
+η = −λ, A(η) = − ln( −η)
+
+respectively. We prove the following Corollary. 
+
+> 3
+
+For a full derivation see for example https://www.cs.ubc.ca/~murphyk/Papers/bayesGauss.pdf 
+
+14 DRO with Bayesian Ambiguity Sets 
+
+Corollary A.3. When the likelihood is an exponential distribution with rate parameter λ > 0 and a gamma prior and posterior pair is used with parameters (⌣
+
+α, ⌣
+
+β) and (⌢
+
+α, ⌢
+
+β) respectively, then Theorem 3.6 holds with ˆη = − ⌢
+
+> α
+> ⌢
+> β
+
+and 
+
+G(⌢
+
+τ , ⌢
+
+ν) = ln ⌢
+
+α − ψ(⌢
+
+α).Proof. The prior distribution which leads to a conjugate posterior is the Gamma distribution with hyper-parameters ⌣
+
+α, ⌣
+
+β:
+
+π(λ | ⌣
+
+α, ⌣
+
+β) = 1
+
+ZG
+
+exp 
+
+
+
+−⌣
+
+βλ + ( ⌣
+
+α − 1) ln λ
+
+
+
+where the normalisation constant is ZG = ⌣
+
+β
+
+> −⌣
+> α
+
+Γ( ⌣
+
+α). By following the form of the conjugate prior in Definition 3.4 we can write the prior of η as: 
+
+π(η | ⌣
+
+τ , ⌣
+
+ν) = 1
+
+Z(⌣
+
+τ , ⌣
+
+ν) exp 
+
+⌣
+
+τ η − ⌣
+
+νA (η)
+
+
+
+where ⌣
+
+τ = ⌣
+
+β, ⌣
+
+ν = ⌣
+
+α − 1 and Z(⌣
+
+τ , ⌣
+
+ν) = ⌣
+
+τ 
+
+> ⌣
+> ν+1
+
+Γ( ⌣
+
+ν + 1) . By conjugacy, it follows that the posterior distribution for η with parameters ⌢
+
+τ = ⌣
+
+τ + s(D) and ⌢
+
+ν = ⌣
+
+ν + n, for sufficient statistic s(D) = Pni=1 ξi, is: 
+
+Π( η | D , ⌢
+
+τ , ⌢
+
+ν) = 1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ η − ⌢
+
+νA (η)
+
+
+
+.
+
+We are now ready to derive ˆη and G(⌢
+
+τ , ⌢
+
+ν) for this example. Firstly, 
+
+∂∂⌢
+
+ν (− ln Z(⌢
+
+τ , ⌢
+
+ν)) = ∂∂ ˆν (( ⌢
+
+ν + 1) ln ⌢
+
+τ − ln Γ( ⌢
+
+ν + 1)) = ln ⌢
+
+τ − ψ(⌢
+
+ν + 1) = ln ⌢
+
+β − ψ(⌢
+
+α).
+
+Furthermore, we have 
+
+ˆη ≜ − ∂∂⌢
+
+τ (− ln Z(⌢
+
+τ , ⌢
+
+ν)) = −
+
+> ⌢
+
+ν + 1 
+
+> ⌢
+
+τ = −
+
+> ⌢
+
+α
+
+> ⌢
+
+β
+
+and 
+
+A(ˆ η) = − ln( −ˆη) = − ln 
+
+> ⌢
+
+α
+
+> ⌢
+
+β
+
+!
+
+.
+
+Using Lemma 3.5 we obtain: 
+
+G(⌢
+
+τ , ⌢
+
+ν) = ∂∂⌢
+
+ν (− ln Z(⌢
+
+τ , ⌢
+
+ν)) − A(ˆ η) = ln ⌢
+
+β − ψ(⌢
+
+α) + ln 
+
+> ⌢
+
+α
+
+> ⌢
+
+β
+
+!
+
+= ln ⌢
+
+α − ψ(⌢
+
+α).
+
+Furthermore, for our implementation, we can reparametrise ˆη to the standard parameterization and obtain: 
+
+ˆλ = −ˆη =
+
+> ⌢
+
+α
+
+> ⌢
+
+β.
+
+15 DRO with Bayesian Ambiguity Sets 
+
+Tolerance level ϵ In the well-specified case, where we assume that P⋆ ≜ P⋆θ for some θ⋆ ∈ Θ, it is easy to obtain the required size of the ambiguity set exactly. Let θ⋆ be the true rate parameter, i.e. P⋆ ≜ Exp( θ⋆). Using Corollary A.3 we obtain: 
+
+ϵ⋆
+
+> PE
+
+(n) = EGa( θ|⌢ 
+
+> α, ⌢
+> β)
+
+[dKL (P⋆, Exp( θ)] = dKL P⋆ ∥ Exp 
+
+> ⌢
+
+α
+
+> ⌢
+
+β
+
+!! 
+
++ ψ(⌢
+
+α) − ln( ⌢
+
+α)= ln( θ⋆) − ln 
+
+> ⌢
+
+α
+
+> ⌢
+
+β
+
+!
+
++
+
+> ⌢
+
+α
+
+> ⌢
+
+βθ ⋆
+
+− 1 + ψ(⌢
+
+α) − ln( ⌢
+
+α).
+
+Posterior predictive distribution For completeness, we remind the reader of the posterior predictive distribution, which is needed for the implementation of DRO-BAS PP . Under the setting of Corollary A.3, the posterior predictive distribution is the following Lomax (Pareto type II) distribution: 
+
+Pn ≡ Lomax (⌢
+
+α, ⌢
+
+β).
+
+A.3. Multivariate Normal Likelihood with Normal-Wishart Prior 
+
+Now we assume the random variable ξ is multivariate such that Ξ ⊆ RD where D is the dimension of the random variable. The definitions of the likelihood, prior, and posterior in terms of the natural parameters can be found in Chapter 3.4.4.3 of Murphy (2023). The likelihood is a multivariate normal distribution N (ξ | μ, Σ) with μ ∈ RD and Σ ∈ SD 
+
+> +
+
+(where set SD
+
+> +
+
+is the space of D × D positive semi-definite matrices): 
+
+p(ξ | μ, Σ) = (2 π)− D 
+
+> 2
+
+|Σ|− 12 exp 
+
+
+
+− 12 (ξ − μ)⊤Σ−1(ξ − μ)
+
+
+
+. (25) The natural parameters of the multivariate normal distribution are 
+
+η =
+
+η1
+
+η2
+
+
+
+=
+
+ Σ−1μ
+
+− 12 vec  Σ−1
+
+(26) where vec is a function that converts a matrix into a vector 4. For convenience, we abuse notation and treat η2 and τ2 as matrices instead of using their vectorised form. We prove the following Corollary. 
+
+Corollary A.4. When the likelihood is a multivariate Gaussian distribution with unknown mean μ ∈ RD and covariance matrix Σ ∈ SD 
+
+> +
+
+as in (25), and the conjugate prior and posterior are normal-Inverse-Wishart distributions with parameters 
+
+(⌣
+
+μ, ⌣
+
+κ, ⌣
+
+ι , ⌣
+
+Ψ) and (⌢
+
+μ, ⌢
+
+κ, ⌢
+
+ι , ⌢
+
+Ψ) respectively, then Theorem 3.6 holds with 
+
+ˆη =
+
+ (⌢
+
+κ − D − 2) ⌢
+
+Ψ
+
+> −1⌢
+
+μ
+
+− 12 (⌢
+
+κ − D − 2) ⌢
+
+Ψ
+
+> −⊤
+
+
+
+and 
+
+G(⌢
+
+τ , ⌢
+
+ν) = − D
+
+2 ln( ⌢
+
+κ − D − 2) − 12 ln ⌢
+
+Ψ
+
+> −1
+
++ 12 (⌢
+
+κ − D − 2) 
+
+> ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ. 
+
+Proof. The conjugate prior to the likelihood is the normal-inverse-Wishart (NIW) denoted by NIW 
+
+
+
+μ, Σ | ⌣
+
+μ, ⌣
+
+κ, ⌣
+
+ι , ⌣
+
+Ψ
+
+
+
+.The hyperparameters of the NIW have the following interpretation (Murphy, 2023): ⌣
+
+μ ∈ RD is the prior mean for μ, and 
+
+> 4Strictly speaking, since the upper diagonal of the covariance matrix is the same as the lower diagonal, our vectorised exponential family representation is not minimal. It is, however, more convenient and easier to work with.
+
+16 DRO with Bayesian Ambiguity Sets 
+
+> ⌣
+
+κ ∈ R+ quantifies how strongly we believe in this prior; matrix ⌣
+
+Ψ ∈ SD 
+
+> ++
+
+is (proportional to) the prior mean of Σ, and 
+
+> ⌣
+
+ι ∈ R+ dictates how strongly we believe in this prior. We can re-write the prior π
+
+
+
+μ, Σ | ⌣
+
+μ, ⌣
+
+κ, ⌣
+
+ι , ⌣
+
+Ψ
+
+
+
+in the form of an exponential family π(η | ⌣
+
+τ , ⌣
+
+ν): starting from the definition of the normal-inverse-Wishart distribution, we have 
+
+NIW 
+
+
+
+μ, Σ | ⌣
+
+μ, ⌣
+
+κ, ⌣
+
+ι , ⌣
+
+Ψ
+
+
+
+≜ N
+
+
+
+μ | ⌣
+
+μ, 1
+
+> ⌣
+
+κ Σ
+
+
+
+× IW 
+
+
+
+Σ | ⌣
+
+Ψ, ⌣
+
+ι
+
+
+
+= 1
+
+ZNIW 
+
+|Σ|− 12 exp −
+
+> ⌣
+
+κ
+
+2 (μ − ⌣
+
+μ)⊤Σ−1(μ − ⌣
+
+μ)
+
+!
+
+× | Σ|− 12 (⌣  
+
+> ι+D+1)
+
+exp 
+
+
+
+− 12 Tr 
+
+⌣
+
+ΨΣ −1
+
+ 
+
+= 1
+
+ZNIW 
+
+exp −
+
+> ⌣
+
+κ
+
+2 μΣ−1μ + ⌣
+
+κ⌣
+
+μ⊤
+
+Σ−1μ −
+
+> ⌣
+
+κ
+
+2
+
+> ⌣
+
+μ⊤
+
+Σ⌣
+
+μ − 12 (ι + D + 2) ln |Σ| − 12 Tr 
+
+⌣
+
+ΨΣ −1
+
+!
+
+= 1
+
+ZNIW 
+
+exp 
+
+> ⌣
+
+κ
+
+4 η⊤ 
+
+> 1
+
+η−12 η1 + ⌣
+
+κη ⊤
+
+> 1
+> ⌣
+
+μ + ⌣
+
+κ⌣
+
+μ⊤
+
+η2
+
+> ⌣
+
+μ + 12 (ι + D + 2) ln |− 2η2| + Tr 
+
+⌣
+
+Ψη2
+
+!
+
+= 1
+
+ZNIW 
+
+exp 
+
+" ⌣
+
+κ⌣
+
+μ
+
+> ⌣
+
+κ⌣
+
+μ⌣
+
+μ⊤
+
++ ⌣
+
+Ψ
+
+#⊤ η1
+
+η2
+
+
+
+− ⌣
+
+ν
+
+
+
+− 12 ln |− 2η2| − 14 η⊤ 
+
+> 1
+
+η−12 η1
+
+
+
+= 1
+
+Z(⌣
+
+τ , ⌣
+
+ν) exp 
+
+⌣
+
+τ ⊤
+
+η − ⌣
+
+νA (η)
+
+
+
+= π(η | ⌣
+
+τ , ⌣
+
+ν).
+
+In the above, we recognise that A(η) = − 12 ln |− 2η2| − 14 η⊤ 
+
+> 1
+
+η−12 η1 is the log partition function of the multivariate normal likelihood; we set ⌣
+
+ν = ⌣
+
+κ = ⌣
+
+ι + D + 2 ; and we define ⌣
+
+τ as 
+
+> ⌣
+
+τ =
+
+"⌣
+
+τ 1
+
+> ⌣
+
+τ 2
+
+#
+
+=
+
+
+
+> ⌣
+
+κ⌣
+
+μ
+
+vec 
+
+⌣
+
+κ⌣
+
+μ⌣
+
+μ⊤
+
++ ⌣
+
+Ψ
+
+ (27) (similarly to η2, we abuse notation and treat τ2 as a matrix). The normalisation constant ZNIW for the NIW distribution may be written in terms of ⌣
+
+τ and ⌣
+
+ν as: 
+
+ZNIW ≜ 2⌣
+
+> ι D/ 2
+
+ΓD
+
+⌣
+
+ι / 2
+
+
+
+(2 π/ ⌣
+
+κ)D/ 2|⌣
+
+Ψ|−⌣
+
+> ι / 2
+
+= 2 D(⌣ 
+
+> ν−D−2) /2
+
+ΓD
+
+> ⌣
+
+ν − D − 22
+
+!
+
+(2 π/ ⌣
+
+ν)D/ 2 ⌣
+
+τ 2 − 1
+
+> ⌣
+
+ν
+
+> ⌣
+
+τ 1
+
+> ⌣
+
+τ ⊤ 
+
+> 1
+> −(⌣
+> ν−D−2) /2
+
+≜ Z(⌣
+
+τ , ⌣
+
+ν)
+
+(28) where ΓD is the multivariate gamma function with dimension D.The posterior distribution is 
+
+Π( η | D ) = Π( η | ⌢
+
+τ , ⌢
+
+ν) = 1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+.
+
+The posterior update is ⌢
+
+τ = ⌣
+
+τ + s(D) and ⌢
+
+ν = ⌣
+
+ν + n where s(D) =  P ni=1 ξi, Pni=1 ξξ ⊤⊤. Since the prior and posterior have the same form, the normalisation constant Z(⌢
+
+τ , ⌢
+
+ν) is defined in the same way as (28). 17 DRO with Bayesian Ambiguity Sets 
+
+Our goal is to derive the function G(⌢
+
+τ , ⌢
+
+ν) from Lemma 3.5. First, we derive ∂∂⌢
+
+> ν
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+. We have 
+
+∂∂⌢
+
+ν
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+= ∂∂⌢
+
+ν − D
+
+2 (⌢
+
+ν − D − 2) ln 2 − ln Γ D
+
+(⌢
+
+ν − D − 2) 2
+
+!
+
+− D
+
+2 ln 2 π
+
++ D
+
+2 ln ⌢
+
+ν + 12 (⌢
+
+ν − D − 2) ln ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+!
+
+= − D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+ν − D − 22
+
+!
+
++ D
+
+2⌢
+
+ν + 12 ln ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
++ 12 (⌢
+
+ν − D − 2) Tr 
+
+⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+−1 ⌢
+
+ν−2⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+!
+
+= − D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+κ − D − 22
+
+!
+
++ D
+
+2⌢
+
+κ + 12 ln ⌢
+
+κ⌢
+
+μ⌢
+
+μ⊤
+
++ ⌢
+
+Ψ −
+
+> ⌢
+
+κ2
+
+> ⌢
+
+κ
+
+> ⌢
+
+μ⌢
+
+μ⊤
+
++
+
+> ⌢
+
+κ − D − 22 Tr 
+
+⌢
+
+κ⌢
+
+μ⌢
+
+μ⊤
+
++ ⌢
+
+Ψ −
+
+> ⌢
+
+κ2
+
+> ⌢
+
+κ
+
+> ⌢
+
+μ⌢
+
+μ⊤
+
+ 
+
+> −1
+
+
+
+> ⌢
+
+κ2
+
+> ⌢
+
+κ2
+
+> ⌢
+
+μ⌢
+
+μ⊤
+
+
+
+= − D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+κ − D − 22
+
+!
+
++ D
+
+2⌢
+
+κ + 12 ln ⌢
+
+Ψ +
+
+> ⌢
+
+κ − D − 22
+
+> ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ. 
+
+The first equality above holds by definition of Z(⌢
+
+τ , ⌢
+
+ν) and by log identities. The second equality holds by chain rule for differentiation and the identity ∂(ln |A|) = Tr( A−1∂A ) from (43) of Petersen & Pedersen (2008). In the third equality, we have substituted ⌢
+
+τ , ⌢
+
+ν for ⌢
+
+μ, ⌢
+
+κ, ⌢
+
+Ψ. In the last equality, we have simplified and used the fact that Tr( ⌢
+
+Ψ
+
+> −1⌢
+
+μ⌢
+
+μ⊤
+
+) = ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ.Next, we need to evaluate A(ˆ η). We note that by Lemma 3.5 , ˆη is 
+
+ˆη ≜ EΠ( η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[η] = −∇ ⌢ 
+
+> τ
+
+(− ln Z(⌢
+
+τ , ⌢
+
+ν)) = −∇ ⌢ 
+
+> τ
+
+− D
+
+2 (⌢
+
+ν − D − 2) ln 2 − ln Γ D
+
+(⌢
+
+ν − D − 2) 2
+
+!
+
+− D
+
+2 ln 2 π
+
++ D
+
+2 ln ⌢
+
+ν + 12 (⌢
+
+ν − D − 2) ln ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+!
+
+= −∇ ⌢
+
+> τ
+
+ 12 (⌢
+
+ν − D − 2) ln ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+
+
+.
+
+Before we obtain the partial derivative with respect to ⌢
+
+τ 1 we need the following lemma. 
+
+Lemma A.5. Let x ∈ X and A ∈ Rn×n. Then ∂∂x ln |A − xx ⊤| = −2( A − xx ⊤)−1x.
+
+18 DRO with Bayesian Ambiguity Sets 
+
+Proof. 
+
+∂∂x ln |A − xx ⊤| (i)
+
+= Tr 
+
+
+
+−(A − xx ⊤)−1 ∂(xx ⊤)
+
+∂x 
+
+
+
+> (ii )
+
+= Tr  −(A − xx ⊤)−1(x(∂x )⊤ + ( ∂x )x⊤)
+
+> (iii )
+
+= Tr  −(A − xx ⊤)−1x(∂x )⊤ + Tr  −(A − xx ⊤)−1(∂x )x⊤
+
+> (iv )
+
+= Tr  −(A − xx ⊤)−1x(∂x )⊤ + Tr  −(A − xx ⊤)−1x(∂x )⊤
+
+= −2 Tr  (A − xx ⊤)−1x(∂x )⊤
+
+> (v)
+
+= −2( A − xx ⊤)−1x. 
+
+where (i) follows from the Jacobi’s formula (see e.g. Petersen & Pedersen, 2008, Equation 43) which says that ∂ ln |X| =Tr( X−1∂X ), (ii) follows from the chain rule, (iii) follows from the property of trace that says Tr( A + B) = Tr( A) + Tr( B),(iv) follows from the fact that x(∂x )⊤ is symmetric and finally (v) follows from the property Tr( Auv ⊤) = v⊤Au .We are now ready to derive the partial derivative of − ln Z(⌢
+
+τ , ⌢
+
+ν) with respect to ⌢
+
+τ 1 using the above Lemma: 
+
+∂∂⌢
+
+τ 1
+
+ 12 (⌢
+
+ν − D − 2) ln ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+
+
+= − 1
+
+> ⌢
+
+ν (⌢
+
+ν − D − 2)( ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤ 
+
+> 1
+
+)−1⌢
+
+τ 1.
+
+where we used the fact that ∂ ln |X| = Tr( X−1∂X ). Using the fact that for a square, non-singular matrix X: ∂∂X ln |X| =
+
+X−⊤ (Petersen & Pedersen, 2008, Equation 49), the partial derivative with respect to ⌢
+
+τ 2 is: 
+
+∂∂⌢
+
+τ 2
+
+ 12 (⌢
+
+ν − D − 2) ln ⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+
+
+= 12 (⌢
+
+ν − D − 2) 
+
+⌢
+
+τ 2 − 1
+
+> ⌢
+
+ν
+
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+−⊤ 
+
+.
+
+Hence, 
+
+ˆη =
+
+ 
+
+> 1
+> ⌢
+> ν
+
+(⌢
+
+ν − D − 2)( ⌢
+
+τ 2 + 1
+
+> ⌢
+> ν
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤ 
+
+> 1
+
+)−1⌢
+
+τ 1
+
+− 12 (⌢
+
+ν − D − 2) 
+
+⌢
+
+τ 2 + 1
+
+> ⌢
+> ν
+> ⌢
+
+τ 1
+
+> ⌢
+
+τ ⊤
+
+> 1
+
+−⊤ 
+
+ =
+
+ (⌢
+
+κ − D − 2) ⌢
+
+Ψ
+
+> −1⌢
+
+μ
+
+− 12 (⌢
+
+κ − D − 2) ⌢
+
+Ψ
+
+> −⊤
+
+ .
+
+From the definition of A(η) for the multivariate normal distribution, we have 
+
+A(ˆ η) ≜ − 12 ln |− 2ˆ η2| − 14 ˆη⊤ 
+
+> 1
+
+ˆη−12 ˆη1
+
+= − 12 ln (⌢
+
+κ − D − 2) ⌢
+
+Ψ
+
+> −⊤
+
+− 14 (−2)( ⌢
+
+κ − D − 2) ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −⊤
+
+Ψ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ
+
+= − 12 ln 
+
+
+
+(⌢
+
+κ − D − 2) I ⌢
+
+Ψ 
+
+> −⊤
+
+
+
++ 12 (⌢
+
+κ − D − 2) 
+
+> ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ
+
+= − D
+
+2 ln( ⌢
+
+κ − D − 2) − 12 ln ⌢
+
+Ψ
+
+> −1
+
++ 12 (⌢
+
+κ − D − 2) 
+
+> ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ. 
+
+19 DRO with Bayesian Ambiguity Sets 
+
+We have all the ingredients for calculating G(⌢
+
+τ , ⌢
+
+ν):
+
+G(⌢
+
+τ , ⌢
+
+ν) ≜ ∂∂⌢
+
+ν
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+− A(ˆ η)= − D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+κ − D − 22
+
+!
+
++ D
+
+2⌢
+
+κ + 12 ln ⌢
+
+Ψ +
+
+> ⌢
+
+κ − D − 22
+
+> ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ
+
++ D
+
+2 ln( ⌢
+
+κ − D − 2) + 12 ln ⌢
+
+Ψ
+
+> −1
+
+− 12 (⌢
+
+κ − D − 2) 
+
+> ⌢
+
+μ⊤ ⌢
+
+Ψ
+
+> −1⌢
+
+μ
+
+= − D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+κ − D − 22
+
+!
+
++ D
+
+2⌢
+
+κ + D
+
+2 ln( ⌢
+
+κ − D − 2) 
+
+where we used the fact that |⌢
+
+Ψ
+
+> −1
+
+| = |⌢
+
+Ψ|−1 Finally, for our implementation, we need to get the parameters ˆμ, ˆΣ of the normal likelihood from the parameter ˆη. Using equation (26), we have 
+
+ˆΣ = ( −2ˆ η2)−1 = 1
+
+> ⌢
+
+κ − D − 2
+
+> ⌢
+
+Ψˆμ = ˆΣˆ η1 = ⌢
+
+μ. 
+
+(29) 
+
+Tolerance level ϵ In the well-specified case, where we assume that P⋆ ≜ P⋆θ for some θ⋆ ∈ Θ, it is easy to obtain the required size of the ambiguity set exactly. Let θ⋆ ≜ (μ⋆, Σ⋆) ∈ RD × SD 
+
+> +
+
+and P⋆ ≜ N (μ⋆, Σ⋆). Further let ˆμ and ˆΣ as in (29). Using Corollary A.4 we obtain: 
+
+ϵ⋆
+
+> PE
+
+(n) = Eμ, Σ∼N IW (μ, Σ|⌢ 
+
+> μ, ⌢
+> κ, ⌢
+> ι , ⌢
+> Ψ)
+
+[dKL (P⋆, N (ξ | μ, Σ))] = dKL 
+
+
+
+P⋆ ∥ N 
+
+
+
+ˆμ, ˆΣ
+
+ 
+
+− D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+κ − D − 22
+
+!
+
++ D
+
+2⌢
+
+κ + D
+
+2 ln( ⌢
+
+κ − D − 2) = 12
+
+"
+
+log | ˆΣ||Σ⋆| − D + ( μ⋆ − ˆμ)⊤ ˆΣ−1(μ⋆ − ˆμ) + Tr 
+
+n ˆΣ−1Σ⋆o#
+
+− D
+
+2 ln 2 − 12 ψD
+
+> ⌢
+
+κ − D − 22
+
+!
+
++ D
+
+2⌢
+
+κ + D
+
+2 ln( ⌢
+
+κ − D − 2) .
+
+Posterior predictive distribution For completeness, we remind the reader of the posterior predictive distribution, which is needed for the implementation of DRO-BAS PP . Under the setting of Corollary A.4, the posterior predictive distribution is the following multivariate Student-t distribution (see e.g. Murphy, 2023, p. 96): 
+
+Pn ≡ T ⌢
+
+> κ−D+1
+
+ξ | ⌢
+
+μ, 
+
+> ⌢
+
+Ψ( ⌢
+
+κ + 1) 
+
+> ⌢
+
+κ(⌢
+
+κ − D + 1) 
+
+ .
+
+## B. Proofs of Theoretical Results 
+
+B.1. Proof of Proposition 3.2 
+
+Before proving the required upper bound, we recall the definition of the KL divergence and its convex conjugate. 
+
+Definition B.1 (KL-divergence) . Let μ, ν ∈ P (Ξ) and assume μ is absolutely continuous with respect to ν (μ ≪ ν). The KL divergence of μ with respect to ν is defined as: 
+
+dKL (μ∥ν) ≜
+
+Z
+
+> Ξ
+
+ln 
+
+ μ(dξ )
+
+ν(dξ )
+
+
+
+μ(dξ ).
+
+20 DRO with Bayesian Ambiguity Sets 
+
+Lemma B.2 (Conjugate of the KL-divergence) . Let ν ∈ P (Ξ) be non-negative and finite. The convex conjugate d⋆
+
+> KL
+
+(·∥ ν) of 
+
+dKL (·∥ ν) is 
+
+d⋆
+
+> KL
+
+(·∥ ν)( h) = ln 
+
+Z 
+
+> Ξ
+
+exp( h)dν 
+
+
+
+.
+
+Proof. See Proposition 28 and Example 7 in Agrawal & Horel (2021). We are now ready to prove Proposition 3.2. 
+
+Proof. We introduce a Lagrangian variable γ ≥ 0 for the KL constraint on the left-hand side of (6) as follows: 
+
+sup 
+
+> Q:dKL (Q∥Pn)≤ϵ
+
+EQ[fx] (i)
+
+= inf  
+
+> γ≥0
+
+sup 
+
+> Q∈P (Ξ)
+
+EQ[fx] + γϵ − γd KL (Q∥Pn)
+
+> (ii )
+
+= inf  
+
+> γ≥0
+
+γϵ + ( γd KL (·∥ Pn)) ⋆ (fx)
+
+> (iii )
+
+= inf  
+
+> γ≥0
+
+γϵ + γ ln EPn
+
+
+
+exp 
+
+ fx
+
+γ
+
+ 
+
+.
+
+Equality (i) holds by strong duality since Pn is a strictly feasible point to the primal constraint. Equality (ii) holds by the definition of the conjugate function. Finally, equality (iii) holds by Lemma B.2 and the fact that for γ ≥ 0 and function ϕ,
+
+(γϕ )⋆(y) = γϕ ⋆(y/γ ).
+
+B.2. Proof of Proposition 3.3 
+
+Proof. The result follows from a standard Lagrangian duality argument and an application of Jensen’s inequality. More specifically, we introduce a Lagrangian variable γ ≥ 0 for the expected-ball constraint on the left-hand side of (13) as follows: 
+
+sup  
+
+> Q:Eθ∼Π[dKL (Q∥Pθ)] ≤ϵ
+
+EQ[fx] (i)
+
+≤ inf  
+
+> γ≥0
+
+sup 
+
+> Q∈P (Ξ)
+
+EQ[fx] + γϵ − γEΠ [dKL (Q∥Pθ )] 
+
+> (ii )
+
+= inf  
+
+> γ≥0
+
+γϵ + sup 
+
+> Q∈P (Ξ)
+
+EQ[fx] − EΠ [γd KL (Q∥Pθ )] 
+
+> (iii )
+
+= inf  
+
+> γ≥0
+
+γϵ + ( EΠ [γd KL (·∥ Pθ )]) ⋆ (fx)
+
+> (iv )
+
+≤ inf  
+
+> γ≥0
+
+γϵ + EΠ
+
+(γd KL (·∥ Pθ )) ⋆ (fx)
+
+> (v)
+
+= inf  
+
+> γ≥0
+
+γϵ + EΠ
+
+
+
+γ ln EPθ
+
+
+
+exp 
+
+ fx
+
+γ
+
+ 
+
+.
+
+Inequality (i) holds by weak duality. Equality (ii) holds by linearity of expectation and a simple rearrangement. Equality (iii) holds by the definition of the conjugate function. Inequality (iv) holds by Jensen’s inequality (E[·]) ⋆ ≤ E[( ·)⋆]
+
+because the conjugate is a convex function. Equality (v) holds by Lemma B.2 and the fact that for γ ≥ 0 and function ϕ,
+
+(γϕ )⋆(y) = γϕ ⋆(y/γ ).
+
+B.3. Proof of Lemma 3.5 
+
+We first give a closed-form expression for the expected log-likelihood under the posterior. We start by deriving an expression for the posterior mean, i.e. ˆη ≜ EΠ( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+[η]. We follow a similar technique as the one presented in Endres et al. (2022). We start by using the fact that the posterior density integrates to 1 and take partial derivatives with respect to ⌢
+
+τ . Note that 21 DRO with Bayesian Ambiguity Sets 
+
+by the differentiability assumptions and the fact that the posterior p.d.f. is Lebesgue-integrable, we can interchange the differentiability and integral operations: 
+
+Z 1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη = 1 
+
+⇒ ∇ ⌢
+
+> τ
+
+Z 1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη 
+
+!
+
+= 0 
+
+⇒ ∇ ⌢
+
+> τ
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+!
+
+Z(⌢
+
+τ , ⌢
+
+ν) + 1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+Z
+
+η exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη = 0 
+
+⇒ EΠ( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+[η] = −∇ ⌢
+
+> τ
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+!
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+⇒ ˆη = −∇ ⌢
+
+> τ
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+!
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+⇒ ˆη = −∇ ⌢
+
+τ
+
+
+
+− ln Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+. (30) We now have an expression for ˆη and we can hence write: 
+
+Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[ln p(ξ | η)] = Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+ln h(ξ) + ηT s(ξ) − A(η)
+
+= ln h(ξ) + Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[η]T s(ξ) − Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] = ln h(ξ) + ˆ ηT s(ξ) − Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] = ln h(ξ) + (ˆ η)T s(ξ) − A(ˆ η) + A(ˆ η) − Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] = ln p(ξ | ˆη) + A(ˆ η) − Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] (31) where in the last equality we used the exponential family form of the likelihood (see Definition 3.4). To obtain an expression for the expected log-partition function we follow a similar argument: we start from the posterior p.d.f. and differentiate with respect to ⌢
+
+ν under the differentiability and integrability assumptions: 
+
+Z
+
+> Ω
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη = 1 
+
+⇒ ∂∂⌢
+
+ν
+
+Z
+
+> Ω
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη 
+
+!
+
+= 0 
+
+⇒ ∂∂⌢
+
+ν
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+! Z
+
+> Ω
+
+exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη + 1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+Z
+
+> Ω
+
+∂∂⌢
+
+ν exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη = 0 
+
+⇒ ∂∂⌢
+
+ν
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+!
+
+Z(⌢
+
+τ , ⌢
+
+ν) + 1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+Z
+
+> Ω
+
+−A(η) exp 
+
+⌢
+
+τ ⊤
+
+η − ⌢
+
+νA (η)
+
+
+
+dη = 0 
+
+⇒ Eη∼Π( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] = ∂∂⌢
+
+ν
+
+1
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+!
+
+Z(⌢
+
+τ , ⌢
+
+ν)
+
+⇒ Eη∼Π( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] = ∂∂⌢
+
+ν
+
+
+
+− ln( Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+. (32) By substituting Equation (32) in Equation (31) we obtain a closed-form expectation for the expected log-likelihood as 22 DRO with Bayesian Ambiguity Sets 
+
+follows: 
+
+Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[ln p(ξ | η)] = ln p(ξ | ˆη) + A(ˆ η) − Eη∼p(η|⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] = ln p(ξ | ˆη) −
+
+ ∂∂⌢
+
+ν
+
+
+
+− ln( Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+− A(ˆ η)
+
+
+
+≜ ln p(ξ | ˆη) − G(⌢
+
+τ , ⌢
+
+ν). (33) It is straightforward to show that G(⌢
+
+τ , ⌢
+
+ν) is non-negative: 
+
+G(⌢
+
+τ , ⌢
+
+ν) = ∂∂⌢
+
+ν
+
+
+
+− ln( Z(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+− A(ˆ η)= Eη∼Π( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+[A(η)] − A
+
+
+
+Eη∼Π( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+[η]
+
+
+
+≥ 0
+
+where the equality follows from Equation (32) and the inequality follows from Jensen’s inequality since the log-partition function of an exponential family likelihood is a convex function (Brown, 1986, Theorem 1.13). Finally, we can proceed with the main result. Starting from the left-hand side, we have 
+
+Eη∼Π [dKL (Q∥Pθ )] (i)
+
+= Eη∼Π( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+Z 
+
+> Ξ
+
+q(ξ) ln 
+
+ q(ξ)
+
+p(ξ | η)
+
+
+
+dξ
+
+
+
+> (ii )
+
+= Eη∼Π( η|D ,⌢ 
+
+> τ , ⌢
+> ν)
+
+Z 
+
+> Ξ
+
+q(ξ) ln ( q(ξ)) − q(ξ) ln ( p(ξ | η)) d ξ
+
+
+
+> (iii )
+
+=
+
+Z
+
+> Ξ
+
+q(ξ) ln ( q(ξ)) − q(ξ) · Eη∼Π( η|D ,⌢  
+
+> τ , ⌢
+> ν)
+
+[ln ( p(ξ | η))] d ξ
+
+> (iv )
+
+=
+
+Z
+
+> Ξ
+
+q(ξ) ln ( q(ξ)) − q(ξ) ·
+
+
+
+ln p(ξ | ˆη) − G(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+dξ
+
+> (v)
+
+=
+
+Z
+
+> Ξ
+
+q(ξ) ln 
+
+ q(ξ)
+
+p(ξ | ˆη)
+
+
+
+dξ +
+
+Z
+
+> Ξ
+
+q(ξ) · G(⌢
+
+τ , ⌢
+
+ν) d ξ
+
+> (vi )
+
+= dKL (Q∥Pˆη ) + G(⌢
+
+τ , ⌢
+
+ν).
+
+where (i) is by the definition of the KL-divergence; (ii) follows by log properties; (iii) holds by linearity of expectation; (iv) holds by (33); (v) holds by rearrangement and properties of log and (vi) holds by the definition of the KL-divergence. 
+
+B.4. Proof of Theorem 3.6 
+
+We begin by restating the Lagrangian dual from the proof of Equation (13) for the exponential family case, but with the added claim that strong duality holds between the primal and dual problems: 
+
+sup  
+
+> Q:Eη∼Π[dKL (Q∥Pη)] ≤ϵ
+
+EQ[fx] = inf  
+
+> γ≥0
+
+sup 
+
+> Q∈P (Ξ)
+
+EQ[fx] + γϵ − γEΠ [dKL (Q∥Pη )] . (34) 
+
+Proof. The conditions under which our claim of strong duality holds will be proved later. Next, we substitute the right-hand side of equation (vi) above into the dual problem in (34): 
+
+sup    
+
+> Q:Eη∼Π[dKL (Q∥Pη)] ≤ϵ
+
+Eξ∼Q[fx(ξ)] = inf  
+
+> γ≥0
+
+γϵ + sup 
+
+> Q∈P (Ξ)
+
+Z
+
+> Ξ
+
+fx(ξ)q(ξ) d ξ − γ
+
+
+
+dKL (Q ∥ p(ξ | ˆη)) + G(⌢
+
+τ , ⌢
+
+ν)
+
+
+
+= inf  
+
+> γ≥0
+
+γϵ − γG (⌢
+
+τ , ⌢
+
+ν) + ( γ d KL (· ∥ p(ξ | ˆη))) ⋆ (fx(ξ)) = inf  
+
+> γ≥0
+
+γ(ϵ − G(⌢
+
+τ , ⌢
+
+ν)) + γ ln Eξ∼p(ξ|ˆη)
+
+
+
+exp 
+
+ fx(ξ)
+
+γ
+
+ 
+
+,
+
+23 DRO with Bayesian Ambiguity Sets 
+
+where the second and third equality holds by the definition of the conjugate of the KL-divergence and by Lemma B.2. Finally, it remains to argue that strong duality holds. First, note that the primal problem is a concave optimisation problem with respect to distribution Q. Second, when ϵ > G (⌢
+
+τ , ⌢
+
+ν), then distribution ˆQ = p(ξ | ˆη) is a strictly feasible point to the primal constraint because 
+
+Eθ∼Π[dKL ( ˆQ ∥ Pθ )] = 0 < ϵ − G(⌢
+
+τ , ⌢
+
+ν).
+
+## C. Bayesian DRO Reformulation 
+
+We begin by recalling the two-stage stochastic optimisation proposed by Shapiro et al. (2023) for Bayesian DRO. Let X be the set of feasible decisions. The decision x ∈ X is the called the here-and-now decision: the decision is made before the realisation of the uncertainty of θ. The first stage objective function is H(x, θ ). The first-stage decision solves: 
+
+min  
+
+> x∈X
+
+Eθ∼Π [H(x, θ )] . (35) The Lagrangian decision λ is the second-stage decision: the decision is made after the realisation of the uncertainty of θ.The second stage problem is: 
+
+H(x, θ ) := inf 
+
+> λ> 0
+
+
+
+λϵ + λ ln Eξ∼p(ξ|θ)
+
+
+
+exp 
+
+ fx(ξ)
+
+λ
+
+ 
+
+. (36) We emphasise the two-stage nature of this program: the variable λ is a function of θ and can only be optimised after the realisation of θ.Shapiro et al. (2023) solve the two-stage stochastic program with a nested SAA. The outer SAA samples θi ∼
+
+π(θ| ˆξ1, . . . , ˆξN ) where i = 1 , . . . , N θ . The inner SAA samples ξj ∼ p(ξ|θi) where j = 1 , . . . , N ξ . For a given θj
+
+and given decision x ∈ X , the authors solve: 
+
+H(x, θ ) ≈ ˆG(x, θ ) = inf 
+
+> λ> 0
+
+λϵ + λ ln 1
+
+Nξ
+
+X 
+
+> ξj∼p(ξ|θi)
+
+exp 
+
+ f (x, ξ j )
+
+λ
+
+ . (37) The drawback of this method is the necessity to iterate over each decision x in the set of feasible set X . For example, in the one-dimensional Newsvendor Problem, the authors set X = {x ∈ R : 0 ≤ x ≤ 50 } and then iterate over X with a grid search: 1. For each x = 0 , 1, . . . , 50 , evaluate (37). Let x⋆ be the minimum attained. 2. For each x from x⋆ − 1 to x⋆ + 1 in increments of 0.01 , evaluate (37) and return the minimum attained. When the set X large, this strategy is clearly not scalable. Instead, we jointly minimise the decision variable and Lagrangian variables using an out-of-the-box commercial solver. Our algorithm relies upon the observation that the samples θi ∼ πN
+
+form a discrete, empirical distribution. Let λi be the Lagrangian variable that depends upon sample θi. From Section 2.3.1 of Shapiro et al. (2021), we can switch the expectation in (35) with the minimisation in (37) to obtain: 
+
+inf 
+
+> x,λ 1,...,λ Nθ
+
+
+
+1
+
+NθNθX
+
+> i=1
+
+λiϵ + λi ln 1
+
+NξNξ
+
+X
+
+> j=1
+
+exp f (x, ξ (i) 
+
+> j
+
+)
+
+λi
+
+!
+
+: λ1, . . . , λ Nθ > 0, x ∈ X 
+
+ , (38) where we have denoted the jth sample from p(ξ|θi) by ξ(i) 
+
+> j
+
+. We now have a joint minimisation over the decision x and Lagrangian variables λi where i = 1 , . . . , N θ . However, the second term in (38) cannot yet be given directly to a solver. We make two transformations to (38) to get the minimisation problem into a standard form that can be recognised by a solver. The first transformation uses the log identity ln ab = ln a − ln b. The second transformation introduces Nθ × Nξ
+
+24 DRO with Bayesian Ambiguity Sets 
+
+epigraphical variables tij and constraints f (x, ξ (i) 
+
+> j
+
+) ≤ tij for all i = 1 , . . . , N θ and j ∈ 1, . . . , N ξ . Re-writing (38) with these two transformations, we have: 
+
+inf 
+
+> x,λ 1,...,λ Nθ
+
+1
+
+NθNθX
+
+> i=1
+
+λiϵ − λ ln Nξ + λi ln 
+
+> Nξ
+
+X
+
+> j=1
+
+exp 
+
+ tij 
+
+λi
+
+
+
+s. t. f (x, ξ (i) 
+
+> j
+
+) ≤ tij , i = 1 , . . . , N θ , j ∈ 1, . . . , N ξ
+
+λ1, . . . , λ Nθ > 0, x ∈ X 
+
+(39) To conclude, we observe that the third term is a perspective function of the form λi LSE( ti/λ i), where ti = ( ti1, . . . , t iN ξ )
+
+and LSE is the Log-Sum-Exp function. As λi → 0, we must take care in our implementation to avoid numerical instability. Fortunately, we can make use of Lemma C.1 in our optimisation algorithm, which says as λi → 0, then 
+
+λi LSE( ti/λ i) → max( ti1, . . . , t iN ξ ).
+
+Lemma C.1. Let LSE( y1, . . . , y n) be the Log-Sum-Exp function defined by 
+
+LSE( y1, . . . , y n) ≜ ln 
+
+> n
+
+X
+
+> i=1
+
+exp( yi).
+
+The perspective of the Log-Sum-Exp function converges to the max function, that is: 
+
+lim   
+
+> τ→0
+
+τ LSE 
+
+ y1
+
+τ , . . . , yn
+
+τ
+
+
+
+= max( y1, . . . , y n).
+
+Proof. Let y⋆ = max( y1, . . . , y n) and let C the cardinality of the set of maximum elements: 
+
+C = |{ yi : yi = y⋆, i = 1 , . . . , n }| .
+
+The Log-Sum-Exp function has the following property: 
+
+LSE ( y1, . . . , y n) = y⋆ + LSE( y1 − y⋆, . . . , y n − y⋆).
+
+Using this property, we have 
+
+lim   
+
+> τ→0
+
+τ LSE 
+
+ y1
+
+τ , . . . , yn
+
+τ
+
+
+
+= y⋆ + lim   
+
+> τ→0
+
+τ ln 
+
+> n
+
+X
+
+> i=1
+
+exp 
+
+ yi − y⋆
+
+τ
+
+
+
+= y⋆ + lim   
+
+> τ→0
+
+τ ln C = y⋆.
+
+To see why the second equality holds, notice that yi − y⋆ ≤ 0 for all i = 1 , . . . , n . Thus, we have 
+
+lim   
+
+> τ→0
+
+exp 
+
+ yi − y⋆
+
+τ
+
+
+
+=
+
+(
+
+0, if yi − y⋆ < 0,
+
+1, if yi − y⋆ = 0 ,where we assume 0/0 = 0 for the case of yi − y⋆ = 0 .
+
+Linear objective and Normal likelihood. Recall from Section 3.5 that when the objective function fx(ξ) = ξ⊤x and the likelihood is a Normal distribution N (μ, Σ) , then we can use the MGF to solve the optimisation problem over λ in (37) to obtain 
+
+H(x, θ ) = H(x, μ, Σ) = μ⊤x + √2ϵ√x⊤Σx. 
+
+Assuming the posterior distribution is a Normal-inverse-Wishart ( NIW ) distribution, the BDRO dual from (35) can be re-written as 
+
+min  
+
+> x∈X
+
+Eμ, Σ∼NIW [H(x, θ )] = min  
+
+> x∈X
+
+Eμ∼NIW 
+
+μ⊤x + √2ϵ EΣ∼NIW 
+
+h√x⊤Σx
+
+i
+
+. (40) The expectation over μ above can be computed in closed form, whilst the expectation over Σ can be approximated by Monte Carlo sampling. 25 DRO with Bayesian Ambiguity Sets 
+
+## D. Further Details on the Connection Between DRO-BAS Formulations 
+
+In this section, we provide the proof of Corollary 3.7 and make some additional comments on the relationship between the two formulations. We begin with Corollary 3.7. 
+
+Proof of Corollary 3.7. By (17), BAS PE is equivalent to a KL-based discrepancy set with nominal distribution Pˆη and a posterior-adjusted constant G(⌢
+
+τ , ⌢
+
+ν). To see this, consider some ϵ > 0 and Q ∈ P (Ξ) such that Q ≪ Pη for any η ∈ Ω.Then by (17): 
+
+Eη∼Π[dKL (Q|| Pη )] ≤ ϵ ⇒ dKL (Q, Pˆη ) + G(⌢
+
+τ , ⌢
+
+ν) ≤ ϵ
+
+⇒ dKL (Q, Pˆη ) ≤ ϵ − G(⌢
+
+τ , ⌢
+
+ν).
+
+This means that the DRO-BAS PE problem in (12), restricted to the exponential family case, is equivalent to the following optimisation problem: 
+
+min  
+
+> x
+
+sup   
+
+> Q∈B ϵ−G(⌢
+> τ , ⌢
+> ν)(Pˆη)
+
+Eξ∼Q[fx(ξ)] .
+
+This observation is specific to the exponential family and we should not expect this to hold for general model families and posteriors. Another interesting connection between the two formulations regards cases where one constitutes the subset of the other. One such case is the following: 
+
+Lemma D.1. For general model family PΘ and fixed ϵ ≥ 0, BAS PE is a subset of BAS PP , i.e. Aϵ(Π) ⊆ B ϵ(Pn).
+
+Hence, for fixed ϵ, if the DGP is contained in both ambiguity sets, then the DRO-BAS PE risk is upper bounded by the DRO-BAS PP risk resulting in DRO-BAS PP decisions being overly conservative. 
+
+Proof of Lemma D.1. This result follows from Jensen’s inequality by noting that the KL is convex on the second argument and hence for any Q ∈ A ϵ(Π) we have 
+
+dKL (Q|| Pn) = dKL (Q|| Eθ∼Π[Pθ ]) ≤ Eθ∼Π[dKL (Q|| Pθ )] ≤ ϵ
+
+and hence Q ∈ B ϵ(Pn).In the exponential family case, this holds for all ϵ ≥ ϵ⋆
+
+> PE
+
+, with ϵ⋆ 
+
+> PE
+
+as defined in (20). In particular, for all ϵ ≥ ϵ⋆ 
+
+> PE
+
+it follows that: 
+
+Eξ∼P⋆ [fx(ξ)] ≤ sup  
+
+> Q:Eη∼Π[dKL (Q∥Pη)] ≤ϵ
+
+Eξ∼Q[fx(ξ)] ≤ sup  
+
+> Q:dKL (Q∥Eη∼Π[Pη]) ≤ϵ
+
+Eξ∼Q[fx(ξ)] 
+
+where the first inequality follows from (21) and the second inequality follows from Lemma D.1. However, it is worth noting that this is not guaranteed for values of ϵ smaller than ϵ⋆ 
+
+> PE
+
+so no definite conclusions can be made for the performance of the methods for different values of ϵ or for any ϵ ≤ ϵ⋆
+
+> PE
+
+. Exploring this further would be an important aspect of future work. We further discuss computational differences of the two objectives in the next section and empirically investigate both methods in Section 4. 
+
+## E. Supplementary Experiments & Details 
+
+In this section, we provide additional details about the setup of experiments, the metrics used to evaluate the algorithms, and some supplementary experiments. 26 DRO with Bayesian Ambiguity Sets 750 800 850 900 Out-of-sample variance, v()38 40 42 44 46 Out-of-sample mean,  m()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.05 0.1 0.5 1.0 
+
+M =25 with Normal DGP     
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO 750 800 850 900 Out-of-sample variance, v()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.05 0.1 0.5 1.0
+
+M =100 with Normal DGP     
+
+> 750 800 850 900 Out-of-sample variance, v()0.001 0.1 0.5 1.0 0.001 0.1 0.5 1.0 0.05 0.1 0.5 1.0
+
+M =900 with Normal DGP 3500 4000 4500 5000 5500 6000 Out-of-sample variance, v()120 140 160 Out-of-sample mean,  m()0.001 0.1 0.2 0.001 0.1 0.2 0.03 0.1 0.2 
+
+M =25 with Contaminated Exp DGP       
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO 3500 4000 4500 5000 5500 6000 Out-of-sample variance, v()0.001 0.1 0.2 0.001 0.1 0.2 0.03 0.1 0.2
+
+M =100 with Contaminated Exp DGP       
+
+> 3500 4000 4500 5000 5500 6000 Out-of-sample variance, v()0.001 0.1 0.2 0.001 0.1 0.2 0.03 0.1 0.2
+
+M =900 with Contaminated Exp DGP 
+
+Figure 4. The out-of-sample mean-variance tradeoff for normal DGP (top row) and Contaminated Exponential DGP (bottom row). We vary ϵ for DRO-BAS PE , DRO-BAS PP , and BDRO when the total number of samples from the model is 25 (left), 100 (middle), and 900 (right) and plot the markers in bold. For illustration purposes, blurred markers/lines show the other smaller values of M ; for example, the right column shows M = 900 in bold and M = 25 , 100 in blurred. Each marker corresponds to a single value of ϵ, some of which are labelled (e.g. ϵ = 0 .1, 0.5, 3.0). Filler markers indicate the given ϵ lies on the Pareto frontier of the model-based algorithms. If the marker is unfilled, this indicates the given ϵ is Pareto dominated by at least one other point. 
+
+Implementation. We implemented the dual problems for DRO-BAS (Theorem 3.6) and BDRO (Shapiro et al., 2023) in Python 3.11 using CVXPY version 1.5.2 (Diamond & Boyd, 2016; Agrawal et al., 2018) and the MOSEK solver version 10.1.28. Three machines were used to run experiments, each with a Dual Intel Xeon E5-2643 v3 @ 3.4 Ghz (12 cores/24 threads total) with 128GB RAM (5 GB per thread / 10GB per core). The SLURM workload manager was used to schedule jobs. Each job was allocated a single core and 10GB of RAM such that upto 12 jobs can be ran in parallel on a single machine. 
+
+Out-of-sample mean and variance. For a given ϵ, we calculate the total out-of-sample mean m(ϵ) and variance v(ϵ) of the cost as: 
+
+m(ϵ) = 1
+
+JT 
+
+> J
+
+X
+
+> j=1
+> T
+
+X
+
+> t=1
+
+f (x(j) 
+
+> ϵ
+
+, ξ n+t),v(ϵ) = 1
+
+JT − 1
+
+> J
+
+X
+
+> j=1
+> T
+
+X
+
+> t=1
+
+
+
+f (x(j) 
+
+> ϵ
+
+, ξ n+t) − m(ϵ)
+
+2
+
+,
+
+where x(j) 
+
+> ϵ
+
+is the obtained solution on training dataset D(j) 
+
+> n
+
+. The variance formula we use above is simply the total variance across all T observations and all J test datasets. For random seed j = 1 , . . . , 500 , we sample n = 20 training observations 
+
+D(j) 
+
+> n
+
+from the DGP, then sample T = 50 test points. This contrasts with the formula proposed in Gotoh et al. (2021) for a 27 DRO with Bayesian Ambiguity Sets 
+
+Solve time (seconds) Total sample time (seconds ×10 −4)DGP M DRO-BAS PE DRO-BAS PP BDRO DRO-BAS PE DRO-BAS PP BDRO Exp 25 0.024 (0.003) 0.024 (0.003) 0.068 (0.012) 0.097 (0.007) 0.117 (0.009) 0.360 (0.018) 100 0.036 (0.003) 0.037 (0.003) 0.148 (0.020) 0.099 (0.007) 0.122 (0.015) 0.614 (0.045) 900 0.422 (0.030) 0.428 (0.032) 0.724 (0.040) 0.114 (0.010) 0.155 (0.013) 1.611 (0.117) Tr. N 25 0.024 (0.003) 0.024 (0.003) 0.067 (0.012) 0.070 (0.006) 0.138 (0.008) 0.121 (0.009) 100 0.035 (0.003) 0.035 (0.003) 0.145 (0.020) 0.072 (0.006) 0.142 (0.009) 0.156 (0.013) 900 0.398 (0.020) 0.406 (0.021) 0.683 (0.033) 0.090 (0.008) 0.185 (0.012) 0.292 (0.025) 5D N 25 0.031 (0.004) 0.030 (0.004) 0.104 (0.012) 0.423 (0.034) 0.400 (0.023) 4.279 (0.243) 100 0.080 (0.009) 0.080 (0.010) 0.210 (0.022) 0.437 (0.033) 0.422 (0.025) 7.852 (0.342) 900 0.919 (0.097) 0.948 (0.100) 1.145 (0.072) 0.525 (0.039) 0.592 (0.040) 22.150 (0.892)         
+
+> Table 3. Newsvendor Problem: Average solve (in seconds) and sample time (in seconds ×10 −4) with the associated standard deviation in brackets. The Exponential, 1D Truncated Normal (T. N) and 5D Normal DGPs correspond to the Newsvendor problem setting in Section 4.1. The time of the algorithm with the fastest solve is in bold; if two algorithms have the same solve time, then the sample time is in bold. The solve and sample times for the 1D well-specified Normal and contaminated Exponential DGPs in Figure 4 are very similar to Tr. Nand 5D Nrespectively, and are thus omitted.
+
+bootstrapping application which was also used by Shapiro et al. (2023) in their BDRO experiments. 
+
+E.1. Newsvendor Problem - Additional Details 
+
+This subsection is dedicated to additional details and experiments that complement Section 4.1 on the Newsvendor Problem. 
+
+Data-generating processes. In the main text, we evaluated the methods on two well-specified settings: an exponential distribution with rate parameter λ = 120 and a 5D multivariate normal distribution with mean μ⋆ = (10 , 20 , 30 , 35 , 22) and full covariance Σ⋆. In this section, we also provide supplementary experiments for a univariate Normal distribution DGP with mean μ⋆ = 25 and standard deviation σ⋆ = 10 ; the likelihood is also Normal, so the model is well-specified. In Section 4.1, we also evaluated the algorithms when the likelihood is misspecified. The DGP is a Truncated Normal distribution with mean μ⋆ = 10 , standard deviation σ⋆ = 10 , and truncation ξ ∈ [0 , ∞); the likelihood is a univariate Normal distribution. In this section, we provide another misspecified example. The DGP is a Contaminated Exponential distribution whilst the likelihood is an Exponential distribution with conjugate Gamma posterior/prior. 80% of the observations from the Contaminated Exponential DGP are sampled from an Exponential distribution with rate parameter λ = 120 ; the other 20% of observations are sampled from a Normal distribution with mean 100 and standard deviation 0.5. 
+
+Prior hyperparameters. When the likelihood is a univariate Normal distribution (i.e. when the DGP is Normal or Truncated Normal), the prior and posterior are Normal-Gamma distributions; we set the prior hyperparameters to be ⌣
+
+μ = 0 
+
+and ⌣
+
+κ, ⌣
+
+α, ⌣
+
+β = 1 . When the likelihood is an Exponential distribution, the prior and posterior are Gamma distributions with prior hyperparameters ⌣
+
+α, ⌣
+
+β = 1 . Finally, when the likelihood is a multivariate Normal distribution with dimension D = 5 ,the prior and posterior are Normal-Inverse-Wishart distributions with prior hyperparameters ⌣
+
+μ = 0 ∈ RD , ⌣
+
+ι = D + 1 ,
+
+> ⌣
+
+κ = ⌣
+
+ι + D + 2 , and ⌣
+
+Ψ = ID , where ID is the D-dimensional identity matrix. 
+
+Supplementary experiment: Normal DGP. The top row of Figure 4 shows that the conclusions of Section 4.1 hold for the well-specified case of a Normal DGP/likelihood, that is, for M = 25 , 100 , DRO-BAS Pareto dominates BDRO in the OOS mean-variance tradeoff, whilst performance is similar for M = 900 .
+
+Supplementary experiment: Contaminated Exponential DGP. The bottom row of Figure 4 shows misspecification context where the DGP is a Contaminated Exponential and the likelihood is an Exponential distribution. As ϵ increases, the OOS mean of DRO-BAS and BDRO increases fast but with little reduction in the OOS variance: a decision maker is unlikely to desire this property. This implies that we should use a very small value of ϵ because a larger ϵ does not give 28 DRO with Bayesian Ambiguity Sets 4000 6000 8000 10000 Out-of-sample variance, v()80 100 120 140 Out-of-sample mean,  m()0.001 0.1 0.5 0.001 0.1 0.5 0.09 0.1 0.5 
+
+n=5 with Exponential DGP     
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO 4000 6000 8000 10000 Out-of-sample variance, v()0.001 0.1 0.5 0.001 0.1 0.5 0.03 0.1 0.5
+
+n=20 with Exponential DGP     
+
+> 4000 6000 8000 10000 Out-of-sample variance, v()0.001 0.1 0.5 0.001 0.1 0.5 0.005 0.1 0.5
+
+n=100 with Exponential DGP 
+
+Figure 5. The out-of-sample mean-variance tradeoff for Exponential DGP when the total number of observations n is 5 (left), 20 (middle), and 100 (right). For illustration purposes, blurred markers/lines show the previous two values of n; for example, the right column shows n = 100 in bold and n = 5 , 20 in blurred. Each marker corresponds to a single value of ϵ, some of which are labelled (e.g. 
+
+ϵ = 0 .1, 0.5, 3.0). If the marker is filled, this indicates the given ϵ lies on the Pareto frontier. If the marker is unfilled, this indicates the given ϵ is Pareto dominated by at least one other point. 
+
+much more robustness. Contrast this to the other DGPs we have analysed where the mean-variance tradeoff creates a nice Pareto frontier curve on a subset of the ϵ values whereby an increase in the OOS mean is traded for a decrease in the OOS variance. In particular, contrast this to the well-specified Exponential example from the top row of Figure 2. All of this provides motivation for future work on Bayesian ambiguity that specifically target model misspecification. 
+
+Solve and sample times. Table 3 shows the solve times on the Newsvendor Problem for algorithms on different DGPs. As we noted in Section 4.1, the solve and sample times are broadly comparable for DRO-BAS and BDRO, although both DRO-BAS algorithms are faster across all DGPs and all sample sizes M .
+
+Results for varying number of observations. We now examine the results from the Newsvendor problem for an increasing number of observations. We fix the number of MC samples to M = 100 and run the experiment for dataset size n = 5 , 20 , 100 . Results for n = 5 , 20 were also reported in Shapiro et al. (2023) for the well-specified Normal and Exponential DGPs/likelihoods. Figure 5 shows that as expected performance of both methods improves as the number of observations increases. Moreover, DRO-BAS continues to Pareto dominate or match BDRO in all cases with the difference between the two methods being bigger for a smaller number of observations. 
+
+Why does the OOS variance increase as ϵ increases? The behaviour of the OOS variance v(ϵ) in the Newsvendor experiments is due to the behaviour of the variance of the solution (denoted by vx(ϵ)). In turn, the variance of the solution is driven by the Newsvendor asymmetric cost function and its interplay with the worst-case distribution for each ϵ. Figure 6 shows the behaviour of the solution for the Newsvendor problem under a Normal DGP corresponding to the top plot in Figure 4. The Newsvendor cost-function is piece-wise linear with 2 pieces, and hence, the true risk (expected cost under the DGP) has two different gradient slopes. The optimal solution lies at the intersection of the two pieces of the objective function, which coincides with the point with respect to x where the true risk is zero. The piece corresponding to larger solutions has a significantly smaller slope (see 4th plot of Figure 6), leading to a smaller true risk. Let’s consider a fixed value of M = 25 in Figure 6. For small values of ϵ, the variance of the solution vx(ϵ) is smaller because fewer distributions are included in the ambiguity set; hence, the obtained solution is fairly stable over replications (see first plot of Figure 6). However, because BAS likely does not include the DGP, the decision is prone to risk; thus, the OOS variance of the cost function v(ϵ) is large (see the Pareto curve of the first plot of Figure 4). In this regime, the OOS variance (of the cost) reduces as we increase epsilon and better capture the DGP. As ϵ increases further, the ambiguity sets begin to include more distributions, leading to the mean solution moving to values larger than the optimal solution where the slope of the true risk is smaller (see 4th plot of Figure 6). This makes sense because, as we increase ϵ, we become more conservative. However, as ϵ increases to very large values (in this case > 0.5), 29 DRO with Bayesian Ambiguity Sets 10 3 10 2 10 1 10 0                  
+
+> Tolerance level
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> Solution x
+> M=25 with Normal DGP
+> Optimal solution
+> = 0.5
+> BDRO Bayes
+> DRO-BAS PE Bayes
+> DRO-BAS PP Bayes
+> 10 310 210 110 0
+> Tolerance level
+> Solution x
+> M=100 with Normal DGP
+> 10 310 210 110 0
+> Tolerance level
+> Solution x
+> M=900 with Normal DGP
+> 50 100 150 200
+> (25, 100) [f(x,)]
+> Solution x
+> Expected cost under normal DGP
+> Expected cost under the DGP
+> Optimal solution
+
+Figure 6. The first three plots showcase the mean solution (decision variable x) with the associated variance (error bars) obtained by the methods applied to the Newsvendor problem with a Normal DGP for M = 25 , 100 , 900 . The last plot shows the true risk (expected cost under the DGP) for each value of the solution x. Red dotted lines show the optimal solution under the DGP. 
+
+the ambiguity set contains a lot of arbitrary distributions, significantly increasing the out-of-sample cost. The methods then push the solution towards smaller values of x as can be observed by the big variance vx(ϵ) on the first plot for larger values of ϵ.This behaviour is common for all values of M , however, there is an important distinction: for smaller values of M (25, 100), the error bars extend way below and above the optimal solution. If we associate this with the form of the true risk on the last plot in Figure 6, we can expect a very high variance v(ϵ) of the out-of-sample cost. On the other hand, the variance of the solution vx(ϵ) for large M ( M = 900 ) does not extend below the optimal solution by a large degree. This means that as the optimisation becomes more exact, the methods suggest staying on values bigger than the optimal solution, which corresponds to the smaller slope of the true risk. This is why for M = 900 in the top row of Figure 4, the out-of-sample variance v(ϵ) does not increase by a lot for large values of ϵ.
+
+E.2. Portfolio Problem: Additional Details 
+
+The dataset from Bruni et al. (2016) contains two baselines which we include for comparison in Figure 7: a Markowitz mean-variance risk model (Markowitz, 1952) and the DowJones index. In Figure 7, we show the cumulative returns on the test datasets. We note that all three DRO methods have a larger cumulative return than the Markowitz and DowJones index baselines. 
+
+Sliding time window construction (Bruni et al., 2016). The first train D(1)  
+
+> n
+
+and test D(1)  
+
+> T
+
+dataset contain the first 52 weeks of returns and following 12 weeks of returns respectively. We construct the second train dataset D(2)  
+
+> n
+
+by excluding the first 12 weeks of returns from D(1)  
+
+> n
+
+and including the 12 weeks from D(1)  
+
+> T
+
+, whilst the second test dataset D(2)  
+
+> T
+
+contains the next 12 weeks of data following D(1)  
+
+> T
+
+. We repeat this procedure for all j = 1 , . . . , J until the end of the dataset. 
+
+E.3. Discussion on Empirical vs Model-based DRO and Additional Comparisons 
+
+In this section, we further discuss the relationship between empirical and model-based DRO methods. This work focuses on scenarios where the decision-maker has access to both observations from the data-generating process (DGP) and a model family that describes the underlying data distribution. Specifically, we examine situations where incorporating uncertainty quantification about the model parameters into the worst-case minimization problem is crucial. This setting is particularly relevant when a model is required to capture a complex relationship between covariates and outcome variables, such as in regression tasks or Bayesian risk minimization, where the decision-maker seeks protection against a poor posterior 30 DRO with Bayesian Ambiguity Sets 
+
+Figure 7. The Portfolio cumulative return across test datasets. For each DRO method, a line corresponds to a distinct ϵ value (shown in brackets in the legend). The vertical dotted line marks the start of the first test set on week 52. 0 200 400 600 800 1000 1200 1400 Week number 02468Out-of-sample cumulative return BDRO (1 e − 05) BDRO (0 .001) BDRO (1 .0) DRO-BAS P E (G + 1 e − 05) DRO-BAS P E (G + 0 .001) DRO-BAS P E (G + 1 .0) DRO-BAS P P (1 e − 05) DRO-BAS P P (0 .001) DRO-BAS P P (1 .0) DowJones Index Markowitz 
+
+distribution arising from limited or noisy data. In such instances, purely data-driven (empirical) DRO formulations may not be the most suitable approach. To better understand the practical differences between these methods, we empirically assess our proposed approach against two empirical DRO methods. Firstly, the Empirical KL DRO framework introduced by Hu & Hong (2013) uses the following ambiguity set: 
+
+Bϵ(ˆPn) = {P : dKL (P|| ˆPn) ≤ ϵ}.
+
+Secondly, we compare against Wasserstein DRO with a p = 2 norm (see e.g. Kuhn et al., 2019; Gao & Kleywegt, 2023). Figure 8 shows the OOS mean-variance trade-off of Empirical KL DRO (in gray with crosses) and Wasserstein DRO (in brown with plusses) versus the model-based DRO approaches of DRO-BAS and BDRO on the Newsvendor Problem for two DGPs. For a given DGP, note that the gray and brown curves do not change for M = 25 , 100 , 900 because Empirical DRO does not sample. The results show that DRO-BAS and BDRO perform better than Empirical KL and Wasserstein DRO when a sufficiently large number of samples is taken from the model ( M = 900 ). However, for M = 25 , Empirical DRO has better the OOS performance than model-based DRO approaches because more samples need to be taken to better approximate the model. For M = 100 , Empirical DRO and the model-based methods are broadly comparable, with Empirical KL DRO having an advantage on the Truncated Normal DGP, likely due to misspecification of the likelihood. 
+
+E.4. Cross-validation for choosing ϵ
+
+In practice, the decision-maker is unlikely to be able to calculate the optimal value of ϵ because they do not know the distributional form of the DGP. Instead, the decision-maker must calibrate ϵ from the available training data. One method for achieving this is to perform cross-validation (CV) by splitting the data into training folds, then evaluating the OOS performance of proposed solution on the test folds. We perform 10-fold CV on the Newsvendor for DRO-BAS with a univariate Normal DGP and n = 100 training observations. We train our model only on the training folds, then after solving for each candidate ϵ, we calculate the CV mean and variance of the objective function on the validation folds .31 DRO with Bayesian Ambiguity Sets 750 800 850 900 Out-of-sample variance, v()38 40 42 44 46 Out-of-sample mean,  m()0.001 0.3 1.0 0.001 10.0 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 
+
+M =25 with Normal DGP 
+
+750 800 850 900 Out-of-sample variance, v()0.001 0.3 1.0 0.001 10.0 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 
+
+M =100 with Normal DGP 
+
+750 800 850 900 Out-of-sample variance, v()0.001 0.3 1.0 0.001 10.0 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 
+
+M =900 with Normal DGP 
+
+DRO-BAS P E 
+
+DRO-BAS P P 
+
+BDRO Empirical KL Empirical Wasserstein 500 550 600 650 700 Out-of-sample variance, v()32 33 34 35 36 37 Out-of-sample mean,  m()0.001 0.3 1.0 0.001 10.0 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 
+
+M =25 with Truncated Normal DGP      
+
+> 500 550 600 650 700 Out-of-sample variance, v()0.001 0.3 1.0 0.001 10.0 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0
+
+M =100 with Truncated Normal DGP      
+
+> 500 550 600 650 700 Out-of-sample variance, v()0.001 0.3 1.0 0.001 10.0 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0 0.001 0.05 0.1 0.5 1.0
+
+M =900 with Truncated Normal DGP 
+
+> DRO-BAS P E
+> DRO-BAS P P
+> BDRO Empirical KL Empirical Wasserstein
+
+Figure 8. Comparison of the OOS mean-variance tradeoff on the Newsvendor for Empirical KL DRO and Empirical Wasserstein DRO vs Bayesian model-based DRO approaches on the Newsvendor Problem with Normal DGP (top) and Truncated Normal DGP (bottom). 
+
+The results in Figure 9 show how the decision-maker can choose a value of ϵ depending upon their appetite for risk. For example, if the decision-maker wishes to minimise the CV variance, then they should choose the value of ϵ marked by the stars in Figure 9. The triangle markers in the figure show a way to choose ϵ that compromises between the CV mean and variance by taking a average of the CV mean and the CV standard deviation. By considering the CV mean-variance tradeoff, the decision-maker is now well-informed to choose ϵ with knowledge of how the chosen value could perform on out-of-sample, unseen data. 32 DRO with Bayesian Ambiguity Sets 700 750 800 850 Cross-validation variance (CV-var) 37 38 39 40 41 Cross-validation mean (CV-mean) 
+
+> 0.02 0.1 0.4 0.02 0.15 0.4
+
+M =25 with Normal DGP    
+
+> 700 750 800 850 Cross-validation variance (CV-var)
+> 0.005 0.1 0.5 0.02 0.15 0.6
+
+M =100 with Normal DGP    
+
+> 700 750 800 850 Cross-validation variance (CV-var)
+> 0.001 0.15 0.7 0.02 0.15 0.7
+
+M =900 with Normal DGP 
+
+> DRO-BAS P P
+> min CV-mean min CV-var min CV-mean-std DRO-BAS P E
+> min CV-mean min CV-var min CV-mean-std
+
+Figure 9. The cross-validation (CV) mean-variance tradeoff on the Newsvendor Problem with Normal DGP and n = 100 training observations. We highlight three ways the decision maker can choose ϵ: firstly, minimise the CV-mean (cross markers); secondly, minimise the CV-var (star markers); and thirdly, minimise 12 (CV-mean + CV-std ) (triangle markers), where CV-std is the standard deviation of the objective function on the validation folds. 
+
+33

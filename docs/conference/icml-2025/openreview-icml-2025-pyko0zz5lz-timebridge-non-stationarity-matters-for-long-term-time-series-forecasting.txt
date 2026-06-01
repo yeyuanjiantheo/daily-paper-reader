@@ -1,0 +1,1104 @@
+Title: TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting
+
+URL Source: https://openreview.net/pdf?id=pyKO0ZZ5lz
+
+Number of Pages: 26
+
+Markdown Content:
+# TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Peiyuan Liu 1 * Beiliang Wu 2 * Yifan Hu 1 * Naiqi Li 1 Tao Dai 2 Jigang Bao 1 Shu-tao Xia 1
+
+Abstract 
+
+Non-stationarity poses significant challenges for multivariate time series forecasting due to the inherent short-term fluctuations and long-term trends that can lead to spurious regressions or obscure essential long-term relationships. Most existing methods either eliminate or retain non-stationarity without adequately addressing its dis-tinct impacts on short-term and long-term mod-eling. Eliminating non-stationarity is essential for avoiding spurious regressions and capturing local dependencies in short-term modeling, while preserving it is crucial for revealing long-term cointegration across variates. In this paper, we propose TimeBridge, a novel framework designed to bridge the gap between non-stationarity and dependency modeling in long-term time series forecasting . By segmenting input series into smaller patches, TimeBridge applies Integrated Attention to mitigate short-term non-stationarity and capture stable dependencies within each variate, while Cointegrated Attention preserves non-stationarity to model long-term cointegration across variates. Extensive experiments show that TimeBridge consistently achieves state-of-the-art performance in both short-term and long-term forecasting. Additionally, TimeBridge demon-strates exceptional performance in financial fore-casting on the CSI 500 and S&P 500 indices, fur-ther validating its robustness and effectiveness. Code is available at https://github.com/ Hank0626/TimeBridge .
+
+1. Introduction 
+
+Multivariate time series forecasting aims to predict future changes based on historical observations of time series data, 
+
+> *
+
+Equal contribution 1Tsinghua Shenzhen International Grad-uate School 2Shenzhen University. Correspondence to: Tao Dai 
+
+<daitao.edu@gmail.com >, Naiqi Li <linaiqi.thu@gmail.com >.
+
+Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s). Inpu t Ou tput Inpu t Ou tput           
+
+> (a) Retain Non -stationarity (b) Remove Non -stationarity
+> 𝑋 !𝑌 !Predicted 𝑋 !Predicted 𝑌 !
+> Spurious
+> Regression
+> Lost
+> Cointegration
+
+Figure 1. Visualization of the impact of non-stationarity on short-term and long-term modeling. The goal is to forecast two coin-tegrated sequences, Xt and Yt, where Xt exhibits two random fluctuations. (a) Retaining non-stationarity preserves long-term cointegration between variates but leads to spurious regressions in short-term modeling (orange line). (b) Removing non-stationarity avoids short-term spurious regressions but disrupts long-term simi-lar trends (green line). 
+
+which holds significant applications in fields such as finan-cial investment (Sezer et al., 2020), weather forecasting (Karevan & Suykens, 2020), and traffic flow prediction (Shu et al., 2021; Miao et al., 2024b). However, the inherent non-stationarity of time series (Kim et al., 2022), characterized by short-term fluctuations and long-term trends, introduces challenges such as spurious regressions, making time series forecasting a particularly complex task. Recently, many methods have emerged to utilize anormalization-and-denormalization paradigm to address non-stationarity in time series (Kim et al., 2022; Fan et al., 2023; Liu et al., 2023; 2024b). For instance, RevIN (Kim et al., 2022) normalizes the input data and subsequently applies its distributional characteristics to denormalize the output predictions. Building on this approach, other meth-ods have designed distributional prediction networks (Fan et al., 2023) and more refined normalization techniques (Liu et al., 2023) to further mitigate non-stationarity. On the other hand, some studies (Liu et al., 2022b; Ma et al., 2024; Fan et al., 2024) argue that over-stabilizing time series may actually reduce the richness of embedded features, leading to a decline in model performance. Existing methods for addressing non-stationarity in time series face a dilemma: 1TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+some prioritize eliminating non-stationary factors to reduce overfitting, while others attempt to incorporate these factors but lack comprehensive theoretical frameworks. Further-more, they do not adequately explain the trade-offs between removing non-stationarity and leveraging it for modeling. It is notable that non-stationary characteristics have dis-tinct impacts on modeling short-term and long-term de-pendencies. Non-stationarity can lead to spurious regres-sions in short-term modeling due to the high randomness and unpredictability of short-term fluctuations (Noriega & Ventosa-Santaul `aria, 2007) (see Figure 1a). For example, a sudden drop in temperature could be caused by a typhoon or cold front, both of which have no intrinsic connection. Retaining non-stationarity can result in false correlations between such unrelated events. However, non-stationarity is crucial for capturing long-term cointegration relation-ships among variates, reflecting their co-movement or syn-chronized changes over time (Fanchon & Wendel, 1992). Removing non-stationarity may also eliminate these essen-tial long-term dependencies (see Figure 1b). Therefore, while non-stationarity can cause spurious regressions in short-term modeling, it is essential for modeling long-term dependencies between variates. Conversely, eliminating non-stationarity benefits short-term modeling but erases long-term cointegration. In this paper, to address the dual challenges posed by non-stationarity in short-term and long-term modeling, we pro-pose distinct strategies tailored to each scenario. For short-term modeling, we eliminate non-stationarity to capture the strong temporal dependencies within each variate, as short-term causal relationships mainly exist between consecutive time points within a single variate rather than across variates. This strategy reduces the risk of spurious regressions from non-stationary fluctuations, enabling the model to better capture the local causal dynamics. For long-term model-ing, we utilize the preserved non-stationarity to uncover long-term cointegration relationships between different vari-ates, thereby enabling more accurate and reliable long-term forecasting. Technically, based on the above motivations, we propose TimeBridge as a novel framework to bridge the gap between non-stationarity and dependency modeling in long-term time series forecasting . TimeBridge first captures short-term fluctuations by partitioning the input sequence into small-length patches, followed by utilizing Integrated At-tention to model these stabilized sub-sequences within each variate. Here, “Integrated” reflects the non-stationary na-ture of the short-term series, also referred to as integrated series (Park & Phillips, 2001). Subsequently, we downsam-ple the patches to reduce their quantity, thereby enriching each patch with more long-term information. Cointegrated Attention retains the non-stationary characteristics of the sequences to effectively capture the long-term cointegration relationships among variates. Experiments across multiple datasets demonstrate that TimeBridge achieves consistent state-of-the-art performance in both long-term and short-term forecasting. Furthermore, we validate the effectiveness of TimeBridge on two financial datasets, the CSI 500 and S&P 500, which exhibit significant short-term volatility and strong long-term cointegration relationships among sectors. In a nutshell, our contributions are summarized in three folds: 1. Going beyond previous methods, we establish a novel connection between non-stationarity and dependency modeling, highlighting the importance of eliminating non-stationarity in short-term variations while preserv-ing it for long-term cointegration. 2. We propose TimeBridge, a novel framework that em-ploys Integrated Attention to model temporal depen-dencies by mitigating short-term non-stationarity, and Cointegrated Attention to capture long-term cointegra-tion across variates while retaining non-stationarity. 3. Comprehensive experiments demonstrate that Time-Bridge achieves state-of-the-art performance in both long-term and short-term forecasting across various datasets. Moreover, we further validate its robustness and effectiveness on the CSI 500 and S&P 500 indices, which pose additional challenges due to their complex volatility and cointegration characteristics. 
+
+2. Related Works 
+
+As shown in Figure 2, recent advancements in multivariate time series forecasting have predominantly focused on two core directions: Normalization and Dependecy Modeling .
+
+Normalization can be divided into stationary and non-stationary methods. Stationary methods (Kim et al., 2022; Fan et al., 2023; Liu et al., 2024b; 2023) aim to eliminate non-stationarity through model-agnostic normalization tech-niques, thereby preventing spurious regressions and enhanc-ing model performance. For example, RevIN (Kim et al., 2022) applies Z-normalization to the input sequence and then reverses the normalization on the output using the distributional characteristics of the input, assuming that both share similar distributional properties. Dish-TS (Fan et al., 2023) takes this further by predicting the statistical characteristics of the output with a distribution prediction model. Additionally, SAN (Liu et al., 2023) offers a more granular patch-level prediction method. Conversely, some approaches (Liu et al., 2022b; Ma et al., 2024; Fan et al., 2024) advocate preserving non-stationarity, as excessive normalization can eliminate inherent diverse sequence char-acteristics and limit predictive accuracy. 2TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting Normalization Dependency Modeling                   
+
+> Channel Independent
+> DLinear (ICLR23 )
+> PatchTST (ICLR23 )
+> PDF (ICLR24 )
+> SparseTSF (ICML24 )
+> …
+> Channel Dependent
+> Autoformer (NIPS21 )
+> FEDformer (ICML22 )
+> Crossformer (ICLR 23 )
+> iTransformer (ICLR24 )
+> …
+> Eliminate
+> Non -stationarity
+> Stationary
+> RevIN (ICLR22)
+> Dish -TS (AAAI23)
+> Koopa (NIPS23)
+> SAN (NIPS 23 )
+> …
+> Non -Stationary
+> Keep
+> Non -stationarity
+> NST (NIPS22 )
+> U-Mixer (AAAI24 )
+> DERITS (IJCAI24 )
+> …
+> Integrated
+> Attention
+> Cointegrated
+> Attention
+> TimeBridge
+> Model
+> Model
+
+Figure 2. Time series forecasting methods categorized by normal-ization and dependency modeling. 
+
+Dependency Modeling focuses on designing methods to capture the relationships within multivariate time series, which can be classified into Channel Independent (CI) and Channel Dependent (CD) methods. CI methods (Zeng et al., 2023; Das et al., 2023; Nie et al., 2023; Dai et al., 2024; Lin et al., 2024; Miao et al., 2025) rely exclusively on the historical values of each individual channel for prediction, deliberately avoiding cross-channel interactions. This strat-egy not only stabilizes the training process but also excels at capturing rapid temporal dynamics unique to each vari-ate. In contrast, CD methods (Wu et al., 2021; Zhou et al., 2022; Wu et al., 2023; Zhang & Yan, 2023; Liu et al., 2024a; Hu et al., 2025b;a) leverage the interrelationships between variates for modeling. While these methods utilize more information, they struggle with spurious regressions when modeling short-term dependencies, failing to capture rapid changes effectively. 
+
+The challenge with previous methods lies in their isolated treatment of non-stationarity and dependency model-ing, overlooking their intrinsic connection. Due to non-stationarity, time series often exhibit significant short-term fluctuations, leading to severe spurious regressions when modeling short-term dependencies. However, capturing long-term cointegration requires preserving this underlying variability. Therefore, short-term random fluctuations need to be addressed by eliminating non-stationarity and mod-eling intra-variate temporal dependencies, while long-term cointegration demands preserving non-stationarity for inter-variate modeling. Our proposed TimeBridge addresses these issues by employing Integrated Attention and Cointegrated Attention, respectively. 
+
+3. Method 
+
+In the task of multivariate time series forecasting, the objective is to predict future sequences Y =[xI+1 , · · · , xI+O ] ∈ RC×O given historical input se-quences X = [ x1, · · · , xI ] ∈ RC×I . Here, I and O denote the lengths of the input and output sequences, respectively, and C represents the number of time variates. It is important to recognize that real-world time series data often exhibit high short-term uncertainty, while long-term dynamics may reveal cointegration relationships among different time vari-ates. 
+
+3.1. Structure Overview 
+
+As illustrated in Figure 3, our proposed TimeBridge con-sists of four key components: (a) Patch Embedding seg-ments the input sequence into non-overlapping patches and transforms each patch into a patch token; (b) Integrated Attention models the dependencies among all patch tokens of the same variates. By eliminating non-stationarity within each patch token, it mitigates the risk of spurious regres-sions that could arise from abrupt short-term changes; (c) 
+
+Patch Downsampling aggregates global information and re-duces the number of patches to encapsulate richer long-term features within each patch, while simultaneously lowering computational complexity; (d) Cointegrated Attention pre-serves the non-stationary characteristics of the sequence and models the long-term cointegration relationships across different variates within the same temporal window. 
+
+3.2. Patch Embedding 
+
+In this stage, each variate of the input sequence X is first divided into non-overlapping patches, and each patch is then mapped to an embedded patch token. Since the process is identical for each variate, we use X to represent a single variate and later restore the dimensionality of the variates. Formally, this process can formulated as follows: 
+
+{p1, · · · , pN } = Patching (X), (1) 
+
+P = Embedding (p1, · · · , pN ) (2) Here, each patch pi has a length of S, and the number of patches N =  IS
+
+. The Embedding (·) operation transforms each patch from its original length S to a hidden dimension 
+
+D through a trainable linear layer. This results in embedded patch tokens P ∈ RC×N ×D , where each of the C vari-ates contains N patches, capturing local information that is typically subject to rapid short-term fluctuations. For convenience, we denote Pc, : as the set of all patches within a single variate and P:,n as the patches across all variates at the same time position in the following sections. 
+
+3.3. Integrated Attention 
+
+The embedded patch tokens P represent short-term non-stationary sequences, also referred to as integrated series of order k (k > 0) (Park & Phillips, 2001; Mushtaq, 2011). This non-stationarity makes it challenging to model depen-dencies across different variates, as short-term fluctuations are highly susceptible to external shocks. Furthermore, modeling temporal dependencies within the same variate 3TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting Patch            
+
+> Embedding
+> Integrated
+> Attention
+> Cointegrated
+> Attention
+> Projection
+> Patch
+> Downsampling
+> Patching  𝑝 !
+> 𝑝 !
+> 𝑝 !
+> 𝑝 "
+> 𝑝 "
+> 𝑝 "
+> 𝑝 #
+> 𝑝 #
+> 𝑝 #
+> (a) Patch Embedding (b) Integrated Attention
+> 𝑝 !
+> 𝑝 "
+> 𝑝 #
+> Q
+> K
+> V
+> Attetnion  𝑝 !
+> 𝑝 "
+> 𝑝 #
+> 𝑝 !𝑝 "
+> 𝑝 !𝑝 "𝑝 #
+> 𝑝 !𝑝 "𝑝 #
+> Q
+> K
+> V
+> 𝑝 !𝑝 "
+> (c) Patch Downsampling (d) Cointegrated Attention
+> 𝑝 !
+> 𝑝 !
+> 𝑝 !Q
+> K
+> V
+> 𝑝 !
+> 𝑝 !
+> 𝑝 !
+> Attetnion
+> Attetnion
+> Downsample
+> 𝑝 !𝑝 "
+> 𝑝 !𝑝 "
+
+Input     
+
+> Input Series Embedded Patch Tokens
+
+Output   
+
+> 𝑝 !
+> 𝑝 "
+> 𝑝 #
+> 𝑝 !
+> 𝑝 "
+> 𝑝 #
+> Patch
+> Norm
+> Same
+> Operation
+> Same
+> Operation
+> Same
+> Operation
+> 𝑝 "
+> 𝑝 "
+> 𝑝 "
+> Eliminate Non -stationarity
+> Keep Non -stationarity
+
+Figure 3. Overall architecture of TimeBridge: (a) Patch Embedding divides the input sequence into non-overlapping patches and embeds each as a token; (b) Integrated Attention models temporal dependencies within each variate by mitigating short-term non-stationarity; (c) 
+
+Patch Downsampling reduce patches to aggregates long-term information and lower complexity; (d) Cointegrated Attention captures long-term relationships across variates while keeping non-stationarity. 
+
+can lead to spurious regression due to the inherent non-stationarity of the patches. To address this, we first apply a patch-wise normalization to all patches within a variate: 
+
+pTrend  
+
+> i
+
+= AvgPool (Padding (pi)) , p′ 
+
+> i
+
+= pi − pTrend  
+
+> i
+
+(3) 
+
+P′ 
+
+> c, :
+
+= {p′
+
+> 1
+
+, · · · , p′ 
+
+> N
+
+}, (4) where the AvgPool (·) operation is moving average with the Padding (·) operation to keep the series length unchanged. We then employ the proposed Integrated Attention mech-anism to capture temporal dependencies within the same variate: 
+
+ˆPc, : = LayerNorm  Pc, : + Attention (P′
+
+> c, :
+
+, P′
+
+> c, :
+
+, Pc, :) ,
+
+(5) 
+
+Pc, : = LayerNorm 
+
+ ˆPc, : + MLP ( ˆPc, :)
+
+
+
+, (6) where MLP (·) represents a multi-layer feedforward network, and LayerNorm (·) denotes layer normalization. The atten-tion mechanism uses the normalized P′ 
+
+> c, :
+
+as both Query and Key, while the original Pc, : serves as the Value. This design generates a stationary attention map, which is then directly multiplied by the Value, removing the need for subsequent denormalization. By leveraging Integrated Attention in this way, we effectively model the temporal dependencies with-out being affected by the short-term non-stationary nature of the sequences. 
+
+3.4. Patch Downsampling 
+
+Long-term equilibrium relationships between sequences, or cointegration among different variates, often require sequences to contain sufficient long-term information to emerge. Therefore, before modeling the cointegration be-tween variates, it is crucial to increase the amount of global information represented by each patch. This is achieved by reducing the number of patches and aggregating global information through the attention mechanism: 
+
+P′ 
+
+> c, :
+
+= Downsample (Pc, :) (7) 
+
+Pc, : = Attention (P′
+
+> c, :
+
+, Pc, :, Pc, :). (8) Here, Downsample (·) reduces the N patches in Pc, : to 
+
+M patches ( M < N ) using an MLP. By employing the downsampled P′ 
+
+> c, :
+
+∈ RM ×D as the Query and the original 
+
+Pc, : ∈ RN ×D as the Key and Value in the attention mech-anism, we leverage the long-range modeling capability of attention to dynamically aggregate global information. This allows each patch to encapsulate richer long-term informa-tion, making it possible to capture the intricate cointegration relationships that emerge only over sufficiently extended temporal horizons. 
+
+3.5. Cointegrated Attention 
+
+Although short-term relationships between integrated series are susceptible to spurious regressions, accurately modeling long-term cointegration between sequences necessitates re-taining their inherent non-stationary characteristics. Since 4TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+each downsampled patch now encapsulates more extensive long-term information, we leverage Cointegrated Attention to directly model the cointegration relationships among all variates at the same time interval P:,n ∈ RC×D :
+
+ˆP:,n = LayerNorm (P:,n + Attention (P:,n , P:,n , P:,n )) ,
+
+(9) 
+
+P:,n = LayerNorm ( ˆP:,n + MLP ( ˆP:,n )) . (10) This attention mechanism not only captures the global coin-tegration relationships across variates but also adaptively assesses the strength of these relationships: stronger coin-tegration is reflected by higher attention weights, while weaker connections receive lower weights. Finally, the em-bedded patch tokens P ∈ RC×M ×D are unpatched and projected to the final output Y ∈ RC×O .
+
+4. Experiment 
+
+To validate the effectiveness of the proposed TimeBridge, we conduct extensive experiments on a variety of time series forecasting tasks, including both long-term and short-term forecasting. Additionally, we evaluate TimeBridge on finan-cial forecasting tasks characterized by significant short-term volatility and strong long-term cointegration relationships among sectors. 
+
+Baselines. For long-term forecasting, we select a diverse set of state-of-the-art baselines representative of recent advance-ments in time series forecasting, including the Transformer-based DeformableTST (Luo & Wang, 2024), the CNN-based ModernTCN (Donghao & Xue, 2024), the MLP-based TimeMixer (Wang et al., 2024b), as well as other com-petitive methods such as iTransformer (Liu et al., 2024a), PatchTST (Nie et al., 2023), Crossformer (Zhang & Yan, 2023), Leddam (Yu et al., 2024), MICN (Wang et al., 2022), TimesNet (Wu et al., 2023), and DLinear (Zeng et al., 2023). For short-term forecasting, we add two well-performing baselines SCINet (Liu et al., 2022a) and DUET (Qiu et al., 2025). For financial forecasting, we also incorporate the mo-mentum strategy CSM (Jegadeesh & Titman, 1993) and the reversal strategy BLSW (Poterba & Summers, 1988), along with two classic deep learning models, LSTM (Hochreiter & Schmidhuber, 1997) and Transformer (Vaswani et al., 2017a), to provide a comprehensive evaluation. 
+
+Implementation Details. All experiments are implemented in PyTorch (Paszke et al., 2019) and conducted on two NVIDIA RTX 3090 24GB GPUs. We use the Adam opti-mizer (Kingma, 2014) with a learning rate selected from 
+
+{1e-3, 1e-4, 5e-4}. The number of patches N is set accord-ingly to different datasets. We adopt a hybrid MAE loss that operates in both the time and frequency domains for stable training (Wang et al., 2024a). For additional details on hyperparameter settings and loss function, please refer to the Appendix E. 
+
+4.1. Long-term Forecasting Setups. We conduct long-term forecasting experiments on several widely-used real-world datasets, including the Elec-tricity Transformer Temperature (ETT) dataset with its four subsets (ETTh1, ETTh2, ETTm1, ETTm2) (Wu et al., 2021; Miao et al., 2024a), as well as Weather, Electricity, Traffic, and Solar (Liu et al., 2025a;b). These datasets exhibit strong non-stationary characteristics, detailed in Appendix D. Fol-lowing previous works (Zhou et al., 2021; Wu et al., 2021), we use Mean Square Error (MSE) and Mean Absolute Error (MAE) as evaluation metrics. We set the input length I
+
+to 720 for our method. For other baselines, we adopt the setting that searches for the optimal input length I and other hyperparameters. Details of the metric and the searching process can be found in Appendix C.1 and Appendix F.1. 
+
+Results. As shown in Tab. 1, TimeBridge consistently achieves the best overall performance. Notably, the large-scale Traffic dataset, with its 862 channels, presents sub-stantial challenges due to its high dimensionality and in-tricate temporal dependencies. TimeBridge adeptly bal-ances non-stationarity and dependency modeling, achiev-ing consistently strong predictive performance. Quantita-tively, compared to state-of-the-art methods—Transformer-based DeformableTST (Luo & Wang, 2024), CNN-based ModernTCN (Donghao & Xue, 2024), and MLP-based TimeMixer (Wang et al., 2024b)—TimeBridge reduces MSE and MAE by 1.85% /2.49% , 5.56% /4.12% , and 
+
+13 .66% /7.58% , respectively. 
+
+4.2. Short-term Forecasting Setups. For short-term forecasting, we conduct experiments on the PeMS datasets (Wang et al., 2024b), which capture complex spatiotemporal correlations among multiple vari-ates across city-wide traffic networks. We use mean absolute error (MAE), mean absolute percentage error (MAPE), and root mean squared error (RMSE) as evaluation metrics. The input length I is set to 96 and the output length O to 12 for all baselines. Details of datasets and metrics are in Appendix D and Appendix C.2. 
+
+Results. As shown in Tab. 2, methods that perform well in long-term forecasting with channel-independent approaches, such as PatchTST (Nie et al., 2023) and DLinear (Zeng et al., 2023), suffer from significant performance degrada-tion on the PeMS dataset due to its strong inter-variable dependencies. In contrast, TimeBridge demonstrates ro-bust performance on this challenging task, outperforming even the recent state-of-the-art method TimeMixer (Wang et al., 2024b), which highlights its effectiveness in capturing complex spatiotemporal relationships. 5TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Models TimeBridge iTransformer DeformableTST TimeMixer PatchTST Crossformer Leddam ModernTCN MICN TimesNet DLinear (Ours ) (2024a) (2024) (2024b) (2023) (2023) (2024) (2024) (2022) (2023) (2023) Metric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE ETTm1 0.344 0.379 0.362 0.391 0.348 0.383 0.355 0.380 0.353 0.382 0.420 0.435 0.354 0.381 0.351 0.381 0.383 0.406 0.400 0.406 0.357 0.379 
+
+ETTm2 0.246 0.310 0.269 0.329 0.257 0.319 0.257 0.318 0.256 0.317 0.518 0.501 0.265 0.320 0.253 0.314 0.277 0.336 0.291 0.333 0.267 0.332 ETTh1 0.397 0.424 0.439 0.448 0.404 0.423 0.427 0.441 0.413 0.434 0.440 0.463 0.415 0.430 0.404 0.420 0.433 0.462 0.458 0.450 0.423 0.437 ETTh2 0.341 0.382 0.374 0.406 0.328 0.377 0.349 0.397 0.324 0.381 0.809 0.658 0.345 0.391 0.322 0.379 0.385 0.430 0.414 0.427 0.431 0.447 Weather 0.219 0.249 0.233 0.271 0.222 0.262 0.226 0.264 0.226 0.264 0.228 0.287 0.226 0.264 0.224 0.264 0.242 0.298 0.259 0.287 0.240 0.300 Electricity 0.149 0.245 0.164 0.261 0.161 0.261 0.185 0.284 0.159 0.253 0.181 0.279 0.162 0.256 0.156 0.253 0.182 0.292 0.192 0.295 0.166 0.264 Traffic 0.360 0.255 0.397 0.282 0.391 0.278 0.409 0.279 0.391 0.264 0.523 0.284 0.452 0.283 0.396 0.270 0.535 0.312 0.620 0.336 0.434 0.295 Solar 0.181 0.239 0.200 0.260 0.185 0.254 0.193 0.252 0.194 0.245 0.191 0.242 0.223 0.264 0.228 0.282 0.213 0.266 0.244 0.334 0.247 0.309 
+
+Table 1. Long-term forecasting hyperparameter search results. All results are averaged across four different prediction lengths: 
+
+O ∈ { 96 , 192 , 336 , 720 }. See Tab. 9 for full results. Models TimeBridge TimeMixer SCINet Crossformer PatchTST TimesNet MICN DLinear DUET Stationary Autoformer Informer (Ours ) (2024b) (2022a) (2023) (2023) (2023) (2022) (2023) (2025) (2022b) (2021) (2021) PeMS03 MAE 14.52 14.63 15.97 15.64 18.95 16.41 15.71 19.70 15.57 17.64 18.08 19.19 MAPE 14.21 14.54 15.89 15.74 17.29 15.17 15.67 18.35 15.27 17.56 18.75 19.58 RMSE 23.10 23.28 25.20 25.56 30.15 26.72 24.55 32.35 22.99 28.37 27.82 32.70 PeMS04 MAE 19.24 19.21 20.35 20.38 24.86 21.63 21.62 24.62 20.84 22.34 25.00 22.05 MAPE 12.42 12.53 12.84 12.84 16.65 13.15 13.53 16.12 14.88 14.85 16.70 14.88 RMSE 31.12 30.92 32.31 32.41 40.46 34.90 34.39 39.51 31.41 35.47 38.02 36.20 PeMS07 MAE 20.43 20.57 22.79 22.54 27.87 25.12 22.28 28.65 22.34 26.02 26.92 27.26 MAPE 8.42 8.62 9.41 9.38 12.69 10.60 9.57 12.15 9.92 11.75 11.83 11.63 RMSE 33.44 33.59 35.61 35.49 42.56 40.71 35.40 45.02 34.97 42.34 40.60 45.81 PeMS08 MAE 14.98 15.22 17.38 17.56 20.35 19.01 17.76 20.26 15.54 19.29 20.47 20.96 MAPE 9.56 9.67 10.80 10.92 13.15 11.83 10.76 12.09 9.87 12.21 12.27 13.20 RMSE 23.77 24.26 27.34 27.21 31.04 30.65 27.26 32.38 24.04 38.62 31.52 30.61 
+
+Table 2. Short-term forecasting results in the PeMS datasets. 
+
+Models CSI 500 S&P 500 ARR ↑ AVol ↓ MDD ↓ ASR ↑ CR ↑ IR ↑ ARR ↑ AVol ↓ MDD ↓ ASR ↑ CR ↑ IR ↑
+
+BLSW (1988) 0.110 0.227 -0.155 0.485 0.710 0.446 0.199 0.318 -0.223 0.626 0.892 0.774 CSM (1993) 0.015 0.229 -0.179 0.066 0.084 0.001 0.099 0.250 -0.139 0.396 0.712 0.584 LSTM (1997) -0.008 0.159 -0.172 -0.047 -0.044 -0.128 0.142 0.162 -0.178 0.877 0.798 0.929 Transformer (2017a) 0.154 0.156 -0.135 0.986 1.143 0.867 0.135 0.159 -0.140 0.852 0.968 0.908 PatchTST (2023) 0.118 0.152 -0.127 0.776 0.923 0.735 0.146 0.167 -0.140 0.877 1.042 0.949 Crossformer (2023) -0.039 0.163 -0.217 -0.238 -0.179 -0.350 0.284 0.159 -0.114 1.786 2.491 1.646 iTransformer (2024a) 0.214 0.168 -0.164 1.276 1.309 1.173 0.159 0.170 -0.139 0.941 1.150 0.955 TimeMixer (2024b) 0.078 0.153 -0.114 0.511 0.685 0.385 0.254 0.162 -0.131 1.568 1.938 1.448 TSMixer (2023) 0.086 0.156 -0.143 0.551 0.601 0.456 0.187 0.173 -0.156 1.081 1.199 1.188 TimeBridge ( Ours ) 0.285 0.203 -0.196 1.405 1.453 1.317 0.326 0.169 -0.142 1.927 2.298 1.842 
+
+Table 3. Results for financial time series forecasting in CSI 500 and S&P 500 datasets. See Tab. 10 for full results. 
+
+4.3. Financial Forecasting Setups. We conduct experiments on both the U.S. and Chi-nese stock markets, including the S&P 500 and CSI 500 indices. Stock price movements are influenced by vari-ous factors such as economic indicators, market sentiment, geopolitical events, and company-specific news, leading to high non-stationarity. We predict next-day returns us-ing historical data and generate investment portfolios with a buy-hold-sell strategy (Sanderson & Lumpkin-Sowers, 2018). At day t + 1 open, traders sell day t stocks and buy top-ranked ones based on predicted returns. Following previous work (Lin et al., 2021), we evaluate performance using Annual Return Ratio (ARR), Annual Volatility (AVol), Maximum Drawdown (MDD), Annual Sharpe Ratio (ASR), Calmar Ratio (CR), and Information Ratio (IR). Details of datasets and metrics are in Appendix D and Appendix C.3. 
+
+Results. As shown in Tab. 3, the inherent non-stationarity and intricate dependencies within financial markets make it difficult for baseline methods to consistently identify op-timal portfolios across different markets. While financial market fluctuations are notoriously unpredictable, Time-Bridge adapts well to these challenges. By capturing short-term volatility within financial time series and preserving long-term cointegration across sectors, it achieves consis-tently strong performance, outperforming existing methods in overall market efficiency. 6TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+5. Ablation Studies 
+
+To validate the effectiveness of the proposed TimeBridge, we conduct a comprehensive ablation study on its archi-tectural design. In Tab. 4, Tab. 5, and Tab. 6, the rows highlighted in gray correspond to the original TimeBridge configuration, serving as a baseline for comparison with various modified versions. 
+
+Ablation on removing or keeping non-stationarity. We conduct the following experiments: ① Non-stationarity re-tained in both Integrated and Cointegrated Attention. ②
+
+Retained in Integrated, removed from Cointegrated. ③ Re-moved from Integrated, retained in Cointegrated. ④ Re-moved from both. Results in Tab. 4 show that the best per-formance is achieved when non-stationarity is removed in Integrated Attention, which models short-term intra-variate fluctuations, and retained in Cointegrated Attention, which captures long-term inter-variate dependencies. Conversely, retaining non-stationarity in Integrated Attention while re-moving it from Cointegrated Attention yields the worst results. Case Integrated Cointegrated Weather Solar Electricity Traffic Attention Attention + Norm? + Norm? MSE MAE MSE MAE MSE MAE MSE MAE                                         
+
+> ①××0.220 0.260 0.183 0.242 0.153 0.249 0.371 0.260
+> ②×✓0.220 0.260 0.183 0.252 0.155 0.251 0.381 0.263
+> ③✓×0.219 0.249 0.181 0.239 0.149 0.245 0.360 0.255
+> ④✓✓0.219 0.259 0.183 0.242 0.153 0.250 0.374 0.289
+
+Table 4. Ablation on the effect of removing non-stationarity in Integrated Attention and Cointegrated Attention. ✓ indicates the use of patch normalization to eliminate non-stationarity, while ×
+
+means non-stationarity is retained. 
+
+Ablation on Integrated and Cointegrated Attention im-pact and order. We conduct the following experiments: ①
+
+Integrated Attention only, ② Cointegrated Attention only, 
+
+③ Integrated Attention followed by Cointegrated Attention, and ④ Cointegrated Attention followed by Integrated Atten-tion, with patch downsampling replaced by upsampling in this case. The results in Tab. 5 show that both ① and ② un-derperform compared to ③, indicating that both components are beneficial. Additionally, ④ shows the weakest perfor-mance, possibly because modeling long-term cointegrated Case Integrated Cointegrated Weather Solar Electricity Traffic Attention Attention Order Order MSE MAE MSE MAE MSE MAE MSE MAE                                         
+
+> ①1×0.220 0.262 0.184 0.244 0.158 0.252 0.388 0.264
+> ②×10.222 0.264 0.191 0.260 0.165 0.263 0.369 0.265
+> ③120.219 0.249 0.181 0.239 0.149 0.245 0.360 0.255
+> ④210.227 0.266 0.190 0.252 0.160 0.255 0.396 0.281
+
+Table 5. Ablation on the impact and order of Integrated Attention and Cointegrated Attention. “Order” specifies the sequence, with lower numbers indicating earlier placement. × indicates the com-ponent is removed. 
+
+relationships first leads to a loss of important short-term temporal features (Wang et al., 2022; Han et al., 2024). 
+
+Ablation on modeling approaches for Integrated Atten-tion and Cointegrated Attention. We conduct the fol-lowing experiments: ① both Integrated and Cointegrated Attention use channel-independent (CI) modeling, ② Inte-grated Attention uses channel-dependent (CD) modeling while Cointegrated Attention uses CI, ③ Integrated Atten-tion uses CI while Cointegrated Attention uses CD, and 
+
+④ both use CD modeling. The results in Tab. 6 show that modeling short-term inter-variates relationships can lead to severe spurious regression. CI modeling generally outper-forms CD in scenarios with fewer channels (e.g., Weather), while CD excels when the number of channels is large (e.g., Traffic). This aligns with recent findings that inter-channel dependencies become increasingly important as the number of channels grows. We attribute this to the model’s abil-ity to extract potential long-term stable relationships from non-stationary sequences when more channels are present, thereby improving both forecasting accuracy and robust-ness. Case Integrated Cointegrated Weather Solar Electricity Traffic Attention Attention CI or CD CI or CD MSE MAE MSE MAE MSE MAE MSE MAE                                         
+
+> ①CI CI 0.218 0.259 0.183 0.243 0.157 0.252 0.387 0.276
+> ②CD CI 0.222 0.262 0.184 0.247 0.160 0.255 0.387 0.280
+> ③CI CD 0.219 0.249 0.181 0.239 0.149 0.245 0.360 0.255
+> ④CD CD 0.222 0.263 0.183 0.247 0.156 0.254 0.376 0.269
+
+Table 6. Ablation on modeling approaches for Integrated Attention and Cointegrated Attention. “CI” denotes channel independent and “CD” denotes channel-dependent modeling. 
+
+6. Non-stationarity and Dependency Modeling Analysis 
+
+Intra-variate Modeling. As shown in Figure 4a, when non-stationarity is retained, the attention map in the temporal dimension diverges, with the model focusing on multiple patches across a broader time span. However, after remov-ing non-stationarity, the attention map becomes more con-centrated on adjacent time steps, aligning with the causal nature of time series, where closer time steps are usually more correlated. Non-stationarity may cause the model to mistake distant similarities for causality. By eliminating non-stationarity, the model better captures short-term varia-tions and local dependencies, enhancing its robustness and interpretability in handling complex time series data. 
+
+Inter-variate Modeling. Figure 4b shows that removing non-stationarity narrows the model’s attention to a few inter-variate dependencies, while retaining non-stationarity en-ables the capture of more diverse and richer relationships. Non-stationary sequences help the model identify cointe-gration, revealing hidden equilibrium mechanisms in multi-7TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting (a) Intra -variate Attention (b) Inter -variate Attention (c) Results of Different M  
+
+> Query Time Patch
+> Key Time Patch
+> Query Time Patch
+> Key Time Patch
+> Query Channel
+> Key Channel
+> Query Channel
+> Stationary Stationary Non -stationary Non -stationary
+> Key Channel
+
+Figure 4. (a) Comparison of intra-variate attention maps under stationary and non-stationary conditions for different patches in the Electricity dataset. (b) Comparison of inter-variate attention maps between different variates under stationary and non-stationary conditions in the Solar dataset. (c) Impact of varying the number of downsampled patches M on forecasting performance across different datasets. See Tab. 14 for full results. (a) (b) (c) (d) 
+
+> Integrated Attention: Non -stationary
+> Cointegrated Attention : Non -stationary
+> Integrated Attention: Stationary
+> Cointegrated Attention : Stationary
+> Integrated Attention: Non -stationary
+> Cointegrated Attention : Stationary
+> Integrated Attention: Stationary
+> Cointegrated Attention : Non -stationary
+
+Figure 5. Visualization of the effect of retaining or removing non-stationarity in Integrated Attention and Cointegrated Attention on the Weather dataset for temperature ( T ) and dew point temperature ( Tdew ). (a) Both Integrated and Cointegrated Attention retain non-stationarity. (b) Both remove non-stationarity. (c) Only Integrated Attention retains non-stationarity. (d) Only Cointegrated Attention retains non-stationarity. 
+
+variate time series. Preserving non-stationarity enhances the model’s ability to express complex inter-variate dependen-cies. Additionally, Figure 4c shows the impact of different patch downsampling rates on performance. For datasets with more channels and stronger cointegration (e.g., Solar and Traffic), increasing downsampled patches initially im-proves predictions by preserving long-term features. How-ever, too much downsampling adds computational cost and negatively affects smaller-channel datasets (e.g., Weather), so we carefully balanced downsampling rates based on dataset characteristics, as detailed in Tab. 8. 
+
+Real Case of Weather Forecast. Given the strong interre-lationships between weather variables, we analyze temper-ature T and dew point temperature Tdew from the Weather dataset. Dew point measures atmospheric moisture and is typically closely linked to temperature. Without external in-fluences, such as water vapor or heat sources, the difference between temperature and dew point is minimal, showing long-term cointegration. However, temperature tends to ex-hibit more short-term fluctuations due to external factors like sunlight and weather systems. As shown in Figure 5, the results demonstrate that spurious regressions can only be avoided by eliminating non-stationarity during short-term modeling, while preserving it during long-term dependency modeling to capture the underlying cointegration between variables. 
+
+7. Conclusion 
+
+In this paper, we address the dual challenges of non-stationarity in multivariate time series forecasting, specifi-cally focusing on its distinct impacts on short-term and long-term modeling. To this end, we propose TimeBridge, a novel framework that bridges the gap between non-stationarity and dependency modeling. By employing Integrated Attention to mitigate short-term non-stationarity and Cointegrated At-tention to preserve long-term dependencies, TimeBridge ef-fectively captures both local dynamics and long-term cointe-gration. Comprehensive experiments across diverse datasets demonstrate that TimeBridge consistently achieves state-of-the-art performance in both short-term and long-term forecasting tasks. Moreover, its exceptional performance on the CSI 500 and S&P 500 indices underscores its robustness and adaptability to complex real-world financial scenarios. Our work paves the way for further exploration of models that balance the nuanced effects of non-stationarity, offering a promising direction for advancing multivariate time series forecasting. 8TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Acknowledgements 
+
+This work is supported in part by the National Natural Science Foundation of China, under Grant (62302309, 62171248), Shenzhen Science and Technology Program (JCYJ20220818101014030, JCYJ20220818101012025). 
+
+Impact Statement 
+
+Time series forecasting is fundamental in various real-world applications, including finance, weather prediction, and traf-fic management. Our work introduces an innovative ap-proach to handling non-stationarity, improving both short-term and long-term dependency modeling. The datasets used in this study are publicly available, ensuring repro-ducibility and transparency. We do not foresee any ethical concerns associated with this research. Our contributions primarily advance the field of time series forecasting, with potential benefits across multiple domains. 
+
+References 
+
+Bilgili, F. Stationarity and cointegration tests: Comparison of engle-granger and johansen methodologies. Erciyes ¨Universitesi ˙Iktisadi ve ˙Idari Bilimler Fak ¨ultesi Dergisi ,pp. 131–141, 1998. Chen, S.-A., Li, C.-L., Arik, S. O., Yoder, N. C., and Pfis-ter, T. TSMixer: An all-MLP architecture for time se-ries forecast-ing. Transactions on Machine Learning Research , 2023. ISSN 2835-8856. Chung, J., Gulcehre, C., Cho, K., and Bengio, Y. Empirical evaluation of gated recurrent neural networks on sequence modeling. arXiv preprint arXiv:1412.3555 , 2014. Dai, T., Wu, B., Liu, P., Li, N., Bao, J., Jiang, Y., and Xia, S.-T. Periodicity decoupling framework for long-term series forecasting. International Conference on Learning Representations , 2024. Das, A., Kong, W., Leach, A., Sen, R., and Yu, R. Long-term forecasting with tiDE: Time-series dense encoder. 
+
+arXiv preprint arXiv:2304.08424 , 2023. Donghao, L. and Xue, W. ModernTCN: A modern pure con-volution structure for general time series analysis. Inter-national Conference on Learning Representations , 2024. Fan, W., Wang, P., Wang, D., Wang, D., Zhou, Y., and Fu, Y. Dish-TS: a general paradigm for alleviating distribution shift in time series forecasting. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 37, pp. 7522–7529, 2023. Fan, W., Yi, K., Ye, H., Ning, Z., Zhang, Q., and An, N. Deep frequency derivative learning for non-stationary time series forecasting. International Joint Conference on Artificial Intelligence , pp. 3944–3952, 2024. Fanchon, P. and Wendel, J. Estimating var models under non-stationarity and cointegration: alternative approaches for forecasting cattle prices. Applied Economics , 24(2): 207–217, 1992. Han, L., Ye, H.-J., and Zhan, D.-C. The capacity and ro-bustness trade-off: Revisiting the channel independent strategy for multivariate time series forecasting. IEEE Transactions on Knowledge and Data Engineering , 2024. Hochreiter, S. and Schmidhuber, J. Long short-term memory. 
+
+Neural Comput. , 1997. Hu, Y., Liu, P., Zhu, P., Cheng, D., and Dai, T. Adap-tive multi-scale decomposition framework for time se-ries forecasting. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 39, pp. 17359–17367, 2025a. Hu, Y., Zhang, G., Liu, P., Lan, D., Li, N., Cheng, D., Dai, T., Xia, S.-T., and Pan, S. Timefilter: Patch-specific spatial-temporal graph filtration for time series forecasting. arXiv preprint arXiv:2501.13041 , 2025b. Jegadeesh, N. and Titman, S. Returns to buying winners and selling losers: Implications for stock market efficiency. 
+
+Journal of Finance , 48:65–91, 1993. Karevan, Z. and Suykens, J. A. Transductive lstm for time-series prediction: An application to weather forecasting. 
+
+Neural Networks , 125:1–9, 2020. Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.-H., and Choo, J. Reversible instance normalization for accurate time-series forecasting against distribution shift. In International Conference on Learning Representations , 2022. Kingma, D. P. Adam: A method for stochastic optimization. 
+
+arXiv preprint arXiv:1412.6980 , 2014. Lin, H., Zhou, D., Liu, W., and Bian, J. Learning multi-ple stock trading patterns with temporal routing adaptor and optimal transport. In Proceedings of the 27th ACM SIGKDD Conference on Knowledge Discovery & Data Mining , 2021. Lin, S., Lin, W., Wu, W., Chen, H., and Yang, J. Sparsetsf: Modeling long-term time series forecasting with 1k pa-rameters. International Conference on Machine Learning ,2024. Liu, C., Miao, H., Xu, Q., Zhou, S., Long, C., Zhao, Y., Li, Z., and Zhao, R. Efficient multivariate time series fore-casting via calibrated language models with privileged knowledge distillation. In ICDE , 2025a. 9TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Liu, C., Xu, Q., Miao, H., Yang, S., Zhang, L., Long, C., Li, Z., and Zhao, R. Timecma: Towards llm-empowered multivariate time series forecasting via cross-modality alignment. In AAAI , volume 39, pp. 18780–18788, 2025b. Liu, M., Zeng, A., Chen, M., Xu, Z., Lai, Q., Ma, L., and Xu, Q. SCInet: Time series modeling and forecasting with sample convolution and interaction. Advances in Neural Information Processing Systems , 35:5816–5828, 2022a. Liu, Y., Wu, H., Wang, J., and Long, M. Non-stationary transformers: Exploring the stationarity in time series forecasting. Advances in Neural Information Processing Systems , 35:9881–9893, 2022b. Liu, Y., Hu, T., Zhang, H., Wu, H., Wang, S., Ma, L., and Long, M. iTransformer: Inverted transformers are effec-tive for time series forecasting. International Conference on Learning Representations , 2024a. Liu, Y., Li, C., Wang, J., and Long, M. Koopa: Learning non-stationary time series dynamics with koopman predictors. 
+
+Advances in Neural Information Processing Systems , 36, 2024b. Liu, Z., Cheng, M., Li, Z., Huang, Z., Liu, Q., Xie, Y., and Chen, E. Adaptive normalization for non-stationary time series forecasting: A temporal slice perspective. Ad-vances in Neural Information Processing Systems , 36, 2023. Luo, D. and Wang, X. DeformableTST: Transformer for time series forecasting without over-reliance on patch-ing. In The Thirty-eighth Annual Conference on Neural Information Processing Systems , 2024. Ma, X., Li, X., Fang, L., Zhao, T., and Zhang, C. U-mixer: An unet-mixer architecture with stationarity correction for time series forecasting. Proceedings of the AAAI Conference on Artificial Intelligence , pp. 14255–14262, 2024. Miao, H., Liu, Z., Zhao, Y., Guo, C., Yang, B., Zheng, K., and Jensen, C. S. Less is more: Efficient time se-ries dataset condensation via two-fold modal matching. 
+
+PVLDB , 18(2):226–238, 2024a. Miao, H., Zhao, Y., Guo, C., Yang, B., Zheng, K., Huang, F., Xie, J., and Jensen, C. S. A unified replay-based contin-uous learning framework for spatio-temporal prediction on streaming data. In ICDE , pp. 1050–1062, 2024b. Miao, H., Xu, R., Zhao, Y., Wang, S., Wang, J., Yu, P. S., and Jensen, C. S. A parameter-efficient federated frame-work for streaming time series anomaly detection via lightweight adaptation. TMC , 2025. Mushtaq, R. Augmented dickey fuller test. 2011. Nie, Y., H. Nguyen, N., Sinthong, P., and Kalagnanam, J. A time series is worth 64 words: Long-term forecasting with transformers. In International Conference on Learning Representations , 2023. Noriega, A. E. and Ventosa-Santaul `aria, D. Spurious regres-sion and trending variables. Oxford Bulletin of Economics and Statistics , 69(3):439–444, 2007. Park, J. Y. and Phillips, P. C. Nonlinear regressions with integrated time series. Econometrica , 69(1):117–161, 2001. Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., et al. Pytorch: An imperative style, high-performance deep learning library. Advances in Neural Information Processing Systems , 32, 2019. Poterba, J. M. and Summers, L. H. Mean reversion in stock prices: Evidence and implications. Journal of Financial Economics , 1988. Qin, Y., Song, D., Chen, H., Cheng, W., Jiang, G., and Cot-trell, G. W. A dual-stage attention-based recurrent neural network for time series prediction. In International Joint Conference on Artificial Intelligence , pp. 2627–2633, 2017. doi: 10.24963/ijcai.2017/366. Qiu, X., Hu, J., Zhou, L., Wu, X., Du, J., Zhang, B., Guo, C., Zhou, A., Jensen, C. S., Sheng, Z., and Yang, B. Tfb: Towards comprehensive and fair benchmarking of time series forecasting methods. In Proc. VLDB Endow. , pp. 2363–2377, 2024. Qiu, X., Wu, X., Lin, Y., Guo, C., Hu, J., and Yang, B. Duet: Dual clustering enhanced multivariate time series forecasting. In SIGKDD , pp. 1185–1196, 2025. Sanderson, R. and Lumpkin-Sowers, N. L. Buy and hold in the new age of stock market volatility: A story about etfs. International Journal of Financial Studies , 6(3):79, 2018. Sezer, O. B., Gudelek, M. U., and Ozbayoglu, A. M. Fi-nancial time series forecasting with deep learning: A systematic literature review: 2005–2019. Applied soft computing , 90:106181, 2020. Shu, W., Cai, K., and Xiong, N. N. A short-term traffic flow prediction model based on an improved gate recurrent unit neural network. IEEE Transactions on Intelligent Transportation Systems , 23(9):16654–16665, 2021. Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. Atten-tion is all you need. Advances in Neural Information Processing Systems , 30, 2017a. 10 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. Atten-tion is all you need. Advances in Neural Information Processing Systems , 30, 2017b. Wang, H., Peng, J., Huang, F., Wang, J., Chen, J., and Xiao, Y. MICN: Multi-scale local and global context model-ing for long-term series forecasting. In International Conference on Learning Representations , 2022. Wang, H., Pan, L., Chen, Z., Yang, D., Zhang, S., Yang, Y., Liu, X., Li, H., and Tao, D. Fredf: Learning to forecast in frequency domain. arXiv preprint arXiv:2402.02399 ,2024a. Wang, S., Wu, H., Shi, X., Hu, T., Luo, H., Ma, L., Zhang, J. Y., and Zhou, J. TimeMixer: Decomposable multi-scale mixing for time series forecasting. International Conference on Learning Representations , 2024b. Wu, H., Xu, J., Wang, J., and Long, M. Autoformer: Decom-position transformers with auto-correlation for long-term series forecasting. Advances in Neural Information Pro-cessing Systems , 34:22419–22430, 2021. Wu, H., Hu, T., Liu, Y., Zhou, H., Wang, J., and Long, M. TimesNet: Temporal 2d-variation modeling for gen-eral time series analysis. In International Conference on Learning Representations , 2023. Yu, G., Zou, J., Hu, X., Aviles-Rivero, A. I., Qin, J., and Wang, S. Revitalizing multivariate time series forecasting: Learnable decomposition with inter-series dependencies and intra-series variations modeling. In International Conference on Machine Learning , 2024. Zeng, A., Chen, M., Zhang, L., and Xu, Q. Are transformers effective for time series forecasting? In Proceedings of the AAAI conference on artificial intelligence , volume 37, pp. 11121–11128, 2023. Zhang, Y. and Yan, J. Crossformer: Transformer utilizing cross-dimension dependency for multivariate time series forecasting. In International Conference on Learning Representations , 2023. Zhou, H., Zhang, S., Peng, J., Zhang, S., Li, J., Xiong, H., and Zhang, W. Informer: Beyond efficient transformer for long sequence time-series forecasting. In Proceedings of the AAAI conference on artificial intelligence , volume 35, pp. 11106–11115, 2021. Zhou, T., Ma, Z., Wen, Q., Wang, X., Sun, L., and Jin, R. FEDformer: Frequency enhanced decomposed trans-former for long-term series forecasting. In International Conference on Machine Learning , pp. 27268–27286. PMLR, 2022. 11 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+A. Time Series Integration and Cointegration Analysis 
+
+A.1. Integration and ADF Test 
+
+A time series is said to be integrated of order k, denoted as I(k), if it becomes stationary after differencing k times. For instance, a series Xt is I(1) if its first difference ∆Xt = Xt −Xt−1 is stationary. To test for non-stationarity, the Augmented Dickey-Fuller (ADF) test (Mushtaq, 2011) is commonly used. It examines the null hypothesis that a unit root is present, indicating non-stationarity: 
+
+∆Xt = α + βt + γX t−1 +
+
+> p
+
+X
+
+> i=1
+
+δi∆Xt−i + ϵt
+
+Here, ∆Xt is the differenced series, γ is the coefficient on the lagged series, and ϵt is the error term. Rejecting the null hypothesis ( γ = 0 ) indicates stationarity, while failing to reject it implies non-stationarity. Non-stationary data can lead to spurious regressions, where unrelated temporal intervals appear to be correlated due to common trends. We report the ADF test results in Tab. 7. 
+
+A.2. Cointegration and EG Test 
+
+Cointegration occurs when two or more non-stationary series move together over time, maintaining a stable, long-term relationship. For example, if Xt and Yt are both I(1) , they are cointegrated if there exists a stationary linear combination, 
+
+Zt = Xt − βY t. This indicates a shared stochastic trend. The Engle-Granger (EG) test (Bilgili, 1998) for cointegration involves two steps: 1. Estimate Long-term Relationship. Regress Xt on Yt using Ordinary Least Squares (OLS): 
+
+Xt = α + βY t + ϵt,
+
+where ϵt are the residuals. 2. ADF Test on Residuals. Apply the ADF test to ϵt:
+
+∆ϵt = γϵ t−1 +
+
+> p
+
+X
+
+> i=1
+
+δi∆ϵt−i + νt
+
+If the residuals are stationary, Xt and Yt are cointegrated. Cointegration is vital for capturing long-term relationships between variables, providing a robust foundation for multivariate time series modeling. Ignoring cointegration can result in models that miss significant underlying connections, reducing forecasting accuracy and reliability. We report the EG test results in Tab. 7. 
+
+B. Theoretical Analysis of Integrated and Cointegrated Attention 
+
+In this section, we provide a more detailed theoretical analysis to justify the design choices behind Integrated Attention and Cointegrated Attention in non-stationary time series modeling. Our approach is grounded in classical stochastic processes, specifically Brownian motion, to explain the rationale behind these mechanisms. 
+
+Proposition 1: Spurious Attention from Non-Stationary Inputs 
+
+Consider a standard Brownian motion Xt ∼ I(1) , which is a commonly used model for non-stationary processes. We define the process as follows: 
+
+Xt = Xt−1 + ut, ut ∼ N (0 , σ 2)
+
+From this, we know that: 12 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Mean (Xt) = 0 , Var (Xt) = tσ 2, Cov (Xt1 , X t2 ) = min( t1, t 2)σ2
+
+Let two input patches of length S be: 
+
+pi = [ Xt+i+1 , . . . , X t+i+S ], pj = [ Xt+j+1 , . . . , X t+j+S ]
+
+The attention score between these patches pi and pj , based on the dot product between the two vectors, can be approximated as: score (pi, p j ) ∝ pipTj ∝
+
+> S
+
+X
+
+> s=1
+
+Xt+i+sXt+j+s ∝
+
+> S
+
+X
+
+> s=1
+
+(Xt+i+s − 0)( Xt+j+s − 0) ∝
+
+> S
+
+X
+
+> s=1
+
+Cov (Xt+i+s, X t+j+s)
+
+Substituting the covariance expression, we get: score (pi, p j ) ∝
+
+> S
+
+X
+
+> s=1
+
+Cov (Xt+i+s, X t+j+s) ∝
+
+> S
+
+X
+
+> s=1
+
+min (t + i + s, t + j + s)σ2 ∝ σ2
+
+
+
+S min( i, j ) + S2 + 2 St + S
+
+2
+
+
+
+This score grows quadratically with both the time index t and the patch length S. As t increases, the score is dominated by long-term trends, leading to spurious attention due to the influence of global trends, rather than capturing genuine short-term dependencies between patches. Figure 8 demonstrates this phenomenon, where many patches show high attention scores due to the accumulation of long-term variance, even though they do not represent meaningful short-term dependencies. To mitigate this effect, we propose a patch-wise detrending strategy: 
+
+p′ 
+
+> i
+
+= Detrend (pi) = [∆ Xt+i, . . . , ∆Xt+i+S ] ∼ I(0) , ∆Xt = Xt − Xt−1
+
+This operation removes the non-stationary trend from the input series, leading to a more stable variance: Var (∆ Xt) = σ2
+
+Now, the attention score between the detrended patches p′ 
+
+> i
+
+and p′ 
+
+> j
+
+becomes: score (p′
+
+> i
+
+, p ′ 
+
+> j
+
+) ∝ Sσ 2
+
+This ensures that the attention mechanism focuses on the genuine short-term dependencies between the patches, unaffected by long-term drift. 
+
+Proposition 2: Importance of Non-Stationarity in Capturing Cointegration 
+
+Cointegration is a statistical property of a collection of time series variables, where a linear combination of non-stationary series can result in a stationary process. Let us consider two non-stationary time series Xt and Yt, both following a unit root process I(1) :
+
+Xt ∼ I(1) , Yt ∼ I(1) 
+
+If these series are cointegrated, there exists a linear combination of Xt and Yt that is stationary: 
+
+Zt = Xt − βY t ∼ I(0) 
+
+13 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+where β is a constant coefficient that defines the relationship between the two series. However, if we remove the non-stationarity by detrending the series, we get: 
+
+∆Xt = Detrend (Xt), ∆Yt = Detrend (Yt)
+
+This leads to the following change in Zt:
+
+Zt = ∆ Xt − β∆Yt = ϵt
+
+where ϵt represents a random noise sequence, which destroys the cointegration signal. Removing non-stationary components eliminates the vast majority of cointegration information, as shown in Figure 9. Thus, to capture long-term dependencies accurately, we must preserve the non-stationarity between the variables. In our framework, Cointegrated Attention (CD) is designed to maintain these long-term dependencies, ensuring that the model can recognize and capture the cointegration between variables across time. 
+
+Summary of Propositions 
+
+These two propositions explain the necessity of Integrated Attention and Cointegrated Attention: • For short-term modeling , we eliminate non-stationarity to avoid spurious regressions and focus on stable, local dependencies within the data. • For long-term modeling , we preserve non-stationarity to capture meaningful cointegration relationships between variables, which are crucial for modeling long-term equilibrium dynamics. 
+
+C. Metrics 
+
+C.1. Long-term Forecasting 
+
+We use Mean Squared Error (MSE) and Mean Absolute Error (MAE) as evaluation metrics. Given the ground truth values 
+
+Xi and the predicted values ˆXi, these metrics are defined as follows: MSE = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+(Xi − ˆXi)2, MAE = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+|Xi − ˆXi|,
+
+where N is the total number of predictions. 
+
+C.2. Short-term Forecasting 
+
+We use MAE (the same as defined above), Mean Absolute Percentage Error (MAPE), and Root Mean Squared Error (RMSE) to evaluate the performance. These metrics are defined as follows: MAPE = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+Xi − ˆXi
+
+Xi
+
+× 100 , RMSE =
+
+vuut 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+(Xi − ˆXi)2.
+
+C.3. Financial Forecasting 
+
+We use six widely recognized metrics to assess the overall performance of each method: Annual Return Ratio (ARR), Annual Volatility (AVol), Maximum Drawdown (MDD), Annual Sharpe Ratio (ASR), Calmar Ratio (CR), and Information Ratio (IR). Lower absolute values of AVol and MDD, coupled with higher values of ARR, ASR, CR, and IR, indicate better performance. 14 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+• ARR quantifies the percentage increase or decrease in the value of an investment over a year. ARR = (1 + Total Return ) 1 
+
+> n
+
+− 1.
+
+• AVol measures the volatility of an investment’s returns over the course of a year. Rp denotes the daily return of the portfolio. AVol =
+
+q
+
+Var (Rp).
+
+• MDD indicates the maximum decline from a peak to a trough in the value of an investment. MDD = −max 
+
+ ppeak − ptrough 
+
+ppeak 
+
+
+
+.
+
+• ASR reflects the risk-adjusted return of an investment over a year. ASR = ARR AVol .
+
+• CR compares the average annual return of an investment to its maximum drawdown. CR = ARR 
+
+|MDD | .
+
+• IR evaluates the excess return of an investment relative to a benchmark, adjusted for its volatility. Rb is the daily return of the market index. IR = mean (Rp − Rb)
+
+std (Rp − Rb) .
+
+D. Datasets 
+
+We conduct extensive experiments on several widely-used time series datasets for long-term forecasting. Additionally, we use the PeMS datasets for short-term forecasting and the CSI 500 and S&P 500 indices for financial forecasting. We report the statistics in Tab. 7. Detailed descriptions of these datasets are as follows: (1) ETT (Electricity Transformer Temperature) dataset (Zhou et al., 2021) encompasses temperature and power load data from electricity transformers in two regions of China, spanning from 2016 to 2018. This dataset has two granularity levels: ETTh (hourly) and ETTm (15 minutes). (2) Weather dataset (Wu et al., 2023) captures 21 distinct meteorological indicators in Germany, meticulously recorded at 10-minute intervals throughout 2020. Key indicators in this dataset include air temperature, visibility, among others, offering a comprehensive view of the weather dynamics. (3) Electricity dataset (Wu et al., 2023) features hourly electricity consumption records in kilowatt-hours (kWh) for 321 clients. Sourced from the UCL Machine Learning Repository, this dataset covers the period from 2012 to 2014, providing valuable insights into consumer electricity usage patterns. (4) Traffic dataset (Wu et al., 2023) includes data on hourly road occupancy rates, gathered by 862 detectors across the freeways of the San Francisco Bay area. This dataset, covering the years 2015 to 2016, offers a detailed snapshot of traffic flow and congestion. (5) Solar-Energy dataset (Liu et al., 2024a) contains solar power production data recorded every 10 minutes throughout 2006 from 137 photovoltaic (PV) plants in Alabama. (6) PeMS dataset (Liu et al., 2022a) comprises four public traffic network datasets (PeMS03, PeMS04, PeMS07, and PeMS08), constructed from the Caltrans Performance Measurement System (PeMS) across four districts in California. The data is aggregated into 5-minute intervals, resulting in 12 data points per hour and 288 data points per day. 15 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+(7) CSI 500 1 contains 502 stocks listed on the Shanghai and Shenzhen stock exchanges in China from 2018 to 2023, including close, open, high, low, volume and turnover data. (8) S&P 500 2 contains 487 stocks representing diverse sectors within the U.S. economy from 2018 to 2023, including close, open, high, low and volume data. Tasks Dataset Dim Prediction Length Dataset Size Frequency ADF † EG ‡
+
+ETTm1 7 {96 , 192 , 336 , 720 } (34465 , 11521 , 11521) 15 min −14 .98 20 
+
+ETTm2 7 {96 , 192 , 336 , 720 } (34465 , 11521 , 11521) 15 min −5.66 17 
+
+ETTh1 7 {96 , 192 , 336 , 720 } (8545 , 2881 , 2881) 1 hour −5.91 11 
+
+Long-term ETTh2 7 {96 , 192 , 336 , 720 } (8545 , 2881 , 2881) 1 hour −4.13 10 
+
+Forecasting Electricity 321 {96 , 192 , 336 , 720 } (18317 , 2633 , 5261) 1 hour −8.44 39567 
+
+Traffic 862 {96 , 192 , 336 , 720 } (12185 , 1757 , 3509) 1 hour −15 .02 354627 
+
+Weather 21 {96 , 192 , 336 , 720 } (36792 , 5271 , 10540) 10 min −26 .68 77 
+
+Solar-Energy 137 {96 , 192 , 336 , 720 } (36601 , 5161 , 10417) 10 min −37 .23 8373 
+
+PeMS03 358 12 (15617 , 5135 , 5135) 5 min −19 .05 -Short-term PeMS04 307 12 (10172 , 3375 , 3375) 5 min −15 .66 -Forecasting PeMS07 883 12 (16911 , 5622 , 5622) 5 min −20 .60 -PeMS08 170 12 (10690 , 3548 , 265) 5 min −16 .04 -Financial CSI 500 502 1 (943 , 242 , 242) 1 day −3.06 -Forecasting S&P 500 487 1 (1008 , 251 , 249) 1 day −2.80 -
+
+† Augmented Dickey-Fuller (ADF) Test: A smaller ADF test result indicates a more stationary time series data. 
+
+‡ Engle-Granger (EG) Test: A bigger EG test result indicates the data contains more cointegration relationships.  
+
+> Table 7. Dataset detailed descriptions. “Dataset Size” denotes the total number of time points in (Train, Validation, Test) split respectively. “Prediction Length” denotes the future time points to be predicted. “Frequency” denotes the sampling interval of time points.
+
+To further illustrate the degree of non-stationarity in the datasets, we conduct additional experiments using a Random Walk series (representing maximum non-stationarity) and Gaussian white noise (representing near-stationarity). The Random Walk series is generated using the formula Xt = Xt−1 + ϵt with ϵt ∼ N (0 , 1) , where we set t = 10 , 000 and simulate 100 iterations. The average ADF value for the Random Walk series is -1.53, indicating a high degree of non-stationarity. In contrast, for the Gaussian white noise series, generated as Xt ∼ N (0 , 1) with the same settings, the average ADF value is -97.54, indicating strong stationarity. Comparing these results with those in Tab. 7, we can see that most datasets exhibit significant non-stationarity, especially the ETT, CSI 500, and S&P 500 datasets. To analyze cointegration, we conducted the Engle-Granger (EG) test on all eight datasets of long-term forecasting. The results indicate that datasets with more channels tend to exhibit more extensive cointegration relationships. This is particularly evident in datasets like Electricity and Traffic, which show significantly higher EG test values, reflecting a greater abundance of long-term equilibrium relationships among variates. For these high-dimensional datasets, effectively modeling the intricate cointegration structures is crucial, as neglecting these long-term dependencies can result in suboptimal predictions. 
+
+> 1https://cn.investing.com/indices/china-securities-500
+> 2https://hk.finance.yahoo.com/quote/%5EGSPC/history/
+
+16 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+E. Implementation Details 
+
+All experiments are implemented in PyTorch (Paszke et al., 2019) and conducted on two NVIDIA RTX 3090 24GB GPUs. We use the Adam optimizer (Kingma, 2014). All models are trained for 100 epochs. Following the protocol outlined in the comprehensive benchmark TFB (Qiu et al., 2024), the drop-last trick is disabled during the test phase. Tab. 8 provides detailed hyperparameter settings for each dataset. For the four ETT datasets, the relatively small number of channels results in less pronounced long-term cointegration relationships, as evidenced by the low EG test results in Tab. 7. Therefore, we focus on modeling short-term intra-variate variations only. To improve training stability, we adopt a hybrid MAE loss that operates in both the time and frequency domains. Compared to MSE, which amplifies differences, MAE provides a more stable optimization process. Additionally, the frequency-domain loss mitigates label autocorrelation, making training more effective. The loss function is defined as: 
+
+Lt = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+|Xi − ˆXi|, Lf = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+|FFT (Xi) − FFT ( ˆXi)|,L = (1 − α) × Lt + α × Lf ,
+
+where FFT denotes the Fast Fourier Transform. α is the hyperparameter. We conduct additional experiments where TimeBridge was trained using the MSE loss and compare the results with the best baseline, DeformableTST in Tab. 15. The results show that the hybrid MAE loss improves TimeBridge’s performance on four ETT datasets. The ETT datasets have relatively few channels ( C = 7 ), which limits TimeBridge ’s ability to utilize the Cointegrated Attention module to capture cointegration information. We only use the Integrated Attention to model ETT datasets (see Tab. 8). Additionally, the ETT data exhibits a high degree of random fluctuation, which is better modeled using a loss function that weighs both time and frequency components. Hence, the hybrid MAE loss strengthens the modeling of short-term dependencies in such datasets. On datasets with more channels (e.g., Electricity, Traffic, Solar), the choice of loss function has minimal impact, as both losses yield similar results. Num. of Integrated Num. of Cointegrated N M lr d model d ff α
+
+ETTh1 3 0 30 30 2e-4 128 128 0.35 
+
+ETTh2 3 0 15 15 1e-4 128 128 0.35 
+
+ETTm1 3 0 15 15 2e-4 64 128 0.35 
+
+ETTm2 3 0 15 15 2e-4 64 64 0.35 
+
+Weather 1 1 30 12 1e-4 128 128 0.1
+
+Solar 1 1 30 12 5e-4 128 128 0.05 
+
+Electricity 1 2 30 4 5e-4 512 512 0.2
+
+Traffic 1 3 30 8 5e-4 512 512 0.35    
+
+> Table 8. Hyperparameter settings for different datasets. “ N” denotes the number of patches. “ M” denotes the number of patches after the patch downsampling block. “lr” denotes the learning rate. “d model” and “d ff” denote the model dimension of attention layers and feed-forward layers, respectively.
+
+F. Full Results 
+
+F.1. Main Experiments 
+
+Tab. 9 present the full results for long-term forecasting through hyperparameter search. The hyperparameter search process involved exploring input lengths I ∈ { 96 , 192 , 336 , 512 , 720 }, learning rates from 10 −5 to 0.05 , encoder layers from 1 to 5, 
+
+dmodel values from 16 to 512, and training epochs from 10 to 100. In both settings, TimeBridge consistently achieved the best performance, demonstrating its effectiveness and robustness. Additionally, for financial forecasting, we included three additional strong baselines: ALSTM (Qin et al., 2017), GRU (Chung et al., 2014), and TRA (Lin et al., 2021). The results in Tab. 10 show that TimeBridge continues to outperform these 17 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+methods, further validating its superiority. 
+
+F.2. Ablation Studies 
+
+We present the full results of the ablation studies discussed in the main text. Tab. 11 provides the complete results of the ablation on removing non-stationarity in both Integrated and Cointegrated Attention. Tab. 12 reports the full results on 
+
+Models TimeBridge iTransformer DeformableTST TimeMixer PatchTST Crossformer Leddam ModernTCN MICN TimesNet DLinear (Ours ) (2024a) (2024) (2024b) (2023) (2023) (2024) (2024) (2022) (2023) (2023) Metric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE ETTm1  96 0.284 0.337 0.300 0.353 0.291 0.347 0.293 0.345 0.293 0.346 0.310 0.361 0.294 0.347 0.292 0.346 0.314 0.360 0.338 0.375 0.299 0.343 192 0.317 0.367 0.345 0.382 0.325 0.372 0.335 0.372 0.333 0.370 0.363 0.402 0.334 0.370 0.332 0.368 0.359 0.387 0.371 0.387 0.335 0.365 
+
+336 0.361 0.394 0.374 0.398 0.359 0.390 0.368 0.386 0.369 0.369 0.389 0.430 0.392 0.425 0.365 0.391 0.398 0.413 0.410 0.411 0.369 0.386 
+
+720 0.413 0.418 0.429 0.430 0.418 0.423 0.426 0.417 0.416 0.420 0.600 0.547 0.421 0.419 0.416 0.417 0.459 0.464 0.478 0.450 0.425 0.421 
+
+Avg. 0.344 0.379 0.362 0.391 0.348 0.383 0.355 0.380 0.353 0.382 0.420 0.435 0.354 0.381 0.351 0.381 0.383 0.406 0.400 0.406 0.357 0.379 
+
+> ETTm2
+
+96 0.157 0.243 0.175 0.266 0.169 0.258 0.165 0.256 0.166 0.256 0.263 0.359 0.174 0.260 0.166 0.256 0.178 0.273 0.187 0.267 0.167 0.260 192 0.217 0.285 0.242 0.312 0.229 0.299 0.225 0.298 0.223 0.296 0.345 0.400 0.231 0.301 0.222 0.293 0.245 0.316 0.249 0.309 0.224 0.303 336 0.269 0.321 0.282 0.340 0.280 0.333 0.277 0.332 0.274 0.329 0.469 0.496 0.288 0.336 0.272 0.324 0.295 0.350 0.321 0.351 0.281 0.342 720 0.348 0.378 0.378 0.398 0.349 0.384 0.360 0.387 0.362 0.385 0.996 0.750 0.368 0.386 0.351 0.381 0.389 0.406 0.497 0.403 0.397 0.421 
+
+Avg. 0.246 0.310 0.269 0.329 0.257 0.319 0.257 0.318 0.256 0.317 0.518 0.501 0.265 0.320 0.253 0.314 0.277 0.336 0.291 0.333 0.267 0.332 ETTh1 96 0.350 0.389 0.386 0.405 0.369 0.396 0.372 0.401 0.370 0.400 0.386 0.426 0.377 0.394 0.368 0.394 0.396 0.427 0.384 0.402 0.375 0.399 192 0.388 0.414 0.424 0.440 0.410 0.417 0.413 0.430 0.413 0.429 0.413 0.442 0.408 0.427 0.405 0.413 0.430 0.453 0.557 0.436 0.405 0.416 336 0.408 0.430 0.449 0.460 0.391 0.414 0.438 0.450 0.422 0.440 0.440 0.461 0.424 0.437 0.391 0.412 0.433 0.458 0.491 0.469 0.439 0.443 720 0.443 0.463 0.495 0.487 0.447 0.464 0.486 0.484 0.447 0.468 0.519 0.524 0.451 0.465 0.450 0.461 0.474 0.508 0.521 0.500 0.472 0.490 
+
+Avg. 0.397 0.424 0.439 0.448 0.404 0.423 0.427 0.441 0.413 0.434 0.440 0.463 0.415 0.430 0.404 0.420 0.433 0.462 0.458 0.450 0.423 0.437 ETTh2 96 0.271 0.331 0.297 0.348 0.272 0.334 0.281 0.351 0.274 0.337 0.611 0.557 0.283 0.345 0.263 0.332 0.289 0.357 0.340 0.374 0.289 0.353 192 0.335 0.370 0.371 0.403 0.325 0.369 0.349 0.387 0.314 0.382 0.703 0.624 0.339 0.381 0.320 0.374 0.409 0.438 0.402 0.414 0.383 0.418 336 0.371 0.402 0.404 0.428 0.319 0.373 0.366 0.413 0.329 0.384 0.827 0.675 0.366 0.405 0.313 0.376 0.417 0.452 0.452 0.452 0.448 0.465 720 0.387 0.425 0.424 0.444 0.395 0.433 0.401 0.436 0.379 0.422 1.094 0.775 0.395 0.436 0.392 0.433 0.426 0.473 0.462 0.468 0.605 0.551 
+
+Avg. 0.341 0.382 0.374 0.406 0.328 0.377 0.349 0.397 0.324 0.381 0.809 0.658 0.345 0.391 0.322 0.379 0.385 0.430 0.414 0.427 0.431 0.447 Weather  96 0.144 0.184 0.159 0.208 0.146 0.198 0.147 0.198 0.149 0.198 0.146 0.212 0.149 0.200 0.149 0.200 0.161 0.226 0.172 0.220 0.152 0.237 192 0.186 0.225 0.200 0.248 0.191 0.239 0.192 0.243 0.194 0.241 0.195 0.261 0.193 0.240 0.196 0.245 0.220 0.283 0.219 0.261 0.220 0.282 336 0.237 0.267 0.253 0.289 0.241 0.280 0.247 0.284 0.245 0.282 0.252 0.311 0.241 0.279 0.238 0.277 0.275 0.328 0.280 0.306 0.265 0.319 720 0.307 0.320 0.321 0.338 0.310 0.331 0.318 0.330 0.314 0.334 0.318 0.363 0.324 0.338 0.314 0.334 0.311 0.356 0.365 0.359 0.323 0.362 
+
+Avg. 0.219 0.249 0.233 0.271 0.222 0.262 0.226 0.264 0.226 0.264 0.228 0.287 0.226 0.264 0.224 0.264 0.242 0.298 0.259 0.287 0.240 0.300 Electricity  96 0.120 0.214 0.138 0.237 0.132 0.234 0.153 0.256 0.129 0.222 0.135 0.237 0.134 0.228 0.129 0.226 0.159 0.267 0.168 0.272 0.140 0.237 192 0.142 0.237 0.157 0.256 0.148 0.248 0.168 0.269 0.147 0.240 0.160 0.262 0.155 0.248 0.143 0.239 0.168 0.279 0.184 0.289 0.152 0.249 336 0.156 0.252 0.167 0.264 0.165 0.266 0.189 0.291 0.163 0.259 0.182 0.282 0.173 0.268 0.161 0.259 0.196 0.308 0.198 0.300 0.169 0.267 720 0.179 0.278 0.194 0.286 0.197 0.296 0.228 0.320 0.197 0.290 0.246 0.337 0.186 0.282 0.191 0.286 0.203 0.312 0.220 0.320 0.203 0.301 
+
+Avg. 0.149 0.245 0.164 0.261 0.161 0.261 0.185 0.284 0.159 0.253 0.181 0.279 0.162 0.256 0.156 0.253 0.182 0.292 0.192 0.295 0.166 0.264 Traffic 96 0.340 0.240 0.363 0.265 0.355 0.261 0.369 0.257 0.360 0.249 0.512 0.282 0.415 0.264 0.368 0.253 0.508 0.301 0.593 0.321 0.410 0.282 192 0.343 0.250 0.385 0.273 0.380 0.271 0.400 0.272 0.379 0.256 0.501 0.273 0.445 0.277 0.379 0.261 0.536 0.315 0.617 0.336 0.423 0.287 336 0.363 0.257 0.396 0.277 0.393 0.281 0.407 0.272 0.392 0.264 0.507 0.279 0.461 0.286 0.397 0.270 0.525 0.310 0.629 0.336 0.436 0.296 720 0.393 0.271 0.445 0.312 0.434 0.300 0.461 0.316 0.432 0.286 0.571 0.301 0.489 0.305 0.440 0.296 0.571 0.323 0.640 0.350 0.466 0.315 
+
+Avg. 0.360 0.255 0.397 0.282 0.391 0.278 0.409 0.279 0.391 0.264 0.523 0.284 0.452 0.283 0.396 0.270 0.535 0.312 0.620 0.336 0.434 0.295 Solar 96 0.161 0.224 0.188 0.242 0.165 0.238 0.179 0.232 0.178 0.229 0.166 0.230 0.197 0.241 0.202 0.263 0.188 0.252 0.219 0.314 0.216 0.287 192 0.177 0.237 0.193 0.258 0.184 0.254 0.201 0.259 0.189 0.246 0.186 0.237 0.231 0.264 0.223 0.279 0.215 0.280 0.231 0.322 0.244 0.305 336 0.188 0.244 0.195 0.259 0.191 0.263 0.190 0.256 0.198 0.249 0.203 0.243 0.216 0.272 0.241 0.292 0.222 0.267 0.246 0.337 0.263 0.319 720 0.197 0.252 0.223 0.281 0.199 0.262 0.203 0.261 0.209 0.256 0.210 0.256 0.250 0.281 0.247 0.292 0.226 0.264 0.280 0.363 0.264 0.324 
+
+Avg. 0.181 0.239 0.200 0.260 0.185 0.254 0.193 0.252 0.194 0.245 0.191 0.242 0.223 0.264 0.228 0.282 0.213 0.266 0.244 0.334 0.247 0.309 
+
+Table 9. Full results of long-term forecasting of hyperparameter searching. All results are averaged across four different prediction lengths: 
+
+O ∈ { 96 , 192 , 336 , 720 }. The best and second-best results are highlighted in bold and underlined, respectively. 
+
+18 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+the impact and order of Integrated and Cointegrated Attention, with an illustrative visualization in Figure 6. Additionally, Tab. 13 shows the results of ablation on different modeling approaches for these attention mechanisms. Finally, Tab. 14 presents the results of varying the number of downsampled patches M and its effect on forecasting performance. 
+
+G. Statistical Analysis 
+
+We repeat all experiments three times and report the standard deviations for both our model and the second-best baseline, along with the results of statistical significance tests. Tab. 16, Tab. 17, and Tab. 18 present the results for long-term forecasting, short-term forecasting, and financial forecasting, respectively. Models CSI 500 S&P 500 ARR ↑ AVol ↓ MDD ↓ ASR ↑ CR ↑ IR ↑ ARR ↑ AVol ↓ MDD ↓ ASR ↑ CR ↑ IR ↑
+
+BLSW (1988) 0.110 0.227 -0.155 0.485 0.710 0.446 0.199 0.318 -0.223 0.626 0.892 0.774 CSM (1993) 0.015 0.229 -0.179 0.066 0.084 0.001 0.099 0.250 -0.139 0.396 0.712 0.584 LSTM (1997) -0.008 0.159 -0.172 -0.047 -0.044 -0.128 0.142 0.162 -0.178 0.877 0.798 0.929 ALSTM (2017) 0.016 0.162 -0.192 0.101 0.086 0.014 0.191 0.161 -0.150 1.186 1.273 1.115 GRU (2014) -0.004 0.159 -0.193 -0.028 -0.023 -0.118 0.124 0.169 -0.139 0.734 0.829 1.023 Transformer (2017b) 0.154 0.156 -0.135 0.986 1.143 0.867 0.135 0.159 -0.140 0.852 0.968 0.908 TRA (2021) 0.125 0.162 -0.145 0.776 0.866 0.657 0.184 0.166 -0.158 1.114 1.172 1.106 PatchTST (2023) 0.118 0.152 -0.127 0.776 0.923 0.735 0.146 0.167 -0.140 0.877 1.042 0.949 iTransformer (2024a) 0.214 0.168 -0.164 1.276 1.309 1.173 0.159 0.170 -0.139 0.941 1.150 0.955 TimeMixer (2024b) 0.078 0.153 -0.114 0.511 0.685 0.385 0.254 0.162 -0.131 1.568 1.938 1.448 Crossformer (2023) -0.039 0.163 -0.217 -0.238 -0.179 -0.350 0.284 0.159 -0.114 1.786 2.491 1.646 TSMixer (2023) 0.086 0.156 -0.143 0.551 0.601 0.456 0.187 0.173 -0.156 1.081 1.199 1.188 TimeBridge 0.285 0.203 -0.196 1.405 1.453 1.317 0.326 0.169 -0.142 1.927 2.298 1.842 
+
+Table 10. Full results for financial time series forecasting in CSI 500 and S&P 500 datasets. Patch 
+
+> Embedding
+> Integrated
+> Attention
+> Cointegrated
+> Attention
+> Projection
+> Patch
+> Downsampling
+> Input
+> Output
+> Patch
+> Embedding
+> Cointegrated
+> Attention
+> Integrated
+> Attention
+> Projection
+> Patch
+> Upsampling
+> Input
+> Output
+> Patch
+> Embedding
+> Integrated
+> Attention
+> Projection
+> Input
+> Output
+> Patch
+> Embedding
+> Cointegrated
+> Attention
+> Projection
+> Input
+> Output
+
+① ② ③ ④
+
+Figure 6. Illustration of the impact and order of Integrated Attention and Cointegrated Attention in Tab. 12: ① Integrated Attention only, 
+
+② Cointegrated Attention only, ③ Integrated Attention followed by Cointegrated Attention, and ④ Cointegrated Attention followed by Integrated Attention, with patch downsampling replaced by upsampling. 
+
+19 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Integrated Attention Cointegrated Attention Weather Solar Electricity Traffic + Norm? + Norm? Length MSE MAE MSE MAE MSE MAE MSE MAE 
+
+× ×
+
+96 0.144 0.193 0.163 0.227 0.124 0.221 0.342 0.241 192 0.186 0.235 0.180 0.240 0.144 0.240 0.351 0.255 336 0.239 0.279 0.191 0.248 0.158 0.254 0.374 0.261 720 0.311 0.333 0.197 0.253 0.184 0.282 0.418 0.284 
+
+Avg. 0.220 0.260 0.183 0.242 0.153 0.249 0.371 0.260 
+
+× ✓
+
+96 0.144 0.193 0.164 0.227 0.124 0.220 0.348 0.247 192 0.188 0.237 0.180 0.240 0.146 0.240 0.370 0.257 336 0.239 0.279 0.191 0.248 0.161 0.258 0.382 0.264 720 0.308 0.331 0.197 0.293 0.189 0.285 0.422 0.283 
+
+Avg. 0.220 0.260 0.183 0.252 0.155 0.251 0.381 0.263 
+
+✓ ×
+
+96 0.144 0.184 0.161 0.224 0.120 0.214 0.340 0.240 192 0.186 0.225 0.177 0.237 0.142 0.237 0.343 0.250 
+
+✓ × 336 0.237 0.267 0.188 0.244 0.156 0.252 0.363 0.257 720 0.307 0.320 0.197 0.252 0.179 0.278 0.393 0.271 
+
+Avg. 0.219 0.249 0.181 0.239 0.149 0.245 0.360 0.255 
+
+✓ ✓
+
+96 0.143 0.193 0.163 0.227 0.123 0.219 0.343 0.241 192 0.186 0.236 0.180 0.239 0.144 0.239 0.367 0.254 336 0.238 0.278 0.191 0.247 0.159 0.256 0.379 0.262 720 0.307 0.330 0.197 0.253 0.185 0.284 0.405 0.277 
+
+Avg. 0.219 0.259 0.183 0.242 0.153 0.250 0.374 0.289      
+
+> Table 11. Full results of ablation on the effect of removing non-stationarity in Integrated Attention and Cointegrated Attention. ✓indicates the use of patch normalization to eliminate non-stationarity, while ×means non-stationarity is retained.
+
+Integrated Attention Cointegrated Attention Weather Solar Electricity Traffic Order Order Length MSE MAE MSE MAE MSE MAE MSE MAE 
+
+1 ×
+
+96 0.144 0.196 0.163 0.227 0.127 0.221 0.356 0.245 192 0.186 0.238 0.182 0.242 0.145 0.239 0.377 0.259 336 0.241 0.283 0.192 0.246 0.162 0.257 0.390 0.265 720 0.310 0.332 0.199 0.260 0.197 0.289 0.427 0.286 
+
+Avg. 0.220 0.262 0.184 0.244 0.158 0.252 0.388 0.264 
+
+× 1
+
+96 0.147 0.200 0.161 0.240 0.127 0.227 0.348 0.252 192 0.191 0.242 0.195 0.259 0.155 0.254 0.358 0.262 336 0.242 0.283 0.198 0.268 0.173 0.273 0.367 0.267 720 0.308 0.331 0.209 0.273 0.203 0.299 0.401 0.278 
+
+Avg. 0.222 0.264 0.191 0.260 0.165 0.263 0.369 0.265 
+
+1 2
+
+96 0.144 0.184 0.161 0.224 0.120 0.214 0.340 0.240 192 0.186 0.225 0.177 0.237 0.142 0.237 0.343 0.250 
+
+1 2 336 0.237 0.267 0.188 0.244 0.156 0.252 0.363 0.257 720 0.307 0.320 0.197 0.252 0.179 0.278 0.393 0.271 
+
+Avg. 0.219 0.249 0.181 0.239 0.149 0.245 0.360 0.255 
+
+2 1
+
+96 0.148 0.199 0.174 0.237 0.130 0.225 0.370 0.274 192 0.193 0.243 0.187 0.251 0.147 0.240 0.386 0.279 336 0.245 0.284 0.195 0.258 0.165 0.262 0.394 0.276 720 0.320 0.336 0.203 0.262 0.199 0.291 0.432 0.295 
+
+Avg. 0.227 0.266 0.190 0.252 0.160 0.255 0.396 0.281    
+
+> Table 12. Full results of ablation on the impact and order of Integrated Attention and Cointegrated Attention. “Order” specifies the sequence, with lower numbers indicating earlier placement. ×indicates the component is removed.
+
+20 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+Integrated Attention Cointegrated Attention Weather Solar Electricity Traffic CI or CD CI or CD Length MSE MAE MSE MAE MSE MAE MSE MAE CI CI 96 0.144 0.192 0.163 0.227 0.125 0.221 0.358 0.260 192 0.185 0.236 0.180 0.240 0.144 0.242 0.373 0.271 336 0.237 0.278 0.191 0.247 0.161 0.255 0.391 0.282 720 0.307 0.330 0.197 0.258 0.196 0.288 0.425 0.292 
+
+Avg. 0.218 0.259 0.183 0.243 0.157 0.252 0.387 0.276 CD CI 96 0.146 0.195 0.165 0.229 0.125 0.222 0.362 0.266 192 0.188 0.239 0.178 0.245 0.145 0.241 0.374 0.274 336 0.242 0.284 0.191 0.252 0.166 0.263 0.388 0.282 720 0.310 0.331 0.201 0.261 0.205 0.293 0.423 0.296 
+
+Avg. 0.222 0.262 0.184 0.247 0.160 0.255 0.387 0.280 CI CD 96 0.144 0.184 0.161 0.224 0.120 0.214 0.340 0.240 192 0.186 0.225 0.177 0.237 0.142 0.237 0.343 0.250 CI CD 336 0.237 0.267 0.188 0.244 0.156 0.252 0.363 0.257 720 0.307 0.320 0.197 0.252 0.179 0.278 0.393 0.271 
+
+Avg. 0.219 0.249 0.181 0.239 0.149 0.245 0.360 0.255 
+
+CD CD 96 0.146 0.197 0.162 0.229 0.125 0.221 0.352 0.254 192 0.188 0.238 0.178 0.245 0.148 0.246 0.361 0.266 336 0.241 0.282 0.191 0.254 0.161 0.261 0.377 0.267 720 0.313 0.333 0.199 0.260 0.189 0.289 0.412 0.288 
+
+Avg. 0.222 0.263 0.183 0.247 0.156 0.254 0.376 0.269  
+
+> Table 13. Full results of ablation on modeling approaches for Integrated Attention and Cointegrated Attention. “CI” denotes channel independent and “CD” denotes channel-dependent modeling.
+
+Downsampled Weather Solar Electricity Traffic Patch Number M Length MSE MAE MSE MAE MSE MAE MSE MAE 
+
+1
+
+96 0.171 0.231 0.172 0.234 0.135 0.231 0.349 0.252 192 0.207 0.261 0.187 0.252 0.158 0.255 0.358 0.259 336 0.257 0.298 0.196 0.257 0.182 0.278 0.382 0.269 720 0.323 0.344 0.203 0.258 0.191 0.290 0.414 0.282 
+
+Avg. 0.239 0.284 0.189 0.250 0.166 0.264 0.375 0.266 
+
+4
+
+96 0.147 0.201 0.168 0.231 0.120 0.214 0.340 0.240 192 0.189 0.241 0.183 0.245 0.142 0.237 0.343 0.250 336 0.240 0.282 0.195 0.251 0.156 0.252 0.363 0.257 720 0.309 0.332 0.200 0.255 0.179 0.278 0.393 0.271 
+
+Avg. 0.221 0.264 0.186 0.246 0.149 0.245 0.360 0.255 
+
+8
+
+96 0.144 0.195 0.163 0.225 0.119 0.219 0.338 0.240 192 0.186 0.237 0.183 0.243 0.146 0.244 0.341 0.249 336 0.238 0.280 0.195 0.251 0.161 0.260 0.379 0.264 720 0.308 0.330 0.196 0.250 0.177 0.277 0.400 0.280 
+
+Avg. 0.219 0.261 0.184 0.242 0.151 0.250 0.365 0.258 
+
+12 
+
+96 0.143 0.184 0.161 0.224 0.120 0.220 0.334 0.238 192 0.186 0.225 0.177 0.237 0.148 0.247 0.337 0.250 336 0.237 0.267 0.188 0.244 0.163 0.264 0.363 0.256 720 0.307 0.320 0.197 0.252 0.176 0.286 0.387 0.268 
+
+Avg. 0.219 0.249 0.181 0.239 0.151 0.254 0.355 0.253 
+
+16 
+
+96 0.145 0.195 0.149 0.223 0.122 0.223 0.333 0.235 192 0.187 0.238 0.175 0.236 0.149 0.249 0.343 0.254 336 0.241 0.282 0.187 0.244 0.165 0.265 0.354 0.256 720 0.312 0.328 0.196 0.250 0.179 0.276 0.386 0.269 
+
+Avg. 0.222 0.261 0.177 0.238 0.152 0.253 0.354 0.254    
+
+> Table 14. Full results of varying the number of downsampled patches Mon forecasting performance.
+
+21 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+## Model TimeBridge (Hybrid MAE) TimeBridge (MSE) DeformableTST (2024) Dataset MSE MAE MSE MAE MSE MAE ETTm1 0.344 0.379 0.353 0.388 0.348 0.383 ETTm2 0.246 0.310 0.246 0.310 0.257 0.319 ETTh1 0.397 0.424 0.399 0.420 0.404 0.423 ETTh2 0.341 0.382 0.346 0.394 0.328 0.377 Weather 0.219 0.249 0.218 0.250 0.222 0.262 Electricity 0.149 0.245 0.149 0.246 0.161 0.261 Traffic 0.360 0.255 0.360 0.252 0.391 0.278 Solar 0.181 0.239 0.181 0.238 0.185 0.254 
+
+Table 15. Average results of different prediction length O ∈ { 96 , 192 , 336 , 720 } with Hybrid MAE loss and MSE loss. 
+
+## Model TimeBridge DeformableTST (2024) Confidence Dataset MSE MAE MSE MAE Interval ETTm1 0.344 ± 0.014 0.379 ± 0.010 0.348 ± 0.008 0.383 ± 0.006 99% 
+
+## ETTm2 0.246 ± 0.004 0.310 ± 0.012 0.257 ± 0.003 0.319 ± 0.003 99% 
+
+## ETTh1 0.397 ± 0.010 0.424 ± 0.008 0.404 ± 0.015 0.423 ± 0.006 99% 
+
+## ETTh2 0.341 ± 0.018 0.382 ± 0.015 0.328 ± 0.009 0.377 ± 0.010 99% 
+
+## Weather 0.219 ± 0.006 0.249 ± 0.004 0.222 ± 0.009 0.262 ± 0.006 99% 
+
+## Electricity 0.149 ± 0.011 0.245 ± 0.007 0.161 ± 0.010 0.261 ± 0.015 99% 
+
+## Traffic 0.360 ± 0.008 0.255 ± 0.013 0.391 ± 0.016 0.278 ± 0.010 99% 
+
+## Solar 0.181 ± 0.002 0.239 ± 0.003 0.185 ± 0.008 0.254 ± 0.005 99% 
+
+Table 16. Standard deviation and statistical tests for TimeBridge and second-best method (DeformableTST) on ETT, Weather, Electricity, Traffic and Solar datasets. 
+
+Model TimeBridge TimeMixer (2024b) Confidence Dataset MAE MAPE RMSE MAE MAPE RMSE Interval PeMS03 14 .63 ± 0.164 14 .21 ± 0.133 23 .10 ± 0.186 14 .63 ± 0.112 14 .54 ± 0.105 23 .28 ± 0.128 99% PeMS04 19 .24 ± 0.131 12 .42 ± 0.108 31 .12 ± 0.112 19 .21 ± 0.217 12 .53 ± 0.154 30 .92 ± 0.143 99% PeMS07 20 .43 ± 0.173 8.42 ± 0.155 33 .44 ± 0.190 20 .57 ± 0.158 8.62 ± 0.112 33 .59 ± 0.273 99% PeMS08 14 .98 ± 0.278 9.56 ± 0.126 23 .77 ± 0.142 15 .22 ± 0.311 9.67 ± 0.101 24 .26 ± 0.212 99% 
+
+Table 17. Standard deviation and statistical tests for TimeBridge and second-best method (TimeMixer) on the PeMS dataset. Model TimeBridge Crossformer (2023) Confidence Dataset ARR AVol MDD ARR AVol MDD Interval CSI 500 0.285 ± 0.033 0.203 ± 0.012 −0.196 ± 0.010 −0.039 ± 0.027 0.163 ± 0.009 −0.217 ± 0.011 95% S&P 500 0.326 ± 0.022 0.169 ± 0.009 −0.142 ± 0.010 0.284 ± 0.024 0.159 ± 0.011 −0.114 ± 0.014 95% 
+
+Table 18. Standard deviation and statistical tests for TimeBridge and second-best method (Crossformer) on the CSI 500 and S&P 500 dataset. 
+
+22 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting 
+
+H. Visualization 
+
+Figure 7 visualizes short-term fluctuations and long-term cointegration across stock sectors. Figure 8 provides additional examples of intra-variate attention maps comparing stationary and non-stationary conditions for different patches in the Electricity dataset. Figure 9 shows further examples of inter-variate attention maps in the Solar dataset under both stationary and non-stationary conditions. Figure 10, Figure 11, Figure 12, and Figure 13 present long-term forecasting visualizations for Weather, Solar, Electricity, and Traffic datasets, respectively. We display the last 96 input steps based on each model’s optimal input length, along with the corresponding 96 predicted steps. Finally, Figure 14 illustrates short-term forecasting for the PeMS03 dataset, where each model predicts 12 steps from a 96-step input. Banks 
+
+NBFIs 
+
+Retails 
+
+Long -term 
+
+Cointegration 
+
+Short -term 
+
+Fluctuations 
+
+... 
+
+> Price
+
+Time 
+
+Figure 7. Visualization of short-term fluctuations and long-term cointegration across stock sectors. ”NBFIs” represents Non-Bank Financial Institutions. The figure highlights how sectors experience short-term price volatility while maintaining long-term cointegration. Stationary Non -stationary Stationary Non -stationary 
+
+> Query Time Patch
+> Key Time Patch
+> Query Time Patch
+> Key Time Patch
+> Query Time Patch
+> Key Time Patch
+> Query Time Patch
+> Key Time Patch
+
+Figure 8. Additional examples comparing intra-variate attention maps under stationary and non-stationary conditions for different patches in the Electricity dataset. Stationary Non -stationary Stationary Non -stationary     
+
+> Query  Channel
+> Key Channel
+> Query  Channel
+> Key Channel
+> Query  Channel
+> Key Channel
+> Query  Channel
+> Key Channel
+
+Figure 9. Additional examples comparing inter-variate attention maps between different variates under stationary and non-stationary conditions in the Solar dataset. 
+
+23 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting (a) TimeBridge (b) iTransformer (c) PatchTST   
+
+> (g) DLinear
+> (d) TimeMixer
+> (e) TimesNet (f) ModernTCN (h) PDF
+
+Figure 10. Visualization of predictions from different models on the Weather dataset. (a) TimeBridge (b) iTransformer (c) PatchTST  
+
+> (g) DLinear (f) ModernTCN (h) PDF
+> (d) TimeMixer
+> (e) TimesNet
+
+Figure 11. Visualization of predictions from different models on the Solar dataset. 
+
+24 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting (a) TimeBridge (b) iTransformer    
+
+> (g) DLinear
+> (c) PatchTST (d) TimeMixer
+> (e) TimesNet (f) ModernTCN (h) PDF
+
+Figure 12. Visualization of predictions from different models on the Electricity dataset. (a) TimeBridge 
+
+(g) DLinear 
+
+(b) iTransformer (c) PatchTST (d) TimeMixer 
+
+(f) ModernTCN (h) PDF (e) TimesNet 
+
+Figure 13. Visualization of predictions from different models on the Traffic dataset. 
+
+25 TimeBridge: Non-Stationarity Matters for Long-term Time Series Forecasting (a) TimeBridge (b) TimeMixer (c) Crossformer (d) TimesNet    
+
+> (e) PatchTST (f) SCINet (g) DLinear (h) MICN
+
+Figure 14. Visualization of predictions from different models on the PeMS03 dataset. 
+
+26

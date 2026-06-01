@@ -1,0 +1,719 @@
+Title: [width=1.0em]figures/sundial.png Sundial: A Family of Highly Capable Time Series Foundation Models
+
+URL Source: https://openreview.net/pdf?id=LO7ciRpjI5
+
+Number of Pages: 23
+
+Markdown Content:
+## Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Yong Liu * 1 Guo Qin * 1 Zhiyuan Shi 1 Zhi Chen 1 Caiyin Yang 1
+
+Xiangdong Huang 1 Jianmin Wang 1 Mingsheng Long 1
+
+Abstract 
+
+We introduce Sundial , a family of native, flexible, and scalable time series foundation models. To predict the next-patch’s distribution, we propose a TimeFlow Loss based on flow-matching, which facilitates native pre-training of Transformers on continuous-valued time series without discrete to-kenization. Conditioned on arbitrary-length time series, our models are pre-trained without specify-ing any prior distribution and can generate multi-ple probable predictions, achieving more flexibil-ity in representation learning than using paramet-ric densities. Towards time series foundation mod-els, we leverage minimal but crucial adaptations of Transformers and curate TimeBench with one trillion time points , comprising mostly real-world datasets and synthetic data. By mitigating mode collapse via TimeFlow Loss, we pre-train a family of Sundial models on TimeBench, which achieve unprecedented model capacity and generalization performance. In addition to excellent scalability, Sundial achieves state-of-the-art results on both point and probabilistic forecasting benchmarks with a just-in-time inference speed, i.e., making zero-shot predictions within a few milliseconds. We believe that Sundial’s pioneering generative forecasting capability can improve model reliabil-ity in real-world decision-making. Code is avail-able at: https://github.com/thuml/Sundial. 
+
+1. Introduction 
+
+Time series forecasting has fascinated people for thousands of years. Although people have been able to determine the time using instruments like sundials in 3000 BC, time se-ries forecasting is intrinsically non-deterministic (Box et al., 
+
+> *
+
+Equal contribution 1School of Software, BNRist, Tsinghua University. Yong Liu <liuyong21@mails.tsinghua.edu.cn >. Guo Qin <qinguo24@mails.tsinghua.edu.cn >. Correspondence to: Mingsheng Long <mingsheng@tsinghua.edu.cn >.
+
+Proceedings of the 42 nd International Conference on Machine Learning , Vancouver, Canada. PMLR 267, 2025. Copyright 2025 by the author(s). Time Series Data       
+
+> Continuous Tokenization (Native) Discrete Tokenization (Foreign)
+> 8.12, 2.33, 2.47, 3.40, 5.66, …
+> 81 23 24 34 56
+
+…     
+
+> Parametric Densities Language Modeling
+> Model
+> Prior Loss
+> (1) TimesFM, Timer, Moirai (2) Chronos, LLMTime (3) Sundial (Ours)
+> Model
+> Cross-Entropy
+> Model
+> TimeFlow
+> Time Series Foundation Models Flexible
+> Generative Modeling
+> Specific
+> Continuous Token Discrete Token
+
+Figure 1. A native time series model operates on the original series of continuous values. A flexible foundation model is pre-trained without specifying prior distributions. Sundial is the first family of native and flexible time series foundation models. 
+
+2015). Therefore, generating a variety of probable predic-tions is crucial for decision-making. The growing demand has facilitated numerous statistical approaches over the past decades (Hyndman, 2018; Box, 2013), which provide high-profile theories and probabilistic tools for making reliable schedules. Recent advancements bring the boom of deftly designed models that automatically learn intricate dynamics and correlations from raw data (Oreshkin et al., 2019; Nie et al., 2022; Zhang & Yan, 2023; Liu et al., 2023a). Despite the impressive performance, deep models necessitate task-specific training on sufficient in-distribution data. Motivated by advances in large models (Bommasani et al., 2021), pre-trained time series foundation models have shown promising capabilities in out-of-distribution tasks (Das et al., 2023b; Liu et al., 2024b; Woo et al., 2024; Ansari et al., 2024). Current research on time series foundation models has con-verged on building unified, scalable, and out-of-the-box fore-casters, exhibiting zero-shot performance close to or some-times surpassing supervised methods (Aksu et al., 2024). Notably, Transformers (Radford et al., 2018) are currently the de facto architecture of these models. While pre-trained Transformers with an inherent generative ability have facil-itated great success in language, image, and video genera-tion (Ramesh et al., 2021; OpenAI, 2023; Liu et al., 2024c), most time series foundation models are not “generative” or, more specifically, probabilistic forecasters, thereby limiting 1Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+reliability in decision-making. Although parametric densi-ties specified with prior distributions (Wen et al., 2017; Woo et al., 2024) can be adopted to address uncertainty in time series forecasting, they can reduce the capacity of distribu-tions learned by pre-trained models, especially on time se-ries modality characterized by high heterogeneity. To learn arbitrarily intricate distributions without mode collapse, lan-guage modeling (Bengio et al., 2000) that learns the categor-ical distribution via cross-entropy loss inspires subsequent works (Gruver et al., 2023; Ansari et al., 2024), which treat time series as a foreign language using discrete tokenization. Still, discrepancies between continuous-valued time series and discrete language tokens can lead to out-of-vocabulary issues and coarse-grained prediction intervals. As shown in Figure 1, Sundial is presented as the first family of generative models among time series foundation models. As foundation models intend to learn complicated distribu-tions from extensive datasets and facilitate transferability across agnostic downstream datasets, we do not specify any prior parametric densities, such as unimodal and multimodal Gaussian mixtures. Instead, we delve into generative mod-eling to tame Transformers as native, flexible, and scalable time series foundation models. By comparing to denoising diffusion models (Li et al., 2024), we opt for a simple yet effective flow-matching framework (Lipman et al., 2022), which provides notable efficiency and sample quality (Tong et al., 2023). We propose TimeFlow Loss , a parameterized training objective (Zhang et al., 2018) for autoregressive models to learn and sample from each token’s predictive distribution. Optimizing models in the original continuous-valued domain, TimeFlow Loss facilitates patch-level gen-eration and enables fast inference, which is naturally com-patible with the time series modality. In addition to TimeFlow, we enhance the Transformer with minimal but critical adaptations. We develop feasible patch tokenization for arbitrary-length input time series. We adopt RoPE (Su et al., 2024), Pre-LN (Xiong et al., 2020), FlashAt-tention (Dao et al., 2022), and KV Cache (Pope et al., 2023), which are crucial but generally neglected in the development of time series foundation models. Besides, we pre-train our models by multi-patch prediction to reduce autoregression steps. We realize a rapid generation of multiple samples by reusing a shared lookback representation. Beyond facilitat-ing scalable pre-training, these adaptations help real-time long-context inference and long-term generation. To validate the scaling law of time series foundation models, we collect and curate TimeBench with an unprecedented vol-ume of a trillion time points. We present Sundial as a family of highly capable foundation models, which achieve state-of-the-art on three large-scale and best-recognized benchmarks, including Time-Series-Library (TSLib) (Wu et al., 2022), GIFT-Eval (Aksu et al., 2024), and FEV (Ansari et al., 2024). Our contributions lie in these aspects: • We propose TimeFlow Loss to predict next-patch’s dis-tribution, allowing Transformers to be trained without discrete tokenization and make probable predictions. • We present Sundial, a family of scalable and efficient time series foundation models built upon our enhanced Transformer and pre-trained on a trillion time points. • Experimentally, Sundial achieves state-of-the-art zero-shot performance on point and probabilistic forecasting benchmarks, including TSLib, GIFT-Eval, and FEV, in-dicating a promising generative approach for the future improvement of time series foundation models. 
+
+2. Related Work 
+
+2.1. Time Series Forecasting 
+
+Forecasting is essential for decision-making. Advancements in deep learning for time series include theory-inspired deep modules (Wu et al., 2021; Liu et al., 2023b; Wu et al., 2022), architecture-oriented adaptations (Bai et al., 2018; Salinas et al., 2020; Lim et al., 2021), and time series preprocess-ing (Kim et al., 2021; Nie et al., 2022). Deep models learn the dataset-level distribution and benefit from strong gener-alization and model capacity. Statistical methods conduct case-by-case fitting on input series, achieving notable per-formance on small data (Ke et al., 2017; Hyndman, 2018). One of the efforts towards more capable forecasters focuses on the foundation models (Bommasani et al., 2021), which address data-scarce scenarios by pre-training. More capable models support zero-shot forecasting, making inferences as fast as statistical methods and possessing large model capac-ity as deep models. Another aspect is to address uncertainty in time series forecasting. There is a growing research em-phasis on probabilistic forecasting (Woo et al., 2024; Ansari et al., 2024). While parametric densities can be adopted as training objectives of probabilistic forecasting, they can be too specific to meet the heterogeneity of large-scale datasets, resulting in mode collapse in representation learning and over-smooth predictions (Figure 14-15). In this work, we introduce generative time series foundation models, which naturally address the uncertainty in forecasting. 
+
+2.2. Time Series Foundation Models 
+
+Recent research has concentrated on building versatile large time series models (Liang et al., 2024). With the advances made in large language models, Transformer has become the dominant architecture. Several works adapt Transformers to address the unique 2D-dimensionality and heterogeneity of time series (Woo et al., 2024; Liu et al., 2024a). Specif-ically, our work delves into tokenization and optimization. 2Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Models such as TimesFM (Das et al., 2023b), Timer (Liu et al., 2024a;b), and Time-MoE (Shi et al., 2024b) embed continuous values and fit unimodal distributions via MSE or quantile loss (Wen et al., 2017). However, prior loss may result in mode collapse because predictive distributions are highly divergent across different domains. Besides, these models cannot provide the confidence level of predictions, limiting reliability for decision-making. Based on continu-ous tokenization, Moirai (Woo et al., 2024) presents a prob-abilistic model learning a mixture of distributions, but this prior can still fail to accommodate complex distributions. In-spired by language modeling, Chronos (Ansari et al., 2024) discretizes series via bucket quantization, learning more flex-ible categorical distributions by cross-entropy. Still, discrete tokenization is applied at each time point, which can lead to long contexts. Also, the final performance can be sensitive to quantization techniques. Unlike before, we tame Trans-formers as native time series foundation models, learning flexible distributions without discrete tokenization. 
+
+2.3. Generative Modeling for Time Series 
+
+By addressing complicated distributions during pre-training, generative modeling has become a focal point in the devel-opment of various foundation models (Zhao et al., 2023; Liu et al., 2024c). While this direction for time series mostly focused on time series generation (Tashiro et al., 2021) and task-specific forecasters (Rasul et al., 2021; Shen & Kwok, 2023; Kollovieh et al., 2024), generative modeling for time series foundation models is hardly explored. With the com-parable flexibility in distribution learning as language mod-eling, diffusion denoising (Sohl-Dickstein et al., 2015) and flow-matching (Lipman et al., 2022) have gained increasing prevalence in continuous-valued modalities (Lipman et al., 2024). Compared with diffusion denoising models, flow-matching provides a simple yet efficient framework. With fewer steps involved in the forward and reverse processes, large models based on flow-matching have shown superior performance in image generation (Esser et al., 2024). Despite the connection in value continuity, generating im-ages and future time series are fundamentally different tasks due to the autoregressive property of forecasting. Our pro-posed TimeFlow Loss is designed for autoregressive models to conduct conditional generation, which is a parameterized loss function (Zhang et al., 2018) for arbitrary distributions and enhances representation learning of foundation models. 
+
+3. Preliminaries 
+
+3.1. Flow-Matching 
+
+The goal of generative modeling is to learn the underlying probability distribution that generates the data. The frame-work of flow-matching transforms a sample x0 ∼ p0 drawn from a source distribution into a sample x1 ∼ p1 drawn from a target distribution. The transformation is continuous in time. For d-dimensional distributions, it is defined by a time-dependent velocity field ut : [0 , 1] × Rd → Rd , which is the solution of the ordinary differential equation (ODE): 
+
+ddt ψt(x) = ut
+
+ ψt(x) and ψ0(x) = x.
+
+The velocity field ut determines a flow ψt. For all t ∈ [0 , 1] ,
+
+ψt generates the probability path pt that interpolates p0 and 
+
+p1, i.e., xt = ψt (x0) ∼ pt for x0 ∼ p0. The implementa-tion of flow-matching is to train a network uθt parametrized by θ to fit the velocity field ut, which is a regression-based task formulated as the Flow-Matching objective: 
+
+LFM (θ) = Et, xt uθt (xt) − ut(xt) 2 .
+
+Furthermore, Lipman et al. (2022) proved the equivalence of optimizing the Conditional Flow-Matching objective: 
+
+LCFM (θ) = Et, xt,x1 uθt (xt) − ut(xt|x1) 2 .
+
+Leveraging the conditional optimal-transport (linear) path and a source Gaussian, the objective can be formulated as: 
+
+LGauss CFM (θ) = Et,ϵ, x1 uθt (xt) − (x1 − x0) 2 . (1) where t ∼ U [0 , 1] , x0 ∼ N (0 , 1) and xt = tx1 + (1 − t)ϵ.Consequently, we can train a generative network on given samples from the target distribution, and generate new sam-ples by applying a push-forward process on samples drawn from a simple source Gaussian distribution: 
+
+xt+∆ t − xt = uθt (xt)∆ t, x0 ∼ N (0, I), t ∈ [0 , 1] . (2) 
+
+3.2. Generative Models for Probabilistic Forecasting 
+
+Given a historical observation x1: t = {x1, ..., x t}, the tar-get of time series forecasting is to predict future time series 
+
+xt+1: t+f = {xt+1 , . . . , x t+f }. The task can be generally formulated as p(xt+1: t+f |ht), where ht = fϕ(x1: t) is the learned representation from a deep model fϕ. In probabilis-tic forecasting, explicit optimization objectives are utilized to predict the statistics of future series, e.g., MSE or quantile loss, which have specified p as a prior distribution. While using one parametric density generally fits well on a small amount of data, it can be the major bottleneck for scaling time series foundation models. Inspired by the success of large generative models (Rombach et al., 2022; OpenAI, 2023; Esser et al., 2024), we introduce generative modeling to realize probabilistic forecasting: 
+
+p(xt+1: t+f |ht) = gθ
+
+ fϕ(x1: t). (3) 
+
+gθ is a small trainable generative network conditioned on the learned representations of fϕ, which is jointly optimized 3Sundial: A Family of Highly Capable Time Series Foundation Models Transformer TimeFlow Loss 
+
+> Re-Norm
+> Pre-LN
+> PatchEmbed
+
++
+
+> Pre-LN
+
++
+
+…
+
+…
+
+Patch Noise 
+
+N
+
+i
+
+1
+
+2
+
+3
+
+> FFN
+
+N x 
+
+> FlashAttention
+> & KV Cache
+
+RoPE 
+
+Tokenization 
+
+… …
+
+Step k Inference 
+
+Training Time & Noise GoundTruth 
+
+Condition  
+
+> <latexit sha1_base64="PUHjqYxACtFGc0O7aa2Bieiegdw=">AAAC13icjVHLSsNAFD2Nr1pftS7dBIugm5KIqMuiG5cK1lZ8lEk61cG8mEzEUoo7cesPuNU/Ev9A/8I7Ywo+EJ2Q5My595yZe6+XBCJVjvNSsEZGx8YnipOlqemZ2bnyfOUwjTPp84YfB7FseSzlgYh4QwkV8FYiOQu9gDe9yx0db15xmYo4OlC9hJ+G7DwSXeEzRVS7XDkJmbrwuv3eoC3O+ivu6qBdrjo1xyz7J3BzUEW+9uLyM07QQQwfGUJwRFCEAzCk9BzDhYOEuFP0iZOEhIlzDFAibUZZnDIYsZf0Pafdcc5GtNeeqVH7dEpArySljWXSxJQnCevTbBPPjLNmf/PuG099tx79vdwrJFbhgti/dMPM/+p0LQpdbJkaBNWUGEZX5+cumemKvrn9qSpFDglxGncoLgn7Rjnss200qald95aZ+KvJ1Kze+3luhjd9Sxqw+32cP8HhWs3dqLn769X6dj7qIhaxhBWa5ybq2MUeGuR9jQc84sk6sm6sW+vuI9Uq5JoFfFnW/Tv2SJbF</latexit>
+
+y(1) 
+
+i 
+
+> <latexit sha1_base64="IJ306UBICjKE0/r+WwAru7141Ec=">AAAC33icjVHLSsNAFD2N7/qqutNNsAh1UxIRdSnqwmUF+wBbyySd1qF5kUyEUgru3Ilbf8Ct/o34B/oX3hkj+EB0QpIz595zZu69TuSJRFrWc84YG5+YnJqeyc/OzS8sFpaWa0mYxi6vuqEXxg2HJdwTAa9KIT3eiGLOfMfjdad/qOL1Sx4nIgxO5SDiLZ/1AtEVLpNEtQurTZ/JC6c7HIza4nxY6jePuCeZKTdH7ULRKlt6mT+BnYEislUJC09oooMQLlL44AggCXtgSOg5gw0LEXEtDImLCQkd5xghT9qUsjhlMGL79O3R7ixjA9orz0SrXTrFozcmpYkN0oSUFxNWp5k6nmpnxf7mPdSe6m4D+juZl0+sxAWxf+k+Mv+rU7VIdLGnaxBUU6QZVZ2buaS6K+rm5qeqJDlExCncoXhM2NXKjz6bWpPo2lVvmY6/6EzFqr2b5aZ4VbekAdvfx/kT1LbK9k7ZPtku7h9ko57GGtZRonnuYh/HqKBK3le4xwMeDWZcGzfG7Xuqkcs0K/iyjLs3ulKaKQ==</latexit>
+
+y(k t)
+
+i 
+
+> <latexit sha1_base64="gINssAhbaCzI+brFiIm5xRSz2ZE=">AAACz3icjVHLSsNAFD3GV62vqks3wSK4KomIuiy6cdmCfUBbSpJO26F5kUyUUipu/QG3+lfiH+hfeGecglpEJyQ5c+49Z+be68Y+T4VlvS4Yi0vLK6u5tfz6xubWdmFnt55GWeKxmhf5UdJ0nZT5PGQ1wYXPmnHCnMD1WcMdXcp444YlKY/CazGOWSdwBiHvc88RRLXbgSOGbn8ynnZ5t1C0SpZa5jywNShCr0pUeEEbPUTwkCEAQwhB2IeDlJ4WbFiIietgQlxCiKs4wxR50maUxSjDIXZE3wHtWpoNaS89U6X26BSf3oSUJg5JE1FeQlieZqp4ppwl+5v3RHnKu43p72qvgFiBIbF/6WaZ/9XJWgT6OFc1cKopVoysztMumeqKvLn5pSpBDjFxEvconhD2lHLWZ1NpUlW77K2j4m8qU7Jy7+ncDO/yljRg++c450H9uGSfluzqSbF8oUedwz4OcETzPEMZV6igRt4xHvGEZ6Nq3Bp3xv1nqrGgNXv4toyHD/wnlIA=</latexit>
+
+yi<latexit sha1_base64="l2Fr3GF10iFyBL0s5URI3Jn81LM=">AAACz3icjVHLSsNAFD3GV62vqks3wSK4KomIuiy6cdmCfUBbSpJO26F5MZkopVTc+gNu9a/EP9C/8M6YglpEJyQ5c+49Z+be68Y+T6RlvS4Yi0vLK6u5tfz6xubWdmFnt55EqfBYzYv8SDRdJ2E+D1lNcumzZiyYE7g+a7ijSxVv3DCR8Ci8luOYdQJnEPI+9xxJVLsdOHLo9ifDaZd3C0WrZOllzgM7A0VkqxIVXtBGDxE8pAjAEEIS9uEgoacFGxZi4jqYECcIcR1nmCJP2pSyGGU4xI7oO6BdK2ND2ivPRKs9OsWnV5DSxCFpIsoThNVppo6n2lmxv3lPtKe625j+buYVECsxJPYv3SzzvzpVi0Qf57oGTjXFmlHVeZlLqruibm5+qUqSQ0ycwj2KC8KeVs76bGpNomtXvXV0/E1nKlbtvSw3xbu6JQ3Y/jnOeVA/LtmnJbt6UixfZKPOYR8HOKJ5nqGMK1RQI+8Yj3jCs1E1bo074/4z1VjINHv4toyHD9OUlG8=</latexit> 
+
+hi <latexit sha1_base64="72cQLKEUGbUykfJiBA1V1A9MRSc=">AAAC13icjVHLSsNAFD2Nr1pftS7dBIugm5KIqMuiG5cK1lZ8lEk61cG8mEzEUoo7cesPuNU/Ev9A/8I7Ywo+EJ2Q5My595yZe6+XBCJVjvNSsEZGx8YnipOlqemZ2bnyfOUwjTPp84YfB7FseSzlgYh4QwkV8FYiOQu9gDe9yx0db15xmYo4OlC9hJ+G7DwSXeEzRVS7XDkJmbrwuv3eoC3O+itqddAuV52aY5b9E7g5qCJfe3H5GSfoIIaPDCE4IijCARhSeo7hwkFC3Cn6xElCwsQ5BiiRNqMsThmM2Ev6ntPuOGcj2mvP1Kh9OiWgV5LSxjJpYsqThPVptolnxlmzv3n3jae+W4/+Xu4VEqtwQexfumHmf3W6FoUutkwNgmpKDKOr83OXzHRF39z+VJUih4Q4jTsUl4R9oxz22Taa1NSue8tM/NVkalbv/Tw3w5u+JQ3Y/T7On+BwreZu1Nz99Wp9Ox91EYtYwgrNcxN17GIPDfK+xgMe8WQdWTfWrXX3kWoVcs0Cvizr/h2V/ZcI</latexit> 
+
+y(t)
+
+i
+
+Velocity 
+
+Flow-Matching Network  
+
+> <latexit sha1_base64="FdUUN4uw5cDL7B+vEZipCDn0s/4=">AAAC13icjVHLSsNAFD2N73fUpZtgEeqmJCLqsujGpYK1Fa0lGaft0LxIJmIpxZ249Qfc6h+Jf6B/4Z0xBbWITkhy5tx7zsy914t9kUrbfi0YY+MTk1PTM7Nz8wuLS+byymkaZQnjVRb5UVL33JT7IuRVKaTP63HC3cDzec3rHqh47ZonqYjCE9mLeSNw26FoCeZKoprmykXgyo7X6vcGTXHZL9mbg6ZZtMu2XtYocHJQRL6OIvMFF7hCBIYMAThCSMI+XKT0nMOBjZi4BvrEJYSEjnMMMEvajLI4ZbjEdunbpt15zoa0V56pVjM6xac3IaWFDdJElJcQVqdZOp5pZ8X+5t3XnupuPfp7uVdArESH2L90w8z/6lQtEi3s6RoE1RRrRlXHcpdMd0Xd3PpSlSSHmDiFryieEGZaOeyzpTWprl311tXxN52pWLVneW6Gd3VLGrDzc5yj4HSr7OyUnePtYmU/H/U01rCOEs1zFxUc4ghV8r7BI57wbJwZt8adcf+ZahRyzSq+LePhA/PmlsQ=</latexit>
+
+y(0) 
+
+i
+
+…
+
+Figure 2. Overall architecture of Sundial. The input time series is divided into patch tokens, which are embedded from original continuous values. The patch embeddings are fed into a decoder-only Transformer, a stable and speedup version that learns token representations via causal self-attention. The model is optimized using our TimeFlow Loss, a parameterized loss function that models per-token probability distribution conditioned on the learned representations, and generates multiple plausible predictions under the flow-matching framework. 
+
+with fϕ. While the generative model automatically fits the target distribution, it can sample raw predictions and calcu-lating their statistics for probabilistic forecasting. The aim is conceptually related to conformal prediction (Vovk et al., 2005) but models uncertainty beyond prediction intervals. 
+
+4. Approach 
+
+In this work, we conduct a univariate pre-training paradigm, which adopts the S3 format proposed by Liu et al. (2024b) to address multivariate data. To mitigate value range discrep-ancy, we conduct normalization on time series individually per variable. Afterwards, we sample varying-length training samples with the maximum context length of 2880 . As a foundation model, Sundial is required to predict on out-of-distribution series with varied lengths during inference. 
+
+4.1. Sundial 
+
+As shown in Figure 2, the Sundial models consist of three parts: (1) time series tokenization, including a context-level re-normalization and a patch embedding that addresses any-length time series, (2) a Transformer backbone that learns the per-token representation of time series, and (3) Time-Flow Loss , a parameterized loss function to model the per-token distribution and generate raw series during inference. Intuitively, Sundial can be regarded as an ARMA (Auto-Regression and Moving-Average) deep model, i.e., Trans-former learns token representations autoregressively. Con-ditioned on the lookback representations, TimeFlow trans-forms random noises into non-deterministic predictions. 4.1.1. T IME SERIES TOKENIZATION 
+
+Re-Normalization We adopt stationarization (Liu et al., 2022), a non-parametric two-stage instance normalization conducted within each sample, which is initially proposed to mitigate non-stationarity of time series. Here, it helps to ad-dress temporal distribution shift and outlier ranges in input series, improving generalizability for zero-shot forecasting. 
+
+Patch Embedding Given a univariate time series X =
+
+{x1, . . . , x T }, it is divided into patches xi = x1+( i−1) P :iP 
+
+with the length of P . To address non-divisible length, we pad the input at the beginning and use a binary mask mi ∈
+
+RP for each patch to indicate the padded position. It will lead to N = ⌈T /P ⌉ such input tokens. Subsequently, we use a shared MLP : R2P 7 → RD to embed all patch tokens: 
+
+hi = PatchEmbed   Concat( xi, mi), (4) where hi ∈ RD and D is the dimension of token embedding. Unlike point-level quantization (Ansari et al., 2024), we reserve original values without discrete quantization. It also reduces the context length (in token) of the Transformer. 4.1.2. T RANSFORMER BACKBONE 
+
+Given N token embeddings {hi}, we adopt several crucial adaptations on a decoder-only Transformer to obtain per-token representations aggregated from all previous tokens. First, we adapt Pre-LN (Xiong et al., 2020) to improve pre-training stability. Second, we leverage a causal self-attention mechanism with RoPE (Su et al., 2024) that introduces the position information of patch tokens. It can be formulated as follows (the layer index is omitted for simplicity): 
+
+Aij = h⊤
+
+i WqRΘ,i −j W⊤
+
+k hj ,
+
+Attention( H) = Softmax 
+
+ Mask( A)
+
+√d
+
+
+
+HW v, (5) where Wq, Wk, Wv ∈ RD×d project token embeddings 
+
+H = {hi} into d-dimensional queries, keys, and values. 
+
+RΘ,t ∈ Rd×d is the rotary matrix with rotation degree (t·Θ) .Lastly, we implement FlashAttention (Dao et al., 2022) and KV Cache (Pope et al., 2023), since these enhancements for deployment are increasingly emphasized in large foundation models (Shoeybi et al., 2019; Rasley et al., 2020). 4Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+4.1.3. T IME FLOW LOSS 
+
+Given representations {hi} extracted by the last layer of the Transformer, we aim to generate length-F predictions 
+
+byi = bx1+ iP,F +iP at each position i via our autoregressive model. Motivated by the empirical observation that a larger patch size improves the performance in decoder-only Trans-formers (Das et al., 2023b) while a small patch size can be more flexible to accommodate data of different frequencies, we adopt multi-patch predictions ( F > P ) for pre-training, which also reduces the steps of autoregressive inference. Based on Equations 1 and 3, we formulate a new generative forecasting conditioned on a sequential representation hi:
+
+L(θ, hi) = Et,ϵ, yi uθt
+
+ y(t) 
+
+> i
+
+|hi
+
+ −  yi − y(0) 
+
+> i
+
+ 2
+
+. (6) where yi ∈ RF is the groundtruth value and y(0)  
+
+> i
+
+is a d-dimensional Gaussian noise, t is sampled from U[0 , 1] , and 
+
+y(t) 
+
+> i
+
+= tyi + (1 − t)y(0)  
+
+> i
+
+is constructed by the conditional optimal-transport path. It is important to note that the con-ditional representation hi differs from the conditional path and the conditional source distribution. Instead, hi is a con-dition of position i, also a time-invariant condition of the whole flow-matching process t ∈ [0 , 1] . Technically, we implement the flow-matching network by a small MLP: 
+
+uθt
+
+ y(t) 
+
+> i
+
+|hi
+
+ = FM-Net  y(t) 
+
+> i
+
+, t, hi
+
+. (7) The training process involves sampling the noised y(t) 
+
+> i
+
+, and jointly input it with t. The condition hi is integrated into the flow-matching network via AdaLN (Peebles & Xie, 2023). TimeFlow Loss for autoregressive models is formulated as: 
+
+LTimeFlow =
+
+> N
+
+X
+
+> i=1
+
+FM-Net  y(t) 
+
+> i
+
+, t, hi
+
+ −  yi − y(0) 
+
+> i
+
+ 2
+
+.
+
+(8) 
+
+Inference Based on Equation 2, the push-forward process conditioned on a learned representation hi is formulated as 
+
+y(t+∆ t) 
+
+> i
+
+= y(t) 
+
+> i
+
++ uθt
+
+ y(t) 
+
+> i
+
+|hi
+
+∆t. (9) Technically, we adopt a K-step uniform trajectory, and set 
+
+∆t = 1 /K . The sampling is done via starting from an initial Gaussian noise and advancing with the velocity generated by the trained FM-Net iteratively, as shown in Algorithm 1. This procedure generates a predicted sample byi at position 
+
+i. To calibrate probabilistic forecasting results during infer-ence, we repeat this procedure using different initial noises and estimate statistics such as the median and quantiles from a set of generated predictions. We implement an efficient repeated-sampling in the TimeFlow module. The condition (representation) of lookback series is shared and reused for different initial noises, thereby reducing the overhead of repeated forwarding in the Transformer backbone. 
+
+Algorithm 1 TimeFlow Loss: Sampling 
+
+Require: condition hi ∈ RD , path steps K.
+
+1: Sample initial noise byi ∼ N (0, I).
+
+2: ∆t = 1 /K 
+
+3: for k in {0, 1 . . . , K − 1} do 
+
+4: for byi ← byi + FM-Net  byi, k ∆t, hi
+
+∆t
+
+5: end for 
+
+6: Return: byi
+
+4.2. TimeBench 
+
+We collected and curated TimeBench , which comprises over a trillion time points from various sources, as shown in Fig-ure 3. Several datasets originate from research teams (Woo et al., 2024; Ansari et al., 2024; Liu et al., 2024a;b). While most datasets are collected from real-world records, a small portion (0.05%) is generated synthetically to enhance pat-tern diversity, following KernelSynth proposed by Ansari et al. (2024). We also leverage substantial meteorological data (Hersbach et al., 2020) because of the predictability of weather systems. Data of different frequencies encompasses common and comprehensive temporal dynamics. 9.11% 4.65%   
+
+> 1.02%
+> 0.56%
+> 22.29%
+> 0.05%
+> 12.50%
+> 3.10%
+> 39.35%
+> 5.62%
+> 1.31% 0.44% Chronos
+> ECG
+> Finance
+> IoT
+> LOTSA
+> Synthetic
+> ERA5 3h
+> ERA5 12h
+> ERA5 Daily
+> ERA5 Weekly
+> ERA5 Quarterly
+
+TimeBench (1 Trillion Time Points)  
+
+> ERA5 Monthly
+> ERA5 Quarterly
+
+Figure 3. Ratios of data sources in TimeBench, the pre-training corpora of Sundial. Detailed statistics are provide in Table 4. 
+
+5. Experiments 
+
+We evaluate Sundial on best-recognized zero-shot forecast-ing benchmarks (Section 5.1) and investigate the scaling behavior of Sundial (Section 5.2). We compare TimeFlow with other training objectives (Section 5.3). We delve into test-time calibration of generative forecasters (Section 5.4). We conduct model adaptation of Sundial, i.e., instruction tuning (Section 5.5) and provide in-depth ablation studies to evaluate our modular enhancement (Section 5.6). 
+
+5.1. Time Series Forecasting 
+
+In this section, we focus on zero-shot forecasting, we com-pare Sundial with advanced time series foundation models on various benchmarks, including (1) point forecasting: we 5Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Table 1. Zero-shot forecasting results of time series foundation models on long-term forecasting datasets (Time-Series-Library) (Wu et al., 2022). Corresponding prediction lengths include {96 , 192 , 336 , 720 }. A lower MSE or MAE indicates a better prediction. Averaged results of four prediction lengths are reported here. 1st Count represents the number of wins achieved by a model under all prediction lengths and datasets. Results of baseline models are officially reported by Shi et al. (2024b). Datasets in pre-training are not evaluated on corresponding models, which are denoted by the dash ( −). Full results under all prediction lengths are provided in Table 9. Models Sundial Small Sundial Base Sundial Large Time-MoE Base Time-MoE Large Time-MoE Ultra Timer-XL Moirai Base Moirai Large Chronos Base Chronos Large TimesFM            
+
+> (Ours) (Ours) (Ours) (2024b) (2024b) (2024b) (2024a) (2024) (2024) (2024) (2024) (2023b)
+
+Metric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE ETTm1 0.354 0.388 0.336 0.377 0.331 0.369 0.394 0.415 0.376 0.405 0.356 0.391 0.373 0.392 0.406 0.385 0.422 0.391 0.645 0.500 0.555 0.465 0.433 0.418 ETTm2 0.265 0.324 0.258 0.320 0.254 0.315 0.317 0.365 0.316 0.361 0.288 0.344 0.273 0.336 0.311 0.337 0.329 0.343 0.310 0.350 0.295 0.338 0.328 0.346 ETTh1 0.390 0.418 0.411 0.434 0.395 0.420 0.400 0.424 0.394 0.419 0.412 0.426 0.404 0.417 0.417 0.419 0.480 0.439 0.591 0.468 0.588 0.466 0.473 0.443 ETTh2 0.340 0.387 0.333 0.387 0.334 0.387 0.366 0.404 0.405 0.415 0.371 0.399 0.347 0.388 0.362 0.382 0.367 0.377 0.405 0.410 0.455 0.427 0.392 0.406 ECL 0.169 0.265 0.169 0.265 0.166 0.262 - - - - - - 0.174 0.278 0.187 0.274 0.186 0.270 0.214 0.278 0.204 0.273 - -Weather 0.233 0.271 0.234 0.270 0.238 0.275 0.265 0.297 0.270 0.300 0.256 0.288 0.256 0.294 0.287 0.281 0.264 0.273 0.292 0.315 0.279 0.306 - -                         
+
+> 1st Count 728516 16 010021130206000000
+
+Table 2. GIFT-Eval comprises 23 datasets characterized by a variety of frequencies, variate numbers, and prediction lengths. We evaluate zero-shot performance using 100 generated series, being consistent with Woo et al. (2024). A lower MASE or CRPS indicates a better performance. Rank assigns a numerical ranking of all 97 configurations. Baseline results are officially reported by Aksu et al. (2024).                                                                        
+
+> Type Statistical Methods Task-Specific Models (Superwised) Time Series Foundation Models (Zero-Shot) Model Na¨ ıve Seasonal Auto Auto DeepAR TiDE N-BEATS PTST. iTrans. TimesFM TabPFN Chronos Moirai Sundial
+> Na¨ ıve ARIMA Theta (2020) (2023a) (2019) (2022) (2023a) (2023b) (2025) (2024) (2024) (Ours) MASE 1.260 1.000 0.964 0.978 1.206 0.980 0.842 0.762 0.802 0.680 0.748 0.786 0.809 0.673 CRPS 1.383 1.000 0.770 1.051 0.721 0.652 0.689 0.496 0.524 0.465 0.480 0.551 0.515 0.472
+> Rank 28.072 26.175 21.515 24.031 18.938 18.557 21.381 10.052 11.320 8.237 8.268 14.309 10.175 9.062
+
+adopt the long-term forecasting benchmark (Wu et al., 2022), which assesses the performance under different forecasting horizons using MSE and MAE; (2) probabilistic forecasting: we experiment on GIFT-Eval (Aksu et al., 2024) and FEV leaderboard (Ansari et al., 2024), following their official evaluation suite and assessing point (MASE) and probabilis-tic (CRPS and WQL) metrics. All evaluated datasets are excluded from the pre-training dataset. Model is available on HuggingFace 1 and configurations are detailed in Table 5. 5.1.1. P OINT FORECASTING 
+
+As shown in Table 1, Sundial consistently outperforms other advanced time series foundation models. Compared with the previous state-of-the-art model Time-MoE (Shi et al., 2024b), the Sundial family using fewer parameters achieves the average MSE reduction of 7.57% and averaged MAE re-duction of 4.71% . Notably, continuous tokenization allows our model to conduct patch-level forecasting with fewer au-toregression steps, while Chronos using point-wise discrete tokenization may not be suitable in long-term forecasting. 5.1.2. P ROBABILISTIC FORECASTING 
+
+Beyond point forecasting, Sundial possesses a unique gen-erative capability for making probabilistic predictions. Fol-
+
+> 1
+
+https://huggingface.co/thuml/sundial-base-128m. 
+
+lowing Ansari et al. (2024), we calculate the median and quantiles using a set of raw predictions of Sundial. While several baseline models have been pre-trained by the con-sistent objective function for probabilistic evaluation, e.g., quantile loss for WQL, Sundial calculates these statistics for evaluation without any prior knowledge. 
+
+GIFT-Eval Aggregated results are presented in Table 2. The benchmark evaluates performance from 23 datasets and 13 baseline models, encompassing statistical methods, task-specific models, and time series foundation models. Among supervised models and advanced foundation models, Sundial attains the first place in MASE and second place in CRPS on all unseen datasets. While the top PatchTST (Nie et al., 2022) is exhaustively trained and tweaked on each dataset, the zero-shot performance of Sundial highlights its simplicity and robustness on this comprehensive benchmark. 
+
+FEV Leaderboard We evaluate our Sundial on the open leaderboard established by AutoGluon (Ansari et al., 2024), which includes 27 datasets for probabilistic forecasting. As shown in Figure 4, the zero-shot forecasting performance of Sundial exceeds 70% statistical methods and deep models that are superwisedly trained in distribution. While Sundial is ranked as the second zero-shot pre-trained models after Chronos, Sundial realizes 35 × inference speedup as shown in Figure 5. Based on patch-wise tokenization and multi-6Sundial: A Family of Highly Capable Time Series Foundation Models      
+
+> Figure 4. Model evaluation on the FEV leaderboard, which includes 27 datasets not seen by Sundial. Baseline models can be categorized into statistical methods fitting on each time series, task-specific deep models trained on each dataset, and pre-trained foundation models. Pre-trained Models that have seen several datasets during pre-training are denoted as Pre-trained Models (Other). A lower MASE/WQL indicates a better result. Sundial makes probabilistic predictions using 20 generated series, being consistent with Ansari et al. (2024).
+
+patch prediction, our inference speed is near to N-BEATS. Besides, we provide qualitative showcases in Appendix D. TimeFlow can generate highly eventful and coherent tempo-ral patterns with input series. Beyond the mean or quantiles, our model enables the estimation of arbitrary statistics by sampling directly from the predictive distribution.  
+
+> Figure 5. Inference time evaluation following Ansari et al. (2024), which is averaged from the FEV leaderboard. Computing resources of different models are marked. We plot the logarithmic x-axis.
+
+5.2. Scalability 
+
+From Table 1, the larger Sundial model consistently achieves better performance with the scaling of parameters. Beyond downstream performance, we delve into the utilization of model capacity. Figure 6 shows training curves of different sizes. Compared to Sundial (Small), the large version leads to 15 .38% reduction in the converged training loss, exhibit-ing promising model capacity of generative forecasters.  
+
+> Figure 6. Training curves on TimeBench of different model sizes.
+
+5.3. TimeFlow Loss 
+
+Based on the flow-matching framework, TimeFlow Loss allows autoregressive models to learn and generate flexible distributions while enhancing representation learning. To validate the effectiveness of this design, we implement two alternatives: (1) an MLP network and MSE Loss and (2) a parameterized training objective based on the denoising diffusion procedure (Li et al., 2024). We adopt the same parameterized network and Transformer backbone and pre-train them on TimeBench. Since the converged training loss is not comparable across different objective functions, we compare zero-shot performance in Table 3. Despite allowing for sampling predictions, performance using diffusion-based objective is notably inferior to TimeFlow Loss. In addition to zero-shot performance, we provide showcases 7Sundial: A Family of Highly Capable Time Series Foundation Models                              
+
+> Table 3. Zero-shot performance using different training objectives. We use the same model configuration and pre-training scale. Aver-aged MSE of four prediction lengths are reported here.
+> Objective ETTm1 ETTm2 ETTh1 ETTh2 ECL Weather Avg.
+> TimeFlow 0.336 0.258 0.411 0.333 0.169 0.234 0.290
+> Diffusion 0.362 0.265 0.444 0.360 0.202 0.252 0.314
+> MSE 0.360 0.264 0.404 0.341 0.175 0.231 0.296
+
+for quality evaluations in Appendix D.2. Pre-trained models optimized by the specific MSE Loss can only output a single prediction. And the prediction is sometimes over-smooth due to mode collapse (refer to Appendix C.1). Instead, gen-erative modeling can accommodate significantly different future variations even if their lookback series are similar. We also provide a probablistic metric CRPS to compare different objectives in Table 7, which validate that the pre-dictive distribution modeled by TimeFlow is more coherent and diverse than counterpart training objectives. It benefits downstream tasks by generating multiple plausible predic-tions, conveys various future possibilities and enhances the reliability of decision-making. 
+
+5.4. Test-Time Calibration 
+
+Generative modeling facilitates the flexibility to calibrate the final prediction during inference. Based on the median-based forecasting strategy, i.e., starting from multiple noise of a standard Gaussian and calculating the median of raw predictions, there are two configurations to calibrate final predictions: (1) the number of samples to calculate statistics and (2) sampling steps K used for flow-matching. Figure 7 shows the results using different configurations. The top two figures conform to the central limit theorem. Generating more samples leads to more calibrated estima-tion of prediction and confidence interval. The bottom two figures indicate that using fine-grained steps during the push-forward process can leads to more precise predictions. The trade-off between inference time and performance re-veals the potential of test-time calibration, which does not require retraining models. The generative capability of Sun-dial provides flexibility for various use cases requiring dif-ferent levels of uncertainty. In our experiments, sampling 
+
+20 predictions with each generated by 50 steps consumes nearly one second on a CPU, which is notably more efficient than tuning deep models or statistical methods. Advanced strategies of sampling and post-processing of raw prediction leave interesting directions for future exploration. 
+
+5.5. Model Adaptation 
+
+Inspired by the prevalence of instruction tuning (Wei et al., 2021) that adapts foundation models on a collection of tasks.  
+
+> Figure 7. We show the MASE (left) and WQL (right) on FEV w.r.t. the number of generated raw predictions (top) and the steps to sample a prediction (down). More predictions or more sampling steps generally achieve better probabilistic metrics.
+
+We fine-tune pre-trained Sundial (Base) on the FEV leader-board, including short-term tasks with different prediction lengths. Our model is tuned once on all aggregated datasets. We evaluate the performance on unseen test splits (Figure 8). We observe that the performance can be further improved compared to zero-shot forecasting. Furthermore, training from scratch on aggregated datasets results in inferior perfor-mance, implying knowledge transfer in pre-trained models.  
+
+> Figure 8. Performance on the FEV leaderboard, including (1) train-ing Sundial from scratch on all datasets from the FEV leaderboard, (2) zero-shot forecasting using pre-trained Sundial, and (3) fine-tuning once on all datasets from the FEV leaderboard.
+
+5.6. Ablation Study 
+
+We conducted several ablation studies that provide insights into the enhancement made to Sundial’s architecture. We evaluate the overall zero-shot performance on TSLib, which covers six different datasets and four prediction lengths. 8Sundial: A Family of Highly Capable Time Series Foundation Models MSE MAE      
+
+> 0.26
+> 0.28
+> 0.30
+> 0.32
+> 0.34
+> 0.36
+> 0.38
+> 0.40
+> TSLib Zero-Shot (Avg.)
+> w/o RoPE
+> RoPE
+> MSE MAE
+> 0.28
+> 0.30
+> 0.32
+> 0.34
+> 0.36
+> 0.38
+> 0.40
+> TSLib Zero-Shot (Avg.)
+> Pre-LN (15k iter)
+> Pre-LN (30k iter)
+> Post-LN (15k iter)
+> Post-LN (30k iter)
+> Time Memory
+> 1.20
+> 1.22
+> 1.24
+> 1.26
+> 1.28
+> 1.30
+> Training Speed (s/iter)
+> w/o FlashAttn
+> FlashAttn
+> 28
+> 30
+> 32
+> 34
+> 36
+> 38
+> Memory Footprint (GB)
+> Time
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> 1.1
+> 1.2
+> 1.3
+> Inference Speed (s/iter)
+> w/o KV Cache
+> KV Cache
+> (a) RoPE (b) LayerNorm (c) FlashAttention (d) KV Cache
+
+Figure 9. Ablation studies with respect to architectural enhancements. We report the averaged results of TSLib datasets (Wu et al., 2022) from four prediction lengths {96 , 192 , 336 , 720 } and all six datasets. The context length is set to 2880 and the patch length is 16 .
+
+RoPE Prior research (Liu et al., 2024a) observed that the introduction of RoPE (Su et al., 2024) yields better results in supervised forecasting tasks. As shown in Figure 9 (a), RoPE can also improve zero-shot forecasting, presenting a general enhancement for time series foundation models. 
+
+Layer Normalization Pre-LN (Baevski & Auli, 2018) is widely adopted in large language models (Touvron et al., 2023) due to the training stability. As depicted in Figure 9 (b), training with Pre-LN for more iterations yield better performance. In contrast, training with Post-LN, which is the predominant choice in supervised models, may adversely affect downstream results. 
+
+FlashAttention and KV Cache We make it to leverage FlashAttention (Dao et al., 2022) and KV Cache to reduce the computational costs. As shown in Figure 9 (c) and (d), they notably reduce 14 .8% memory footprint and 43 .6% 
+
+inference time without affecting performance. 
+
+6. Conclusion 
+
+In this work, we collect and curate TimeBench, a trillion-scale time series dataset for building time series foundation models, which can benefit the research community. Towards time series foundation models, we delve into tokenization and optimization, presenting contributions in two aspects. First, we demonstrate that continuous tokenization, such as patch tokens, can be more effective and efficient for the time series modality, and generative modeling presents a na-tive approach for learning on continuous-valued time series. Second, we propose a novel training objective to accom-modate heterogeneous time series distribution. It endows autoregressive models with an inherent capability to sample from non-categorical distribution. Our pre-trained Sundial models make substantial advances on best-recognized fore-casting leaderboards. We hope this work can inspire future paradigms for pre-training time series foundation models and enhance their applicability to real-world applications. 
+
+Acknowledgements 
+
+This work was supported by the National Natural Science Foundation of China (U2342217 and 62021002), the BNRist Innovation Fund (BNR2024RC01010), and the National Engineering Research Center for Big Data Software. We extend our gratitude to Xingzhuo Guo for his expertise in flow-matching and meticulous proofreading of the method section. We further thank Jialong Wu, Yuezhou Ma and Yu Zhang for insightful discussions about generative models. Their collective support significantly enhanced this work. 
+
+Impact Statement 
+
+This paper aims to advance the development of time series foundation models. We curated a pre-training dataset from publicly available resources. Our models employ an efficient tokenization and incorporate a generative training objective. The proposed TimeFlow Loss provides insights for train-ing generative foundation models for time series forecasting. We released our pre-trained models that demonstrate notable zero-shot forecasting performance and versatility across dif-ferent benchmarks. The generative forecasting paradigm enhances the model reliability for decision-making. The mil-lisecond inference speed of our model can be beneficial to many practitioners. Our paper mainly focuses on scientific research and has no obvious negative social impact. 9Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+References 
+
+Aksu, T., Woo, G., Liu, J., Liu, X., Liu, C., Savarese, S., Xiong, C., and Sahoo, D. Gift-eval: A benchmark for gen-eral time series forecasting model evaluation. In NeurIPS Workshop on Time Series in the Age of Large Models ,2024. Ansari, A. F., Stella, L., Turkmen, C., Zhang, X., Mercado, P., Shen, H., Shchur, O., Rangapuram, S. S., Arango, S. P., Kapoor, S., et al. Chronos: Learning the language of time series. arXiv preprint arXiv:2403.07815 , 2024. Baevski, A. and Auli, M. Adaptive input representa-tions for neural language modeling. arXiv preprint arXiv:1809.10853 , 2018. Bai, S., Kolter, J. Z., and Koltun, V. An empirical evalua-tion of generic convolutional and recurrent networks for sequence modeling. arXiv preprint arXiv:1803.01271 ,2018. Bengio, Y., Ducharme, R., and Vincent, P. A neural proba-bilistic language model. Advances in neural information processing systems , 13, 2000. Bommasani, R., Hudson, D. A., Adeli, E., Altman, R., Arora, S., von Arx, S., Bernstein, M. S., Bohg, J., Bosse-lut, A., Brunskill, E., et al. On the opportunities and risks of foundation models. arXiv preprint arXiv:2108.07258 ,2021. Box, G. Box and jenkins: time series analysis, forecasting and control. In A Very British Affair: Six Britons and the Development of Time Series Analysis During the 20th Century , pp. 161–215. Springer, 2013. Box, G. E., Jenkins, G. M., Reinsel, G. C., and Ljung, G. M. 
+
+Time series analysis: forecasting and control . John Wiley & Sons, 2015. Dao, T., Fu, D., Ermon, S., Rudra, A., and R ´e, C. Flashat-tention: Fast and memory-efficient exact attention with io-awareness. Advances in Neural Information Process-ing Systems , 35:16344–16359, 2022. Das, A., Kong, W., Leach, A., Sen, R., and Yu, R. Long-term forecasting with tide: Time-series dense encoder. 
+
+arXiv preprint arXiv:2304.08424 , 2023a. Das, A., Kong, W., Sen, R., and Zhou, Y. A decoder-only foundation model for time-series forecasting. arXiv preprint arXiv:2310.10688 , 2023b. Esser, P., Kulal, S., Blattmann, A., Entezari, R., M ¨uller, J., Saini, H., Levi, Y., Lorenz, D., Sauer, A., Boesel, F., et al. Scaling rectified flow transformers for high-resolution image synthesis. In Forty-first International Conference on Machine Learning , 2024. Goldberger, A. L., Amaral, L. A., Glass, L., Hausdorff, J. M., Ivanov, P. C., Mark, R. G., Mietus, J. E., Moody, G. B., Peng, C.-K., and Stanley, H. E. Physiobank, physiotoolkit, and physionet: components of a new research resource for complex physiologic signals. circulation , 101(23): e215–e220, 2000. Goswami, M., Szafer, K., Choudhry, A., Cai, Y., Li, S., and Dubrawski, A. Moment: A family of open time-series foundation models. arXiv preprint arXiv:2402.03885 ,2024. Gruver, N., Finzi, M., Qiu, S., and Wilson, A. G. Large language models are zero-shot time series forecasters. 
+
+arXiv preprint arXiv:2310.07820 , 2023. Gruver, N., Finzi, M., Qiu, S., and Wilson, A. G. Large language models are zero-shot time series forecasters. 
+
+Advances in Neural Information Processing Systems , 36, 2024. Hersbach, H., Bell, B., Berrisford, P., Hirahara, S., Hor ´anyi, A., Mu ˜noz-Sabater, J., Nicolas, J., Peubey, C., Radu, R., Schepers, D., et al. The era5 global reanalysis. Quarterly Journal of the Royal Meteorological Society , 146(730): 1999–2049, 2020. Hoo, S. B., M ¨uller, S., Salinas, D., and Hutter, F. The tabular foundation model tabpfn outperforms specialized time series forecasting models based on simple features. arXiv preprint arXiv:2501.02945 , 2025. Hyndman, R. Forecasting: principles and practice . OTexts, 2018. Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., and Liu, T.-Y. Lightgbm: A highly efficient gradient boosting decision tree. Advances in neural infor-mation processing systems , 30, 2017. Kim, T., Kim, J., Tae, Y., Park, C., Choi, J.-H., and Choo, J. Reversible instance normalization for accurate time-series forecasting against distribution shift. In International Conference on Learning Representations , 2021. Kingma, D. P. and Ba, J. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 , 2014. Kollovieh, M., Lienen, M., L ¨udke, D., Schwinn, L., and G ¨unnemann, S. Flow matching with gaussian process priors for probabilistic time series forecasting. arXiv preprint arXiv:2410.03024 , 2024. Li, T., Tian, Y., Li, H., Deng, M., and He, K. Autoregres-sive image generation without vector quantization. arXiv preprint arXiv:2406.11838 , 2024. 10 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Liang, Y., Wen, H., Nie, Y., Jiang, Y., Jin, M., Song, D., Pan, S., and Wen, Q. Foundation models for time series analysis: A tutorial and survey. In Proceedings of the 30th ACM SIGKDD conference on knowledge discovery and data mining , pp. 6555–6565, 2024. Lim, B., Arık, S. ¨O., Loeff, N., and Pfister, T. Temporal fusion transformers for interpretable multi-horizon time series forecasting. International Journal of Forecasting ,37(4):1748–1764, 2021. Lipman, Y., Chen, R. T., Ben-Hamu, H., Nickel, M., and Le, M. Flow matching for generative modeling. arXiv preprint arXiv:2210.02747 , 2022. Lipman, Y., Havasi, M., Holderrieth, P., Shaul, N., Le, M., Karrer, B., Chen, R. T., Lopez-Paz, D., Ben-Hamu, H., and Gat, I. Flow matching guide and code. arXiv preprint arXiv:2412.06264 , 2024. Liu, Y., Wu, H., Wang, J., and Long, M. Non-stationary transformers: Exploring the stationarity in time series forecasting. Advances in Neural Information Processing Systems , 35:9881–9893, 2022. Liu, Y., Hu, T., Zhang, H., Wu, H., Wang, S., Ma, L., and Long, M. itransformer: Inverted transformers are effective for time series forecasting. arXiv preprint arXiv:2310.06625 , 2023a. Liu, Y., Li, C., Wang, J., and Long, M. Koopa: Learning non-stationary time series dynamics with koopman predictors. 
+
+arXiv preprint arXiv:2305.18803 , 2023b. Liu, Y., Qin, G., Huang, X., Wang, J., and Long, M. Timer-xl: Long-context transformers for unified time series fore-casting. arXiv preprint arXiv:2410.04803 , 2024a. Liu, Y., Zhang, H., Li, C., Huang, X., Wang, J., and Long, M. Timer: Generative pre-trained transformers are large time series models. In Forty-first International Conference on Machine Learning , 2024b. Liu, Y., Zhang, K., Li, Y., Yan, Z., Gao, C., Chen, R., Yuan, Z., Huang, Y., Sun, H., Gao, J., et al. Sora: A review on background, technology, limitations, and opportunities of large vision models. arXiv preprint arXiv:2402.17177 ,2024c. Mu ˜noz-Sabater, J., Dutra, E., Agust ´ı-Panareda, A., Albergel, C., Arduini, G., Balsamo, G., Boussetta, S., Choulga, M., Harrigan, S., Hersbach, H., et al. Era5-land: A state-of-the-art global reanalysis dataset for land applications. 
+
+Earth system science data , 13(9):4349–4383, 2021. Nie, Y., Nguyen, N. H., Sinthong, P., and Kalagnanam, J. A time series is worth 64 words: Long-term forecasting with transformers. arXiv preprint arXiv:2211.14730 , 2022. OpenAI, R. Gpt-4 technical report. arxiv 2303.08774. View in Article , 2:13, 2023. Oreshkin, B. N., Carpov, D., Chapados, N., and Bengio, Y. N-beats: Neural basis expansion analysis for interpretable time series forecasting. arXiv preprint arXiv:1905.10437 ,2019. Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., et al. Pytorch: An imperative style, high-performance deep learning library. Advances in neural information processing systems , 32, 2019. Peebles, W. and Xie, S. Scalable diffusion models with transformers. In Proceedings of the IEEE/CVF Interna-tional Conference on Computer Vision , pp. 4195–4205, 2023. PEMS. Traffic Dataset. http://pems.dot.ca.gov/ .Pope, R., Douglas, S., Chowdhery, A., Devlin, J., Bradbury, J., Heek, J., Xiao, K., Agrawal, S., and Dean, J. Efficiently scaling transformer inference. Proceedings of Machine Learning and Systems , 5:606–624, 2023. Radford, A., Narasimhan, K., Salimans, T., Sutskever, I., et al. Improving language understanding by generative pre-training. OpenAI , 2018. Ramesh, A., Pavlov, M., Goh, G., Gray, S., Voss, C., Rad-ford, A., Chen, M., and Sutskever, I. Zero-shot text-to-image generation. In International conference on ma-chine learning , pp. 8821–8831. Pmlr, 2021. Rasley, J., Rajbhandari, S., Ruwase, O., and He, Y. Deep-speed: System optimizations enable training deep learn-ing models with over 100 billion parameters. In Proceed-ings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining , pp. 3505–3506, 2020. Rasul, K., Seward, C., Schuster, I., and Vollgraf, R. Au-toregressive denoising diffusion models for multivariate probabilistic time series forecasting. In International Con-ference on Machine Learning , pp. 8857–8868. PMLR, 2021. Rasul, K., Ashok, A., Williams, A. R., Khorasani, A., Adamopoulos, G., Bhagwatkar, R., Bilo ˇs, M., Ghonia, H., Hassen, N. V., Schneider, A., et al. Lag-llama: Towards foundation models for time series forecasting. arXiv preprint arXiv:2310.08278 , 2023. Rombach, R., Blattmann, A., Lorenz, D., Esser, P., and Ommer, B. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF con-ference on computer vision and pattern recognition , pp. 10684–10695, 2022. 11 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Salinas, D., Flunkert, V., Gasthaus, J., and Januschowski, T. Deepar: Probabilistic forecasting with autoregressive recurrent networks. International journal of forecasting ,36(3):1181–1191, 2020. Shen, L. and Kwok, J. Non-autoregressive conditional diffusion models for time series prediction. In Inter-national Conference on Machine Learning , pp. 31016– 31029. PMLR, 2023. Shi, J., Ma, Q., Ma, H., and Li, L. Scaling law for time series forecasting. arXiv preprint arXiv:2405.15124 , 2024a. Shi, X., Wang, S., Nie, Y., Li, D., Ye, Z., Wen, Q., and Jin, M. Time-moe: Billion-scale time series founda-tion models with mixture of experts. arXiv preprint arXiv:2409.16040 , 2024b. Shoeybi, M., Patwary, M., Puri, R., LeGresley, P., Casper, J., and Catanzaro, B. Megatron-lm: Training multi-billion parameter language models using model paral-lelism. arXiv preprint arXiv:1909.08053 , 2019. Sohl-Dickstein, J., Weiss, E., Maheswaranathan, N., and Ganguli, S. Deep unsupervised learning using nonequi-librium thermodynamics. In International conference on machine learning , pp. 2256–2265. PMLR, 2015. Su, J., Ahmed, M., Lu, Y., Pan, S., Bo, W., and Liu, Y. Roformer: Enhanced transformer with rotary position embedding. Neurocomputing , 568:127063, 2024. Tashiro, Y., Song, J., Song, Y., and Ermon, S. Csdi: Con-ditional score-based diffusion models for probabilistic time series imputation. Advances in Neural Information Processing Systems , 34:24804–24816, 2021. Tong, A., Fatras, K., Malkin, N., Huguet, G., Zhang, Y., Rector-Brooks, J., Wolf, G., and Bengio, Y. Improving and generalizing flow-based generative models with mini-batch optimal transport. arXiv preprint arXiv:2302.00482 ,2023. Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Rozi `ere, B., Goyal, N., Hambro, E., Azhar, F., et al. Llama: Open and efficient foundation lan-guage models. arXiv preprint arXiv:2302.13971 , 2023. Vovk, V., Gammerman, A., and Shafer, G. Algorithmic learning in a random world , volume 29. Springer, 2005. Wei, J., Bosma, M., Zhao, V. Y., Guu, K., Yu, A. W., Lester, B., Du, N., Dai, A. M., and Le, Q. V. Finetuned lan-guage models are zero-shot learners. arXiv preprint arXiv:2109.01652 , 2021. Wen, R., Torkkola, K., Narayanaswamy, B., and Madeka, D. A multi-horizon quantile recurrent forecaster. arXiv preprint arXiv:1711.11053 , 2017. Woo, G., Liu, C., Kumar, A., Xiong, C., Savarese, S., and Sahoo, D. Unified training of universal time series fore-casting transformers. arXiv preprint arXiv:2402.02592 ,2024. Wu, H., Xu, J., Wang, J., and Long, M. Autoformer: Decom-position transformers with auto-correlation for long-term series forecasting. Advances in Neural Information Pro-cessing Systems , 34:22419–22430, 2021. Wu, H., Hu, T., Liu, Y., Zhou, H., Wang, J., and Long, M. Timesnet: Temporal 2d-variation modeling for general time series analysis. arXiv preprint arXiv:2210.02186 ,2022. Xiong, R., Yang, Y., He, D., Zheng, K., Zheng, S., Xing, C., Zhang, H., Lan, Y., Wang, L., and Liu, T. On layer normalization in the transformer architecture. In Inter-national Conference on Machine Learning , pp. 10524– 10533. PMLR, 2020. Zhang, R., Isola, P., Efros, A. A., Shechtman, E., and Wang, O. The unreasonable effectiveness of deep features as a perceptual metric. In Proceedings of the IEEE conference on computer vision and pattern recognition , pp. 586–595, 2018. Zhang, Y. and Yan, J. Crossformer: Transformer utilizing cross-dimension dependency for multivariate time series forecasting. In The eleventh international conference on learning representations , 2023. Zhao, W. X., Zhou, K., Li, J., Tang, T., Wang, X., Hou, Y., Min, Y., Zhang, B., Zhang, J., Dong, Z., et al. A survey of large language models. arXiv preprint arXiv:2303.18223 ,2023. 12 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+A. Dataset Statistics 
+
+Large-scale datasets are of paramount importance for pre-training foundation models. Recent research has contributed significant time series datasets (Das et al., 2023b; Liu et al., 2024b; Shi et al., 2024b). While the scaling law of time series foundation models has been explored in the recent work (Shi et al., 2024a), the pre-training scale remains relatively limited. Given the heterogeneity of time series compared to other modalities, it raises the question of whether it is feasible to learn from enormous series. To address the question, we curated TimeBench with a trillion time points from various domains. Unlike other modalities, most time series are unavailable on open websites or repositories. There are also limited domains that encompass typical and predictable time series, leading to slow progress on dataset construction. Therefore, we conducted tedious preprocessing, including missing values imputation, abnormalities exclusion, and normalization techniques. We conducted statistical analysis, examining time series through the lenses of intrinsic properties, e.g., non-stationarity, forecastability, and seasonality. This approach allows us to characterize the data quality inherent to time series, which affects the training stability of next-token prediction. We also adopt synthetic techniques to improve pattern diversity. Further, we adopt ERA5 (Mu˜ noz-Sabater et al., 2021), including systematic real-world temporal observations. The statistical details of TimeBench are summarized in Table 4. In addition to open-source datasets from research teams on time series foundation models (Woo et al., 2024; Ansari et al., 2024; Liu et al., 2024b;a), we collected substantial real-world time series from various domains such as finance, IoT, meteorology, and healthcare (Goldberger et al., 2000). These resources enable us to construct large-scale time-series corpora exceeding a trillion time points. The corpora include highly credible and predictable data with a wide range of frequencies, lengths, and numbers of variates, providing comprehensive temporal dynamics and variation patterns to facilitate downstream applications. To prevent data leakage, we exclude all datasets evaluated in Section 5.1 to make sure that Sundial conducts zero-shot forecasting.                                          
+
+> Table 4. Key statistics of TimeBench, the pre-training dataset of Sundial.
+> Source Chronos ECG Finance IoT LOSTA Synthetic ERA5 3h ERA 12h ERA5 Daily ERA5 Weekly ERA5 Monthly ERA5 Quarterly Total
+> (2024) (2000) (Ours) (Ours) (2024) (2024) (2021) (2021) (2021) (2021) (2021) (2021)
+> # Pts. 94B 48B 10.5B 5.8B 230B 0.5B 129B 32B 406B 58B 13.5B 4.5B 1032B
+> %9.11 % 4.65 % 1.02 % 0.56 % 22.29 % 0.05 % 12.50 % 3.10 % 39.35 % 5.62 % 1.31 % 0.44 % 100%
+
+B. Implementation Details 
+
+All experiments are implemented using PyTorch (Paszke et al., 2019) and executed with 32 NVIDIA A100 GPUs. We employ the AdamW optimizer (Kingma & Ba, 2014) for model optimization. We adopt S3 format (Liu et al., 2024b) for univariate pre-training. During training, data from different domains is sampled according to a predefined ratio to balance the domain weightings and ensure diversity in the training data. We implement a global shuffle strategy by loading time series into a standard parquet format. We use variable-wise normalization to unify the scope of values. On the FEV leaderboard (Ansari et al., 2024), which consists of short-term forecasting datasets, we train Sundial models by TimeFlow Loss with the prediction length of F = 16 . For the point forecasting (Wu et al., 2022) and GIFT-Eval (Aksu et al., 2024), which consist of forecasting datasets with a prediction length ranging from 6 to 900 , we train Sundial models by TimeFlow Loss with the prediction length of F = 720 . For the required prediction length less than the model prediction length, we truncate the output generated by Sundial. For the required length more than the prediction horizon, we conduct rolling forecasting. Following Chronos (Ansari et al., 2024), we sample 20 raw predictions to calculate MASE and WQL on FEV. Being consistent to Moirai (Woo et al., 2024), we sample 100 raw predictions to calculate MASE and CRPS for GIFT-Eval. The sampling step is fixed as K = 50 . Configurations of Sundial in different sizes are provided in Table 5. We provide a model summary in Table 6, which summarizes several aspects of current time series foundation models. 
+
+C. Supplementary Results 
+
+C.1. Discussion of Mode Collapse 
+
+Mode collapse is a failure of representation learning, where a model generates a limited variety of outputs, ignoring the diversity in the training data. For time series foundation models, mode collapse stems from the heterogeneity of the time series distribution, e.g., a similar lookback time series goes into divergent trending. In other words, the semantics of time 13 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Table 5. Model configurations of the Sundial family. 
+
+Model Patch Size Context Length Prediction Length Layers Dimension MHA Heads TimeFlow Total Parameters 
+
+(P ) (T ) (F ) (L) (D, D ff ) H (Dtf , L tf ) #Count 
+
+Sundial Small 16 2880 {16 , 720 } 6 (512 , 2048) 8 (512 , 3) 32 M
+
+Sundial Base 16 2880 {16 , 720 } 12 (768 , 3072) 12 (768 , 3) 128 M
+
+Sundial Large 16 2880 {16 , 720 } 24 (1024 , 4096) 16 (1024 , 6) 444 M
+
+∗ D is the embedding dimension of Transformer. Dff is the hidden dimension of FFN. Dtf is the hidden dimension of the flow-matching network. L is the layer number of Transformer. Ltf is the layer number of the flow-matching network. 
+
+Table 6. Comparison of time series foundation models. Architecture denotes the Transformer category. Model Size presents parameter counts of different model sizes. Pre-training Scale measures pre-training datasets in time points. Token Level presents the graininess of time series tokens. Tokenization denotes what kind of values are embedded from time series. Context Length means the input length supported by the model. Probabilistic means generating multiple probable predictions, which is the opposite of deterministic forecasters. 
+
+Method Sundial Time-MoE Timer-XL Moirai MOMENT LLMTime Chronos Lag-Llama TimesFM 
+
+(Ours) (2024b) (2024a) (2024) (2024) (2024) (2024) (2023) (2023b) Architecture Decoder Decoder Decoder Encoder Encoder Decoder EncDec Decoder Decoder Model Size 32M 113M 84M 14M 40M - 46M 200M 17M 128M 453M 91M 125M 200M 70M 444M 2.4B 311M 385M 710M 200M Pre-training Scale 1032B 300B 260B 231B 1.13B - 84B 0.36B 100B Token Level Patch Point Patch Patch Patch Point Point Point Patch Tokenization Continuous Continuous Continuous Continuous Continuous Discrete Discrete Continuous Continuous Context Length ≤2880 ≤4096 ≤2880 ≤5000 = 512 - ≤512 ≤1024 ≤512 Probabilistic True False False True False True True True False series patterns are highly unstable. It sometimes leads to over-smooth predictions from models optimized by MSE becuase the results are global-optimal for this loss (See showcases on the right of Figure 14-15). Such a training objective pre-defines a unimodal predictive distribution of data, which struggles to accommodate large-scale datasets like TimeBench. Our work addresses this phenomenon through generative modeling. Generative forecasters learn flexible distributions without relying on probabilistic priors. We evaluate the distributional metric Continuous Ranked Probability Score (CRPS) to assess the quality of generated predictions across different training objectives. The results indicate that the predictive distribution modeled by TimeFlow is more coherent and diverse compared to alternative training objectives, particularly on the highly diverse GIFT-Eval (Aksu et al., 2024). It validates the effectiveness of TimeFlow in mitigating mode collapse. 
+
+Table 7. Zero-shot probabilistic forecasting performance using different training objectives. Averaged CRPS is reported here. Objective ETTh1 ETTh2 ETTm1 ETTm2 ECL Weather GIFT-Eval TimeFlow Loss 0.0059 0.0037 0.0057 0.0029 0.0082 0.0021 0.5050 
+
+Diffusion Loss 0.0082 0.0053 0.0070 0.0039 0.0095 0.0032 0.5340 MSE Loss 0.0063 0.0040 0.0058 0.0032 0.0080 0.0023 0.6420 
+
+14 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+C.2. Scaling Behavior Using More Data 
+
+We compare Sundial with other time series foundation models that are pre-trained with smaller datasets: Chronos (Ansari et al., 2024) is pre-trained on 94 billion time points, and Moirai is pre-trained on 230 billion time points. As their pre-training datasets are part of the subset of TimeBench, we also conduct pre-training on Sundial using these subsets. As shown in Table 8, these results highlight the scaling behavior of Sundial using larger datasets. Additionally, Sundial still achieves better zero-shot forecasting than its counterpart models with the same pre-training dataset. 
+
+Table 8. Zero-shot forecasting performance of models trained on different scales of datasets (measured in time points, pts, and 1B means a billion). We report the averaged results from four prediction lengths {96 , 192 , 336 , 720 } on Time-Series-Library (Wu et al., 2022). Model (pts.) Chronos (94B) Moirai (230B) Sundial (94B) Sundial (230B) Sundial (1032B) Dataset MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE ETTh1 0.591 0.468 0.417 0.419 0.402 0.429 0.403 0.419 0.411 0.434 ETTh2 0.405 0.410 0.362 0.382 0.377 0.414 0.364 0.398 0.333 0.387 ETTm1 0.645 0.500 0.406 0.385 0.367 0.402 0.352 0.385 0.336 0.377 
+
+ETTm2 0.310 0.350 0.311 0.337 0.280 0.341 0.273 0.334 0.258 0.320 
+
+ECL 0.214 0.278 0.187 0.274 0.172 0.269 0.171 0.267 0.169 0.265 
+
+Weather 0.292 0.315 0.287 0.281 0.254 0.301 0.252 0.297 0.234 0.270 
+
+C.3. Performance with Varying Lookback Lengths 
+
+Time series foundation models operate independently of training, functioning similarly to statistical methods. Given specific forecasting tasks, one of the most important hyperparameters is the lookback length. Unlike fixed-context models, Sundial offers flexibility for practitioners, allowing the context length to be dynamically adjusted during inference. In Figure 10, we present the performance of Sundial utilizing various lookback lengths. Based on our observations, we contend that performance is largely dependent on the forecasting task itself. Specifically, the size of the lookback window can be tuned to meet the forecasting horizon and data periodicity. Time series foundation models provide a training-free approach for rapid adjustments; still, they should enhance their fundamental long-context capabilities to handle high-frequency data. 480 960 1440 1920 2400 2880 
+
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> 0.40
+> 0.45
+> 0.50
+> TSLib Zero-Shot (MSE)
+> ETTh1 ETTh2 ETTm1 ETTm2 ECL Weather
+
+Figure 10. Zero-shot forecasting performance using different lookback lengths in {480 , 960 , 1440 , 1920 , 2400 , 2880 }. We report the averaged results from four prediction lengths {96 , 192 , 336 , 720 } on Time-Series-Library (Wu et al., 2022). 
+
+15 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+C.4. Zero-Shot Results of Point Forecasting 
+
+Table 9 provides full zero-shot results on Time-Series-Library forecasting benchmark (Wu et al., 2022), including prediction horizons in {96 , 192 , 336 , 720 }. We build Sundial with different model sizes with configurations in Table 5. The context length is fixed as 2880 . We truncate the model’s predictions for tasks requiring a prediction length less than F = 720 .We compare the most advanced time series foundation models based on their official checkpoints, including Time-MoE (Shi et al., 2024b), Timer (Liu et al., 2024a;b), Moirai (Woo et al., 2024), TimesFM (Das et al., 2023b), and Chronos (Ansari et al., 2024). We conduct zero-shot evaluations on datasets that are not included during the pre-training of the corresponding models. For each of the evaluated model, we use their maximum input length during inference. Metrics (MSE/MAE) are calculated from all predicted windows in the test split of each dataset following Liu et al. (2024a). 
+
+C.5. Zero-Shot Results on GIFT-Eval and FEV Leaderboard 
+
+We evaluate our models on GIFT-Eval, a benchmark designed to comprehensively assess forecasting performance across diverse time series. GIFT-Eval includes 23 datasets covering 144 , 000 time series and 177 million data points, which constitute a total of 97 forecasting configurations. We use the official evaluation suite established by the research team of Salesforce and report aggregated results in Table 2. We evaluate the performance and inference time on the FEV leaderboard, which was originally proposed by Ansari et al. (2024) and established by AutoGluon, which comprises 27 datasets for zero-shot evaluation. We report aggregated metrics in Figure 4 and assess the inference time in Figure 5. We released the detailed results by submitting Sundial to their open benchmark 2.
+
+D. Showcases 
+
+D.1. Showcases of Sundial 
+
+Figure 11-13 present zero-shot forecasting showcases on all the datasets from FEV (Ansari et al., 2024) and TSLib (Wu et al., 2022). By generating 20 predictions with different initial noise, we estimate the median and 80% prediction interval. 
+
+D.2. Showcases of Generative Forecasters and Deterministic Forecasters 
+
+As we introduce generative modeling in time series foundation models, we compare zero-shot forecasting showcases from two types of models, including (1) Sundial, a generative forecaster pre-trained by TimeFlow, which can predict multiple future possibilities based on a lookback series. (2) Using the same backbone and TimeBench, a Transformer pre-trained by MSE Loss. As a deterministic forecaster, the model can only output the mean prediction. As depicted in Figure 14-15, the unimodal Gaussian prior specified by MSE can be infeasible to handle large-scale pre-training, manifested as sometimes over-smooth predictions in downstream forecasting tasks. Therefore, we hope this work can inspire future paradigms for pre-training time series foundation models and enhance their applicability to real-world scenarios. 
+
+E. Limitations 
+
+Our models represent an initial effort to incorporate generative modeling into time series foundation models, which enables pre-training on heterogeneous time series without specifying any prior distribution. This approach mitigates mode collapse in representation learning and generates a diverse range of probable predictions compared to previous deterministic forecasters. Despite significant progress in enlarging model capacity, the Sundial family may still face hallucinations. The performance on very high-frequency data is not guaranteed, since TimeBench contains many middle- and low-frequency time series. Therefore, an important future direction is to generalize Sundial to multi-scale time series. This situation may also indicate new opportunities during inference. As we only adopt a na ¨ıve sampling strategy that begins with random Gaussian noise, it leaves much room for future improvement in sampling strategy and post-processing, such as frequency normalization. Another aspect of future development lies in model adaptation. Sundial is pre-trained in a univariate approach to address the discrepancy in variate numbers, which prevents it from explicitly utilizing variate correlations or covariate information. As an increasing number of studies address 2D dimensionality, multivariate pre-training is likely to be conducted for domain-specific time series foundation models. Lastly, while autoregressive models provide flexibility in the input context length, multiple steps of autoregression may still lead to over-smooth predictions and unreliable results. 
+
+> 2https://huggingface.co/spaces/Salesforce/GIFT-Eval.
+
+16 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Table 9. Zero-shot forecasting results of time series foundation models on long-term forecasting datasets (Wu et al., 2022). A lower MSE or MAE indicates a better prediction. Averaged results of four prediction lengths are reported here. 1st Count represents the number of wins achieved by a model under all prediction lengths and datasets. Results of baseline models are officially reported by Shi et al. (2024b). Datasets for pre-training are not evaluated on corresponding models, which are denoted by the dash ( −). Models Sundial Small Sundial Base Sundial Large Time-MoE Base Time-MoE Large Time-MoE Ultra Timer-XL Moirai Base Moirai Large Chronos Base Chronos Large TimesFM 
+
+(Ours) (Ours) (Ours) (2024b) (2024b) (2024b) (2024a) (2024) (2024) (2024) (2024) (2023b) Metric MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE MSE MAE ETTm1  96 0.292 0.342 0.280 0.334 0.273 0.329 0.338 0.368 0.309 0.357 0.281 0.341 0.317 0.356 0.363 0.356 0.380 0.361 0.454 0.408 0.457 0.403 0.361 0.370 192 0.337 0.376 0.321 0.366 0.312 0.357 0.353 0.388 0.346 0.381 0.305 0.358 0.358 0.381 0.388 0.375 0.412 0.383 0.567 0.477 0.530 0.450 0.414 0.405 336 0.370 0.401 0.350 0.389 0.343 0.378 0.381 0.413 0.373 0.408 0.369 0.395 0.386 0.401 0.416 0.392 0.436 0.400 0.662 0.525 0.577 0.481 0.445 0.429 720 0.418 0.433 0.394 0.418 0.397 0.413 0.504 0.493 0.475 0.477 0.469 0.472 0.430 0.431 0.460 0.418 0.462 0.420 0.900 0.591 0.660 0.526 0.512 0.471 Avg 0.354 0.388 0.336 0.377 0.331 0.369 0.394 0.415 0.376 0.405 0.356 0.391 0.373 0.392 0.406 0.385 0.422 0.391 0.645 0.500 0.555 0.465 0.433 0.418 ETTm2  96 0.178 0.260 0.170 0.256 0.172 0.255 0.201 0.291 0.197 0.286 0.198 0.288 0.189 0.277 0.205 0.273 0.211 0.274 0.199 0.274 0.197 0.271 0.202 0.270 192 0.235 0.304 0.229 0.300 0.227 0.296 0.258 0.334 0.250 0.322 0.235 0.312 0.241 0.315 0.275 0.316 0.281 0.318 0.261 0.322 0.254 0.314 0.289 0.321 336 0.287 0.342 0.281 0.337 0.275 0.331 0.324 0.373 0.337 0.375 0.293 0.348 0.286 0.348 0.329 0.350 0.341 0.355 0.326 0.366 0.313 0.353 0.360 0.366 720 0.360 0.390 0.351 0.387 0.343 0.378 0.488 0.464 0.480 0.461 0.427 0.428 0.375 0.402 0.437 0.411 0.485 0.428 0.455 0.439 0.416 0.415 0.462 0.430 Avg 0.265 0.324 0.258 0.320 0.254 0.315 0.317 0.365 0.316 0.361 0.288 0.344 0.273 0.336 0.311 0.337 0.329 0.343 0.310 0.350 0.295 0.338 0.328 0.346 ETTh1  96 0.341 0.381 0.348 0.385 0.346 0.383 0.357 0.381 0.350 0.382 0.349 0.379 0.369 0.391 0.376 0.392 0.381 0.388 0.440 0.393 0.441 0.390 0.414 0.404 192 0.381 0.408 0.393 0.418 0.386 0.410 0.384 0.404 0.388 0.412 0.395 0.413 0.405 0.413 0.412 0.413 0.434 0.415 0.492 0.426 0.502 0.524 0.465 0.434 336 0.405 0.424 0.422 0.440 0.410 0.426 0.411 0.434 0.411 0.430 0.447 0.453 0.418 0.423 0.433 0.428 0.485 0.445 0.550 0.462 0.576 0.467 0.503 0.456 720 0.433 0.458 0.481 0.493 0.438 0.459 0.449 0.477 0.427 0.455 0.457 0.462 0.423 0.441 0.447 0.444 0.611 0.510 0.882 0.591 0.835 0.583 0.511 0.481 Avg 0.390 0.418 0.411 0.434 0.395 0.420 0.400 0.424 0.394 0.419 0.412 0.426 0.404 0.417 0.417 0.419 0.480 0.439 0.591 0.468 0.588 0.466 0.473 0.443 ETTh2  96 0.272 0.332 0.271 0.333 0.269 0.330 0.305 0.359 0.302 0.354 0.292 0.352 0.283 0.342 0.294 0.330 0.296 0.330 0.308 0.343 0.320 0.345 0.315 0.349 192 0.329 0.374 0.327 0.376 0.325 0.373 0.351 0.386 0.364 0.385 0.347 0.379 0.340 0.379 0.365 0.375 0.361 0.371 0.384 0.392 0.406 0.399 0.388 0.395 336 0.357 0.399 0.354 0.402 0.354 0.400 0.391 0.418 0.417 0.425 0.406 0.419 0.366 0.400 0.376 0.390 0.390 0.390 0.429 0.430 0.492 0.453 0.422 0.427 720 0.401 0.442 0.381 0.435 0.389 0.443 0.419 0.454 0.537 0.496 0.439 0.447 0.397 0.431 0.416 0.433 0.423 0.418 0.501 0.477 0.603 0.511 0.443 0.454 Avg 0.340 0.387 0.333 0.387 0.334 0.387 0.366 0.404 0.405 0.415 0.371 0.399 0.347 0.388 0.362 0.382 0.367 0.377 0.405 0.410 0.455 0.427 0.392 0.406 ECL  96 0.134 0.231 0.132 0.229 0.130 0.227 - - - - - - 0.141 0.237 0.160 0.250 0.153 0.241 0.154 0.231 0.152 0.229 - -192 0.154 0.251 0.152 0.250 0.150 0.247 - - - - - - 0.159 0.254 0.175 0.263 0.169 0.255 0.179 0.254 0.172 0.250 - -336 0.174 0.271 0.173 0.271 0.170 0.268 - - - - - - 0.177 0.272 0.187 0.277 0.187 0.273 0.214 0.284 0.203 0.276 - -720 0.215 0.307 0.218 0.311 0.214 0.307 - - - - - - 0.219 0.308 0.228 0.309 0.237 0.313 0.311 0.346 0.289 0.337 - -Avg 0.169 0.265 0.169 0.265 0.166 0.262 - - - - - - 0.174 0.278 0.187 0.274 0.186 0.270 0.214 0.278 0.204 0.273 - -Weather  96 0.158 0.206 0.157 0.205 0.157 0.208 0.160 0.214 0.159 0.213 0.157 0.211 0.171 0.225 0.220 0.217 0.199 0.211 0.203 0.238 0.194 0.235 - -192 0.205 0.253 0.205 0.251 0.207 0.256 0.210 0.260 0.215 0.266 0.208 0.256 0.221 0.271 0.271 0.259 0.246 0.251 0.256 0.290 0.249 0.285 - -336 0.254 0.290 0.253 0.289 0.259 0.295 0.274 0.309 0.291 0.322 0.255 0.290 0.274 0.311 0.286 0.297 0.274 0.291 0.314 0.336 0.302 0.327 - -720 0.315 0.336 0.320 0.336 0.327 0.342 0.418 0.405 0.415 0.400 0.405 0.397 0.356 0.370 0.373 0.354 0.337 0.340 0.397 0.396 0.372 0.378 - -Avg 0.233 0.271 0.234 0.270 0.238 0.275 0.265 0.297 0.270 0.300 0.256 0.288 0.256 0.294 0.287 0.281 0.264 0.273 0.292 0.315 0.279 0.306 - -
+
+1st Count 7 2 8 5 16 16 0 1 0 0 2 1 1 3 0 2 0 6 0 0 0 0 0 0
+
+∗ Traffic (PEMS) is not evaluated because it is included in the pre-training datasets of these time series foundation models. 
+
+17 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+F. Societal Impacts 
+
+F.1. Real-World Applications 
+
+In this work, we present Sundial, a family of time series foundation models to facilitate out-of-the-box forecasting. Our models employ native tokenization for continuous-valued time series and incorporate a flexible training objective, proposed as TimeFlow Loss, to enable probabilistic forecasting. With an unprecedented model capacity and a trillion-scale dataset, our models can be used directly or adapted for various forecasting scenarios, such as energy planning, weather forecasting, and financial risk prevention. With multiple predictions generation and a just-in-time inference speed, our model enhances the reliability of decision-making and streamlines the forecasting pipeline for practitioners. This paper primarily focuses on scientific research and does not present any evident negative social impact. 
+
+F.2. Academic Research 
+
+We curate TimeBench, a trillion-level time series dataset for pre-training foundation models for time series analysis, which we believe will be beneficial to the research community. Technically, we propose a TimeFlow Loss to facilitate the learning of flexible next-patch distributions. Conditioned on the lookback representations acquired by autoregressive Transformers, our model is endowed with a novel generative capability for probabilistic forecasting, enhancing representation learning of Transformers without the need for discrete tokenization. Through pre-training on an unprecedented scale, we identify subtle scalability bottlenecks that are not solely attributable to architectural design but are predominantly influenced by the training objectives of foundation models. The proposed TimeFlow Loss applied to autoregressive and generative models may provide insights for the future development of time series foundation models. 18 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Figure 11. Showcases of zero-shot predictions from Sundial (Base) on the FEV leaderboard (Ansari et al., 2024). 
+
+19 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Figure 12. Showcases of zero-shot predictions from Sundial (Base) on the FEV leaderboard (Ansari et al., 2024). 
+
+20 Sundial: A Family of Highly Capable Time Series Foundation Models ECL (Pred-96) ECL (Pred-336) 
+
+ETTh1 (Pred-96) ETTh1 (Pred-336) 
+
+ETTh2 (Pred-96) ETTh2 (Pred-336) 
+
+ETTm1 (Pred-96) ETTm1 (Pred-336) 
+
+ETTm2 (Pred-96) ETTm2 (Pred-336) 
+
+Weather (Pred-96) Weather (Pred-336) 
+
+Figure 13. Showcases of zero-shot predictions from Sundial (Base) on long-term forecasting datasets (Wu et al., 2022). 
+
+21 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Figure 14. Showcases of Sundial (Left) and the same Transformer backbone pre-trained by MSE Loss (Right). MSE Loss optimizes a deterministic forecaster: given a lookback series, the model can only produce one prediction as the estimation of mean values. This objective may fail to accommodate divergent future variations during large-scale pre-training, leading to mode collapse and over-smooth results (as illustrated in the fourth row). TimeFlow optimizes a generative forecaster: it generates various possibilities observed in the pre-training dataset. Based on these raw predictions, we can estimate the underlying complicated distribution and different statistics. Besides, the greater concentration in generated predictions, the higher the model’s confidence in its predictions. 
+
+22 Sundial: A Family of Highly Capable Time Series Foundation Models 
+
+Figure 15. Supplementary showcases of Sundial (Left) and the same Transformer backbone pre-trained by MSE Loss (Right). 
+
+23
