@@ -6,75 +6,77 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-31
-- 运行时间：2026-05-31 20:34:03 UTC
+- 最新运行日期：2026-06-01
+- 运行时间：2026-06-01 22:50:18 UTC
 - 运行状态：成功
-- 本次总论文数：17
-- 精读区：6
+- 本次总论文数：19
+- 精读区：8
 - 速读区：11
 
 ### 今日简报（AI）
-今日处理17篇论文，精读2篇高分极值依赖相关文献，速读4篇重尾时间序列与线性过程尾依赖研究。
-
-最值得关注的方向：多元极值尾部依赖的度量和无似然推断方法，以及重尾时间序列的不确定性建模。
-
-建议优先精读《Measuring multivariate maximal tail dependence》和《Likelihood-Free Inference for Multivariate Generalized Pareto Models》以快速掌握前沿技术。
-- 详情：[/202605/31/README](/202605/31/README)
+今天精读8篇量化金融前沿，聚焦分布优化与风险敏感决策。最值得关注：统一权重、收益与参数分布的DPO框架(10分)，以及带熵正则的贝尔曼做市策略(9分)。速读还覆盖了Lévy过程变分推断、已实现波动率贝叶斯建模和差分隐私下的尾风险学习，建议读者优先阅读DPO以掌握全分布优化新范式。
+- 详情：[/202606/01/README](/202606/01/README)
 
 ### 精读区论文标签
-1. [Measuring multivariate maximal tail dependence](/202605/31/2605.25766v1-measuring-multivariate-maximal-tail-dependence)  
+1. [Distributional Portfolio Optimization (DPO): A Unified Framework for Distributions over Weights, Returns, and Parameters](/202606/01/2605.30464v1-distributional-portfolio-optimization-dpo-a-unified-framework-for-distributions-over-weights-returns-and-parameters)  
+   标签：评分：10.0/10、query:qf
+   evidence：将贝叶斯、鲁棒和随机组合优化统一为分布框架，直接处理组合风险与稳健资产配置
+2. [Entropy-Regularized Certainty-Equivalent Bellman Policies for Risk-Sensitive Market Making](/202606/01/2605.24878v1-entropy-regularized-certainty-equivalent-bellman-policies-for-risk-sensitive-market-making)  
    标签：评分：9.0/10、query:qf
-   evidence：多元尾部相依性指标用于极值理论
-2. [Likelihood-Free Inference for Multivariate Generalized Pareto Models](/202605/31/2605.27694v1-likelihood-free-inference-for-multivariate-generalized-pareto-models)  
+   evidence：风险敏感做市，使用指数效用和熵正则化贝尔曼算子，直接涉及市场微观结构与库存风险管理
+3. [DeepSeekMath Meets Order Book: Group-Aware Policy Optimization for High-Frequency Directional Trading](/202606/01/2605.25527v1-deepseekmath-meets-order-book-group-aware-policy-optimization-for-high-frequency-directional-trading)  
    标签：评分：9.0/10、query:qf
-   evidence：多元广义帕累托模型用于极值尾部风险
-3. [Numerical methods for lambda quantiles: robust evaluation and portfolio optimisation](/202605/31/2605.06220v1-numerical-methods-for-lambda-quantiles-robust-evaluation-and-portfolio-optimisation)  
-   标签：评分：8.0/10、query:qf
-   evidence：Lambda分位数推广VaR，提供高效算法用于组合优化
-4. [Modeling Dynamic Correlation Matrices with Shrinkage Priors](/202605/31/2605.06818v1-modeling-dynamic-correlation-matrices-with-shrinkage-priors)  
-   标签：评分：8.0/10、query:qf
-   evidence：动态相关矩阵、收缩先验与因子随机波动
-5. [Memory, Roughness, and Information Persistence in Financial Markets: A Structural Approach to Volatility Forecasting](/202605/31/2605.24285v1-memory-roughness-and-information-persistence-in-financial-markets-a-structural-approach-to-volatility-forecasting)  
-   标签：评分：8.0/10、query:qf
-   evidence：波动率预测中的长期记忆与持续性分析
-6. [Learning Nonlinear Factor Models with Unknown Monotone Links from Incomplete and Noisy Data](/202605/31/2605.26271v1-learning-nonlinear-factor-models-with-unknown-monotone-links-from-incomplete-and-noisy-data)  
-   标签：评分：8.0/10、query:qf
-   evidence：从不完整数据学习非线性因子模型，可应用于资产定价
+   evidence：将订单流状态与强化学习应用于限价订单簿高频交易，直接涉及金融市场微观结构与算法交易
+4. [Nonlinear and Heavy-Tailed Predictability in Transition-Energy Financial Markets](/202606/01/2605.26890v1-nonlinear-and-heavy-tailed-predictability-in-transition-energy-financial-markets)  
+   标签：评分：9.0/10、query:qf
+   evidence：金融时间序列预测，采用重尾向量自回归与非线性递归残差学习
+5. [PortBench: A Correlation-Aware, Full-Pipeline Benchmark for LLM-Driven Portfolio Management](/202606/01/2605.27887v1-portbench-a-correlation-aware-full-pipeline-benchmark-for-llm-driven-portfolio-management)  
+   标签：评分：9.0/10、query:qf
+   evidence：相关系数感知的投资组合管理基准，具有完整决策流程，填补了评估LLM驱动资产配置时考虑跨资产相关性的空白
+6. [Deep Learning Forecasting of the U.S. Aggregate Bond Index](/202606/01/2605.27977v1-deep-learning-forecasting-of-the-us-aggregate-bond-index)  
+   标签：评分：9.0/10、query:qf
+   evidence：利用深度学习预测美国债券指数收益，考虑波动率聚集和分数差分
+7. [Option Pricing under Stochastic Volatility and Jumps:A PIDE Framework with Empirical Evidence](/202606/01/2605.30562v1-option-pricing-under-stochastic-volatility-and-jumpsa-pide-framework-with-empirical-evidence)  
+   标签：评分：9.0/10、query:qf
+   evidence：随机波动率与跳跃下的期权定价，用标普500期权校准，直接关联波动率曲面与对冲
+8. [Inspectable Neural Markov Models for Non-Stationary Time Series](/202606/01/2605.30943v1-inspectable-neural-markov-models-for-non-stationary-time-series)  
+   标签：评分：9.0/10、query:qf
+   evidence：用神经网络参数化马尔可夫转移矩阵，基于已实现波动率进行金融市场建模
 
 ### 速读区论文标签
-1. [Measuring Tail Dependence in Linear Processes: Theory and Empirics](/202605/31/2605.10303v1-measuring-tail-dependence-in-linear-processes-theory-and-empirics)  
+1. [Variational Inference for Lévy Process-Driven SDEs via Neural Tilting](/202606/01/2605.10934v1-variational-inference-for-lvy-process-driven-sdes-via-neural-tilting)  
    标签：评分：8.0/10、query:qf
-   evidence：尾部依赖与极值理论
-2. [Measuring Tail Dependence in Linear Processes: Theory and Empirics](/202605/31/2605.10303v2-measuring-tail-dependence-in-linear-processes-theory-and-empirics)  
+   evidence：针对Levy驱动SDE的神经变分推断，捕捉跳跃和重尾用于尾部风险
+2. [Bayesian Dynamic Modeling of Realized Volatility in Financial Asset Price Forecasting](/202606/01/2605.12099v1-bayesian-dynamic-modeling-of-realized-volatility-in-financial-asset-price-forecasting)  
    标签：评分：8.0/10、query:qf
-   evidence：基于极值理论的尾部依赖度量及持续性分析
-3. [DeepLévy: Learning Heavy-Tailed Uncertainty in Highly Volatile Time Series](/202605/31/2605.10364v1-deeplvy-learning-heavy-tailed-uncertainty-in-highly-volatile-time-series)  
+   evidence：贝叶斯动态模型用于金融时间序列已实现波动率预测
+3. [The Privacy Price of Tail-Risk Learning: Effective Tail Sample Size in Differentially Private CVaR Optimization](/202606/01/2605.16219v1-the-privacy-price-of-tail-risk-learning-effective-tail-sample-size-in-differentially-private-cvar-optimization)  
    标签：评分：8.0/10、query:qf
-   evidence：DeepLévy用于时间序列重尾不确定性学习
-4. [DeepLévy: Learning Heavy-Tailed Uncertainty in Highly Volatile Time Series](/202605/31/2605.10364v2-deeplvy-learning-heavy-tailed-uncertainty-in-highly-volatile-time-series)  
+   evidence：隐私保护下的尾部风险学习与CVaR优化
+4. [A Hybrid Gaussian Process Regression Framework for Stable Volatility-Covariance Estimation: Evidence from Global Equity Indices](/202606/01/2605.17275v1-a-hybrid-gaussian-process-regression-framework-for-stable-volatility-covariance-estimation-evidence-from-global-equity-indices)  
    标签：评分：8.0/10、query:qf
-   evidence：DeepLévy深度学习框架用于重尾时间序列波动建模
-5. [Assessing the Operational Viability of Foundation Models for Time Series Forecasting](/202605/31/2605.24381v1-assessing-the-operational-viability-of-foundation-models-for-time-series-forecasting)  
+   evidence：混合高斯过程回归-历史模拟框架用于波动率协方差估计与尾部风险
+5. [On Stability and Decomposition of Sample Quantiles under Heavy-Tailed Distributions](/202606/01/2605.18370v2-on-stability-and-decomposition-of-sample-quantiles-under-heavy-tailed-distributions)  
+   标签：评分：8.0/10、query:qf
+   evidence：重尾分布下VaR分位数稳定性的理论分析
+6. [Recursive Multi-Agent Trading System: Iterative Optimized Portfolio Strategy Under Geopolitical Uncertainty](/202606/01/2605.25311v1-recursive-multi-agent-trading-system-iterative-optimized-portfolio-strategy-under-geopolitical-uncertainty)  
    标签：评分：7.0/10、query:qf
-   evidence：评估基础模型在随机金融市场时间序列预测中的表现
-6. [Clustering based on Stochastic Dominance with application for risk averters and risk seekers](/202605/31/2605.24422v1-clustering-based-on-stochastic-dominance-with-application-for-risk-averters-and-risk-seekers)  
+   evidence：利用多智能体系统进行不确定性下的组合优化，通过递归管理降低最大回撤，体现稳健资产配置
+7. [Quantile autoregressive moving average models for ratio-based bounded time series](/202606/01/2605.26052v1-quantile-autoregressive-moving-average-models-for-ratio-based-bounded-time-series)  
    标签：评分：7.0/10、query:qf
-   evidence：随机占优聚类风险偏好资产配置
-7. [Incremental SVD for Large-Scale Dynamic Matrices: Accuracy, Subspace Stability, Refresh Strategies, and Financial Factor-Based Risk Models](/202605/31/2605.24514v1-incremental-svd-for-large-scale-dynamic-matrices-accuracy-subspace-stability-refresh-strategies-and-financial-factor-based-risk-models)  
+   evidence：提出对边界时间序列的分位数ARMA模型，可用于尾部风险预测（VaR/预期短缺）
+8. [Stochastic Volatility, Jumps, and Rates: A Unified Framework for Option Pricing and Term-Structure Simulation](/202606/01/2605.27945v1-stochastic-volatility-jumps-and-rates-a-unified-framework-for-option-pricing-and-term-structure-simulation)  
    标签：评分：7.0/10、query:qf
-   evidence：增量SVD用于动态因子风险模型
-8. [Deep ZakaiJ: Structured Filtering for Jump-Diffusion Time Series Forecasting](/202605/31/2605.24548v1-deep-zakaij-structured-filtering-for-jump-diffusion-time-series-forecasting)  
-   标签：评分：7.0/10、query:qf
-   evidence：跳扩散时间序列；潜状态模型；神经预测
-9. [Distributional Conformal Prediction for Markov Processes](/202605/31/2605.24848v1-distributional-conformal-prediction-for-markov-processes)  
+   evidence：综合随机波动率模型用于期权定价与隐含波动率校准
+9. [Valuation of Variable Annuities with Equity Protection Swaps under Jumps and Default Risks](/202606/01/2605.25450v1-valuation-of-variable-annuities-with-equity-protection-swaps-under-jumps-and-default-risks)  
    标签：评分：6.0/10、query:qf
-   evidence：分布共形预测马尔可夫过程时间序列
-10. [Entropy-Regularized Certainty-Equivalent Bellman Policies for Risk-Sensitive Market Making](/202605/31/2605.24878v1-entropy-regularized-certainty-equivalent-bellman-policies-for-risk-sensitive-market-making)  
+   evidence：在跳跃与违约风险下推导权益保护互换的期权定价与对冲，与期权对冲相关
+10. [Modeling dependence in sparse time series of Insurance Claims](/202606/01/2605.25559v1-modeling-dependence-in-sparse-time-series-of-insurance-claims)  
    标签：评分：6.0/10、query:qf
-   evidence：做市商风险敏感熵正则化贝尔曼策略
-11. [Uncertainty Quantification in Data-Driven Inverse Optimization via Bayesian Inference](/202605/31/2605.25288v1-uncertainty-quantification-in-data-driven-inverse-optimization-via-bayesian-inference)  
+   evidence：新颖的Comb-Bernoulli copula模型用于稀疏保险索赔的相依性，可直接应用于多变量风险聚合与尾部相依建模
+11. [Stabilizing distribution-free probabilistic forecasts](/202606/01/2605.28531v1-stabilizing-distribution-free-probabilistic-forecasts)  
    标签：评分：6.0/10、query:qf
-   evidence：逆优化中参数不确定性量化的贝叶斯方法，可应用于资产组合优化
+   evidence：稳定的条件分位数预测适用于在险价值和尾部风险管理
 
 
 <div class="dpr-home-promo-card">
