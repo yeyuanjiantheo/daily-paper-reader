@@ -1,0 +1,3192 @@
+Title: 6053_MVG_CRPS_A_Robust_Loss_Fu.pdf
+
+URL Source: https://openreview.net/pdf?id=mZuFaBAVs6
+
+Number of Pages: 31
+
+Markdown Content:
+# MVG-CRPS: A Robust Loss Function for Multivariate Probabilistic Forecasting 
+
+Anonymous Author(s) 
+
+Affiliation Address 
+
+email 
+
+## Abstract 
+
+Multivariate probabilistic forecasting typically leverages neural network-based dis-1
+
+tributional regression, often employing Gaussian assumptions to simplify computa-2
+
+tion. While the standard negative log-likelihood provides analytical convenience, 3
+
+its sensitivity to outliers can severely degrade forecasting accuracy. Conversely, 4
+
+robust alternatives like the Energy Score, although less sensitive to extreme val-5
+
+ues, rely heavily on computationally expensive sampling approximations, limiting 6
+
+scalability in neural network training. To bridge this gap, we introduce the MVG-7
+
+CRPS, a novel, strictly proper scoring rule for multivariate Gaussian distributions 8
+
+that maintains robustness to outliers while providing a closed-form expression, 9
+
+enabling efficient training and evaluation. Our approach leverages a whitening 10 
+
+transformation, decorrelating multivariate outputs and reducing the multivariate 11 
+
+scoring task to tractable univariate CRPS computations. Experiments on real-world 12 
+
+datasets for both multivariate autoregressive and univariate sequence-to-sequence 13 
+
+(Seq2Seq) forecasting tasks demonstrate that MVG-CRPS enhances robustness 14 
+
+and predictive performance. 15 
+
+## 1 Introduction 16 
+
+Probabilistic forecasting is critical in applications ranging from financial risk management [ 1], to 17 
+
+weather forecasting [ 2] and healthcare analytics [ 3 ], where accurate quantification of predictive 18 
+
+uncertainty directly informs decision-making. Multivariate probabilistic forecasting models extend 19 
+
+beyond point estimates, producing joint probability distributions across multiple correlated con-20 
+
+tinuous variables. Neural network-based methods have become a dominant paradigm due to their 21 
+
+flexibility and expressiveness [ 4– 6]. Typically, these methods rely on parametric assumptions such as 22 
+
+multivariate Gaussian distributions, allowing closed-form loss computations (e.g., log-likelihood) 23 
+
+and efficient backpropagation. 24 
+
+Despite widespread adoption, standard metrics for model inference such as the negative log-likelihood 25 
+
+(log-score) present substantial challenges. Most notably, under the Gaussian family, the log-score 26 
+
+heavily penalizes unlikely events and outliers due to its exponential sensitivity in the tails of distribu-27 
+
+tions, making it excessively sensitive to anomalies and model misspecification [ 7, 8]. As a result, 28 
+
+neural network models trained using the log-score can generate overly conservative or inaccurate 29 
+
+predictive distributions when exposed to real-world data characterized by occasional extreme events. 30 
+
+To address the limitations of the log-score, the Energy Score [ES, 9 ] emerged as a popular robust 31 
+
+alternative. It generalizes the continuous ranked probability score [CRPS, 10 , 11 ] for univariate 32 
+
+distributions and effectively mitigates sensitivity to outliers by evaluating forecasts through expected 33 
+
+pairwise distances between predictions and observations. However, the ES lacks a closed-form 34 
+
+analytical expression in most cases, necessitating computationally intensive Monte Carlo sampling to 35 
+
+Submitted to 39th Conference on Neural Information Processing Systems (NeurIPS 2025). Do not distribute. 0 200 400  
+
+> Training time (minutes)
+> 0.08
+> 0.10
+> 0.12
+> 0.14
+> 0.16
+> CRPS sum
+> n=50
+> n=100
+> n=150
+> Dataset: elec_au
+> Log-Score
+> MVG-CRPS
+> Energy Score
+
+Figure 1: An example showing MVG-CRPS achieves better accuracy and faster training by avoiding sampling and reducing sensitivity to outliers. ES results are shown for different sample sizes. approximate its value and gradients. Such approximations significantly slow down neural network 36 
+
+training, limiting practical scalability [12, 13]. 37 
+
+Motivated by the need for a robust yet computationally efficient scoring rule, this paper introduces 38 
+
+MVG-CRPS (Multivariate Gaussian CRPS). We propose a strictly proper scoring rule specifically 39 
+
+designed for multivariate Gaussian probabilistic forecasting tasks. Our approach circumvents the 40 
+
+computational limitations of the ES by leveraging a PCA whitening transformation, decomposing the 41 
+
+multivariate Gaussian distribution into independent, standard normal variables. Consequently, the 42 
+
+multivariate scoring problem reduces to a set of analytically tractable univariate CRPS computations. 43 
+
+MVG-CRPS provides explicit analytical gradients, enabling efficient integration into neural network 44 
+
+training. The advantages of our approach are illustrated in Fig. 1, where the model trained with MVG-45 
+
+CRPS achieves higher accuracy while significantly reducing training time. The key contributions of 46 
+
+our work are: 47 
+
+• We propose MVG-CRPS, a novel scoring rule for multivariate probabilistic forecasting that 48 
+
+is less sensitive to outliers and extreme tails of the data distribution. Under the multivariate 49 
+
+Gaussian family, we prove that MVG-CRPS is strictly proper. 50 
+
+• The proposed MVG-CRPS has a closed-form expression, allowing for the analytical com-51 
+
+putation of derivatives. This property facilitates efficient integration with backpropagation-52 
+
+based training in deep learning models and significantly reduces the computational cost 53 
+
+compared to sampling-based alternatives. 54 
+
+• We perform extensive experiments with deep probabilistic forecasting models on real-world 55 
+
+datasets. Our results demonstrate that MVG-CRPS balances accuracy and efficiency more 56 
+
+effectively than standard scoring rules. 57 
+
+## 2 Related Work 58 
+
+2.1 Probabilistic Forecasting 59 
+
+Probabilistic forecasting focuses on modeling the complete probability distribution of target variables 60 
+
+rather than producing single-point estimates. This comprehensive approach is essential for quantifying 61 
+
+uncertainty inherent in time series data, thereby enabling more informed risk assessment and decision-62 
+
+making. Probabilistic forecasting methods typically fall into two main categories: parametric methods, 63 
+
+which assume explicit probability density functions (PDFs), and non-parametric methods, which rely 64 
+
+on quantile estimation [5]. 65 
+
+Non-parametric methods generally forecast specific quantiles of the target distribution, thus avoiding 66 
+
+restrictive parametric assumptions. A prominent example is the MQ-RNN [ 14 ], which leverages a 67 
+
+Seq2Seq recurrent neural network (RNN) architecture to forecast multiple quantiles simultaneously. 68 
+
+These quantile forecasts offer a robust approximation of the underlying distribution, making them 69 
+
+particularly effective for capturing asymmetric and heavy-tailed behaviors. 70 
+
+Parametric methods assume a predefined probability distribution—such as Gaussian or Poisson—and 71 
+
+estimate its parameters using neural networks. The DeepAR model [ 15 ], for instance, employs an 72 
+
+RNN to capture hidden state transitions and predict Gaussian distribution parameters at each time 73 
+
+step. GPVar [ 4], its multivariate extension, incorporates a Gaussian copula to transform observations 74 
+
+2into Gaussian variables, thus modeling joint dependencies among multiple time series effectively. 75 
+
+This method efficiently captures temporal and cross-series correlations through generalized least 76 
+
+squares (GLS) approaches [16, 17] or dynamic regression [18]. 77 
+
+Neural networks also facilitate modeling more complex probabilistic structures, including state-space 78 
+
+models (SSMs) [ 19 , 20 ], normalizing flows (NFs) [ 6 ], and diffusion models [ 21 ]. Additionally, 79 
+
+copula-based methods explicitly model dependencies between multiple time series. Recent studies by 80 
+
+Drouin et al. [22] and Ashok et al. [23] employ copulas to combine individual marginal distributions 81 
+
+and dependency structures, achieving flexible multivariate modeling capabilities. Most existing 82 
+
+approaches predominantly use the log-score as their optimization criterion. 83 
+
+2.2 Scoring Rules 84 
+
+Scoring rules quantitatively assess probabilistic forecast quality by comparing predicted distributions 85 
+
+with observed outcomes. A scoring rule is deemed proper if it incentivizes honest forecasting, 86 
+
+achieving its minimal expected score when the predicted distribution when the predicted probability 87 
+
+distribution p matches the true distribution q. Formally, a scoring rule s(p, q ) is proper if the 88 
+
+divergence d(p, q ) = s(p, q ) − s(q, q ) is non-negative and it is strictly proper if d(p, q ) = 0 implies 89 
+
+p = q [24]. 90 
+
+The negative log-likelihood (log-score) is a prevalent strictly proper scoring rule, evaluating predictive 91 
+
+densities directly at observed outcomes. Widely adopted due to its analytical tractability, the log-92 
+
+score is particularly beneficial when the predictive density has a known parametric form [ 25 ]. The 93 
+
+log-score is a strictly proper scoring rule and has several desirable properties, such as consistency and 94 
+
+sensitivity to the entire distribution. In addition, the analytical tractability (closed-form expression 95 
+
+and gradients for many distributions) makes it a convenient default in deep probabilistic forecasting 96 
+
+models. However, for certain distributions (e.g., Gaussian), the log-score severely penalizes unlikely 97 
+
+events, rendering it sensitive to outliers and extreme observations [ 26 ]. To mitigate this sensitivity, 98 
+
+the CRPS provides a robust alternative in univariate contexts [ 27 ]. The CRPS quantifies discrepancies 99 
+
+between the predictive cumulative distribution function (CDF) and observations, integrating absolute 100 
+
+error over all potential thresholds. Unlike the exponential penalty in log-score, CRPS linearly 101 
+
+penalizes deviations, thus reducing vulnerability to extreme events [ 28 ]. CRPS-based optimization 102 
+
+techniques have demonstrated superior calibration and robustness compared to likelihood-based 103 
+
+approaches in various probabilistic forecasting applications [ 28 – 30 ]. Minimum CRPS estimation 104 
+
+specifically targets improved calibration by optimizing parameters directly to minimize CRPS rather 105 
+
+than maximizing likelihood. 106 
+
+Multivariate forecasting introduces additional complexity due to inter-dependencies and higher 107 
+
+dimensionality. While the log-score remains applicable, its sensitivity to outliers persists in this 108 
+
+setting. The ES [ 9] generalizes the CRPS for multivariate distributions by computing expected 109 
+
+distances between predictive and observed distributions. While ES effectively detects errors in the 110 
+
+forecast mean, it is less sensitive to variance errors and, more critically, to misspecifications in 111 
+
+the correlation structure among variables [ 31 , 32 ]. The absence of a closed form expression also 112 
+
+necessitates the use of Monte Carlo simulations to approximate the ES by drawing samples from the 113 
+
+predictive distribution, which can be computationally expensive [see e.g., 33, 25, 13, 12]. 114 
+
+To overcome the limited sensitivity of ES to the dependence structure, the variogram score (VS) 115 
+
+was proposed by Scheuerer and Hamill [34] . VS explicitly targets inter-variable dependencies by 116 
+
+comparing pairwise differences between forecasted and observed components. Similar to the ES, VS 117 
+
+is typically approximated using ensemble forecasts or Monte Carlo sampling. However, it introduces 118 
+
+additional computational complexity and still lacks a fully closed-form expression, limiting its direct 119 
+
+applicability in large-scale or real-time settings. For a broader discussion of multivariate scoring rules 120 
+
+and their properties, we refer readers to the comprehensive reviews by Gneiting and Katzfuss [35] ,121 
+
+Ziel and Berk [36], Waghmare and Ziegel [37] and Pic et al. [38]. 122 
+
+The most relevant recent work is by Olafsdottir et al. [39] , who propose a parameter estimation 123 
+
+framework for multivariate spatial models by maximizing the average leave-one-out score (LOOS). 124 
+
+Their method leverages the tractable conditionals of multivariate Gaussians and robust scoring rules 125 
+
+like the CRPS. It is especially efficient for models with sparse precision matrices (e.g., Gaussian 126 
+
+Markov random fields), but incurs notable overhead for general multivariate Gaussians due to the 127 
+
+cost of computing all conditionals. 128 
+
+3𝑝 𝐳 !     
+
+> 𝑝 𝐳 ",!$%:!$'
+> 𝑁 ×𝑃 𝑁 ×𝑄
+> 𝑁 ×𝑃 𝑁 ×𝑄
+> Task 1: Multivariate Autoregressive
+> Task 2: Univariate Seq2Seq
+
+Figure 2: Illustration of the multivariate autoregressive and univariate Seq2Seq forecasting tasks. 
+
+## 3 Our Method 129 
+
+3.1 Multivariate Probabilistic Forecasting 130 
+
+Probabilistic forecasting aims to estimate the joint distribution over a collection of future quantities 131 
+
+based on a given history of observations [ 35 ]. Denote the time series vector at a time point t as zt =132 
+
+[z1,t , . . . , z N,t ]⊤ ∈ RN , where N is the number of series. The problem of probabilistic forecasting 133 
+
+can be formulated as p (zT +1: T +Q | zT −P +1: T ; xT −P +1: T +Q), where zt1:t2 = [ zt1 , . . . , zt2 ], P is 134 
+
+the conditioning range, Q is the prediction range, and T is the time point that splits the conditioning 135 
+
+range and prediction range. xt are some known covariates for both past and future time steps. 136 
+
+Multivariate probabilistic forecasting can be formulated in different ways. One way is over the time 137 
+
+series dimension, where multiple interrelated variables are forecasted simultaneously at each time 138 
+
+point. Considering an autoregressive model, where the predicted output is used as input for the next 139 
+
+time step, this formulation can be factorized as 140 
+
+p (zT +1: T +Q | zT −P +1: T ; xT −P +1: T +Q)= 
+
+> T+Q
+
+Y 
+
+> t=T+1
+
+p (zt | zt−P :t−1; xt−P :t) =  
+
+> T+Q
+
+Y 
+
+> t=T+1
+
+p (zt | ht) , (1) where ht is a state vector that encodes all the conditioning information used to generate the distribution 141 
+
+parameters, typically via a neural network. 142 
+
+Another option is over the prediction horizon, where forecasts are made across multiple future 143 
+
+time steps for one or more variables, capturing temporal dependencies and uncertainties over time. 144 
+
+Considering a shared model across different series: 145 
+
+p (zi,T +1: T +Q | zi,T −P +1: T ; xi,T −P +1: T +Q) , (2) where i = 1 , . . . , N denotes the identifier of a particular time series. Since the model outputs 146 
+
+forecasts for the entire prediction horizon directly, it is also called a Seq2Seq model. Without loss of 147 
+
+generality, we use the first approach as an example to illustrate our method, since both approaches 148 
+
+focus on estimating a multivariate distribution p (zt) or p (zi,T +1: T +Q) (Fig. 2). 149 
+
+A typical probabilistic forecasting model assumes Gaussian noise; for example, it models zt as jointly 150 
+
+following a multivariate Gaussian distribution: 151 
+
+zt | ht ∼ N (μ(ht), Σ(ht)) , (3) where μ(·) and Σ(·) are the functions mapping ht to the mean and covariance parameters. The 152 
+
+log-likelihood of the distribution given observed time series data up to time point T can be used as 153 
+
+the loss function for optimizing a DL model: 154 
+
+L =
+
+> T
+
+X
+
+> t=1
+
+log p (zt | θ (ht)) ∝
+
+> T
+
+X
+
+> t=1
+
+− 12 [ln |Σt| + η⊤ 
+
+> t
+
+Σ−1 
+
+> t
+
+ηt], (4) 4where ηt = zt − μt. The above formulation simplifies to the univariate case when we set N = 1 for 155 
+
+the model, with the same model being shared across all time series: 156 
+
+zi,t | hi,t ∼ N  μ(hi,t ), σ 2(hi,t ) , (5) where μ(·) and σ(·) map hi,t to the mean and standard deviation of a Gaussian distribution. The 157 
+
+corresponding log-likelihood becomes 158 
+
+L =
+
+> T
+
+X
+
+> t=1
+> N
+
+X
+
+> i=1
+
+log p (zi,t | θ (hi,t )) ∝
+
+> T
+
+X
+
+> t=1
+> N
+
+X
+
+> i=1
+
+− 12 ϵ2 
+
+> i,t
+
+− ln σi,t , (6) where ϵi,t = zi,t −μi,t  
+
+> σi,t
+
+. Eq. (4) and Eq. (6) , when used as scoring rules to optimize the model, are 159 
+
+generally referred to as the log-score and are widely employed in probabilistic forecasting. 160 
+
+For univariate problems, the CRPS is also a strictly proper scoring rule, defined as 161 
+
+CRPS( F, z ) = EF |x − z| − 12 EF |x − x′| , (7) where F is the predictive CDF, z is the observation, and x and x′ are independent random variables 162 
+
+both associated with F . The CRPS has a closed-form expression when evaluating a Gaussian-163 
+
+distributed variable z ∼ N  μ, σ 2 [28]: 164 
+
+CRPS (Φ , z ) = z (2Φ ( z) − 1) + 2 φ (z) − 1
+
+√π , (8) 
+
+> 165
+
+CRPS ( Fμ,σ , z ) = σ CRPS 
+
+
+
+Φ, z − μσ
+
+
+
+, (9) where Fμ,σ (z) = Φ   z−μσ
+
+, Φ and φ are the CDF and PDF of the standard Gaussian distribution. 166 
+
+The CRPS has been shown to be a more robust alternative to the log-score as a loss function in many 167 
+
+problems [ 28 , 27 , 40 ]. We observe that the log-score can grow arbitrarily large in magnitude when 168 
+
+a single outlier disproportionately influences the loss function, owing to the unbounded nature of 169 
+
+the logarithmic function (Eq. (4) and Eq. (6) ). Additionally, the quadratic form of the error terms 170 
+
+in the Gaussian likelihood also makes it sensitive to outliers (e.g., ϵ2 
+
+> i,t
+
+in Eq. (6) ). In contrast, the 171 
+
+CRPS evaluates the entire predictive distribution rather than concentrating solely on the likelihood of 172 
+
+individual data points (Eq. (8) ). Moreover, the CRPS can directly replace the log-score, providing 173 
+
+analytical gradients with respect to μ and σ for backpropagation. However, for a multivariate Gaussian 174 
+
+distribution, the CRPS does not have a widely used closed-form expression. 175 
+
+3.2 MVG-CRPS as Loss Function for Multivariate Forecasting 176 
+
+In multivariate probabilistic forecasting, proper scoring rules such as the log-score (Eq. (4) ) and the 177 
+
+ES are used to evaluate predictive performance. The ES generalizes the CRPS to assess probabilistic 178 
+
+forecasts of vector-valued random variables [9]: 179 
+
+ES( F, z) = E 
+
+> x∼F
+
+∥x − z∥β − 12 E
+
+> x,x′∼F
+
+∥x − x′∥β , (10) where ∥·∥ denotes the Euclidean norm and β = 1 is commonly used in the literature [ 23 ]. With 180 
+
+β = 1 , the ES essentially becomes a multivariate extension of the CRPS and grows linearly with 181 
+
+respect to the norm, making it less sensitive to outliers compared to the log-score. Since there is no 182 
+
+simple closed-form expression for Eq. (10) , it is often approximated using Monte Carlo methods, 183 
+
+where multiple samples {xi}ni=1 are drawn from the forecast distribution to approximate the expected 184 
+
+values: 185 
+
+ES( F, z) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+∥xi − z∥β − 12n2
+
+> n
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+∥xi − xj ∥β . (11) However, a significant disadvantage of using Eq. (11) as the loss function is that it requires Monte 186 
+
+Carlo sampling during the training process, which can substantially slow down training and create 187 
+
+noisy gradients. 188 
+
+5In this section, we propose the MVG-CRPS, a robust and efficient loss function designed as an 189 
+
+alternative for multivariate forecasting. This loss function grows linearly with the prediction error, 190 
+
+making it more robust than the log-score. Additionally, it does not require sampling during the 191 
+
+training process, rendering it more efficient than the ES. 192 
+
+Our proposed method is based on the whitening transformation of a time series vector that follows a 193 
+
+multivariate Gaussian distribution, zt ∼ N (μt, Σt). The whitening process transforms a random 194 
+
+vector with a known covariance matrix into a new random vector whose covariance matrix is the 195 
+
+identity matrix. As a result, the elements of the transformed vector have unit variance and are 196 
+
+uncorrelated. This transformation begins by performing the singular value decomposition (SVD) of 197 
+
+the covariance matrix: 198 
+
+Σt = U tStU ⊤ 
+
+> t
+
+, (12) where St = diag([ λ1,t , . . . , λ N,t ]⊤) is a diagonal matrix containing the eigenvalues of Σt, and U t199 
+
+is the orthonormal matrix of corresponding eigenvectors. We then define 200 
+
+vt = U ⊤ 
+
+> t
+
+(zt − μt) , (13) where vt ∼ N (0, St) is a random vector with a uncorrelated multivariate Gaussian distribution, 201 
+
+having variances λi (i.e., the corresponding eigenvalue) along the diagonal of its covariance matrix. 202 
+
+Next, we define 203 
+
+wt = S− 12 
+
+> t
+
+vt = S− 12 
+
+> t
+
+U ⊤ 
+
+> t
+
+(zt − μt) , (14) where wt is a random vector with each element following a standard Gaussian distribution, i.e., 204 
+
+wi,t ∼ N (0 , 1) . We can then apply Eq. (8) individually to each element and formulate the MVG-205 
+
+CRPS mimicking Eq. (9) for multivariate problem: 206 
+
+MCRPS (Φ N (μt, Σt) , zt) = 
+
+> N
+
+X
+
+> i=1
+
+CRPS (Φ (0 , λ i,t ) , v i,t ) = 
+
+> N
+
+X
+
+> i=1
+
+pλi,t CRPS (Φ , w i,t ) , (15) where ΦN (μ, Σ) is thd CDF of multivariate Gaussian with mean μ and covariance Σ.207 
+
+The overall loss function for training the model is then formulated over an observation period T :208 
+
+L =
+
+> T
+
+X
+
+> t=1
+
+MCRPS (Φ N (μt, Σt) , zt) . (16) By leveraging PCA whitening, the MVG-CRPS effectively discriminates between differences in both 209 
+
+the mean and covariance within the multivariate Gaussian family—whereas the ES may overlook 210 
+
+subtle covariance discrepancies and the log-score lacks robustness. The key advantage of MVG-211 
+
+CRPS lies in its ability to exploit the closed-form expression of the univariate CRPS by decorrelating 212 
+
+multivariate time series variables via PCA whitening. This transformation enables the evaluation of 213 
+
+marginal distributions in an orthogonalized space, where the whitening is derived from the original 214 
+
+covariance matrix. As a result, the optimization process preserves and is sensitive to the dependence 215 
+
+structure of the original multivariate distribution. Under the Gaussian assumption, MVG-CRPS 216 
+
+constitutes a strictly proper scoring rule (see Appendix §A). 217 
+
+## 4 Experiments 218 
+
+4.1 Datasets and Models 219 
+
+We evaluate MVG-CRPS on two forecasting tasks: multivariate autoregressive forecasting using the 220 
+
+RNN-based GPVar [ 4] and a decoder-only Transformer [ 41 ], and univariate Seq2Seq forecasting 221 
+
+using the MLP-based N-HiTS model [42]. 222 
+
+To generate the distribution parameters for probabilistic forecasting, we employ a Gaussian distri-223 
+
+bution head based on the hidden state hi,t produced by the model. Specifically, for the multivariate 224 
+
+autoregressive forecasting, following Salinas et al. [4] , we parameterize the mean vector as μ (ht) = 225 
+
+[μ1 (h1,t ) , . . . , μ N (hN,t )] ⊤ ∈ RN and adopt a low-rank-plus-diagonal parameterization of the 226 
+
+covariance matrix Σ (ht) = LtL⊤ 
+
+> t
+
++ diag ( dt), where dt = [ d1 (h1,t ) , . . . , d N (hN,t )] ⊤ ∈ RN
+
+> +227
+
+and Lt = [ l1 (h1,t ) , . . . , lN (hN,t )] ⊤ ∈ RN ×R, R ≪ N is the rank parameter. Here, μi(·), di(·),228 
+
+6and li(·) are the mapping functions that generate the mean and covariance parameters for each 229 
+
+time series i based on the hidden state hi=1: N ,t . This parameterization guarantees that Σ(ht) is 230 
+
+full-rank, ensuring that the eigen-decomposition in Eq. (12) is always well-defined. In practice, we 231 
+
+use shared mapping functions across all time series, denoted as μi = ˜ μ, di = ˜d, and li = ˜l. This 232 
+
+parameterization ensures that Σ(ht) is positive definite and efficiently parameterized. The diagonal 233 
+
+component provides stability, while the low-rank component captures the covariance structure. The 234 
+
+Gaussian assumption also enables the use of random subsets of time series (i.e., batch size B ≤ N )235 
+
+for model optimization in each iteration, making it feasible to apply our method to high-dimensional 236 
+
+time series datasets. Similarly, in the univariate Seq2Seq forecasting task, the mean μ (hi) and 237 
+
+covariance Σ(hi) are defined over the forecast horizon for each specific time series, based on the 238 
+
+hidden states hi,t =T +1: T +Q. As a result, we can model the joint distribution p (zi,T +1: T +Q) over 239 
+
+the forecasted values. We implemented our models using PyTorch Forecasting [ 43 ], with input data 240 
+
+consisting of lagged time series values and covariates. Extensive experiments were conducted on a 241 
+
+variety of real-world time series datasets from GluonTS [ 44 ] (see Appendix §B). Full details of the 242 
+
+experimental setup are provided in Appendix §C. 243 
+
+4.2 Toy Example 244 
+
+We first perform a toy experiment following Roordink and Hess [45] using a true distribution 245 
+
+P = N
+
+ 1
+
+−1
+
+
+
+,
+
+ 1 0.80.8 4
+
+ 
+
+and a predictive distribution Q = N
+
+ μ
+
+−1
+
+
+
+,
+
+ σ2 2ρσ 
+
+2ρσ 4
+
+ 
+
+, where 246 
+
+we control the deviation of the three parameters μ, ρ, σ to study the various properties of different 247 
+
+scores. As shown in Fig. 3, the log-score increases sharply when the standard deviation σ or 248 
+
+correlation coefficient ρ deviate from their true values, indicating high sensitivity to covariance 249 
+
+misspecification. The ES shows lower sensitivity to the covariance structure but produces non-smooth 250 
+
+curves due to its sample-based approximation. In contrast, the MVG-CRPS displays comparable 251 
+
+sensitivity to deviations in all three parameters. It also produces smooth curves with a clear minimum 252 
+
+at zero deviation, reflecting its closed-form evaluation. 253 
+
+We further examine the robustness of different scoring rules for estimating the parameters of this 254 
+
+predictive distribution under data contamination, and analyze the trade-off between computational cost 255 
+
+and estimation accuracy for the ES with varying sample sizes (see Appendix §D.1). Overall, MVG-256 
+
+CRPS demonstrates greater robustness than the log-score across all three parameters, particularly for 257 
+
+μ and σ, and provides more consistent estimates than the ES due to its sampling-free formulation 258 
+
+(Fig. A1). We also observe that the ES produces less accurate estimates than MVG-CRPS for μ259 
+
+and σ. Although we do not claim superiority over the ES beyond efficiency, this discrepancy is 260 
+
+likely attributable to the variance introduced by its Monte Carlo approximation. Additionally, we 261 
+
+observe that the gains in estimation accuracy diminish rapidly as the sample size increases, and the 262 
+
+ES does not significantly outperform MVG-CRPS even with 1,000 samples (Fig. A2). Meanwhile, 263 
+
+the computational cost of the ES increases monotonically with sample size. 264 −0.25 0.00 0.25             
+
+> Parameter Deviation
+> 3.6
+> 3.8
+> Log-Score
+> −0.25 0.00 0.25
+> Parameter Deviation
+> 1.36
+> 1.38
+> Energy Score
+> −0.25 0.00 0.25
+> Parameter Deviation
+> 1.66
+> 1.68
+> 1.70
+> MVG-CRPS
+> ¹¡¹true ½¡½true ¾¡¾true
+
+Figure 3: Sensitivity of scoring rules to parameter deviations in the predicted mean, standard deviation, and correlation coefficient from the true data distribution ( μtrue = 1 , σ true = 1 , ρ true = 0 .4) . The ES values are computed with a sample size of 500. 
+
+4.3 Quantitative Evaluation 265 
+
+We evaluate the MVG-CRPS against models trained with the log-score and the ES using three 266 
+
+common metrics for probabilistic forecasts: CRPS sum , CRPS mean , and the ES (see Appendix §C.5 267 
+
+7Table 1: Comparison of CRPS sum across different scoring rules in the multivariate autoregressive forecasting task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score.                                                                                                 
+
+> VAR GPVar Transformer log-score energy score MVG-CRPS log-score energy score MVG-CRPS
+> elec _au N/A 0.1261 ±0.0009 0.0887 ±0.0004 0.0967 ±0.0008 0.1633 ±0.0005 0.1492 ±0.0006 0.0793 ±0.0004
+> cif _2016 1.0000 ±0.0000 0.0122 ±0.0004 0.0420 ±0.0006 0.0111 ±0.0005 0.0118 ±0.0003 0.0240 ±0.0014 0.0107 ±0.0002
+> electricity 0.1315 ±0.0006 0.0419 ±0.0008 0.0616 ±0.0004 0.0249 ±0.0006 0.0362 ±0.0002 0.0368 ±0.0004 0.0294 ±0.0004
+> elec _weekly 0.1126 ±0.0011 0.1515 ±0.0028 0.0417 ±0.0014 0.0772 ±0.0031 0.0937 ±0.0026 0.0403 ±0.0013 0.0448 ±0.0014
+> exchange _rate 0.0033 ±0.0000 0.0207 ±0.0004 0.0030 ±0.0001 0.0041 ±0.0001 0.0047 ±0.0003 0.0067 ±0.0003 0.0091 ±0.0004
+> kdd _cup N/A 0.3743 ±0.0019 0.3210 ±0.0019 0.2358 ±0.0014 0.2076 ±0.0013 0.4789 ±0.0030 0.1959 ±0.0017
+> m1 _yearly N/A 0.4397 ±0.0041 0.4801 ±0.0022 0.3566 ±0.0029 0.5344 ±0.0109 0.3291 ±0.0047 0.4563 ±0.0111
+> m3 _yearly N/A 0.3607 ±0.0084 0.2186 ±0.0042 0.1423 ±0.0053 0.3156 ±0.0102 0.4050 ±0.0061 0.2325 ±0.0094
+> nn5 _daily 0.2303 ±0.0005 0.0998 ±0.0004 0.0958 ±0.0003 0.0948 ±0.0003 0.0991 ±0.0003 0.0883 ±0.0004 0.0811 ±0.0002
+> saugeenday N/A 0.4040 ±0.0047 0.3733 ±0.0048 0.3941 ±0.0055 0.3771 ±0.0088 0.3689 ±0.0053 0.3705 ±0.0047
+> sunspot N/A 18.7115 ±1.3296 23.3988 ±0.9662 17.2438 ±0.5833 39.7454 ±1.4841 16.6556 ±0.6167 22.6495 ±0.6752
+> tourism 0.1394 ±0.0012 0.2217 ±0.0027 0.2112 ±0.0014 0.2004 ±0.0022 0.2100 ±0.0017 0.2087 ±0.0020 0.2082 ±0.0015
+> traffic 3.5241 ±0.0084 0.0742 ±0.0004 0.0505 ±0.0002 0.0868 ±0.0002 0.0658 ±0.0002 0.0667 ±0.0002 0.0683 ±0.0000
+> Avg. Rank 2.62 1.92 1.46 2.38 2.00 1.62
+
+Table 2: Training time (in minutes) for GPVar using different scoring rules in the multivariate autoregressive forecasting task. Reported times include early stopping and reflect differences in convergence speed across loss functions.                                                                                   
+
+> log-score energy score MVG-CRPS per epoch total per epoch total per epoch total
+> elec _au 0.86 33.53 16.29 717.00 0.78 29.14
+> cif _2016 0.13 1.58 4.83 401.04 0.12 3.85
+> electricity 0.40 67.38 11.17 782.40 0.38 22.70
+> elec _weekly 0.30 14.61 10.95 383.52 0.26 18.77
+> exchange _rate 0.25 16.40 10.20 663.60 0.29 23.63
+> kdd _cup 0.42 11.32 14.23 2063.52 0.42 28.79
+> m1 _yearly 0.19 3.71 5.66 469.92 0.18 8.02
+> m3 _yearly 0.43 7.30 10.80 291.72 0.42 14.49
+> nn5 _daily 0.29 9.21 11.64 244.50 0.27 14.53
+> saugeenday 0.23 12.65 10.70 524.46 0.15 15.32
+> sunspot 0.44 26.85 10.73 397.26 0.42 16.96
+> tourism 0.49 23.96 10.56 243.00 0.46 12.51
+> traffic 0.94 76.98 14.92 1044.60 0.92 92.46
+
+for definitions). Table 1 presents a comparison of CRPS sum for the multivariate autoregressive 268 
+
+forecasting task. Overall, the MVG-CRPS achieves the best average rank among the three scoring 269 
+
+rules. Notably, it consistently outperforms the log-score across most datasets, indicating that MVG-270 
+
+CRPS leads to models with higher-quality forecasts. As shown in later sections, this improvement is 271 
+
+attributed to MVG-CRPS being less sensitive to outliers. Compared to the ES , MVG-CRPS achieves 272 
+
+comparable or better performance (Table 1) while being more efficient during training (Table 2). It is 273 
+
+important to note that we do not claim MVG-CRPS is more robust than ES ; rather, our focus is on its 274 
+
+efficiency compared to ES . Results for CRPS mean and the ES are provided in Appendix §D.2, and 275 
+
+results for the univariate Seq2Seq forecasting task are presented in Appendix §D.3. In both tasks, 276 
+
+MVG-CRPS achieves consistent performance across all three evaluation metrics. 277 
+
+4.4 Qualitative Evaluation 278 
+
+To illustrate the robustness of MVG-CRPS, we compare the output covariance matrices from models 279 
+
+trained with different loss functions and visualize their probabilistic forecasts. In Fig. 4, the log-score 280 
+
+model produces covariance matrices that occasionally exhibit large covariances, despite normal-281 
+
+ization applied to each time series. This behavior likely reflects the influence of large tail errors 282 
+
+during training. In contrast, the MVG-CRPS model captures similar covariance patterns without 283 
+
+extreme values, indicating improved robustness to outliers. To highlight the practical impact, we 284 
+
+compare GPVar forecasts on the electricity dataset (Fig. 5). MVG-CRPS yields sharper and 285 
+
+better-calibrated predictions, while the log-score model occasionally produces overly wide intervals, 286 
+
+80.0 
+
+> 0.2
+> 0.4
+> 0.6
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+
+Figure 4: Comparison of output covariance matrices Σt from GPVar on the elec _weekly dataset. For visual clarity, covariance values are clipped between 0 and 0.6. −20 0 20            
+
+> Time Step
+> 100
+> 200
+> log score
+> TS: 1
+> −20 020
+> Time Step
+> 0
+> 250
+> 500
+> TS: 2
+> −20 020
+> Time Step
+> 200
+> 400
+> 600
+> TS: 3
+> −20 020
+> Time Step
+> 100
+> 200
+> MVG-CRPS
+> TS: 1
+> −20 020
+> Time Step
+> 0
+> 500
+> TS: 2
+> −20 020
+> Time Step
+> 250
+> 500
+> 750
+> TS: 3
+> observed predicted
+
+Figure 5: Comparison of probabilistic forecasts from GPVar on the electricity dataset. reflecting greater sensitivity to outliers (e.g., TS 1). Results for the univariate Seq2Seq forecasting 287 
+
+task are provided in Appendix §D.3. 288 
+
+## 5 Conclusion 289 
+
+This paper introduced the MVG-CRPS, a novel strictly proper scoring rule specifically designed for 290 
+
+multivariate Gaussian probabilistic forecasting. MVG-CRPS addresses the sensitivity of the log-score 291 
+
+to outliers and overcomes the computational inefficiency inherent to the ES. By applying a whitening 292 
+
+transformation and leveraging the closed-form expression of the univariate CRPS, our approach 293 
+
+achieves robustness to extreme values while remaining computationally efficient and easily integrable 294 
+
+into deep learning frameworks. Moreover, the MVG-CRPS exhibits high sensitivity to both the mean 295 
+
+and covariance of the predictive distribution—comparable to the log-score—while preserving the 296 
+
+robustness properties of the ES. Empirical evaluations on real-world datasets demonstrated significant 297 
+
+improvements in both predictive accuracy and robustness compared to existing scoring rules. 298 
+
+Beyond forecasting, the general formulation of MVG-CRPS extends naturally to broader probabilistic 299 
+
+regression contexts, such as robust Gaussian process regression, by replacing conventional negative 300 
+
+marginal likelihood objectives. Future directions include leveraging copula transformations to extend 301 
+
+the MVG-CRPS to non-Gaussian distributions and exploring more efficient covariance parameteriza-302 
+
+tions to enhance scalability. Currently, scalability remains constrained by the computational demands 303 
+
+of eigen-decomposition in large-batch scenarios. A possible solution to mitigate this limitation is 304 
+
+to adopt an isotropic noise parameterization, i.e., Σ = LL ⊤ + σ2I, which enables more efficient 305 
+
+computation of the SVD. 306 
+
+9References 307 
+
+[1] Jan JJ Groen, Richard Paap, and Francesco Ravazzolo. Real-time inflation forecasting in a changing world. 308 
+
+Journal of Business & Economic Statistics , 31(1):29–44, 2013. 309 
+
+[2] TN Palmer. Towards the probabilistic earth-system simulator: A vision for the future of climate and 310 
+
+weather prediction. Quarterly Journal of the Royal Meteorological Society , 138(665):841–861, 2012. 311 
+
+[3] Hayley E Jones and David J Spiegelhalter. Improved probabilistic prediction of healthcare performance 312 
+
+indicators using bidirectional smoothing models. Journal of the Royal Statistical Society Series A: Statistics 313 
+
+in Society , 175(3):729–747, 2012. 314 
+
+[4] David Salinas, Michael Bohlke-Schneider, Laurent Callot, Roberto Medico, and Jan Gasthaus. High-315 
+
+dimensional multivariate forecasting with low-rank gaussian copula processes. Advances in Neural 316 
+
+Information Processing Systems , 32, 2019. 317 
+
+[5] Konstantinos Benidis, Syama Sundar Rangapuram, Valentin Flunkert, Yuyang Wang, Danielle Maddix, 318 
+
+Caner Turkmen, Jan Gasthaus, Michael Bohlke-Schneider, David Salinas, Lorenzo Stella, et al. Deep 319 
+
+learning for time series forecasting: Tutorial and literature survey. ACM Computing Surveys , 55(6):1–36, 320 
+
+2022. 321 
+
+[6] Kashif Rasul, Abdul-Saboor Sheikh, Ingmar Schuster, Urs Bergmann, and Roland Vollgraf. Multivariate 322 
+
+probabilistic time series forecasting via conditioned normalizing flows. In International Conference on 323 
+
+Learning Representations , 2021. 324 
+
+[7] Manuel Gebetsberger, Jakob W Messner, Georg J Mayr, and Achim Zeileis. Estimation methods for 325 
+
+nonhomogeneous regression models: Minimum continuous ranked probability score versus maximum 326 
+
+likelihood. Monthly Weather Review , 146(12):4323–4338, 2018. 327 
+
+[8] Mathias Blicher Bjerregård, Jan Kloppenborg Møller, and Henrik Madsen. An introduction to multivariate 328 
+
+probabilistic forecast evaluation. Energy and AI , 4:100058, 2021. 329 
+
+[9] Tilmann Gneiting and Adrian E Raftery. Strictly proper scoring rules, prediction, and estimation. Journal 330 
+
+of the American Statistical Association , 102(477):359–378, 2007. 331 
+
+[10] James E Matheson and Robert L Winkler. Scoring rules for continuous probability distributions. Manage-332 
+
+ment Science , 22(10):1087–1096, 1976. 333 
+
+[11] Tilmann Gneiting and Adrian E Raftery. Weather forecasting with ensemble methods. Science , 310(5746): 334 
+
+248–249, 2005. 335 
+
+[12] Lorenzo Pacchiardi, Rilwan A Adewoyin, Peter Dueben, and Ritabrata Dutta. Probabilistic forecasting 336 
+
+with generative networks via scoring rule minimization. Journal of Machine Learning Research , 25(45): 337 
+
+1–64, 2024. 338 
+
+[13] Jieyu Chen, Tim Janke, Florian Steinke, and Sebastian Lerch. Generative machine learning methods for 339 
+
+multivariate ensemble postprocessing. The Annals of Applied Statistics , 18(1):159–183, 2024. 340 
+
+[14] Ruofeng Wen, Kari Torkkola, Balakrishnan Narayanaswamy, and Dhruv Madeka. A multi-horizon quantile 341 
+
+recurrent forecaster. arXiv preprint arXiv:1711.11053 , 2017. 342 
+
+[15] David Salinas, Valentin Flunkert, Jan Gasthaus, and Tim Januschowski. Deepar: Probabilistic forecasting 343 
+
+with autoregressive recurrent networks. International Journal of Forecasting , 36(3):1181–1191, 2020. 344 
+
+[16] Vincent Zhihao Zheng, Seongjin Choi, and Lijun Sun. Better batch for deep probabilistic time series 345 
+
+forecasting. In International Conference on Artificial Intelligence and Statistics , pages 91–99, 2024. 346 
+
+[17] Vincent Zhihao Zheng and Lijun Sun. Multivariate probabilistic time series forecasting with correlated 347 
+
+errors. Advances in Neural Information Processing Systems , 37, 2024. 348 
+
+[18] Vincent Zhihao Zheng, Seongjin Choi, and Lijun Sun. Probabilistic traffic forecasting with dynamic 349 
+
+regression. Transportation Science , 2025. 350 
+
+[19] Syama Sundar Rangapuram, Matthias W Seeger, Jan Gasthaus, Lorenzo Stella, Yuyang Wang, and Tim 351 
+
+Januschowski. Deep state space models for time series forecasting. Advances in Neural Information 352 
+
+Processing Systems , 31, 2018. 353 
+
+10 [20] Emmanuel de Bézenac, Syama Sundar Rangapuram, Konstantinos Benidis, Michael Bohlke-Schneider, 354 
+
+Richard Kurle, Lorenzo Stella, Hilaf Hasson, Patrick Gallinari, and Tim Januschowski. Normalizing 355 
+
+kalman filters for multivariate time series analysis. Advances in Neural Information Processing Systems ,356 
+
+33:2995–3007, 2020. 357 
+
+[21] Kashif Rasul, Calvin Seward, Ingmar Schuster, and Roland Vollgraf. Autoregressive denoising diffusion 358 
+
+models for multivariate probabilistic time series forecasting. In International Conference on Machine 359 
+
+Learning , pages 8857–8868, 2021. 360 
+
+[22] Alexandre Drouin, Étienne Marcotte, and Nicolas Chapados. Tactis: Transformer-attentional copulas for 361 
+
+time series. In International Conference on Machine Learning , pages 5447–5493, 2022. 362 
+
+[23] Arjun Ashok, Étienne Marcotte, Valentina Zantedeschi, Nicolas Chapados, and Alexandre Drouin. Tactis-2: 363 
+
+Better, faster, simpler attentional copulas for multivariate time series. In International Conference on 364 
+
+Learning Representations , 2024. 365 
+
+[24] Jochen Bröcker. Reliability, sufficiency, and the decomposition of proper scores. Quarterly Journal of the 366 
+
+Royal Meteorological Society: A journal of the atmospheric sciences, applied meteorology and physical 367 
+
+oceanography , 135(643):1512–1519, 2009. 368 
+
+[25] Anastasios Panagiotelis, Puwasala Gamakumara, George Athanasopoulos, and Rob J Hyndman. Probabilis-369 
+
+tic forecast reconciliation: Properties, evaluation and score optimisation. European Journal of Operational 370 
+
+Research , 306(2):693–706, 2023. 371 
+
+[26] Tilmann Gneiting, Fadoua Balabdaoui, and Adrian E Raftery. Probabilistic forecasts, calibration and 372 
+
+sharpness. Journal of the Royal Statistical Society Series B: Statistical Methodology , 69(2):243–268, 2007. 373 
+
+[27] Stephan Rasp and Sebastian Lerch. Neural networks for postprocessing ensemble weather forecasts. 374 
+
+Monthly Weather Review , 146(11):3885–3900, 2018. 375 
+
+[28] Tilmann Gneiting, Adrian E Raftery, Anton H Westveld, and Tom Goldman. Calibrated probabilistic 376 
+
+forecasting using ensemble model output statistics and minimum crps estimation. Monthly Weather Review ,377 
+
+133(5):1098–1118, 2005. 378 
+
+[29] Kin G Olivares, Geoffrey Négiar, Ruijun Ma, O Nangba Meetei, Mengfei Cao, and Michael W Mahoney. 379 
+
+Probabilistic forecasting with coherent aggregation. arXiv preprint arXiv:2307.09797 , 2023. 380 
+
+[30] Simon Lang, Mihai Alexe, Mariana CA Clare, Christopher Roberts, Rilwan Adewoyin, Zied Ben Boual-381 
+
+lègue, Matthew Chantry, Jesper Dramsch, Peter D Dueben, Sara Hahner, et al. Aifs-crps: Ensemble 382 
+
+forecasting using a model trained with a loss function based on the continuous ranked probability score. 383 
+
+arXiv preprint arXiv:2412.15832 , 2024. 384 
+
+[31] Pierre Pinson and Julija Tastu. Discrimination ability of the energy score. 2013. 385 
+
+[32] Carol Alexander, Michael Coulon, Yang Han, and Xiaochun Meng. Evaluating the discrimination ability 386 
+
+of proper multi-variate scoring rules. Annals of Operations Research , 334(1):857–883, 2024. 387 
+
+[33] Diane Bouchacourt, Pawan K Mudigonda, and Sebastian Nowozin. Disco nets: Dissimilarity coefficients 388 
+
+networks. Advances in Neural Information Processing Systems , 29, 2016. 389 
+
+[34] Michael Scheuerer and Thomas M Hamill. Variogram-based proper scoring rules for probabilistic forecasts 390 
+
+of multivariate quantities. Monthly Weather Review , 143(4):1321–1334, 2015. 391 
+
+[35] Tilmann Gneiting and Matthias Katzfuss. Probabilistic forecasting. Annual Review of Statistics and Its 392 
+
+Application , 1(1):125–151, 2014. 393 
+
+[36] Florian Ziel and Kevin Berk. Multivariate forecasting evaluation: On sensitive and strictly proper scoring 394 
+
+rules. arXiv preprint arXiv:1910.07325 , 2019. 395 
+
+[37] Kartik Waghmare and Johanna Ziegel. Proper scoring rules for estimation and forecast evaluation. arXiv 396 
+
+preprint arXiv:2504.01781 , 2025. 397 
+
+[38] Romain Pic, Clément Dombry, Philippe Naveau, and Maxime Taillardat. Proper scoring rules for multivari-398 
+
+ate probabilistic forecasts based on aggregation and transformation. Advances in Statistical Climatology, 399 
+
+Meteorology and Oceanography , 11(1):23–58, 2025. 400 
+
+[39] Helga Kristin Olafsdottir, Holger Rootzén, and David Bolin. Fast and robust cross-validation-based scoring 401 
+
+rule inference for spatial statistics. arXiv preprint arXiv:2408.11994 , 2024. 402 
+
+11 [40] Abdulmajid Murad, Frank Alexander Kraemer, Kerstin Bach, and Gavin Taylor. Probabilistic deep learning 403 
+
+to quantify uncertainty in air quality forecasting. Sensors , 21(23):8009, 2021. 404 
+
+[41] Alec Radford, Karthik Narasimhan, Tim Salimans, Ilya Sutskever, et al. Improving language understanding 405 
+
+by generative pre-training. 2018. 406 
+
+[42] Cristian Challu, Kin G Olivares, Boris N Oreshkin, Federico Garza Ramirez, Max Mergenthaler Canseco, 407 
+
+and Artur Dubrawski. Nhits: Neural hierarchical interpolation for time series forecasting. In Proceedings 408 
+
+of the AAAI Conference on Artificial Intelligence , volume 37, pages 6989–6997, 2023. 409 
+
+[43] Jan Beitner. Pytorch forecasting. https://pytorch-forecasting.readthedocs.io , 2020. 410 
+
+[44] Alexander Alexandrov, Konstantinos Benidis, Michael Bohlke-Schneider, Valentin Flunkert, Jan Gasthaus, 411 
+
+Tim Januschowski, Danielle C Maddix, Syama Rangapuram, David Salinas, Jasper Schulz, et al. Gluonts: 412 
+
+Probabilistic and neural time series modeling in python. The Journal of Machine Learning Research , 21 413 
+
+(1):4629–4634, 2020. 414 
+
+[45] Daan Roordink and Sibylle Hess. Scoring rule nets: Beyond mean target prediction in multivariate 415 
+
+regression. In Joint European Conference on Machine Learning and Knowledge Discovery in Databases ,416 
+
+pages 190–205. Springer, 2023. 417 
+
+[46] Alfred Horn. Doubly stochastic matrices and the diagonal of a rotation matrix. American Journal of 418 
+
+Mathematics , 76(3):620–630, 1954. 419 
+
+[47] Roger A Horn and Charles R Johnson. Matrix analysis . Cambridge University Press, 2012. 420 
+
+[48] Taesung Kim, Jinhee Kim, Yunwon Tae, Cheonbok Park, Jang-Ho Choi, and Jaegul Choo. Reversible 421 
+
+instance normalization for accurate time-series forecasting against distribution shift. In International 422 
+
+Conference on Learning Representations , 2021. 423 
+
+[49] Helmut Lütkepohl. New Introduction to Multiple Time Series Analysis . Springer Science & Business 424 
+
+Media, 2005. 425 
+
+12 Appendix 426 
+
+## Table of Contents 427 
+
+A MVG-CRPS is Strictly Proper 13 428 
+
+B Dataset Details 14 429 
+
+C Experiment Details 15 430 
+
+C.1 Benchmark Models . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15 431 
+
+C.2 Naive Baseline Description . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15 432 
+
+C.3 Hyperparameters . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16 433 
+
+C.4 Training Procedure . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16 434 
+
+C.5 Evaluation Metrics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 435 
+
+D Additional Results 18 436 
+
+D.1 Synthetic Data Experiment . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 437 
+
+D.2 Other Metrics for Multivariate Autoregressive Forecasting . . . . . . . . . . . . . 20 438 
+
+D.3 Univariate Seq2Seq Forecasting . . . . . . . . . . . . . . . . . . . . . . . . . . . 21 439 
+
+D.4 Hyperparameter Sensitivity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22 440 
+
+D.5 Controlled Outlier Experiment . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23 441 
+
+## A MVG-CRPS is Strictly Proper 442 
+
+Theorem A.1. Let z ∼ N  μp, Σp
+
+ be a true N -variate Gaussian distribution where the covariance 443 
+
+admits eigen-decomposition Σp = U pSpU ⊤ 
+
+> p
+
+, with Sp = diag ( λp) containing nonincreasing 444 
+
+eigenvalues λp = [ λp
+
+> 1
+
+, . . . , λ pN ]⊤ and U p being the corresponding orthonormal matrix. Consider a 445 
+
+predictive Gaussian distribution N  μq , Σq
+
+, where covariance Σq admits the eigen-decomposition 446 
+
+Σq = U q Sq U ⊤ 
+
+> q
+
+with Sq = diag ( λq ). Define the transformed variable v = U ⊤
+
+> q
+
+ z − μq
+
+ =447 
+
+[v1, . . . , v N ]⊤. The proposed MVG-CRPS 448 
+
+MCRPS  ΦN
+
+ μq , Σq
+
+ , z =
+
+> N
+
+X
+
+> i=1
+
+CRPS (Φ (0 , λ qi ) , v i)
+
+is proper and strictly proper for multivariate Gaussian distributions. 449 
+
+Proof. Given that z ∼ N  μp, Σp
+
+, we have the transformed variable v ∼ N (μv , Σv ) with μv =450 
+
+U ⊤ 
+
+> q
+
+(μp − μq ) = [ ν1, . . . , ν N ]⊤ and Σv = U ⊤ 
+
+> q
+
+ΣpU q = U ⊤ 
+
+> q
+
+U pSpU ⊤ 
+
+> p
+
+U q = U v SpU ⊤ 
+
+> v
+
+, where 451 
+
+U v = U ⊤ 
+
+> q
+
+U p is an orthonormal matrix. Thus, each vi has a marginal distribution vi ∼ N (νi, τ i)452 
+
+for i = 1 , . . . , N , with τ = diag( Σv ) = diag( U v SpU ⊤ 
+
+> v
+
+) = [ τ1, . . . , τ N ]⊤. Taking the expectation 453 
+
+13 of MCRPS  ΦN
+
+ μq , Σq
+
+ , z under the true distribution, we have 454 
+
+Ez∼N (μp,Σp)
+
+MCRPS  ΦN
+
+ μq , Σq
+
+ , z =
+
+> N
+
+X
+
+> i=1
+
+Evi∼N (νi,τ i) [CRPS (Φ (0 , λ qi ) , v i)] 
+
+≥
+
+> N
+
+X
+
+> i=1
+
+Evi∼N (νi,τ i) [CRPS (Φ ( νi, τ i) , v i)] =
+
+> N
+
+X
+
+> i=1
+
+Eηi∼N (0 ,τ i) [CRPS (Φ (0 , τ i) , η i)] = Ev∼N (0 ,1) [CRPS (Φ , v )] ×
+
+> N
+
+X
+
+> i=1
+
+√τi
+
+≥ Ev∼N (0 ,1) [CRPS (Φ , v )] ×
+
+> N
+
+X
+
+> i=1
+
+q
+
+λpi
+
+= Ez∼N (μp,Σp)
+
+MCRPS  ΦN
+
+ μp, Σp
+
+ , z .
+
+(17) The first inequality is a direct result of CRPS being a strictly proper scoring rule for univariate 455 
+
+Gaussian distributions. We now prove the second inequality. 456 
+
+Recall that τ = diag( Σv ) and Σv = U ⊤ 
+
+> q
+
+ΣpU q . Let τ ∗ be the monotone nonincreasing rearrange-457 
+
+ment of τ . By the Schur-Horn theorem [ 46 ], the diagonal vector τ ∗ is majorized by the eigenvalues 458 
+
+λp:459 
+
+> k
+
+X
+
+> i=1
+
+τ ∗ 
+
+> i
+
+≤
+
+> k
+
+X
+
+> i=1
+
+λpi ,
+
+for k = 1 , 2, . . . , N − 1, and 460 
+
+> N
+
+X
+
+> i=1
+
+τ ∗ 
+
+> i
+
+=
+
+> N
+
+X
+
+> i=1
+
+λpi .
+
+Since f (x) = √x is a concave function, Karamata’s majorization inequality yields 461 
+
+> N
+
+X
+
+> i=1
+
+q
+
+λpi ≤
+
+> N
+
+X
+
+> i=1
+
+pτ ∗ 
+
+> i
+
+=
+
+> N
+
+X
+
+> i=1
+
+√τi, (18) which proves the second inequality in Eq. (17) . Hence, the MVG-CRPS is a proper scoring rule for 462 
+
+the multivariate Gaussian distribution. 463 
+
+Equality in Eq. (18) is obtained if, for every i, τ ∗ 
+
+> i
+
+= λpi . By the Schur-Horn theorem, this forces Σv464 
+
+to be a diagonal matrix (Theorem 4.3.45 in Horn and Johnson [47] ). Meanwhile, the CRPS inequality 465 
+
+in Eq. (17) is tight exactly when, for every i, νi = 0 and τi = λqi , implying that U ⊤ 
+
+> q
+
+(μp − μq ) = 0466 
+
+and diag( Σv ) = diag( Sq ). Since Σv is diagonal, we have Σv = U ⊤ 
+
+> q
+
+ΣpU q = Sq , hence Σp = Σq .467 
+
+Therefore, all equalities hold if and only if μp = μq and Σp = Σq . This confirms that the proposed 468 
+
+scoring rule is proper and strictly proper for the multivariate Gaussian distribution. 469 
+
+## B Dataset Details 470 
+
+We conducted experiments on a diverse collection of real-world datasets sourced from GluonTS [ 44 ]. 471 
+
+These datasets are commonly used for benchmarking time series forecasting models, following their 472 
+
+default configurations in GluonTS, which include granularity, prediction horizon ( Q), and the number 473 
+
+of rolling evaluations. For each dataset, we sequentially split the data into training, validation, and 474 
+
+testing sets, ensuring that the temporal length of the validation set matched that of the testing set. 475 
+
+The temporal length of the testing set was based on the prediction horizon and the required number 476 
+
+of rolling evaluations. For example, the testing horizon for the traffic dataset is calculated as 477 
+
+14 24 + 7 − 1 = 30 time steps. Consequently, the model generates 24-step predictions ( Q) sequentially, 478 
+
+with 7 distinct consecutive prediction start points, corresponding to 7 forecast instances. In our 479 
+
+experiments, we aligned the conditioning range ( P ) with the prediction horizon ( Q), consistent with 480 
+
+the default setting in GluonTS (i.e., P = Q). Each time series was individually normalized using a 481 
+
+scaler fitted to its own training data [ 15 , 48 ]. Predictions were then rescaled to their original values 482 
+
+for computing evaluation metrics. Table A1 summarizes the statistics of all datasets. 483 
+
+Table A1: Dataset summary. 
+
+Dataset Granularity # of time series # of time steps Q Rolling evaluation 
+
+elec _au 30min 5 232,272 60 56 
+
+cif _2016 monthly 72 120 12 1
+
+electricity hourly 370 5,857 24 7
+
+elec _weekly weekly 321 156 8 3
+
+exchange _rate workday 8 6,101 30 5
+
+kdd _cup hourly 270 10,920 48 7
+
+m1 _yearly yearly 181 169 6 1
+
+m3 _yearly yearly 645 191 6 1
+
+nn5 _daily daily 111 791 56 5
+
+saugeenday daily 1 23,741 30 5
+
+sunspot daily 1 73,924 30 5
+
+tourism quarterly 427 131 8 1
+
+traffic hourly 963 4,025 24 7
+
+covid daily 266 212 30 5
+
+elec _hourly hourly 321 26,304 48 7
+
+m4 _hourly hourly 414 1,008 48 7
+
+pedestrian hourly 66 96,432 48 7
+
+taxi _30min 30min 1214 1,637 24 56 
+
+uber _hourly hourly 262 8,343 24 7
+
+wiki daily 2000 792 30 5
+
+## C Experiment Details 484 
+
+C.1 Benchmark Models 485 
+
+The input to benchmark models includes lagged time series values and covariates that encode time 486 
+
+and series identification. The number of lagged values is determined by the granularity of each 487 
+
+dataset. Specifically, we use lags of {1, 24 , 168 } for hourly data, {1, 7, 14 } for daily data, and 488 
+
+{1, 2, 4, 12 , 24 , 48 } for data with sub-hourly granularity. For all other datasets, only lag-1 values are 489 
+
+used. 490 
+
+For datasets with hourly or finer granularity, we include the hour of the day and day of the week. For 491 
+
+daily datasets, only the day of the week is used. Each time series is uniquely identified by a numeric 492 
+
+identifier. All features are encoded as single values; for example, the hour of the day takes values 493 
+
+between [0, 23]. These features are concatenated with the model input at each time step to form the 494 
+
+model input vector yt [4, 17]. 495 
+
+Our method requires a state vector hi,t to generate the parameters for the predictive distribution. To 496 
+
+achieve this, we employ different neural architectures: RNNs and Transformer decoders, both of 497 
+
+which maintain autoregressive properties for the multivariate autoregressive forecasting task, and 498 
+
+MLPs for the univariate Seq2Seq forecasting task. Specifically, we use the GPVar model [ 4] as our 499 
+
+RNN benchmark, the GPT model [ 41 ] for the decoder-only Transformer, and the N-HiTS model [ 42 ]500 
+
+for the MLPs. All models are trained to output hi,t , which is used to parameterize the predictive 501 
+
+distribution. 502 
+
+C.2 Naive Baseline Description 503 
+
+In this paper, we use Vector Autoregression (VAR) [ 49 ] as a naive baseline model. The VAR( p)504 
+
+model is formulated as 505 
+
+zt = c + A1zt−1 + · · · + Apzt−p + ϵt, ϵt ∼ N (0, Σϵ), (19) 15 where Ai is an N × N coefficient matrix, and c is the intercept term. In our experiments, we employ 506 
+
+a VAR model with a lag of 1 (VAR(1)). The parameters in Eq. (19) are estimated using ordinary 507 
+
+least squares (OLS), as described in Lütkepohl [49] . VAR models are not applied to datasets with 508 
+
+insufficient time series in the testing set and are marked as “N/A” in this paper. 509 
+
+C.3 Hyperparameters 510 
+
+All model parameters are optimized using the Adam optimizer with l2 regularization set to 1e−8,511 
+
+and gradient clipping applied at 10.0. For all methods, we cap the total number of gradient updates 512 
+
+at 10,000 and reduce the learning rate by a factor of 2 after 500 consecutive updates without 513 
+
+improvement. Table A2 provides the hyperparameter values that remain fixed across all datasets. In 514 
+
+the main manuscript, we do NOT tune the hyperparameters specifically to favor the proposed loss. 515 
+
+Instead, we use the same hyperparameters as those in GPVar [ 4], which were originally tuned for the 516 
+
+log-score. Keeping the hyperparameters consistent across loss functions ensures that any observed 517 
+
+improvements are attributable to the loss function itself rather than differences in hyperparameter 518 
+
+settings. However, we conduct additional studies using hyperparameters tuned for each loss function 519 
+
+in §D.4. 520 
+
+Table A2: Hyperparameters values.            
+
+> Hyperparameter Value learning rate 1e-3 hidden size 40
+> n_layers (RNN/Transformer decoder/MLP) 2
+> n_heads (Transformer) 2rank ( R)10 sampling dimension ( B)20 dropout 0.01 batch size 16
+
+C.4 Training Procedure 521 
+
+Compute Resources All models were trained in an Anaconda environment using one AMD Ryzen 522 
+
+Threadripper PRO 5955WX CPU and four NVIDIA RTX A5000 GPUs, each with 24 GB of memory. 523 
+
+Batch Size Following the method used in GPVar [ 4], we set the sample slice size to B = 20 time 524 
+
+series and used a batch size of 16. Since our data sampler processes one slice of time series at a time 525 
+
+rather than sampling 16 slices simultaneously, we set accumulate _grad _batches to 16, effectively 526 
+
+achieving a batch size of 16. 527 
+
+Training Loop During each epoch, the model is trained on up to 400 batches from the training set, 528 
+
+followed by the computation of the valid _loss on the validation set. Training is halted when one 529 
+
+of the following conditions is met: 530 
+
+• A total of 10,000 gradient updates has been reached, 531 
+
+• No improvement in the validation set valid _loss is observed for 10 consecutive epochs. 532 
+
+The final model is the one that achieves the lowest valid _loss on the validation set. 533 
+
+Covariance Parameterization The covariance matrix Σt is parameterized directly by the forecasting 534 
+
+model. Specifically, it is constructed as: Σt = LtL⊤ 
+
+> t
+
++ diag (dt), where Lt is a low-rank matrix and 535 
+
+dt is a positive diagonal vector. This parameterization ensures that Σt remains positive semi-definite 536 
+
+while being computationally efficient to learn. This parameterization is standard in probabilistic 537 
+
+forecasting and allows the model to learn both the structure (through Lt) and scale (through dt)538 
+
+of the covariance during training. Without constraints, the MVG-CRPS loss could potentially be 539 
+
+minimized by driving all eigenvalues of Σt to zero, resulting in a trivial solution. However, this is 540 
+
+prevented through the following mechanisms: 541 
+
+• The diagonal entries of the covariance matrix are parameterized as di,t = softplus (di,t +542 
+
+diag _bias ) + σ2
+
+> min
+
+, where the softplus function ensures that the diagonal entries are 543 
+
+16 strictly positive, regardless of the raw input values, diag _bias is initialized to approxi-544 
+
+mately softplus _inv (σ2
+
+> init
+
+), ensuring that the diagonal entries are initially close to σ2
+
+> init
+
+.545 
+
+For instance, with σinit = 1 .0, the initial diagonal values start near 1.0. The addition of σ2
+
+> min 546
+
+provides a lower bound on the diagonal entries, ensuring that eigenvalues cannot approach 547 
+
+zero. 548 
+
+• The low-rank component is parameterized as Li,t = Li,t  
+
+> √R
+
+, where dividing by rank ensures 549 
+
+that the low-rank term is well-scaled relative to the diagonal entries. This normalization 550 
+
+prevents the low-rank component from dominating or becoming disproportionately small in 551 
+
+the covariance matrix. 552 
+
+Moreover, the MVG-CRPS loss provides a balance between the calibration and sharpness of the 553 
+
+forecasts: 554 
+
+wt = S− 12 
+
+> t
+
+vt = S− 12 
+
+> t
+
+U ⊤ 
+
+> t
+
+(zt − μt) ,
+
+> 555
+
+L =
+
+> T
+
+X
+
+> t=1
+> N
+
+X
+
+> i=1
+
+q
+
+λit CRPS (Φ , w i,t ) .
+
+We observe that if the eigenvalues λit in St approach zero, wi,t will be scaled very aggressively. This 556 
+
+leads to inflated residuals wi,t , which subsequently affect the CRPS computation. Since the CRPS 557 
+
+metric integrates over the forecast distribution F (y), penalizing deviations between F (y) and the 558 
+
+empirical step function 1(y ≥ wi,t ), artificially large wi,t values (resulting from extreme eigenvalue 559 
+
+scaling) will cause the CRPS term to increase significantly. This behavior reflects the importance of 560 
+
+ensuring that eigenvalues λit are well-regularized to prevent distortion in the forecast evaluation. By 561 
+
+balancing the eigenvalue contributions, the MVG-CRPS ensures both stable calibration and sharpness 562 
+
+in probabilistic forecasting. 563 
+
+SVD and Gradient Calculation We perform SVD on Σ(ht) to obtain Ut and St (the eigenvectors 564 
+
+and eigenvalues, respectively). These are required to compute the whitening transformation: wt =565 
+
+S− 12 
+
+> t
+
+U⊤ 
+
+> t
+
+(zt − μt). During training, gradients of L need to flow back through the whitened vecotr wt,566 
+
+the eigenvectors matrix Ut, the eigenvalues matrix St, and the covariance matrix Σt. The gradient 567 
+
+of L with respect to wt is ∂L 
+
+> ∂wt
+
+. Gradients of wt are propagated to the whitening transformation: 568 
+
+wt = S− 12 
+
+> t
+
+U⊤ 
+
+> t
+
+(zt − μt), which involves: (1) gradients with respect to Ut; (2) gradients with 569 
+
+respect to S− 12 
+
+> t
+
+(i.e., the square root and inverse of singular values); and (3) gradients with respect 570 
+
+to (zt − μt). Using PyTorch’s torch .linalg .svd , we calculate the gradients of Ut and St via 571 
+
+automatic differentiation. For the forward pass, the cost of SVD for Σ(ht) ∈ RB×B is O(B3),572 
+
+where B is the matrix dimension. For the backward pass, computing the gradients of Ut and St also 573 
+
+incurs O(B3) computational cost. Memory usage scales as O(B2) for storing the covariance matrix 574 
+
+and the singular value decomposition outputs ( Ut, St). Additional memory is required for autograd 575 
+
+intermediate values, scaling as O(B3). By leveraging PyTorch’s autograd system, we integrate the 576 
+
+computation of Ut, St, and their gradients seamlessly into our end-to-end learning pipeline. This 577 
+
+ensures that the whitening transformation and the loss function are fully differentiable, allowing the 578 
+
+model parameters to be trained via gradient-based optimizers. The parameter B also plays a crucial 579 
+
+role in the scalability of our method. By leveraging the Gaussian assumption, we are able to train 580 
+
+the model using a much smaller subset of time series at each step. Consequently, the size of the 581 
+
+covariance matrix is reduced to B × B, as opposed to N × N , where N represents the total number 582 
+
+of time series in the dataset. This design ensures that the computational complexity of our method 583 
+
+does not scale with N . Moreover, B is kept relatively small in our implementation (e.g., B = 20 ), 584 
+
+making the approach computationally efficient. 585 
+
+C.5 Evaluation Metrics 586 
+
+In this paper, we repeated the evaluation procedure on the testing set ten times to compute the mean 587 
+
+and standard deviation of each metric. For each evaluation, the metrics were calculated by averaging 588 
+
+over all forecast instances in the testing set. For example, the reported CRPS sum represents the 589 
+
+average CRPS sum across all forecast instances. Both CRPS and ES were estimated using Monte 590 
+
+Carlo approximation based on 100 sampled predictions. 591 
+
+17 C.5.1 Continuous Ranked Probability Score 592 
+
+The empirical approximation of the Continuous Ranked Probability Score ( CRPS ) based on a finite 593 
+
+sample {x1, . . . , x n} drawn from the predictive distribution F is given by: 594 
+
+CRPS( F, z ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+|xi − z| − 12n2
+
+> n
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+|xi − xj | , (20) where the first term estimates the expected absolute deviation between the predictive samples and 595 
+
+the observation z, while the second term estimates the expected absolute deviation between pairs of 596 
+
+predictive samples. This Monte Carlo approximation converges to the true CRPS as n → ∞ . An 597 
+
+efficient empirical approximation of Eq. (20) , based on a sorted sample {x(1) , . . . , x (n)} from the 598 
+
+predictive distribution F , is given by: 599 
+
+CRPS( F, z ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+x(i) − z − 1
+
+n2
+
+> n−1
+
+X
+
+> i=1
+
+i(n − i)  x(i+1) − x(i)
+
+ , (21) where x(1) ≤ x(2) ≤ · · · ≤ x(n) are the sorted predictive samples. The first term measures the 600 
+
+average absolute error between the sorted samples and the observation z, while the second term 601 
+
+provides a linear-time estimate of the expected pairwise absolute differences between samples, 602 
+
+avoiding the quadratic cost of a double sum. In this paper, we computed the empirical CRPS using 603 
+
+Eq. (21). 604 
+
+For a single forecast instance, we compute CRPS mean as the average CRPS across all time series 605 
+
+and prediction steps: 606 
+
+CRPS mean = Ei,t [CRPS ( Fi,t , z i,t )] , (22) where Fi,t denotes the predictive distribution for zi,t , represented by its empirical CDF. Since CRPS 607 
+
+evaluates one marginal distribution at a time, it does not capture joint dependencies across series. To 608 
+
+address this, we also compute CRPS sum [4, 22 , 23 ], which aggregates both forecasted and observed 609 
+
+values across all time series and applies CRPS to the resulting sums: 610 
+
+CRPS sum = Et
+
+"
+
+CRPS Ft, X
+
+> i
+
+zi,t 
+
+!# 
+
+, (23) where Ft is the empirical distribution formed by summing prediction samples across all time series. 611 
+
+C.5.2 Energy Score 612 
+
+The Energy Score ( ES ) generalizes the CRPS to evaluate distributional forecasts of vector-valued 613 
+
+random variables, making it a suitable multivariate metric for this paper: 614 
+
+ES( F, z) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+∥xi − z∥β − 12n2
+
+> n
+
+X
+
+> i=1
+> n
+
+X
+
+> j=1
+
+∥xi − xj ∥β , (24) where ∥·∥ denotes the Euclidean norm, xi and xj are samples from the predictive distribution, and z615 
+
+is the observed vector. In this paper, we set β = 1 , following Ashok et al. [23] . To aggregate over the 616 
+
+prediction horizon, we compute the Frobenius norm of the forecast matrix ∥zt+1: t+Q∥F in practice. 617 
+
+## D Additional Results 618 
+
+D.1 Synthetic Data Experiment 619 
+
+We design a controlled noise experiment based on the example shown in §4.2 to evaluate the robustness 620 
+
+of different proper scoring rules when estimating parameters of a Gaussian distribution in the 621 
+
+presence of contaminated data. The experiment focuses on a two-dimensional multivariate Gaussian 622 
+
+distribution P = N
+
+ 1
+
+−1
+
+
+
+,
+
+ 1 0.80.8 4
+
+ 
+
+. From this distribution, we generate N = 5000 samples 623 
+
+as our base dataset. To systematically study robustness properties, we introduce contamination at 624 
+
+varying levels ϵ ∈ 0% , 2% , 4% by randomly selecting ϵ proportion of individual data points and 625 
+
+adding a fixed offset of +3 .0 to introduce outliers. 626 
+
+18 0% 2% 4% Noise Level ( )1.000 1.025 1.050 1.075 Estimate 
+
+μ  
+
+> 0% 2% 4% Noise Level ( )1.00 1.05 1.10 1.15
+
+σ  
+
+> 0% 2% 4% Noise Level ( )0.325 0.350 0.375 0.400
+
+ρ  
+
+> Log-Score Energy Score MVG-CRPS
+
+Figure A1: Parameter recovery under data contamination. Boxplots show the estimated parameters 
+
+(μ, σ, ρ ) of a bivariate Gaussian distribution using three proper scoring rules across varying contam-ination levels. Dashed lines indicate the ground truth values. Each boxplot summarizes estimates from 10 independent runs with different random seeds for contamination. 0 200 400 600 800 1000 Number of Samples in Energy Score               
+
+> 0
+> 250
+> 500
+> 750
+> 1000
+> 1250
+> 1500 Training Time (s)
+> Computational Cost
+> 0200 400 600 800 1000 Number of Samples in Energy Score
+> 0.00
+> 0.02
+> 0.04
+> 0.06
+> 0.08 Parameter Error
+> Parameter Estimation Accuracy
+> μerror
+> σerror
+> ρerror MCRPS μerror MCRPS σerror MCRPS ρerror
+
+Figure A2: Computational cost versus parameter estimation accuracy for the energy score with varying sample sizes. The left panel shows training time across different numbers of Monte Carlo samples, while the right panel displays absolute errors in parameter estimates ( μ, σ, ρ), with dashed lines indicating the corresponding MVG-CRPS reference values. This experiment compares three proper scoring rules for parameter estimation: the log-score; the 627 
+
+energy score, implemented using a Monte Carlo approximation with 500 samples and β = 1 .0;628 
+
+and the proposed MVG-CRPS. For each method and contamination level, we estimate three key 629 
+
+parameters of the predictive distribution: μ (location), σ (scale), and ρ (correlation) in 630 
+
+Q = N
+
+ μ
+
+−1
+
+
+
+,
+
+ σ2 2ρσ 
+
+2ρσ 4
+
+ 
+
+.
+
+To ensure that parameter estimates remain within valid ranges, we apply a softplus transformation 631 
+
+to σ and a tanh transformation to ρ, thereby constraining them to appropriate domains. 632 
+
+Optimization is performed using the Adam optimizer with method-specific learning rates: 3 × 10 −3
+
+> 633
+
+for the log-score and MVG-CRPS, and 1 × 10 −2 for the energy score. The number of training 634 
+
+iterations also varies: 1000 for the log-score and MVG-CRPS, and 500 for the energy score. These 635 
+
+hyperparameters were selected based on preliminary experiments using a validation dataset and a 636 
+
+grid search procedure to ensure a fair comparison across methods. To assess statistical significance, 637 
+
+we conduct 10 independent runs with different random seeds for each configuration, allowing us to 638 
+
+examine the distribution of parameter estimates across trials. 639 
+
+Parameter recovery accuracy is evaluated by comparing the estimated values against the ground truth. 640 
+
+We visualize the results using boxplots, which illustrate the distribution of estimates across runs for 641 
+
+each method and contamination level (Fig. A1). Across all three parameters, MVG-CRPS consistently 642 
+
+yields the most accurate and stable estimates as noise increases. For the location parameter μ and 643 
+
+the scale σ, MVG-CRPS maintains estimates closest to the true value with minimal spread, whereas 644 
+
+both log-score and energy score drift upward under contamination. For the correlation ρ, noise 645 
+
+leads to downward bias for all methods, but MVG-CRPS strikes the best balance between bias and 646 
+
+variability. The energy score appears stable under contamination, but this stability follows from its 647 
+
+19 limited sensitivity to changes in correlation, as shown in Fig. 3. Overall, MVG-CRPS shows greater 648 
+
+robustness than the log-score and more consistent estimates than the energy score because it does not 649 
+
+rely on Monte Carlo sampling. 650 
+
+Using the same example, we conducted a controlled study to examine the trade-off between com-651 
+
+putational cost and parameter estimation accuracy when using the ES with varying sample sizes. 652 
+
+As shown in Fig. A2, training time increases monotonically with sample size due to the pairwise 653 
+
+distance computations required by the ES. Estimation errors generally decrease with more samples 654 
+
+but exhibit diminishing returns beyond a certain threshold (typically 100–200 samples). For reference, 655 
+
+we include MVG-CRPS, which avoids sampling and maintains constant computational cost. Notably, 656 
+
+even with large sample sizes (e.g., 1000), the ES does not outperform MVG-CRPS in estimation 657 
+
+accuracy. 658 
+
+D.2 Other Metrics for Multivariate Autoregressive Forecasting 659 
+
+The results for CRPS mean and ES in the multivariate autoregressive forecasting task are reported in 660 
+
+Table A3 and Table A4, respectively. The performance of MVG-CRPS is consistent with the results 661 
+
+reported for CRPS sum in Table 1. 662 
+
+Table A3: Comparison of CRPS mean across different scoring rules in the multivariate autoregressive forecasting task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score. 
+
+VAR GPVar Transformer log-score energy score MVG-CRPS log-score energy score MVG-CRPS 
+
+elec _au N/A 0.1261 ±0.0009 0.0887 ±0.0004 0.0967 ±0.0008 0.1633 ±0.0005 0.1492 ±0.0006 0.0793 ±0.0004 
+
+cif _2016 1.0000 ±0.0000 0.1445 ±0.0006 0.1690 ±0.0005 0.1387 ±0.0006 0.1611 ±0.0010 0.1470 ±0.0008 0.1178 ±0.0003 
+
+electricity 0.1598 ±0.0007 0.0601 ±0.0004 0.0772 ±0.0003 0.0623 ±0.0002 0.0600 ±0.0002 0.0705 ±0.0003 0.0638 ±0.0002 
+
+elec _weekly 0.1237 ±0.0009 0.1427 ±0.0023 0.0676 ±0.0008 0.0878 ±0.0026 0.0964 ±0.0022 0.0726 ±0.0010 0.0697 ±0.0012 
+
+exchange _rate 0.0070 ±0.0000 0.0204 ±0.0004 0.0094 ±0.0002 0.0065 ±0.0001 0.0112 ±0.0002 0.0102 ±0.0002 0.0115 ±0.0003 
+
+kdd _cup N/A 0.3474 ±0.0008 0.3395 ±0.0011 0.2972 ±0.0010 0.2959 ±0.0008 0.4303 ±0.0022 0.2282 ±0.0005 
+
+m1 _yearly N/A 0.4397 ±0.0041 0.4801 ±0.0022 0.3566 ±0.0029 0.5344 ±0.0109 0.3291 ±0.0047 0.4563 ±0.0111 
+
+m3 _yearly N/A 0.3607 ±0.0084 0.2186 ±0.0042 0.1423 ±0.0053 0.3156 ±0.0102 0.4050 ±0.0061 0.2325 ±0.0094 
+
+nn5 _daily 0.2446 ±0.0002 0.1525 ±0.0002 0.1551 ±0.0002 0.1540 ±0.0002 0.1500 ±0.0002 0.1453 ±0.0001 0.1410 ±0.0001 
+
+saugeenday N/A 0.4040 ±0.0047 0.3733 ±0.0048 0.3941 ±0.0055 0.3771 ±0.0088 0.3689 ±0.0053 0.3705 ±0.0047 
+
+sunspot N/A 18.7115 ±1.3296 23.3988 ±0.9662 17.2438 ±0.5833 39.7454 ±1.4841 16.6556 ±0.6167 22.6495 ±0.6752 
+
+tourism 0.1444 ±0.0007 0.2369 ±0.0027 0.2424 ±0.0010 0.2223 ±0.0017 0.2290 ±0.0010 0.2220 ±0.0016 0.2313 ±0.0017 
+
+traffic 19.9208 ±0.0495 0.1357 ±0.0002 0.1367 ±0.0001 0.1415 ±0.0001 0.1185 ±0.0001 0.1327 ±0.0001 0.1174 ±0.0001 Avg. Rank 2.23 2.23 1.54 2.46 1.92 1.62 
+
+Table A4: Comparison of ES across different scoring rules in the multivariate autoregressive forecast-ing task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score. 
+
+VAR GPVar Transformer log-score energy score MVG-CRPS log-score energy score MVG-CRPS 
+
+elec _au (×10 3) N/A 5.4013 ±0.0372 3.9136 ±0.0177 4.1508 ±0.0283 7.0039 ±0.0219 6.3135 ±0.0243 3.5217 ±0.0150 
+
+cif _2016 (×10 3) 125.6177 ±0.0000 4.2733 ±0.0218 4.9329 ±0.0161 4.1677 ±0.0198 4.6316 ±0.0270 4.1063 ±0.0241 3.5559 ±0.0145 
+
+elec (×10 4) 10.4788 ±0.0757 3.3124 ±0.0580 4.8317 ±0.0434 3.2435 ±0.0300 3.4724 ±0.0229 4.3757 ±0.0414 3.9672 ±0.0374 
+
+elec _weekly (×10 7) 2.2191 ±0.0308 2.5724 ±0.0799 0.8948 ±0.02344 1.4040 ±0.0887 1.5463 ±0.0582 0.9338 ±0.0308 0.9985 ±0.0360 
+
+exchange _rate 0.1301 ±0.0002 0.3972 ±0.0074 0.1895 ±0.0034 0.1216 ±0.0013 0.2136 ±0.0026 0.1774 ±0.0026 0.2040 ±0.0045 
+
+kdd _cup (×10 2) N/A 4.7575 ±0.0186 4.3981 ±0.0164 4.0719 ±0.0180 4.2809 ±0.0134 5.9466 ±0.0427 3.1788 ±0.0122 
+
+m1 _yearly (×10 4) N/A 7.3860 ±0.0789 7.7576 ±0.0335 6.1985 ±0.0505 8.7079 ±0.1760 5.7774 ±0.0755 7.5130 ±0.1784 
+
+m3 _yearly (×10 3) N/A 3.6113 ±0.0703 2.2147 ±0.0427 1.4775 ±0.0495 3.1996 ±0.0995 4.0982 ±0.0621 2.4253 ±0.0914 
+
+nn5 _daily (×10 2) 4.9419 ±0.0056 3.3001 ±0.0050 3.3004 ±0.0052 3.3934 ±0.0045 3.2546 ±0.0033 3.1622 ±0.0045 3.0996 ±0.0025 
+
+saugeenday (×10 2) N/A 1.8098 ±0.0231 1.7135 ±0.0150 1.9400 ±0.0208 1.5780 ±0.0183 1.5883 ±0.0108 1.8043 ±0.0204 
+
+sunspot (×10 ) N/A 2.7737 ±0.1195 3.1658 ±0.0792 2.6195 ±0.1003 5.4893 ±0.1132 2.3153 ±0.0467 3.2663 ±0.0745 
+
+tourism (×10 5) 3.5958 ±0.0354 6.1085 ±0.1132 5.6774 ±0.0493 5.2111 ±0.0896 5.0645 ±0.0526 4.7502 ±0.0585 5.2702 ±0.0853 
+
+traffic _nips 3358.5004 ±10.7535 2.2924 ±0.0034 2.1140 ±0.0023 2.2916 ±0.0015 2.2043 ±0.0012 2.2250 ±0.0018 2.2000 ±0.0018 Avg. Rank 2.46 2.00 1.54 2.38 1.92 1.69 
+
+20 D.3 Univariate Seq2Seq Forecasting 663 
+
+The results for the univariate Seq2Seq forecasting task, presented in Table A5, Table A6, and 664 
+
+Table A7, are consistent with those from the multivariate autoregressive task. Overall, MVG-CRPS 665 
+
+demonstrates improved accuracy compared to both the log-score and the energy score. 666 
+
+Figure A3 visualizes the output covariance matrices from models trained with different loss functions. 667 
+
+Similar to the multivariate autoregressive task, the model trained with the log-score exhibits higher 668 
+
+variance and covariance values, indicating greater uncertainty that may reduce forecast reliability. 669 
+
+The figure illustrates the evolution of daily covariance in the hourly traffic dataset, shaped by both 670 
+
+the prediction lead time and the time of day. Uncertainty tends to increase during rush hours and at 671 
+
+longer forecast horizons. In contrast, the model trained with MVG-CRPS captures these temporal 672 
+
+patterns while being less sensitive to extreme values, resulting in more stable estimates. 673 
+
+Figure A4 further compares probabilistic forecasts on the m4 _hourly dataset. The model trained with 674 
+
+MVG-CRPS produces narrower and better-calibrated prediction intervals than the log-score-trained 675 
+
+model, particularly for time series with clear cyclical patterns. It also achieves higher accuracy at 676 
+
+longer forecast horizons. These results indicate that MVG-CRPS enhances both robustness and 677 
+
+calibration, leading to more accurate and reliable forecasts. 678 
+
+Table A5: Comparison of CRPS sum across different scoring rules in the univariate Seq2Seq forecast-ing task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score.                                  
+
+> N-HiTS log-score energy score MVG-CRPS
+> covid 0.1297 ±0.0048 N/A 0.1011 ±0.0022
+> elec _hourly 0.0470 ±0.0008 N/A 0.0398 ±0.0004
+> electricity 0.0409 ±0.0003 0.0378 ±0.0006 0.0372 ±0.0003
+> exchange _rate 0.0089 ±0.0005 0.0060 ±0.0002 0.0053 ±0.0002
+> m4 _hourly 0.0649 ±0.0007 0.0595 ±0.0005 0.0399 ±0.0007
+> nn5 _daily 0.0571 ±0.0003 0.0876 ±0.0006 0.0569 ±0.0004
+> pedestrian 0.7985 ±0.0511 0.9110 ±0.0210 0.5296 ±0.0071
+> saugeenday 0.4804 ±0.0150 0.4372 ±0.0100 0.3864 ±0.0035
+> taxi _30min 0.0496 ±0.0002 0.0603 ±0.0002 0.0449 ±0.0001
+> traffic 0.2065 ±0.0007 0.0815 ±0.0001 0.0832 ±0.0002
+> uber _hourly 0.7027 ±0.0209 0.6461 ±0.0052 0.5380 ±0.0033
+> wiki 0.0660 ±0.0011 0.0429 ±0.0003 0.0465 ±0.0004
+> Avg. Rank 2.70 2.10 1.20
+
+Table A6: Comparison of CRPS mean across different scoring rules in the univariate Seq2Seq fore-casting task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score.                               
+
+> N-HiTS log-score energy score MVG-CRPS
+> covid 0.2076 ±0.0018 0.1440 ±0.0013 0.1022 ±0.0012
+> elec _hourly 0.0903 ±0.0005 0.1189 ±0.0004 0.0874 ±0.0003
+> electricity 0.0671 ±0.0002 0.0913 ±0.0002 0.0635 ±0.0001
+> exchange _rate 0.0173 ±0.0004 0.0077 ±0.0001 0.0073 ±0.0001
+> m4 _hourly 0.1599 ±0.0003 0.1762 ±0.0007 0.1093 ±0.0005
+> nn5 _daily 0.1964 ±0.0006 0.1588 ±0.0002 0.1846 ±0.0008
+> pedestrian 1.0856 ±0.0262 0.9254 ±0.0105 0.7328 ±0.0076
+> saugeenday 0.4804 ±0.0150 0.4372 ±0.0100 0.3864 ±0.0035
+> taxi _30min 0.3853 ±0.0001 0.3939 ±0.0001 0.3219 ±0.0000
+> traffic 0.2514 ±0.0004 0.1726 ±0.0001 0.1583 ±0.0001
+> uber _hourly 0.9630 ±0.0272 0.8229 ±0.0062 0.6852 ±0.0040
+> wiki 0.4160 ±0.0006 0.2824 ±0.0003 0.2656 ±0.0002 Avg. Rank 2.67 2.25 1.08
+
+21 Table A7: Comparison of ES across different scoring rules in the univariate Seq2Seq forecasting task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score. 
+
+N-HiTS log-score energy score MVG-CRPS 
+
+covid (×10 5) 2.1220 ±0.0304 N/A 0.9401 ±0.0186 
+
+elec _hourly (×10 5) 0.9283 ±0.0161 N/A 0.9088 ±0.0079 
+
+elec (×10 5) 0.2535 ±0.0018 0.3123 ±0.0019 0.2431 ±0.0020 
+
+exchange _rate 0.2876 ±0.0055 0.1272 ±0.0022 0.1240 ±0.0022 
+
+m4 _hourly (×10 4) 0.2852 ±0.0026 0.2890 ±0.0029 0.2423 ±0.0027 
+
+nn5 _daily (×10 3) 0.4170 ±0.0018 0.3272 ±0.0005 0.3958 ±0.0021 
+
+pedestrian (×10 3) 1.1571 ±0.0177 0.9746 ±0.0081 0.8337 ±0.0066 
+
+saugeenday (×10 2) 1.6690 ±0.0391 1.7752 ±0.0216 1.7698 ±0.0129 
+
+taxi _30min (×10 2) 6.9676 ±0.0045 6.7906 ±0.0058 5.6679 ±0.0004 
+
+traffic 3.6810 ±0.0136 2.2524 ±0.0018 2.2200 ±0.0022 
+
+uber _hourly 6.3252 ±0.1785 5.4214 ±0.0326 4.2826 ±0.0320 
+
+wiki (×10 6) 1.1535 ±0.0047 0.9352 ±0.0069 0.9338 ±0.0083 Avg. Rank 2.60 2.20 1.20 0.00 
+
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+
+Figure A3: Comparison of output covariance matrices Σi from N-HiTS on the traffic dataset. For visual clarity, covariance values are clipped between 0 and 1.0. −50 0 50            
+
+> Time Step
+> 10
+> 20
+> 30
+> log score
+> TS: 1
+> −50 050
+> Time Step
+> 15
+> 20
+> 25
+> TS: 2
+> −50 050
+> Time Step
+> 20
+> 25
+> TS: 3
+> −50 050
+> Time Step
+> 15
+> 20
+> 25
+> MVG-CRPS
+> TS: 1
+> −50 050
+> Time Step
+> 20
+> 25
+> TS: 2
+> −50 050
+> Time Step
+> 20
+> 22
+> 24
+> TS: 3
+> observed predicted
+
+Figure A4: Comparison of probabilistic forecasts from N-HiTS on the m4 _hourly dataset. 
+
+D.4 Hyperparameter Sensitivity 679 
+
+To ensure a fair comparison, our main experiments used fixed hyperparameters across all loss 680 
+
+functions. However, since certain hyperparameters such as learning rate and rank do not affect the 681 
+
+model architecture, we performed grid searches over learning rates 10 −2, 10 −3, 10 −4 and rank values 682 
+
+10 , 20 , 30 for each dataset. The optimal configuration was selected based on validation performance 683 
+
+22 for each combination of loss function, model group, and dataset. The results are presented in Table A8 684 
+
+and Table A9. With tuned hyperparameters, the MVG-CRPS still achieves the best average rank. 685 
+
+Table A8: Comparison of CRPS mean across different scoring rules in the multivariate autoregressive forecasting task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score. The results are obtained using models with the best hyperparameters (learning rate and rank), selected for each loss function, model group, and dataset based on validation performance. For the energy score, hyperparameter tuning was omitted due to extended training time. 
+
+VAR GPVar Transformer log-score energy score MVG-CRPS log-score energy score MVG-CRPS 
+
+elec _au N/A 0.0437 ±0.0004 0.0887 ±0.0004 0.0280 ±0.0002 0.1158 ±0.0005 0.1492 ±0.0006 0.1410 ±0.0004 
+
+cif _2016 1.0000 ±0.0000 0.1444 ±0.0004 0.1690 ±0.0005 0.1275 ±0.0003 0.1217 ±0.0005 0.1470 ±0.0008 0.1201 ±0.0002 
+
+electricity 0.1598 ±0.0007 0.0601 ±0.0004 0.0772 ±0.0003 0.0665 ±0.0004 0.0605 ±0.0003 0.0705 ±0.0003 0.0650 ±0.0002 
+
+elec _weekly 0.1237 ±0.0009 0.1128 ±0.0014 0.0676 ±0.0008 0.1046 ±0.0025 0.1000 ±0.0020 0.0726 ±0.0010 0.1061 ±0.0013 
+
+exchange _rate 0.0070 ±0.0000 0.0071 ±0.0001 0.0094 ±0.0002 0.0093 ±0.0002 0.0131 ±0.0003 0.0102 ±0.0002 0.0161 ±0.0002 
+
+kdd _cup N/A 0.3274 ±0.0015 0.3395 ±0.0011 0.2861 ±0.0004 0.2865 ±0.0012 0.4303 ±0.0022 0.2291 ±0.0010 
+
+m1 _yearly N/A 0.4883 ±0.0088 0.4801 ±0.0022 0.3333 ±0.0015 0.5394 ±0.0111 0.3291 ±0.0047 0.4420 ±0.0070 
+
+m3 _yearly N/A 0.3606 ±0.0133 0.2186 ±0.0042 0.1423 ±0.0053 0.3658 ±0.0097 0.4050 ±0.0061 0.2964 ±0.0136 
+
+nn5 _daily 0.2446 ±0.0002 0.1474 ±0.0002 0.1551 ±0.0002 0.1510 ±0.0001 0.1466 ±0.0001 0.1453 ±0.0001 0.1430 ±0.0001 
+
+saugeenday N/A 0.3715 ±0.0032 0.3733 ±0.0048 0.3600 ±0.0053 0.3756 ±0.0055 0.3689 ±0.0053 0.3831 ±0.0032 
+
+sunspot N/A 10.7124 ±0.4618 23.3988 ±0.9662 16.1930 ±0.5734 14.4194 ±0.5650 16.6556 ±0.6167 13.1737 ±0.6602 
+
+tourism 0.1444 ±0.0007 0.2492 ±0.0015 0.2424 ±0.0010 0.1193 ±0.0020 0.2258 ±0.0020 0.2220 ±0.0016 0.2082 ±0.0014 
+
+traffic 19.9208 ±0.0495 0.1534 ±0.0002 0.1367 ±0.0001 0.1415 ±0.0001 0.1422 ±0.0001 0.1327 ±0.0001 0.1152 ±0.0000 Avg. Rank 2.08 2.46 1.46 2.15 2.08 1.77 
+
+Table A9: Comparison of ES across different scoring rules in the multivariate autoregressive fore-casting task. The best scores are in boldface. MVG-CRPS scores are underlined when they are not the best overall but exceed the log-score. The results are obtained using models with the best hyperparameters (learning rate and rank), selected for each loss function, model group, and dataset based on validation performance. For the energy score, hyperparameter tuning was omitted due to extended training time. 
+
+VAR GPVar Transformer log-score energy score MVG-CRPS log-score energy score MVG-CRPS 
+
+elec _au (×10 3) N/A 1.9601 ±0.0200 3.9136 ±0.0177 1.2546 ±0.0066 4.9064 ±0.0215 6.3135 ±0.0243 5.9514 ±0.0150 
+
+cif _2016 (×10 3) 125.6177 ±0.0000 4.3478 ±0.0127 4.9329 ±0.0161 3.8815 ±0.0072 3.6976 ±0.0203 4.6316 ±0.0270 3.5888 ±0.0118 
+
+elec (×10 4) 10.4788 ±0.0757 3.6854 ±0.0973 4.8317 ±0.0434 3.6913 ±0.0353 4.9963 ±0.0371 3.4724 ±0.0229 4.6774 ±0.0544 
+
+elec _weekly (×10 7) 2.2191 ±0.0308 1.9808 ±0.0774 0.8948 ±0.0234 1.2270 ±0.0539 1.5074 ±0.0600 1.5463 ±0.0582 1.0231 ±0.0402 
+
+exchange _rate 0.1301 ±0.0002 0.2166 ±0.0061 0.1895 ±0.0034 0.1519 ±0.0018 0.2317 ±0.0042 0.2136 ±0.0026 0.1569 ±0.0032 
+
+kdd _cup (×10 2) N/A 4.7575 ±0.0186 4.3981 ±0.0164 5.0382 ±0.0142 5.2922 ±0.0202 4.2809 ±0.0134 3.2651 ±0.0134 
+
+m1 _yearly (×10 4) N/A 8.1941 ±0.1388 7.7576 ±0.0335 5.9567 ±0.0210 8.7995 ±0.1777 8.7079 ±0.1777 7.2322 ±0.0979 
+
+m3 _yearly (×10 3) N/A 3.6966 ±0.1408 2.2147 ±0.0427 1.4775 ±0.0495 3.7233 ±0.0925 3.1996 ±0.0995 2.9483 ±0.1275 
+
+nn5 _daily (×10 2) 4.9419 ±0.0056 3.1966 ±0.0044 3.3004 ±0.0052 3.3303 ±0.0031 3.1311 ±0.0038 3.2546 ±0.0033 3.1725 ±0.0033 
+
+saugeenday (×10 2) N/A 1.6529 ±0.0150 1.7135 ±0.0150 1.7678 ±0.0188 1.6434 ±0.0160 1.5780 ±0.0183 1.6426 ±0.0220 
+
+sunspot (×10 ) N/A 1.7726 ±0.0430 3.1658 ±0.0792 2.5742 ±0.0651 2.1717 ±0.0468 5.4893 ±0.1132 1.9724 ±0.0363 
+
+tourism (×10 5) 3.5958 ±0.0354 6.5310 ±0.0670 5.6774 ±0.0493 2.8103 ±0.1048 6.0582 ±0.1162 5.0645 ±0.0526 4.5365 ±0.0662 
+
+traffic _nips 3358.5004 ±10.7535 2.4690 ±0.0026 2.1140 ±0.0023 2.2967 ±0.0012 2.2314 ±0.0016 2.2043 ±0.0012 2.1626 ±0.0020 Avg. Rank 2.15 2.08 1.77 2.46 2.23 1.31 
+
+D.5 Controlled Outlier Experiment 686 
+
+We conducted an additional experiment by injecting synthetic outliers into the training data. Specifi-687 
+
+cally, a fixed proportion of observations for each sensor was perturbed with large noise ( ±5× the 688 
+
+sensor’s standard deviation). The test data remained clean to isolate the impact of training-time 689 
+
+contamination. Results in Fig. A5 indicate that models trained with the log-score degrade rapidly 690 
+
+under such noise, whereas the MVG-CRPS demonstrates greater robustness. 691 
+
+23 0.00 0.05 0.10 
+
+Noise Level 
+
+0.10 
+
+0.15 
+
+> CRPS mean
+
+electricity_nips 
+
+0.00 0.05 0.10 
+
+Noise Level 
+
+0.02 
+
+0.04 
+
+> CRPS mean
+
+exchange_rate_nips 
+
+0.00 0.05 0.10 
+
+Noise Level 
+
+0.3 
+
+0.4 
+
+0.5 
+
+0.6 
+
+> CRPS mean
+
+kdd_cup_2018_without_missing 
+
+0.00 0.05 0.10 
+
+Noise Level 
+
+0.16 
+
+0.18 
+
+> CRPS mean
+
+nn5_daily_without_missing 
+
+0.00 0.05 0.10 
+
+Noise Level 
+
+50 
+
+100 
+
+> CRPS mean
+
+sunspot_without_missing 
+
+0.00 0.05 0.10 
+
+Noise Level 
+
+0.2 
+
+0.3 
+
+0.4 
+
+> CRPS mean
+
+traffic_nips 
+
+log-score MVG-CRPS Figure A5: Controlled outlier experiment using GPVar. A fixed proportion of training samples per sensor is perturbed by adding large noise. 24 NeurIPS Paper Checklist 692 
+
+1. Claims 693 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the 694 
+
+paper’s contributions and scope? 695 
+
+Answer: [Yes] 696 
+
+Justification: The abstract and/or introduction have clearly stated the claims made, including 697 
+
+the contributions made in the paper and important assumptions and limitations. 698 
+
+Guidelines: 699 
+
+• The answer NA means that the abstract and introduction do not include the claims 700 
+
+made in the paper. 701 
+
+• The abstract and/or introduction should clearly state the claims made, including the 702 
+
+contributions made in the paper and important assumptions and limitations. A No or 703 
+
+NA answer to this question will not be perceived well by the reviewers. 704 
+
+• The claims made should match theoretical and experimental results, and reflect how 705 
+
+much the results can be expected to generalize to other settings. 706 
+
+• It is fine to include aspirational goals as motivation as long as it is clear that these goals 707 
+
+are not attained by the paper. 708 
+
+2. Limitations 709 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? 710 
+
+Answer: [Yes] 711 
+
+Justification: We have discussed the limitations of the work in the "Conclusion" section. 712 
+
+Guidelines: 713 
+
+• The answer NA means that the paper has no limitation while the answer No means that 714 
+
+the paper has limitations, but those are not discussed in the paper. 715 
+
+• The authors are encouraged to create a separate "Limitations" section in their paper. 716 
+
+• The paper should point out any strong assumptions and how robust the results are to 717 
+
+violations of these assumptions (e.g., independence assumptions, noiseless settings, 718 
+
+model well-specification, asymptotic approximations only holding locally). The authors 719 
+
+should reflect on how these assumptions might be violated in practice and what the 720 
+
+implications would be. 721 
+
+• The authors should reflect on the scope of the claims made, e.g., if the approach was 722 
+
+only tested on a few datasets or with a few runs. In general, empirical results often 723 
+
+depend on implicit assumptions, which should be articulated. 724 
+
+• The authors should reflect on the factors that influence the performance of the approach. 725 
+
+For example, a facial recognition algorithm may perform poorly when image resolution 726 
+
+is low or images are taken in low lighting. Or a speech-to-text system might not be 727 
+
+used reliably to provide closed captions for online lectures because it fails to handle 728 
+
+technical jargon. 729 
+
+• The authors should discuss the computational efficiency of the proposed algorithms 730 
+
+and how they scale with dataset size. 731 
+
+• If applicable, the authors should discuss possible limitations of their approach to 732 
+
+address problems of privacy and fairness. 733 
+
+• While the authors might fear that complete honesty about limitations might be used by 734 
+
+reviewers as grounds for rejection, a worse outcome might be that reviewers discover 735 
+
+limitations that aren’t acknowledged in the paper. The authors should use their best 736 
+
+judgment and recognize that individual actions in favor of transparency play an impor-737 
+
+tant role in developing norms that preserve the integrity of the community. Reviewers 738 
+
+will be specifically instructed to not penalize honesty concerning limitations. 739 
+
+3. Theory assumptions and proofs 740 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and 741 
+
+a complete (and correct) proof? 742 
+
+Answer: [Yes] 743 
+
+25 Justification: We have provided a proof showing that the proposed MVG-CRPS is strictly 744 
+
+proper under Gaussian assumption. 745 
+
+Guidelines: 746 
+
+• The answer NA means that the paper does not include theoretical results. 747 
+
+• All the theorems, formulas, and proofs in the paper should be numbered and cross-748 
+
+referenced. 749 
+
+• All assumptions should be clearly stated or referenced in the statement of any theorems. 750 
+
+• The proofs can either appear in the main paper or the supplemental material, but if 751 
+
+they appear in the supplemental material, the authors are encouraged to provide a short 752 
+
+proof sketch to provide intuition. 753 
+
+• Inversely, any informal proof provided in the core of the paper should be complemented 754 
+
+by formal proofs provided in appendix or supplemental material. 755 
+
+• Theorems and Lemmas that the proof relies upon should be properly referenced. 756 
+
+4. Experimental result reproducibility 757 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-758 
+
+perimental results of the paper to the extent that it affects the main claims and/or conclusions 759 
+
+of the paper (regardless of whether the code and data are provided or not)? 760 
+
+Answer: [Yes] 761 
+
+Justification: We have fully disclosed all the information needed to reproduce the main 762 
+
+experimental results of the paper in the Appendix. 763 
+
+Guidelines: 764 
+
+• The answer NA means that the paper does not include experiments. 765 
+
+• If the paper includes experiments, a No answer to this question will not be perceived 766 
+
+well by the reviewers: Making the paper reproducible is important, regardless of 767 
+
+whether the code and data are provided or not. 768 
+
+• If the contribution is a dataset and/or model, the authors should describe the steps taken 769 
+
+to make their results reproducible or verifiable. 770 
+
+• Depending on the contribution, reproducibility can be accomplished in various ways. 771 
+
+For example, if the contribution is a novel architecture, describing the architecture fully 772 
+
+might suffice, or if the contribution is a specific model and empirical evaluation, it may 773 
+
+be necessary to either make it possible for others to replicate the model with the same 774 
+
+dataset, or provide access to the model. In general. releasing code and data is often 775 
+
+one good way to accomplish this, but reproducibility can also be provided via detailed 776 
+
+instructions for how to replicate the results, access to a hosted model (e.g., in the case 777 
+
+of a large language model), releasing of a model checkpoint, or other means that are 778 
+
+appropriate to the research performed. 779 
+
+• While NeurIPS does not require releasing code, the conference does require all submis-780 
+
+sions to provide some reasonable avenue for reproducibility, which may depend on the 781 
+
+nature of the contribution. For example 782 
+
+(a) If the contribution is primarily a new algorithm, the paper should make it clear how 783 
+
+to reproduce that algorithm. 784 
+
+(b) If the contribution is primarily a new model architecture, the paper should describe 785 
+
+the architecture clearly and fully. 786 
+
+(c) If the contribution is a new model (e.g., a large language model), then there should 787 
+
+either be a way to access this model for reproducing the results or a way to reproduce 788 
+
+the model (e.g., with an open-source dataset or instructions for how to construct 789 
+
+the dataset). 790 
+
+(d) We recognize that reproducibility may be tricky in some cases, in which case 791 
+
+authors are welcome to describe the particular way they provide for reproducibility. 792 
+
+In the case of closed-source models, it may be that access to the model is limited in 793 
+
+some way (e.g., to registered users), but it should be possible for other researchers 794 
+
+to have some path to reproducing or verifying the results. 795 
+
+5. Open access to data and code 796 
+
+26 Question: Does the paper provide open access to the data and code, with sufficient instruc-797 
+
+tions to faithfully reproduce the main experimental results, as described in supplemental 798 
+
+material? 799 
+
+Answer: [No] 800 
+
+Justification: The code will be released after the paper is accepted. However, we have 801 
+
+provided a sufficient amount of experimental details in the Appendix. 802 
+
+Guidelines: 803 
+
+• The answer NA means that paper does not include experiments requiring code. 804 
+
+• Please see the NeurIPS code and data submission guidelines ( https://nips.cc/ 805 
+
+public/guides/CodeSubmissionPolicy ) for more details. 806 
+
+• While we encourage the release of code and data, we understand that this might not be 807 
+
+possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not 808 
+
+including code, unless this is central to the contribution (e.g., for a new open-source 809 
+
+benchmark). 810 
+
+• The instructions should contain the exact command and environment needed to run to 811 
+
+reproduce the results. See the NeurIPS code and data submission guidelines ( https: 812 
+
+//nips.cc/public/guides/CodeSubmissionPolicy ) for more details. 813 
+
+• The authors should provide instructions on data access and preparation, including how 814 
+
+to access the raw data, preprocessed data, intermediate data, and generated data, etc. 815 
+
+• The authors should provide scripts to reproduce all experimental results for the new 816 
+
+proposed method and baselines. If only a subset of experiments are reproducible, they 817 
+
+should state which ones are omitted from the script and why. 818 
+
+• At submission time, to preserve anonymity, the authors should release anonymized 819 
+
+versions (if applicable). 820 
+
+• Providing as much information as possible in supplemental material (appended to the 821 
+
+paper) is recommended, but including URLs to data and code is permitted. 822 
+
+6. Experimental setting/details 823 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyper-824 
+
+parameters, how they were chosen, type of optimizer, etc.) necessary to understand the 825 
+
+results? 826 
+
+Answer: [Yes] 827 
+
+Justification: The paper specified all the training and test details necessary to understand the 828 
+
+results. 829 
+
+Guidelines: 830 
+
+• The answer NA means that the paper does not include experiments. 831 
+
+• The experimental setting should be presented in the core of the paper to a level of detail 832 
+
+that is necessary to appreciate the results and make sense of them. 833 
+
+• The full details can be provided either with the code, in appendix, or as supplemental 834 
+
+material. 835 
+
+7. Experiment statistical significance 836 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate 837 
+
+information about the statistical significance of the experiments? 838 
+
+Answer: [Yes] 839 
+
+Justification: We ran all of our experiments for 10 times to calculate the standard deviation. 840 
+
+Guidelines: 841 
+
+• The answer NA means that the paper does not include experiments. 842 
+
+• The authors should answer "Yes" if the results are accompanied by error bars, confi-843 
+
+dence intervals, or statistical significance tests, at least for the experiments that support 844 
+
+the main claims of the paper. 845 
+
+• The factors of variability that the error bars are capturing should be clearly stated (for 846 
+
+example, train/test split, initialization, random drawing of some parameter, or overall 847 
+
+run with given experimental conditions). 848 
+
+27 • The method for calculating the error bars should be explained (closed form formula, 849 
+
+call to a library function, bootstrap, etc.) 850 
+
+• The assumptions made should be given (e.g., Normally distributed errors). 851 
+
+• It should be clear whether the error bar is the standard deviation or the standard error 852 
+
+of the mean. 853 
+
+• It is OK to report 1-sigma error bars, but one should state it. The authors should 854 
+
+preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis 855 
+
+of Normality of errors is not verified. 856 
+
+• For asymmetric distributions, the authors should be careful not to show in tables or 857 
+
+figures symmetric error bars that would yield results that are out of range (e.g. negative 858 
+
+error rates). 859 
+
+• If error bars are reported in tables or plots, The authors should explain in the text how 860 
+
+they were calculated and reference the corresponding figures or tables in the text. 861 
+
+8. Experiments compute resources 862 
+
+Question: For each experiment, does the paper provide sufficient information on the com-863 
+
+puter resources (type of compute workers, memory, time of execution) needed to reproduce 864 
+
+the experiments? 865 
+
+Answer: [Yes] 866 
+
+Justification: The paper has indicated the type of compute workers CPU or GPU, internal 867 
+
+cluster, or cloud provider, including relevant memory and storage. 868 
+
+Guidelines: 869 
+
+• The answer NA means that the paper does not include experiments. 870 
+
+• The paper should indicate the type of compute workers CPU or GPU, internal cluster, 871 
+
+or cloud provider, including relevant memory and storage. 872 
+
+• The paper should provide the amount of compute required for each of the individual 873 
+
+experimental runs as well as estimate the total compute. 874 
+
+• The paper should disclose whether the full research project required more compute 875 
+
+than the experiments reported in the paper (e.g., preliminary or failed experiments that 876 
+
+didn’t make it into the paper). 877 
+
+9. Code of ethics 878 
+
+Question: Does the research conducted in the paper conform, in every respect, with the 879 
+
+NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?880 
+
+Answer: [Yes] 881 
+
+Justification: The research conducted in the paper conform, in every respect, with the 882 
+
+NeurIPS Code of Ethics. 883 
+
+Guidelines: 884 
+
+• The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics. 885 
+
+• If the authors answer No, they should explain the special circumstances that require a 886 
+
+deviation from the Code of Ethics. 887 
+
+• The authors should make sure to preserve anonymity (e.g., if there is a special consid-888 
+
+eration due to laws or regulations in their jurisdiction). 889 
+
+10. Broader impacts 890 
+
+Question: Does the paper discuss both potential positive societal impacts and negative 891 
+
+societal impacts of the work performed? 892 
+
+Answer: [Yes] 893 
+
+Justification: We have discussed societal impacts in the last section of this paper. 894 
+
+Guidelines: 895 
+
+• The answer NA means that there is no societal impact of the work performed. 896 
+
+• If the authors answer NA or No, they should explain why their work has no societal 897 
+
+impact or why the paper does not address societal impact. 898 
+
+28 • Examples of negative societal impacts include potential malicious or unintended uses 899 
+
+(e.g., disinformation, generating fake profiles, surveillance), fairness considerations 900 
+
+(e.g., deployment of technologies that could make decisions that unfairly impact specific 901 
+
+groups), privacy considerations, and security considerations. 902 
+
+• The conference expects that many papers will be foundational research and not tied 903 
+
+to particular applications, let alone deployments. However, if there is a direct path to 904 
+
+any negative applications, the authors should point it out. For example, it is legitimate 905 
+
+to point out that an improvement in the quality of generative models could be used to 906 
+
+generate deepfakes for disinformation. On the other hand, it is not needed to point out 907 
+
+that a generic algorithm for optimizing neural networks could enable people to train 908 
+
+models that generate Deepfakes faster. 909 
+
+• The authors should consider possible harms that could arise when the technology is 910 
+
+being used as intended and functioning correctly, harms that could arise when the 911 
+
+technology is being used as intended but gives incorrect results, and harms following 912 
+
+from (intentional or unintentional) misuse of the technology. 913 
+
+• If there are negative societal impacts, the authors could also discuss possible mitigation 914 
+
+strategies (e.g., gated release of models, providing defenses in addition to attacks, 915 
+
+mechanisms for monitoring misuse, mechanisms to monitor how a system learns from 916 
+
+feedback over time, improving the efficiency and accessibility of ML). 917 
+
+11. Safeguards 918 
+
+Question: Does the paper describe safeguards that have been put in place for responsible 919 
+
+release of data or models that have a high risk for misuse (e.g., pretrained language models, 920 
+
+image generators, or scraped datasets)? 921 
+
+Answer: [NA] 922 
+
+Justification: The paper poses no such risks. 923 
+
+Guidelines: 924 
+
+• The answer NA means that the paper poses no such risks. 925 
+
+• Released models that have a high risk for misuse or dual-use should be released with 926 
+
+necessary safeguards to allow for controlled use of the model, for example by requiring 927 
+
+that users adhere to usage guidelines or restrictions to access the model or implementing 928 
+
+safety filters. 929 
+
+• Datasets that have been scraped from the Internet could pose safety risks. The authors 930 
+
+should describe how they avoided releasing unsafe images. 931 
+
+• We recognize that providing effective safeguards is challenging, and many papers do 932 
+
+not require this, but we encourage authors to take this into account and make a best 933 
+
+faith effort. 934 
+
+12. Licenses for existing assets 935 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in 936 
+
+the paper, properly credited and are the license and terms of use explicitly mentioned and 937 
+
+properly respected? 938 
+
+Answer: [Yes] 939 
+
+Justification: The creators or original owners of assets (e.g., code, data, models), used in 940 
+
+the paper, have been properly credited. The license and terms of use have been explicitly 941 
+
+mentioned and properly respected. 942 
+
+Guidelines: 943 
+
+• The answer NA means that the paper does not use existing assets. 944 
+
+• The authors should cite the original paper that produced the code package or dataset. 945 
+
+• The authors should state which version of the asset is used and, if possible, include a 946 
+
+URL. 947 
+
+• The name of the license (e.g., CC-BY 4.0) should be included for each asset. 948 
+
+• For scraped data from a particular source (e.g., website), the copyright and terms of 949 
+
+service of that source should be provided. 950 
+
+29 • If assets are released, the license, copyright information, and terms of use in the 951 
+
+package should be provided. For popular datasets, paperswithcode.com/datasets 952 
+
+has curated licenses for some datasets. Their licensing guide can help determine the 953 
+
+license of a dataset. 954 
+
+• For existing datasets that are re-packaged, both the original license and the license of 955 
+
+the derived asset (if it has changed) should be provided. 956 
+
+• If this information is not available online, the authors are encouraged to reach out to 957 
+
+the asset’s creators. 958 
+
+13. New assets 959 
+
+Question: Are new assets introduced in the paper well documented and is the documentation 960 
+
+provided alongside the assets? 961 
+
+Answer: [NA] 962 
+
+Justification: The paper does not release new assets. 963 
+
+Guidelines: 964 
+
+• The answer NA means that the paper does not release new assets. 965 
+
+• Researchers should communicate the details of the dataset/code/model as part of their 966 
+
+submissions via structured templates. This includes details about training, license, 967 
+
+limitations, etc. 968 
+
+• The paper should discuss whether and how consent was obtained from people whose 969 
+
+asset is used. 970 
+
+• At submission time, remember to anonymize your assets (if applicable). You can either 971 
+
+create an anonymized URL or include an anonymized zip file. 972 
+
+14. Crowdsourcing and research with human subjects 973 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper 974 
+
+include the full text of instructions given to participants and screenshots, if applicable, as 975 
+
+well as details about compensation (if any)? 976 
+
+Answer: [NA] 977 
+
+Justification: The paper does not involve crowdsourcing nor research with human subjects. 978 
+
+Guidelines: 979 
+
+• The answer NA means that the paper does not involve crowdsourcing nor research with 980 
+
+human subjects. 981 
+
+• Including this information in the supplemental material is fine, but if the main contribu-982 
+
+tion of the paper involves human subjects, then as much detail as possible should be 983 
+
+included in the main paper. 984 
+
+• According to the NeurIPS Code of Ethics, workers involved in data collection, curation, 985 
+
+or other labor should be paid at least the minimum wage in the country of the data 986 
+
+collector. 987 
+
+15. Institutional review board (IRB) approvals or equivalent for research with human 988 
+
+subjects 989 
+
+Question: Does the paper describe potential risks incurred by study participants, whether 990 
+
+such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) 991 
+
+approvals (or an equivalent approval/review based on the requirements of your country or 992 
+
+institution) were obtained? 993 
+
+Answer: [NA] 994 
+
+Justification: The paper does not involve crowdsourcing nor research with human subjects. 995 
+
+Guidelines: 996 
+
+• The answer NA means that the paper does not involve crowdsourcing nor research with 997 
+
+human subjects. 998 
+
+• Depending on the country in which research is conducted, IRB approval (or equivalent) 999 
+
+may be required for any human subjects research. If you obtained IRB approval, you 1000 
+
+should clearly state this in the paper. 1001 
+
+30 • We recognize that the procedures for this may vary significantly between institutions 1002 
+
+and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the 1003 
+
+guidelines for their institution. 1004 
+
+• For initial submissions, do not include any information that would break anonymity (if 1005 
+
+applicable), such as the institution conducting the review. 1006 
+
+16. Declaration of LLM usage 1007 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or 1008 
+
+non-standard component of the core methods in this research? Note that if the LLM is used 1009 
+
+only for writing, editing, or formatting purposes and does not impact the core methodology, 1010 
+
+scientific rigorousness, or originality of the research, declaration is not required. 1011 
+
+Answer: [NA] 1012 
+
+Justification: The core method development in this research does not involve LLMs as any 1013 
+
+important, original, or non-standard components. 1014 
+
+Guidelines: 1015 
+
+• The answer NA means that the core method development in this research does not 1016 
+
+involve LLMs as any important, original, or non-standard components. 1017 
+
+• Please refer to our LLM policy ( https://neurips.cc/Conferences/2025/LLM )1018 
+
+for what should or should not be described. 1019 
+
+31

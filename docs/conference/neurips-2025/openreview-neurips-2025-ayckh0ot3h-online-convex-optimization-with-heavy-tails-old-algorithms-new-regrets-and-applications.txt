@@ -1,0 +1,5058 @@
+Title: 25811_Online_Convex_Optimizati.pdf
+
+URL Source: https://openreview.net/pdf?id=AYcKh0oT3h
+
+Number of Pages: 32
+
+Markdown Content:
+# Online Convex Optimization with Heavy Tails: Old Algorithms, New Regrets, and Applications 
+
+Anonymous Author(s) 
+
+Affiliation Address 
+
+email 
+
+## Abstract 
+
+In Online Convex Optimization (OCO), when the stochastic gradient has a finite 1
+
+variance, many algorithms provably work and guarantee a sublinear regret. How-2
+
+ever, limited results are known if the gradient estimate has a heavy tail, i.e., the 3
+
+stochastic gradient only admits a finite p-th central moment for some p ∈ (1 , 2] .4
+
+Motivated by it, this work examines different old algorithms for OCO (e.g., Online 5
+
+Gradient Descent) in the more challenging heavy-tailed setting. Under the standard 6
+
+bounded domain assumption, we establish new regrets for these classical methods 7
+
+without any algorithmic modification. Remarkably, these regret bounds are fully 8
+
+optimal in all parameters (can be achieved even without knowing p), suggesting 9
+
+that OCO with heavy tails can be solved effectively without any extra operation 10 
+
+(e.g., gradient clipping). Our new results have several applications. A particularly 11 
+
+interesting one is the first provable convergence result for nonsmooth nonconvex 12 
+
+optimization under heavy-tailed noise without gradient clipping. 13 
+
+## 1 Introduction 14 
+
+This paper studies the online learning problem with convex losses, also known as Online Convex 15 
+
+Optimization (OCO), a widely applicable framework that learns under streaming data [ 4 , 10 , 27 , 35 ]. 16 
+
+OCO has tons of implications for both designing and analyzing algorithms in different areas, for 17 
+
+example, stochastic optimization [8, 23, 14], PAC learning [3], control theory [1, 11], etc. 18 
+
+In an OCO problem, a learning algorithm A would interact with the environment in T rounds, where 19 
+
+T ∈ N can be either known or unknown. Formally, in each round round t, the learner A first decides 20 
+
+an output xt ∈ X from a convex feasible set X ⊆ Rd, then the environment reveals a convex loss 21 
+
+function ℓt : X → R, and A incurs a loss of ℓt(xt). After T many rounds, the quantity measuring the 22 
+
+algorithm’s performance is called regret, defined relative to any fixed competitor x ∈ X as follows: 23 
+
+RA 
+
+> T
+
+(x) ≜
+
+> T
+
+X
+
+> t=1
+
+ℓt(xt) − ℓt(x).
+
+In the classical setting, instead of observing full information about ℓt, the learner A is only guaranteed 24 
+
+to receive a subgradient ∇ℓt(xt) ∈ ∂ℓ t(xt) at its decision, where ∂ℓ t(xt) denotes the subdifferential 25 
+
+set of ℓt at xt [33 ]. This turns out to be enough for our purpose of minimizing the regret, since any 26 
+
+OCO problem can be reduced to an Online Linear Optimization (OLO) instance via the inequality 27 
+
+ℓt(xt) − ℓt(x) ≤ ⟨∇ ℓt(xt), xt − x⟩, which holds due to convexity. Under the standard bounded 28 
+
+domain assumption, i.e., X has a finite diameter D, many classical algorithms, e.g., Online Gradient 29 
+
+Descent ( OGD ) [ 50 ], guarantee an optimal sublinear regret GD √T for G-Lipschitz ℓt. Even better, 30 
+
+in the case that computing an exact subgradient is intractable, and one could only query a stochastic 31 
+
+estimate gt satisfying E [gt | xt] ∈ ∂ℓ t(xt), the OGD algorithm can still solve OCO effectively with 32 
+
+Submitted to 39th Conference on Neural Information Processing Systems (NeurIPS 2025). Do not distribute. a provable (G + σ)D√T regret bound in expectation if the stochastic noise gt − ∇ ℓt(xt) has a 33 
+
+bounded second moment σ2 for some σ ≥ 0, which is called the finite variance condition. 34 
+
+However, many works have pointed out that even for the easier stochastic optimization (i.e., ℓt = F35 
+
+for a common F ), the typical finite variance assumption is too optimistic and can be violated in 36 
+
+different tasks [ 12 , 37 , 45 ], and their observations suggest that the stochastic gradient only admits a 37 
+
+finite p-th central moment upper bounded by σp for some p ∈ (1 , 2] , which is named heavy-tailed 38 
+
+noise. This new assumption generalizes the classical finite variance condition ( p = 2 ) and becomes 39 
+
+challenging when p < 2. A particular evidence is that the famous Stochastic Gradient Descent ( SGD )40 
+
+algorithm [32] (which is exactly OGD for stochastic optimization) provably diverges [45]. 41 
+
+Though heavy-tailed stochastic optimization has been extensively studied [ 18 , 26 , 34 ], limited results 42 
+
+are known for OCO with heavy tails. The only work under this topic that we are aware of is [ 47 ], 43 
+
+which established a parameter-free regret bound in high probability (more discussions provided 44 
+
+later). However, their algorithm includes many nontrivial modifications like gradient clipping and 45 
+
+significantly deviates from the existing simple OCO algorithms used in practice. Especially, consider 46 
+
+OGD as an example. Though the heavy-tailed issue is known, OGD (or just think of it as SGD ) still 47 
+
+works (sometimes very well) in practice even without gradient clipping and is arguably one of the 48 
+
+most popular optimizers, which seemingly contradicts the theory of unconvergence mentioned before. 49 
+
+This indicates that, for classical OCO algorithms under heavy-tailed noise, a huge gap exists between 50 
+
+the empirical convergence (or even the effective practical performance) and theoretical guarantees. 51 
+
+Therefore, we are naturally led to the following question: 52 
+
+In what context can old OCO algorithms work under heavy tails, in what sense, and to what extent? 53 
+
+1.1 Contributions 54 
+
+Motivated by the above question, we examine three classical algorithms for OCO: Online Gradient 55 
+
+Descent ( OGD ) [50], Dual Averaging ( DA ) [25, 43], and AdaGrad [9, 22], and answer it as follows: 56 
+
+Under the standard bounded domain assumption, the in-expectation regret E RA 
+
+> T
+
+(x) is finite and 57 
+
+optimal for any A ∈ { OGD , DA , AdaGrad }, without any algorithmic modification. 58 
+
+In detail, our new results for heavy-tailed OCO are summarized here: 59 
+
+• We prove the only and the first optimal regret bound E RA 
+
+> T
+
+(x) ≲ GD √T + σDT 1/p, ∀x ∈ X for 60 
+
+any A ∈ { OGD , DA , AdaGrad }. Remarkably, AdaGrad can achieve this result without knowing 61 
+
+any of the Lipschitz parameter G, noise level σ, and tail index p.62 
+
+• We extend the analysis of OGD to Online Strongly Convex Optimization with heavy tails and 63 
+
+establish the first provable result E ROGD  
+
+> T
+
+(x) ≲ G2 log Tμ + σpG2−p 
+
+> μ
+
+T 2−p, ∀x ∈ X , where μ > 064 
+
+is the modulus of strong convexity and T 0 should be read as log T .65 
+
+Based on the new regret bounds for OCO with heavy tails, we provide the following applications: 66 
+
+• For nonsmooth convex optimization with heavy tails, we show the first optimal in-expectation rate 67 
+
+GD/ √T + σD/T 1−1/p achieved without gradient clipping, which applies to both the average 68 
+
+iterate and last iterate, demonstrating that SGD does converge once the domain is bounded. 69 
+
+• For nonsmooth nonconvex optimization with heavy tails, we show the first provable sample 70 
+
+complexity of G2δ−1ϵ−3 + σ pp−1 δ−1ϵ− 2p−1 
+
+> p−1
+
+for finding a (δ, ϵ )-stationary point without gradient 71 
+
+clipping. Moreover, we give the first convergence result when the problem-dependent parameters 72 
+
+(like G, σ, and p) are unknown in advance. 73 
+
+1.2 Discussion on [47] 74 
+
+As noted, [ 47 ] is the only work for OCO with heavy tails, as far as we know. There are two 75 
+
+major discrepancies between them and us. First, they consider the case where the feasible set 76 
+
+X is unbounded and aim to establish a parameter-free regret bound, i.e., the regret bound has a 77 
+
+linear dependency on ∥x∥ (up to an extra polylog ∥x∥) for any competitor x ∈ X . Second, they 78 
+
+focus on high-probability rather than in-expectation analysis. As such, their regret is in the form of 79 
+
+2RA 
+
+> T
+
+(x) ≲ (G + σ) ∥x∥ T 1/p, ∀x ∈ X (up to extra polylogarithmic factors) with high probability. 80 
+
+Without a doubt, their setting is harder than ours implying their bound is stronger as it can convert to 81 
+
+an in-expectation regret E RA 
+
+> T
+
+(x) ≲ (G + σ)DT 1/p for any bounded domain X with a diameter D.82 
+
+We emphasize that the motivation behind [ 47 ] differs heavily from ours. They aim to solve heavy-83 
+
+tailed OCO with a new proposed method that contains many nontrivial technical tricks, including 84 
+
+gradient clipping, artificially added regularization, and solving the additional fixed-point equation. 85 
+
+However, their result cannot reflect why the existing simple OCO algorithms like OGD work in 86 
+
+practice under heavy-tailed noise. In contrast, our goal is to examine whether, when, and how the 87 
+
+classical OCO algorithms work under heavy tails, thereby filling the missing piece in the literature. 88 
+
+Moreover, we would like to mention two drawbacks of [ 47 ]. First, though the T 1/p regret seems 89 
+
+tight as it matches the lower bound [ 24 , 30 , 41 ], this may not be the best, since an optimal bound 90 
+
+should recover the standard √T regret in the deterministic case (i.e., σ = 0 ), as one can imagine. 91 
+
+This suggests that their bound is not entirely optimal. Second, we remark that they require knowing 92 
+
+both problem-dependent parameters G, σ, p and time horizon T in the algorithm, which may be hard 93 
+
+to satisfy in the online setting. In comparison, our regret bound GD √T + σDT 1/p is fully optimal 94 
+
+in all parameters. Importantly, AdaGrad can achieve it while oblivious to the problem information. 95 
+
+## 2 Preliminary 96 
+
+Notation. N denotes the set of natural numbers (excluding 0). [T ] ≜ {1, . . . , T } , ∀T ∈ N. a ∧ b ≜97 
+
+min {a, b } and a ∨ b ≜ max {a, b }. We write a ≲ b if a ≤ Cb for a universal constant C > 0.98 
+
+⌊·⌋ and ⌈·⌉ respectively represent the floor and ceiling functions. ⟨· , ·⟩ denotes the Euclidean inner 99 
+
+product and ∥·∥ ≜ p⟨· , ·⟩ is the standard 2-norm. Given x ∈ Rd and D > 0, Bd(x, D ) is the 100 
+
+Euclidean ball in Rd centered at x with a radius D. In the case x = 0, we use the shorthand Bd(D).101 
+
+Given a nonempty closed convex set A ⊆ Rd, ΠA is the Euclidean projection operator onto A. For a 102 
+
+convex function f , ∂f (x) denotes its subgradient set at x.103 
+
+Remark 1. We choose the Euclidean norm only for simplicity. Extending the results in this work to 104 
+
+any general norm is straightforward. 105 
+
+This work studies OCO in the context of Assumption 1. 106 
+
+Assumption 1. We consider the following series of assumptions: 107 
+
+• X ⊂ Rd is a nonempty closed convex set bounded by D, i.e., sup x,y∈X ∥x − y∥ ≤ D.108 
+
+• ℓt : X → R is convex for all t ∈ [T ].109 
+
+• ℓt is G-Lipschitz on X , i.e., ∥∇ ℓt(x)∥ ≤ G, ∀x ∈ X , ∇ℓt(x) ∈ ∂ℓ t(x), for all t ∈ [T ].110 
+
+• Given a point xt ∈ X at the t-th iteration, one can query gt ∈ Rd satisfying ∇ℓt(xt) ≜111 
+
+E [gt | F t−1] ∈ ∂ℓ t(xt) and E ∥ϵt∥p ≤ σp for some p ∈ (1 , 2] and σ ≥ 0, where Ft ≜112 
+
+σ(g1, . . . , gt) denotes the natural filtration and ϵt ≜ gt − ∇ ℓt(xt) is the stochastic noise. 113 
+
+Remark 2. D is recognized as known, like ubiquitously assumed in the OCO literature. Moreover, 114 
+
+xt denotes the decision/output of the online learning algorithm by default. 115 
+
+In Assumption 1, the first three points are standard, and the fourth is the heavy-tailed noise assumption. 116 
+
+In particular, p = 2 recovers the standard finite variance condition. 117 
+
+## 3 Old Algorithms under Heavy Tails 118 
+
+In this section, we revisit three classical algorithms for OCO: OGD , DA , and AdaGrad , whose regret 119 
+
+bounds are well-studied in the finite variance case but remain unknown under heavy-tailed noise. 120 
+
+The basic idea of proving these algorithms work under heavy tails is to leverage the boundness 121 
+
+property of X . We will describe it in more detail using OGD as an illustrated example. The analysis 122 
+
+of DA follows a similar way at a high level, but differs in some details. However, though AdaGrad 123 
+
+can be viewed as OGD with an adaptive stepsize, the way to utilize the boundness property is entirely 124 
+
+different. All formal proofs are deferred to the appendix due to space limitations. 125 
+
+33.1 New Regret for Online Gradient Descent 126 
+
+Algorithm 1 Online Gradient Descent ( OGD ) [50] 
+
+Input: initial point x1 ∈ X , stepsize ηt > 0
+
+for t = 1 to T do 
+
+xt+1 = Π X (xt − ηtgt)
+
+end for 
+
+We begin from arguably the most basic algorithm for OCO, Online Gradient Descent ( OGD ). 127 
+
+A well known analysis. The regret bound of OGD has been extensively studied [ 10 , 27 , 35 ]. The 128 
+
+most well known analysis is perhaps the following one: for any x ∈ X , there is 129 
+
+∥xt+1 − x∥2 = ∥ΠX (xt − ηtgt) − ΠX (x)∥2 ≤ ∥ xt − ηtgt − x∥2 ,
+
+where the inequality holds by the nonexpansive property of ΠX . Expanding both sides and rearranging 130 
+
+terms yield that 131 
+
+⟨gt, xt − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2ηt
+
++ ηt ∥gt∥2
+
+2 . (1) If gt admits a finite variance, i.e., p = 2 in Assumption 1, taking expectations on both sides, then 132 
+
+following a standard analysis for ηt = D 
+
+> (G+σ)√t
+
+(or ηt = D 
+
+> (G+σ)√T
+
+if T is known) gives the regret 133 
+
+E ROGD  
+
+> T
+
+(x) ≲ (G + σ)D√T , ∀x ∈ X .
+
+However, the step of taking expectations on the R.H.S. of (1) crucially relies on the finite variance 134 
+
+condition of gt. Therefore, one may naturally think OGD would not guarantee a finite regret if p < 2.135 
+
+A less well known analysis 1. As discussed, the failure of the above proof under heavy-tailed noise is 136 
+
+due to (1). Therefore, if a tighter inequality than (1) exists, then it might be possible to show that 137 
+
+OGD still works for p < 2. However, does it exist? 138 
+
+Actually, there is another less well known analysis to produce a better inequality than (1). That is, 139 
+
+first showing for any x ∈ X , by the optimality condition of the update rule, 140 
+
+⟨gt, xt+1 − x⟩ ≤ ⟨xt − xt+1 , xt+1 − x⟩
+
+ηt
+
+= ∥xt − x∥2 − ∥ xt+1 − x∥2 − ∥ xt − xt+1 ∥2
+
+2ηt
+
+,
+
+and then obtaining 141 
+
+⟨gt, xt − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2ηt
+
++ ⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt
+
+. (2) Note that (2) is tighter than (1) as ⟨gt, xt − xt+1 ⟩ ≤ ∥ gt∥ ∥ xt − xt+1 ∥ ≤ ηt∥gt∥2 
+
+> 2
+
++ ∥xt−xt+1 ∥2 
+
+> 2ηt
+
+,142 
+
+where the first step is due to Cauchy-Schwarz inequality and the second one is by AM-GM inequality. 143 
+
+Handle p < 2 in a simple way. Though we have tightened (1) into (2), can inequality (2) help to 144 
+
+overcome heavy tails? The answer is surprisingly positive, and our solution is fairly simple. Instead 145 
+
+of directly applying AM-GM inequality in the second step, we recall gt = ∇ℓt(xt) + ϵt and use 146 
+
+triangle inequality to obtain 147 
+
+⟨gt, xt − xt+1 ⟩ ≤ ∥ gt∥ ∥ xt − xt+1 ∥ ≤ (∥∇ ℓt(xt)∥ + ∥ϵt∥) ∥xt − xt+1 ∥ . (3) On the one hand, by ∥∇ ℓt(xt)∥ ≤ G and AM-GM inequality, there is 148 
+
+∥∇ ℓt(xt)∥ ∥ xt − xt+1 ∥ ≤ G ∥xt − xt+1 ∥ ≤ ηtG2 + ∥xt − xt+1 ∥2
+
+4ηt
+
+. (4) 
+
+> 1
+
+To clarify, the phrase “less well known” is compared to the first one. This analysis itself is also well known. 
+
+4On the other hand, let p⋆ ≜ pp−1 and C(p) ≜ (4 p−4) p−1 
+
+> pp
+
+, we have 149 
+
+∥ϵt∥ ∥ xt − xt+1 ∥ =
+
+ 4ηt
+
+p⋆
+
+ 1
+
+> p⋆
+
+∥ϵt∥ ∥ xt − xt+1 ∥1− 2 
+
+> p⋆
+
+· p⋆ ∥xt − xt+1 ∥2
+
+4ηt
+
+! 1
+
+> p⋆
+> (a)
+
+≤
+
+ 4ηt
+
+> p⋆
+
+ pp⋆
+
+∥ϵt∥p ∥xt − xt+1 ∥p− 2pp⋆
+
+p + ∥xt − xt+1 ∥2
+
+4ηt
+
+> (b)
+
+≤ C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p + ∥xt − xt+1 ∥2
+
+4ηt
+
+, (5) where (a) is by Young’s inequality and (b) is due to ∥xt − xt+1 ∥ ≤ D, p⋆ = pp−1 , and C(p) = 150  
+
+> (4 p−4) p−1
+> pp
+
+. Next, we plug (4) and (5) back into (3), then combine with (2) to know 151 
+
+⟨gt, xt − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2ηt
+
++ ηtG2 + C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p. (6) Notably, the term ∥ϵt∥p has a correct exponent p. Thus, we can safely take expectations on both sides. 152 
+
+Finally, a standard analysis yields the following Theorem 1 (see Appendix A for a formal proof). 153 
+
+Theorem 1. Under Assumption 1, taking ηt = DG√t ∧ Dσt 1/p in OGD (Algorithm 1), we have 154 
+
+E ROGD  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p, ∀x ∈ X .
+
+As far as we know, Theorem 1 is the first and the only provable result for OGD under heavy tails. 155 
+
+Remarkably, it is not only tight in T [24 , 30 , 41 ] but also fully optimal in all parameters, in contrast 156 
+
+to the bound (G + σ)DT 1/p of [ 47 ]. This reveals that OCO with heavy tails can be optimally solved 157 
+
+as effectively as the finite variance case once the domain is bounded, a classical condition adapted in 158 
+
+many existing works. 159 
+
+Strongly convex functions. We highlight that the above idea can also be applied to Online Strongly 160 
+
+Convex Optimization and leads to a sublinear regret T 2−p better than T 1/p. This extension can be 161 
+
+found in Appendix A. 162 
+
+3.2 New Regret for Dual Averaging 163 
+
+Algorithm 2 Dual Averaging ( DA ) [25, 43] 
+
+Input: initial point x1 ∈ X , stepsize ηt > 0
+
+for t = 1 to T do 
+
+xt+1 = Π X (x1 − ηt
+
+Pts=1 gs)
+
+end for 
+
+Remark 3. It is known that DA is a special realization of the more general Follow-the-Regularized-164 
+
+Leader (FTRL ) framework [ 21 ]. To keep the work concise, we only focus on DA . The key idea to 165 
+
+prove Theorem 2 can directly extend to show new regret for FTRL under heavy-tailed noise. 166 
+
+We turn our attention to the second candidate, the Dual Averaging ( DA ) algorithm, which is given 167 
+
+in Algorithm 2. Though DA coincides with OGD when X = Rd and ηt = η, these two methods in 168 
+
+general are not equivalent and can have significant performance differences in practice. Therefore, it 169 
+
+is also important to understand DA under heavy tails. 170 
+
+Despite the proof strategies for OGD and DA are in different flavors (even for p = 2 ), the basic idea 171 
+
+presented before for OGD still works here, i.e., apply the boundness property of X to make the term 172 
+
+∥ϵt∥ have a correct exponent. Armed with this thought, we can prove the following new regret bound 173 
+
+for DA under heavy-tailed noise. We refer the reader to Appendix B for its proof. 174 
+
+Theorem 2. Under Assumption 1, taking ηt = DG√t ∧ Dσt 1/p in DA (Algorithm 2), we have 175 
+
+E RDA  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p, ∀x ∈ X .
+
+As far as we know, Theorem 2 is the first provable and optimal regret for DA under heavy tails. It 176 
+
+guarantees the same tight bound as in Theorem 1 up to different constants. 177 
+
+53.3 New Regret for AdaGrad 178 
+
+Algorithm 3 AdaGrad [9, 22] 
+
+Input: initial point x1 ∈ X , stepsize η > 0
+
+for t = 1 to T do 
+
+ηt = ηV −1/2 
+
+> t
+
+where Vt = Pts=1 ∥gs∥2
+
+xt+1 = Π X (xt − ηtgt)
+
+end for 
+
+Remark 4. Algorithm 3 is also named AdaGrad -Norm (e.g., [ 42 ]). We simply call it AdaGrad . It is 179 
+
+straightforward to generalize Theorem 3 below to the per-coordinate update version. 180 
+
+Although Theorems 1 and 2 are optimal, they both suffer from an undesired point. That is, the 181 
+
+stepsize ηt = DG√t ∧ Dσt 1/p requires knowing all problem-dependent parameters. However, it may not 182 
+
+be easy to obtain them in an online setting. Especially, it heavily depends on the prior information 183 
+
+about the tail index p, which is hard to know (even approximately) in advance. In other words, they 184 
+
+both lack the adaptive property to an unknown environment. 185 
+
+To handle this issue, we consider AdaGrad , a classical adaptive algorithm for OCO. As can be seen, 186 
+
+AdaGrad is just OGD with an adaptive stepsize. However, it is this adaptive stepsize that can help us 187 
+
+to overcome the above undesired point. 188 
+
+Theorem 3. Under Assumption 1, taking η = D/ √2 in AdaGrad (Algorithm 3), we have 189 
+
+E RAdaGrad  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p, ∀x ∈ X .
+
+Remark 5. We also establish a similar result for DA with an adaptive stepsize. See Theorem 7 in 190 
+
+Appendix B for details. 191 
+
+Theorem 3 provides the first regret bound for AdaGrad under heavy tails. Impressively, it is optimal 192 
+
+even without knowing any of G, σ, and p. This surprising result once again demonstrates the power 193 
+
+of the adaptive method, indicating it is robust to an unknown environment and even heavy-tailed 194 
+
+noise, which may partially explain the favorable performance of many adaptive optimizers designed 195 
+
+based on AdaGrad like RMSProp [40] and Adam [14]. 196 
+
+We point out that the key to establishing Theorem 3 differs from the idea used before for OGD and 197 
+
+DA . Actually, Theorem 3 can be obtained in an embarrassingly simple way. It is known that AdaGrad 198 
+
+with η = D/ √2 on a bounded domain guarantees the following path-wise regret 199 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≲ D
+
+vuut TX
+
+> t=1
+
+∥gt∥2. (7) Observe that 
+
+qPTt=1 ∥gt∥2 ≲
+
+qPTt=1 ∥∇ ℓt(xt)∥2 +
+
+qPTt=1 ∥ϵt∥2 ≤ G√T +
+
+PTt=1 ∥ϵt∥p 1
+
+> p
+
+,200 
+
+where the last step is due to ∥·∥ 2 ≤ ∥·∥ p for any p ∈ [1 , 2] . After taking expectations on both sides of 201 
+
+(7) and applying Hölder’s inequality to obtain E
+
+PTt=1 ∥ϵt∥p 1
+
+> p
+
+
+
+≤
+
+PTt=1 E ∥ϵt∥p 1
+
+> p
+
+≤ σT 1 
+
+> p
+
+,202 
+
+we conclude Theorem 3. To make the work self-consistent, we produce the formal proof of Theorem 203 
+
+3 in Appendix C. 204 
+
+## 4 Applications 205 
+
+We provide some applications based on the new regret bounds established in Section 3. The basic 206 
+
+problem we study is optimizing a single objective F , which could be either convex or nonconvex. 207 
+
+4.1 Nonsmooth Convex Optimization 208 
+
+In this section, we consider nonsmooth convex optimization with heavy tails. 209 
+
+6Convergence of the average iterate. First, we focus on convergence in average. By the classical 210 
+
+online-to-batch conversion [3], the following corollary immediately holds. 211 
+
+Corollary 1. Under Assumption 1 for ℓt(x) = ⟨∇ F (xt), x⟩ and let ¯xT ≜ 1
+
+> T
+
+PTt=1 xt, for any 212 
+
+A ∈ { OGD , DA , AdaGrad }, we have 213 
+
+E [F (¯ xT ) − F (x)] ≤ E RA 
+
+> T
+
+(x)
+
+T ≲ GD 
+
+√T + σpDT 1− 1
+
+> p
+
+, ∀x ∈ X .
+
+Proof. By convexity, F (¯ xT ) − F (x) ≤    
+
+> PTt=1 F(xt)−F(x)
+> T
+
+≤ RA  
+
+> T(x)
+> T
+
+is valid for any OCO algorithm 214 
+
+A. We conclude from invoking Theorems 1, 2 and 3. 215 
+
+To the best of our knowledge, Corollary 1 gives the first and optimal convergence rate for these three 216 
+
+algorithms in stochastic optimization with heavy tails. Especially, it implies that once the domain 217 
+
+is bounded, the widely implemented SGD algorithm provably converges under heavy-tailed noise 218 
+
+without any algorithmic change considered in many prior works, e.g., gradient clipping [18, 26]. 219 
+
+We are only aware of two works [ 19 , 41 ] based on Stochastic Mirror Descent ( SMD ) [ 24 ] that gave 220 
+
+convergence results without clipping. However, they share a common drawback, i.e., their bounds are 221 
+
+both in the form of (G + σ)D/T 1−1/p, which cannot recover the optimal rate GD/ √T when σ = 0 .222 
+
+Lastly, we highlight that for A = AdaGrad , Corollary 1 is not only optimal but also adaptive to the 223 
+
+tail index p. As far as we know, no result has achieved this property before. This once again evidences 224 
+
+the benefit of adaptive gradient methods. 225 
+
+Convergence of the last iterate. Next, we consider the more challenging last-iterate convergence, 226 
+
+which has a long history in stochastic optimization and fruitful results in the case of p = 2 (see, 227 
+
+e.g., [ 28 , 36 , 49 ]). However, less is known about heavy-tailed problems. So far, only two works 228 
+
+[ 19 , 29 ] have established the last-iterate convergence. The former is based on SMD , and the latter 229 
+
+employs gradient clipping in SGD . Unfortunately, their rates are both in the suboptimal order 230 
+
+(G + σ)D/T 1−1/p.231 
+
+We will provide an optimal last-iterate rate based on the following lemma, which reduces the 232 
+
+last-iterate convergence to an online learning problem. 233 
+
+Lemma 1 (Theorem 1 of [ 7 ]) . Suppose x1, . . . , xT and y1, . . . , yT are two sequences of vectors 234 
+
+satisfying xt ∈ X , x1 = y1 and 235 
+
+yt+1 = yt + T − tT (xt+1 − xt) . (8) 
+
+Given a convex function F (x), let ℓt(x) = ⟨∇ F (yt), x⟩. Then for any online learner A, we have 236 
+
+F (yT ) − F (x) ≤ RA 
+
+> T
+
+(x)
+
+T , ∀x ∈ X .
+
+We emphasize that the stochastic gradient gt received by A is an estimate of ∇F (yt) instead of 237 
+
+∇F (xt). This flexibility is due to the generality of the OCO framework. Moreover, for OGD ,238 
+
+suppose there is no projection step, then (8) is equivalent to yt+1 = yt − T −tT ηtgt, which can be 239 
+
+viewed as SGD with a stepsize T −tT ηt. For proof of Lemma 1, we refer the interested reader to [7]. 240 
+
+Corollary 2. Under Assumption 1 for ℓt(x) = ⟨∇ F (yt), x⟩, where yt satisfies (8), for any A ∈241 
+
+{OGD , DA , AdaGrad }, we have 242 
+
+E [F (yT ) − F (x)] ≤ E RA 
+
+> T
+
+(x)
+
+T ≲ GD 
+
+√T + σpDT 1− 1
+
+> p
+
+, ∀x ∈ X .
+
+Proof. Combine Lemma 1 and Theorems 1, 2 and 3 to conclude. 243 
+
+As far as we know, Corollary 2 is the first optimal last-iterate convergence rate for stochastic convex 244 
+
+optimization with heavy tails, closing the gap in existing works. 245 
+
+One may notice that yt itself is not the decision made by the online learner and naturally may ask 246 
+
+whether xt ensures the last-iterate convergence if we simply pick ℓt = F . The answer turns out to 247 
+
+7be positive at least for OGD (which is equivalent to SGD now). However, to prove this result, we 248 
+
+rely on a technique specialized to stochastic optimization recently developed by [ 19 , 44 ]. To not 249 
+
+diverge from the topic of OCO, we defer the last-iterate convergence of OGD to Appendix D, in 250 
+
+which Theorem 8 gives a general result for any stepsize ηt and Corollary 4 shows the last-iterate rate 251 
+
+under the same stepsize ηt = DG√t ∧ Dσt 1/p as in Theorem 1 before. 252 
+
+4.2 Nonsmooth Nonconvex Optimization 253 
+
+This section contains another application, nonsmooth nonconvex optimization with heavy tails. Due 254 
+
+to limited space, we will provide only the necessary background. For more details, we refer the reader 255 
+
+to [6, 13, 15, 16, 38, 39] for recent progress. We start with a new set of conditions. 256 
+
+Assumption 2. We consider the following series of assumptions: 257 
+
+• The objective F is lower bounded by F⋆ ≜ inf x∈Rd F (x) ∈ R.258 
+
+• F is differentiable and well-behaved, i.e., F (x) − F (y) = R 10 ⟨∇ F (y + t(x − y)) , x − y⟩ dt.259 
+
+• F is G-Lipschitz on Rd, i.e., ∥∇ F (x)∥ ≤ G, ∀x ∈ Rd.260 
+
+• Given zt ∈ Rd at the t-th iteration, one can query gt ∈ Rd satisfying E [gt | F t−1] = ∇F (zt)261 
+
+and E ∥ϵt∥p ≤ σp for some p ∈ (1 , 2] and σ ≥ 0, where Ft denotes the natural filtration and 262 
+
+ϵt ≜ gt − ∇ F (zt) is the stochastic noise. 263 
+
+Remark 6. The second point is a mild regularity condition introduced by [ 5] and becomes standard 264 
+
+in the literature [ 2 , 17 , 48 ]. See Definition 1 and Proposition 2 of [ 5 ] for more details. In the fourth 265 
+
+point, we use the same notation zt as in the algorithm being studied later. In fact, it can be arbitrary. 266 
+
+In nonsmooth nonconvex optimization, we aim to find a (δ, ϵ )-stationary point [ 46 ] (see the for-267 
+
+mal Definition 2 in Appendix E). This goal can be reduced to finding a point x ∈ Rd such that 268 
+
+∥∇ F (x)∥δ ≤ ϵ, where ∥∇ F (x)∥δ is a quantity introduced by [5] as follows. 269 
+
+Definition 1 (Definition 5 of [ 5]) . Given a point x ∈ Rd, a number δ > 0 and an almost-everywhere 270 
+
+differentiable function F , define ∥∇ F (x)∥δ ≜ inf S⊂B (x,δ ), 1  
+
+> |S|
+> P
+> y∈Sy=x1
+> |S|
+
+P 
+
+> y∈S
+
+∇F (y) .271 
+
+The only existing sample complexity under Assumption 2 is (G+σ) pp−1 δ−1ϵ− 2p−1 
+
+> p−1
+
+in high probability 272 
+
+[17], where we only report the dominant term and hide the dependency on the failure probability. 273 
+
+However, on the theoretical side, their result cannot recover the optimal bound G2δ−1ϵ−3 [5 ] in the 274 
+
+deterministic case. On the practical side, their method also employs the gradient clipping step, which 275 
+
+introduces a new clipping parameter to tune. In fact, as stated in their Section 5, they observed in 276 
+
+experiments that their algorithm without the clipping operation (exactly the algorithm we study next) 277 
+
+still works under heavy tails. In addition, in their Section 6, they also explicitly ask whether the 278 
+
+requirement to know G and A can be removed. 279 
+
+As will be seen later, we can address these points with the new regret bounds presented before. 280 
+
+4.2.1 Online-to-Nonconvex Conversion under Heavy Tails 281 
+
+Algorithm 4 Online-to-Nonconvex Conversion ( O2NC ) [5] 
+
+Input: initial point y0 ∈ Rd, K ∈ N, T ∈ N, online learning algorithm A.
+
+for n = 1 to KT do 
+
+Receive xn from A
+
+yn = yn−1 + xn
+
+zn = yn−1 + snxn where sn ∼ Uniform [0 , 1] i.i.d. Query a stochastic gradient gn at zn
+
+Send gn to A
+
+end for 
+
+Remark 7. Note that O2NC is a randomized algorithm. Therefore, the definition of the natural 282 
+
+filtration is adjusted to Fn ≜ σ(s1, g1, . . . , s n, gn, s n+1 ) accordingly. 283 
+
+8We provide the Online-to-Nonconvex Conversion ( O2NC ) framework in Algorithm 4, which serves 284 
+
+as a meta algorithm. Roughly speaking, Algorithm 4 reduces a nonconvex optimization problem 285 
+
+to an OCO (in fact, OLO) problem, for which the K-shifting regret (see (9)) of the online learner 286 
+
+A crucially affects the final convergence rate. However, the existing Theorem 8 of [ 5], a general 287 
+
+convergence result for the above reduction, cannot directly apply to heavy-tailed noise, since its proof 288 
+
+relies on the finite variance condition on gn (see Appendix E for more details). 289 
+
+Theorem 4. Under Assumption 2 and let vk ≜ −D   
+
+> PkT n=( k−1) T+1 ∇F(zn)
+
+∥PkT n=( k−1) T +1 ∇F (zn)∥ , ∀k ∈ [K] for arbitrary 290 
+
+D > 0, then for any online learning algorithm A in O2NC (Algorithm 4), we have 291 
+
+E
+
+
+
+> K
+
+X
+
+> k=1
+
+1
+
+K
+
+1
+
+T
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn)
+
+ ≲ F (y0) − F⋆
+
+DKT + E RA 
+
+> T
+
+(v1, · · · , vK )
+
+DKT + σT 1− 1
+
+> p
+
+.
+
+RA 
+
+> T
+
+(v1, · · · , vK ) in Theorem 4 is called K-shifting regret [5], defined as follows: 292 
+
+RA 
+
+> T
+
+(v1, . . . , vK ) ≜
+
+> K
+
+X
+
+> k=1
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ℓn(xn) − ℓn(vk) where ℓn(x) ≜ ⟨gn, x⟩ . (9) Theorem 4 here provides a new and the first theoretical guarantee for O2NC under heavy tails. 293 
+
+Especially, it recovers Theorem 8 of [ 5] when p = 2 . A remarkable point is that the O2NC algorithm 294 
+
+itself does not need any information about p. The proof of Theorem 4 can be found in Appendix E. 295 
+
+4.2.2 Convergence Rates 296 
+
+Theorem 4 enables us to apply the results presented in Section 3. Concretely, for X = Bd(D) and 297 
+
+any A ∈ { OGD , DA , AdaGrad }, if we reset the stepsize in A after every T iterations, there will be 298 
+
+E RA 
+
+> T
+
+(v1, · · · , vK ) ≲ GDK √T + σDKT 1/p by our new regret bounds, since vk ∈ X . With a 299 
+
+carefully picked D, we obtain the following Theorem 5. Its proof is deferred to Appendix E. 300 
+
+Theorem 5. Under Assumption 2 and let ∆ ≜ F (y0)−F⋆ and ¯zk ≜ 1
+
+> T
+
+PkT n=( k−1) T +1 zn, ∀k ∈ [K],301 
+
+setting any A ∈ { OGD , DA , AdaGrad } in O2NC (Algorithm 4) with a domain X = Bd(D) for 302 
+
+D = δ/T and resetting the stepsize in A after every T iterations, we have 303 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ ∆
+
+δK + G
+
+√T + σT 1− 1
+
+> p
+
+.
+
+Notably, this is the first time confirming that gradient clipping is indeed unnecessary for the O2NC 304 
+
+framework, matching the experimental observation of [17]. 305 
+
+Corollary 3. Under the same setting of Theorem 5, suppose we have N ≥ 2 stochastic gradient 306 
+
+budgets, taking K = ⌊N/T ⌋ and T = ⌈N/ 2⌉ ∧ 
+
+l 
+
+(δGN/ ∆) 23
+
+m
+
+∨
+
+l
+
+(δσN/ ∆) p
+
+> 2p−1
+
+m 
+
+, we have 307 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ G
+
+√N + σN 1− 1
+
+> p
+
++ ∆
+
+δN + G 23 ∆ 13
+
+(δN ) 13
+
++ σ p 
+
+> 2p−1
+
+∆ p−12p−1
+
+(δN ) p−12p−1
+
+.
+
+Corollary 3 is obtained by optimizing K and T in Theorem 5. It implies a sample complexity of 308 
+
+G2δ−1ϵ−3 + σ pp−1 δ−1ϵ− 2p−1 
+
+> p−1
+
+for finding a (δ, ϵ )-stationary point, improved over the previous bound 309 
+
+(G + σ) pp−1 δ−1ϵ− 2p−1 
+
+> p−1
+
+[17 ]. Furthermore, leveraging the adaptive feature of AdaGrad , Corollary 5 310 
+
+in Appendix E shows how to set K and T without G, σ, and p, resulting in the first provably rate for 311 
+
+O2NC when no problem information is known in advance, which solves the problem asked by [ 17 ]. 312 
+
+## 5 Conclusion and Limitation 313 
+
+This paper shows that three classical OCO algorithms, OGD , DA , and AdaGrad , can achieve the 314 
+
+optimal in-expectation regret under heavy tails without any algorithmic modification if the feasible 315 
+
+set is bounded, and provides some applications in stochastic optimization. The main limitation of 316 
+
+our work is that all the proof crucially relies on the bounded domain assumption, which may not 317 
+
+always be suitable in practice. Finding a weaker sufficient condition, under which the classical OCO 318 
+
+algorithms work with heavy tails provably, is a direction worth studying in the future. 319 
+
+9References 320 
+
+[1] Naman Agarwal, Brian Bullins, Elad Hazan, Sham Kakade, and Karan Singh. Online control 321 
+
+with adversarial disturbances. In Kamalika Chaudhuri and Ruslan Salakhutdinov, editors, 322 
+
+Proceedings of the 36th International Conference on Machine Learning , volume 97 of Pro-323 
+
+ceedings of Machine Learning Research , pages 111–119. PMLR, 09–15 Jun 2019. URL 324 
+
+https://proceedings.mlr.press/v97/agarwal19c.html .325 
+
+[2] Kwangjun Ahn and Ashok Cutkosky. Adam with model exponential moving aver-326 
+
+age is effective for nonconvex optimization. In A. Globerson, L. Mackey, D. Bel-327 
+
+grave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang, editors, Advances in Neural 328 
+
+Information Processing Systems , volume 37, pages 94909–94933. Curran Associates, 329 
+
+Inc., 2024. URL https://proceedings.neurips.cc/paper_files/paper/2024/file/ 330 
+
+ac8ec9b4d94c03f0af8c4fe3d5fad4fd-Paper-Conference.pdf .331 
+
+[3] N. Cesa-Bianchi, A. Conconi, and C. Gentile. On the generalization ability of on-line learning 332 
+
+algorithms. IEEE Transactions on Information Theory , 50(9):2050–2057, 2004. doi: 10.1109/ 333 
+
+TIT.2004.833339. 334 
+
+[4] Nicolo Cesa-Bianchi and Gabor Lugosi. Prediction, Learning, and Games . Cambridge 335 
+
+University Press, 2006. 336 
+
+[5] Ashok Cutkosky, Harsh Mehta, and Francesco Orabona. Optimal stochastic non-smooth non-337 
+
+convex optimization through online-to-non-convex conversion. In Andreas Krause, Emma 338 
+
+Brunskill, Kyunghyun Cho, Barbara Engelhardt, Sivan Sabato, and Jonathan Scarlett, editors, 339 
+
+Proceedings of the 40th International Conference on Machine Learning , volume 202 of Pro-340 
+
+ceedings of Machine Learning Research , pages 6643–6670. PMLR, 23–29 Jul 2023. URL 341 
+
+https://proceedings.mlr.press/v202/cutkosky23a.html .342 
+
+[6] Damek Davis, Dmitriy Drusvyatskiy, Yin Tat Lee, Swati Padmanabhan, and Guanghao Ye. A 343 
+
+gradient sampling method with complexity guarantees for lipschitz functions in high and low 344 
+
+dimensions. In S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, editors, 345 
+
+Advances in Neural Information Processing Systems , volume 35, pages 6692–6703. Curran 346 
+
+Associates, Inc., 2022. URL https://proceedings.neurips.cc/paper_files/paper/ 347 
+
+2022/file/2c8d9636f74d0207ff4f65956010f450-Paper-Conference.pdf .348 
+
+[7] Aaron Defazio, Ashok Cutkosky, Harsh Mehta, and Konstantin Mishchenko. Optimal linear 349 
+
+decay learning rate schedules and further refinements. arXiv preprint arXiv:2310.07831 , 2023. 350 
+
+[8] John Duchi, Elad Hazan, and Yoram Singer. Adaptive subgradient methods for online learning 351 
+
+and stochastic optimization. Journal of Machine Learning Research , 12(61):2121–2159, 2011. 352 
+
+URL http://jmlr.org/papers/v12/duchi11a.html .353 
+
+[9] John Duchi, Elad Hazan, and Yoram Singer. Adaptive subgradient methods for online learning 354 
+
+and stochastic optimization. Journal of machine learning research , 12(7), 2011. 355 
+
+[10] Elad Hazan. Introduction to online convex optimization. Foundations and Trends® in 356 
+
+Optimization , 2(3-4):157–325, 2016. ISSN 2167-3888. doi: 10.1561/2400000013. URL 357 
+
+http://dx.doi.org/10.1561/2400000013 .358 
+
+[11] Elad Hazan and Karan Singh. Introduction to online control, 2025. URL https://arxiv. 359 
+
+org/abs/2211.09619 .360 
+
+[12] Liam Hodgkinson and Michael Mahoney. Multiplicative noise and heavy tails in stochastic 361 
+
+optimization. In International Conference on Machine Learning , pages 4262–4274. PMLR, 362 
+
+2021. 363 
+
+[13] Michael Jordan, Guy Kornowski, Tianyi Lin, Ohad Shamir, and Manolis Zampetakis. De-364 
+
+terministic nonsmooth nonconvex optimization. In Gergely Neu and Lorenzo Rosasco, 365 
+
+editors, Proceedings of Thirty Sixth Conference on Learning Theory , volume 195 of Pro-366 
+
+ceedings of Machine Learning Research , pages 4570–4597. PMLR, 12–15 Jul 2023. URL 367 
+
+https://proceedings.mlr.press/v195/jordan23a.html .368 
+
+10 [14] Diederik P Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint 369 
+
+arXiv:1412.6980 , 2014. 370 
+
+[15] Guy Kornowski and Ohad Shamir. Oracle complexity in nonsmooth nonconvex optimiza-371 
+
+tion. Journal of Machine Learning Research , 23(314):1–44, 2022. URL http://jmlr.org/ 372 
+
+papers/v23/21-1507.html .373 
+
+[16] Guy Kornowski and Ohad Shamir. On the complexity of finding small subgradients in non-374 
+
+smooth optimization. In OPT 2022: Optimization for Machine Learning (NeurIPS 2022 375 
+
+Workshop) , 2022. URL https://openreview.net/forum?id=SaRQ4oTqWbP .376 
+
+[17] Langqi Liu, Yibo Wang, and Lijun Zhang. High-probability bound for non-smooth non-convex 377 
+
+stochastic optimization with heavy tails. In Ruslan Salakhutdinov, Zico Kolter, Katherine Heller, 378 
+
+Adrian Weller, Nuria Oliver, Jonathan Scarlett, and Felix Berkenkamp, editors, Proceedings 379 
+
+of the 41st International Conference on Machine Learning , volume 235 of Proceedings of 380 
+
+Machine Learning Research , pages 32122–32138. PMLR, 21–27 Jul 2024. URL https: 381 
+
+//proceedings.mlr.press/v235/liu24bo.html .382 
+
+[18] Zijian Liu and Zhengyuan Zhou. Stochastic nonsmooth convex optimization with heavy-tailed 383 
+
+noises: High-probability bound, in-expectation rate and initial distance adaptation. arXiv 384 
+
+preprint arXiv:2303.12277 , 2023. 385 
+
+[19] Zijian Liu and Zhengyuan Zhou. Revisiting the last-iterate convergence of stochastic gradient 386 
+
+methods. In The Twelfth International Conference on Learning Representations , 2024. URL 387 
+
+https://openreview.net/forum?id=xxaEhwC1I4 .388 
+
+[20] Zijian Liu and Zhengyuan Zhou. Nonconvex stochastic optimization under heavy-tailed noises: 389 
+
+Optimal convergence without gradient clipping. In The Thirteenth International Conference on 390 
+
+Learning Representations , 2025. URL https://openreview.net/forum?id=NKotdPUc3L .391 
+
+[21] Brendan McMahan. Follow-the-regularized-leader and mirror descent: Equivalence theo-392 
+
+rems and l1 regularization. In Geoffrey Gordon, David Dunson, and Miroslav Dudík, edi-393 
+
+tors, Proceedings of the Fourteenth International Conference on Artificial Intelligence and 394 
+
+Statistics , volume 15 of Proceedings of Machine Learning Research , pages 525–533, Fort 395 
+
+Lauderdale, FL, USA, 11–13 Apr 2011. PMLR. URL https://proceedings.mlr.press/ 396 
+
+v15/mcmahan11b.html .397 
+
+[22] H Brendan McMahan and Matthew Streeter. Adaptive bound optimization for online convex 398 
+
+optimization. arXiv preprint arXiv:1002.4908 , 2010. 399 
+
+[23] H. Brendan McMahan and Matthew J. Streeter. Adaptive bound optimization for online convex 400 
+
+optimization. In Conference on Learning Theory (COLT) , pages 244–256. Omnipress, 2010. 401 
+
+[24] Arkadi Nemirovski and David Yudin. Problem complexity and method efficiency in optimization. 402 
+
+Wiley-Interscience , 1983. 403 
+
+[25] Yurii Nesterov. Primal-dual subgradient methods for convex problems. Mathematical program-404 
+
+ming , 120(1):221–259, 2009. 405 
+
+[26] Ta Duy Nguyen, Thien H Nguyen, Alina Ene, and Huy Nguyen. Improved convergence in 406 
+
+high probability of clipped gradient methods with heavy tailed noise. In A. Oh, T. Nau-407 
+
+mann, A. Globerson, K. Saenko, M. Hardt, and S. Levine, editors, Advances in Neu-408 
+
+ral Information Processing Systems , volume 36, pages 24191–24222. Curran Associates, 409 
+
+Inc., 2023. URL https://proceedings.neurips.cc/paper_files/paper/2023/file/ 410 
+
+4c454d34f3a4c8d6b4ca85a918e5d7ba-Paper-Conference.pdf .411 
+
+[27] Francesco Orabona. A modern introduction to online learning. arXiv preprint arXiv:1912.13213 ,412 
+
+2019. 413 
+
+[28] Francesco Orabona. Last iterate of sgd converges (even in unbounded 414 
+
+domains). 2020. URL https://parameterfree.com/2020/08/07/ 415 
+
+last-iterate-of-sgd-converges-even-in-unbounded-domains/ .416 
+
+11 [29] Daniela Angela Parletta, Andrea Paudice, and Saverio Salzo. An improved analysis of the 417 
+
+clipped stochastic subgradient method under heavy-tailed noise, 2025. URL https://arxiv. 418 
+
+org/abs/2410.00573 .419 
+
+[30] Maxim Raginsky and Alexander Rakhlin. Information complexity of black-box convex op-420 
+
+timization: A new look via feedback information theory. In 2009 47th Annual Allerton 421 
+
+Conference on Communication, Control, and Computing (Allerton) , pages 803–510, 2009. doi: 422 
+
+10.1109/ALLERTON.2009.5394945. 423 
+
+[31] Alexander Rakhlin, Ohad Shamir, and Karthik Sridharan. Making gradient descent optimal for 424 
+
+strongly convex stochastic optimization. arXiv preprint arXiv:1109.5647 , 2011. 425 
+
+[32] Herbert Robbins and Sutton Monro. A Stochastic Approximation Method. The Annals of 426 
+
+Mathematical Statistics , 22(3):400 – 407, 1951. doi: 10.1214/aoms/1177729586. URL https: 427 
+
+//doi.org/10.1214/aoms/1177729586 .428 
+
+[33] R Tyrrell Rockafellar. Convex analysis , volume 28. Princeton university press, 1997. 429 
+
+[34] Abdurakhmon Sadiev, Marina Danilova, Eduard Gorbunov, Samuel Horváth, Gauthier Gidel, 430 
+
+Pavel Dvurechensky, Alexander Gasnikov, and Peter Richtárik. High-probability bounds for 431 
+
+stochastic optimization and variational inequalities: the case of unbounded variance. In Andreas 432 
+
+Krause, Emma Brunskill, Kyunghyun Cho, Barbara Engelhardt, Sivan Sabato, and Jonathan 433 
+
+Scarlett, editors, Proceedings of the 40th International Conference on Machine Learning ,434 
+
+volume 202 of Proceedings of Machine Learning Research , pages 29563–29648. PMLR, 23–29 435 
+
+Jul 2023. URL https://proceedings.mlr.press/v202/sadiev23a.html .436 
+
+[35] Shai Shalev-Shwartz. Online learning and online convex optimization. Foundations and Trends® 437 
+
+in Machine Learning , 4(2):107–194, 2012. ISSN 1935-8237. doi: 10.1561/2200000018. URL 438 
+
+http://dx.doi.org/10.1561/2200000018 .439 
+
+[36] Ohad Shamir and Tong Zhang. Stochastic gradient descent for non-smooth optimization: 440 
+
+Convergence results and optimal averaging schemes. In Sanjoy Dasgupta and David McAllester, 441 
+
+editors, Proceedings of the 30th International Conference on Machine Learning , volume 28 of 442 
+
+Proceedings of Machine Learning Research , pages 71–79, Atlanta, Georgia, USA, 17–19 Jun 443 
+
+2013. PMLR. URL https://proceedings.mlr.press/v28/shamir13.html .444 
+
+[37] Umut Simsekli, Levent Sagun, and Mert Gurbuzbalaban. A tail-index analysis of stochastic 445 
+
+gradient noise in deep neural networks. In Kamalika Chaudhuri and Ruslan Salakhutdinov, 446 
+
+editors, Proceedings of the 36th International Conference on Machine Learning , volume 97 of 447 
+
+Proceedings of Machine Learning Research , pages 5827–5837. PMLR, 09–15 Jun 2019. URL 448 
+
+https://proceedings.mlr.press/v97/simsekli19a.html .449 
+
+[38] Lai Tian and Anthony Man-Cho So. No dimension-free deterministic algorithm computes 450 
+
+approximate stationarities of lipschitzians. Mathematical Programming , 208(1):51–74, 2024. 451 
+
+[39] Lai Tian, Kaiwen Zhou, and Anthony Man-Cho So. On the finite-time complexity and prac-452 
+
+tical computation of approximate stationarity concepts of Lipschitz functions. In Kamalika 453 
+
+Chaudhuri, Stefanie Jegelka, Le Song, Csaba Szepesvari, Gang Niu, and Sivan Sabato, editors, 454 
+
+Proceedings of the 39th International Conference on Machine Learning , volume 162 of Pro-455 
+
+ceedings of Machine Learning Research , pages 21360–21379. PMLR, 17–23 Jul 2022. URL 456 
+
+https://proceedings.mlr.press/v162/tian22a.html .457 
+
+[40] Tijmen Tieleman, Geoffrey Hinton, et al. Lecture 6.5-rmsprop: Divide the gradient by a running 458 
+
+average of its recent magnitude. COURSERA: Neural networks for machine learning , 4(2): 459 
+
+26–31, 2012. 460 
+
+[41] Nuri Mert Vural, Lu Yu, Krishna Balasubramanian, Stanislav Volgushev, and Murat A Erdogdu. 461 
+
+Mirror descent strikes again: Optimal stochastic convex optimization under infinite noise 462 
+
+variance. In Po-Ling Loh and Maxim Raginsky, editors, Proceedings of Thirty Fifth Conference 463 
+
+on Learning Theory , volume 178 of Proceedings of Machine Learning Research , pages 65–102. 464 
+
+PMLR, 02–05 Jul 2022. URL https://proceedings.mlr.press/v178/vural22a.html .465 
+
+12 [42] Rachel Ward, Xiaoxia Wu, and Leon Bottou. AdaGrad stepsizes: Sharp convergence over 466 
+
+nonconvex landscapes. In Kamalika Chaudhuri and Ruslan Salakhutdinov, editors, Proceedings 467 
+
+of the 36th International Conference on Machine Learning , volume 97 of Proceedings of 468 
+
+Machine Learning Research , pages 6677–6686. PMLR, 09–15 Jun 2019. URL https:// 469 
+
+proceedings.mlr.press/v97/ward19a.html .470 
+
+[43] Lin Xiao. Dual averaging method for regularized stochastic learning and online opti-471 
+
+mization. In Y. Bengio, D. Schuurmans, J. Lafferty, C. Williams, and A. Culotta, edi-472 
+
+tors, Advances in Neural Information Processing Systems , volume 22. Curran Associates, 473 
+
+Inc., 2009. URL https://proceedings.neurips.cc/paper_files/paper/2009/file/ 474 
+
+7cce53cf90577442771720a370c3c723-Paper.pdf .475 
+
+[44] Moslem Zamani and François Glineur. Exact convergence rate of the last iterate in subgradient 476 
+
+methods. arXiv preprint arXiv:2307.11134 , 2023. 477 
+
+[45] Jingzhao Zhang, Sai Praneeth Karimireddy, Andreas Veit, Seungyeon Kim, Sashank Reddi, 478 
+
+Sanjiv Kumar, and Suvrit Sra. Why are adaptive methods good for attention models? In 479 
+
+H. Larochelle, M. Ranzato, R. Hadsell, M.F. Balcan, and H. Lin, editors, Advances in Neu-480 
+
+ral Information Processing Systems , volume 33, pages 15383–15393. Curran Associates, 481 
+
+Inc., 2020. URL https://proceedings.neurips.cc/paper_files/paper/2020/file/ 482 
+
+b05b57f6add810d3b7490866d74c0053-Paper.pdf .483 
+
+[46] Jingzhao Zhang, Hongzhou Lin, Stefanie Jegelka, Suvrit Sra, and Ali Jadbabaie. Complexity of 484 
+
+finding stationary points of nonconvex nonsmooth functions. In Hal Daumé III and Aarti Singh, 485 
+
+editors, Proceedings of the 37th International Conference on Machine Learning , volume 119 486 
+
+of Proceedings of Machine Learning Research , pages 11173–11182. PMLR, 13–18 Jul 2020. 487 
+
+URL https://proceedings.mlr.press/v119/zhang20p.html .488 
+
+[47] Jiujia Zhang and Ashok Cutkosky. Parameter-free regret in high probability with heavy tails. 489 
+
+In S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, editors, Advances 490 
+
+in Neural Information Processing Systems , volume 35, pages 8000–8012. Curran Associates, 491 
+
+Inc., 2022. URL https://proceedings.neurips.cc/paper_files/paper/2022/file/ 492 
+
+349956dee974cfdcbbb2d06afad5dd4a-Paper-Conference.pdf .493 
+
+[48] Qinzi Zhang and Ashok Cutkosky. Random scaling and momentum for non-smooth non-convex 494 
+
+optimization. In Ruslan Salakhutdinov, Zico Kolter, Katherine Heller, Adrian Weller, Nuria 495 
+
+Oliver, Jonathan Scarlett, and Felix Berkenkamp, editors, Proceedings of the 41st International 496 
+
+Conference on Machine Learning , volume 235 of Proceedings of Machine Learning Research ,497 
+
+pages 58780–58799. PMLR, 21–27 Jul 2024. URL https://proceedings.mlr.press/ 498 
+
+v235/zhang24k.html .499 
+
+[49] Tong Zhang. Solving large scale linear prediction problems using stochastic gradient descent 500 
+
+algorithms. In Proceedings of the twenty-first international conference on Machine learning ,501 
+
+page 116, 2004. 502 
+
+[50] Martin Zinkevich. Online convex programming and generalized infinitesimal gradient ascent. In 503 
+
+Proceedings of the 20th international conference on machine learning (icml-03) , pages 928–936, 504 
+
+2003. 505 
+
+13 A Missing Proofs for Online Gradient Descent 506 
+
+This section provides missing proofs for regret bounds of OGD . Before showing the formal proof, 507 
+
+we recall the following core inequality that holds for any x ∈ X given in (6): 508 
+
+⟨gt, xt − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2ηt
+
++ ηtG2 + C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p. (10) The key to establishing the above result is showing 509 
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt
+
+≤ ηtG2 + C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p, (11) the proof of which is by combining (3), (4), and (5) established in the main text. 510 
+
+A.1 Proof of Theorem 1 511 
+
+Proof. For any x ∈ X , sum up (10) from t = 1 to T and drop the term − ∥xT +1 −x∥2 
+
+> 2ηT
+
+to obtain 512 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩≤ ∥x1 − x∥2
+
+2η1
+
++ 
+
+> T−1
+
+X
+
+> t=1
+
+ 1
+
+ηt+1 
+
+− 1
+
+ηt
+
+ ∥xt+1 − x∥2
+
+2 +
+
+> T
+
+X
+
+> t=1
+
+ηtG2 + C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p (12) 
+
+≤ D2
+
+ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+ηtG2 + C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p, (13) where the last step is due to ∥xt − x∥ ≤ D, ∀t ∈ [T ] and ηt+1 ≤ ηt, ∀t ∈ [T − 1] .513 
+
+Taking expectations on both sides of (13) yields that 514 
+
+E ROGD  
+
+> T
+
+(x) ≤ D2
+
+ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+ηtG2 + C(p)ηp−1 
+
+> t
+
+σpD2−p, (14) where for the L.H.S., we use E [⟨gt, xt − x⟩] = E [E [⟨gt, xt − x⟩ | F t−1]] and 515 
+
+E [⟨gt, xt − x⟩ | F t−1] = ⟨E [gt | F t−1] , xt − x⟩ = ⟨∇ ℓt(xt), xt − x⟩ ≥ ℓt(xt) − ℓt(x), (15) for the R.H.S., we use E ∥ϵt∥p ≤ σp.516 
+
+Finally, we plug ηt = DG√t ∧ Dσt 1/p , ∀t ∈ [T ] into (14), then use PTt=1 1√t ≲ √T and PTt=1 1 
+
+> t1−1/p
+
+≲517 
+
+T 1/p to conclude 518 
+
+E ROGD  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p.
+
+> 519
+
+A.2 Extension to Online Strongly Convex Optimization 520 
+
+Next, we extend Theorem 1 to the strongly convex case, i.e., ∃μ > 0 such that for all t ∈ [T ],521 
+
+μ
+
+2 ∥x − y∥2 + ⟨∇ ℓt(y), x − y⟩ + ℓt(y) ≤ ℓt(x), ∀x, y ∈ X , ∇ℓt(y) ∈ ∂ℓ t(y). (16) In this setting, it is well known that OGD achieves a logarithmic regret bound when p = 2 [ 10 , 27 ]. 522 
+
+Theorem 6 below provides the first provable result for p < 2.523 
+
+Theorem 6. Under Assumption 1 and additionally assuming (16), taking ηt = 1 
+
+> μt
+
+in OGD (Algorithm 524 
+
+1), we have 525 
+
+E ROGD  
+
+> T
+
+(x) ≲ G2 (1 + log T )
+
+μ + σpG2−p
+
+μ ×
+
+T 2−p p ∈ (1 , 2) 1 + log T p = 2 , ∀x ∈ X .
+
+14 Theorem 6 shows that under strongly convexity, OGD for p ∈ (1 , 2) achieves a better sublinear regret 526 
+
+T 2−p than T 1/p in Theorem 1 as 2 − p ≤ 1/p, ∀p > 0. One point we highlight here is that the 527 
+
+stepsize ηt = 1 
+
+> μt
+
+is commonly used in the OCO literature and is independent of the tail index p.528 
+
+However, in contrast to Theorem 1, we suspect Theorem 6 is not tight in T for p ∈ (1 , 2) . The reason 529 
+
+is that for nonsmooth strongly convex optimization with heavy tails (i.e., ℓt = F, ∀t ∈ [T ] where F530 
+
+is strongly convex), Theorem 6 can convert to a convergence rate only in the order of 1/T p−1, which 531 
+
+is worse than the lower bound 1/T 2−2/p [45 ]. Therefore, we conjecture that a way to obtain a better 532 
+
+regret bound than T 2−p exists, which we leave as future work. 533 
+
+Proof of Theorem 6. For any x ∈ X , we take expectations on both sides of (12) to have 534 
+
+E ROGD  
+
+> T
+
+(x) ≤
+
+ 1
+
+η1
+
+− μ
+
+ ∥x1 − x∥2
+
+2 + 
+
+> T−1
+
+X
+
+> t=1
+
+ 1
+
+ηt+1 
+
+− 1
+
+ηt
+
+− μ
+
+ E
+
+h
+
+∥xt+1 − x∥2i
+
+2+
+
+> T
+
+X
+
+> t=1
+
+ηtG2 + C(p)ηp−1 
+
+> t
+
+σpD2−p, (17) where for the L.H.S., we follow a similar step of reasoning out (15) but instead using 535 
+
+⟨∇ ℓt(xt), xt − x⟩ ≥ ℓt(xt) − ℓt(x) + μ
+
+2 ∥xt − x∥2 ,
+
+for the R.H.S., we use E ∥ϵt∥p ≤ σp.536 
+
+Next, we plug ηt = 1 
+
+> μt
+
+, ∀t ∈ [T ] into (17) to obtain 537 
+
+E ROGD  
+
+> T
+
+(x) ≲
+
+> T
+
+X
+
+> t=1
+
+G2
+
+μt + σpD2−p
+
+μp−1tp−1
+
+≲ G2 (1 + log T )
+
+μ + σpD2−p
+
+μp−1 ×
+
+T 2−p p ∈ (1 , 2) 1 + log T p = 2 .
+
+Lastly, it is known that if ℓt is G-Lipschitz and μ-strongly convex on a domain X with a diameter D,538 
+
+then it satisfies D ≲ Gμ (e.g., see Lemma 2 of [31]). Therefore, when p ∈ (1 , 2) ,539 
+
+E ROGD  
+
+> T
+
+(x) ≲ G2 (1 + log T )
+
+μ + σpG2−p
+
+μ T 2−p.
+
+> 540
+
+## B Missing Proofs for Dual Averaging 541 
+
+This section provides missing proofs for regret bounds of DA .542 
+
+B.1 Proof of Theorem 2 543 
+
+Proof. Let Lt(x) ≜ ∥x−x1∥2 
+
+> 2ηt−1
+
++ Pt−1 
+
+> s=1
+
+⟨gs, x⟩ , ∀t ∈ [T + 1] , where η0 ≜ η1. Then DA can be 544 
+
+equivalently written as 545 
+
+xt = argmin x∈X Lt(x), ∀t ∈ [T + 1] .
+
+By Lemma 7.1 of [27], for any x ∈ X ,546 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ = ∥x − x1∥2
+
+2ηT
+
++ LT +1 (xT +1 ) − LT +1 (x) + 
+
+> T
+
+X
+
+> t=1
+
+Lt(xt) + ⟨gt, xt⟩ − Lt+1 (xt+1 )
+
+≤ ∥x − x1∥2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+Lt(xt) − Lt+1 (xt+1 ) + ⟨gt, xt⟩ ,
+
+15 where the inequality holds by LT +1 (xT +1 ) ≤ LT +1 (x), ∀x ∈ X due to xT +1 =547 
+
+argmin x∈X LT +1 (x). Note that for any t ∈ [T ],548 
+
+Lt(xt) − Lt+1 (xt+1 ) + ⟨gt, xt⟩
+
+=Lt(xt) − Lt(xt+1 ) + ⟨gt, xt − xt+1 ⟩ + ∥xt+1 − x1∥2
+
+2ηt−1
+
+− ∥xt+1 − x1∥2
+
+2ηt
+
+> (a)
+
+≤ Lt(xt) − Lt(xt+1 ) + ⟨gt, xt − xt+1 ⟩
+
+> (b)
+
+≤ ⟨ gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+,
+
+where (a) is by ηt ≤ ηt−1, ∀t ∈ [T ] and (b) is holds because Lt is 1 
+
+> ηt−1
+
+-strongly convex and 549 
+
+xt = argmin x∈X Lt(x), which together imply 550 
+
+Lt(xt) − Lt(xt+1 ) ≤ ⟨∇ Lt(xt), xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+≤ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+.
+
+Therefore, we have 551 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≤ ∥x − x1∥2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+. (18) By the same argument as proving (11) but replacing ηt with ηt−1, there is 552 
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+≤ ηt−1G2 + C(p)ηp−1 
+
+> t−1
+
+∥ϵt∥p D2−p.
+
+As such, we know 553 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≤ ∥x − x1∥2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+ηt−1G2 + C(p)ηp−1 
+
+> t−1
+
+∥ϵt∥p D2−p.
+
+Finally, following similar steps in proving Theorem 1 in Appendix A, we conclude 554 
+
+E RDA  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p.
+
+> 555
+
+B.2 Dual Averaging with an Adaptive Stepsize 556 
+
+We show that DA with an adaptive stepsize can also achieve the optimal regret GD √T + σDT 1/p.557 
+
+Theorem 7. Under Assumption 1, taking ηt = 2 DV −1/2 
+
+> t
+
+and Vt = Pts=1 ∥gs∥2 in DA (Algorithm 558 
+
+2), we have 559 
+
+E RDA  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p, ∀x ∈ X .
+
+Proof. For any x ∈ X , we have 560 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ (18) 
+
+≤ ∥x − x1∥2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+, (19) where η0 ≜ η1. On the one hand, we can use AM-GM inequality to bound 561 
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+≤ ηt−1 ∥gt∥2
+
+2 .
+
+On the other hand, we know 562 
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+≤ ⟨ gt, xt − xt+1 ⟩ ≤ ∥ gt∥ ∥ xt − xt+1 ∥ ≤ ∥ gt∥ D, (20) 16 where the second step is by Cauchy-Schwarz inequality. Therefore, for any t ≥ 2,563 
+
+⟨gt, xt − xt+1 ⟩ − ∥xt − xt+1 ∥2
+
+2ηt−1
+
+≤ ηt−1 ∥gt∥2
+
+2 ∧ ∥ gt∥ D (a)
+
+≤ 2 
+
+> 2
+> ηt−1∥gt∥2
+
++ 1
+
+> ∥gt∥D
+> (b)
+
+= 2D ∥gt∥2
+
+qPt−1 
+
+> s=1
+
+∥gs∥2 + ∥gt∥
+
+> (c)
+
+≤ 2D ∥gt∥2
+
+qPts=1 ∥gs∥2 , (21) where (a) is due to x ∧ y ≤ 2 
+
+> x−1+y−1
+
+, ∀x, y > 0, (b) is by ηt−1 = 2D√Pt−1 
+
+> s=1 ∥gs∥2
+
+, and (c) holds 564 
+
+because of 
+
+qPts=1 ∥gs∥2 ≤
+
+qPt−1 
+
+> s=1
+
+∥gs∥2 + ∥gt∥. Note that (21) is also true for t = 1 by (20). 565 
+
+Combine (19) and (21) and use ∥x − x1∥ ≤ D to obtain 566 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≤ D2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+2D ∥gt∥2
+
+qPts=1 ∥gs∥2 = D2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+ηt ∥gt∥2 ,
+
+which only differs from (22) by a constant. Hence, by a similar proof for (24), there is 567 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≲ D
+
+vuut TX
+
+> t=1
+
+∥∇ ℓt(xt)∥2 +
+
+> T
+
+X
+
+> t=1
+
+∥ϵt∥p
+
+! 1
+
+> p
+
+ ,
+
+implying 568 
+
+E RDA  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p.
+
+> 569
+
+## C Missing Proofs for AdaGrad 570 
+
+This section provides missing proofs for regret bounds of AdaGrad .571 
+
+C.1 Proof of Theorem 3 572 
+
+Proof. As mentioned, AdaGrad can be viewed as OGD with a stepsize ηt = η√Vt
+
+= η√Pts=1 ∥gs∥2 .573 
+
+Therefore, we can use (1) for AdaGrad to know for any x ∈ X ,574 
+
+⟨gt, xt − x⟩ ≤ ∥xt − x∥2 − ∥ xt+1 − x∥2
+
+2ηt
+
++ ηt ∥gt∥2
+
+2 .
+
+Sum up the above inequality from t = 1 to T and drop the term − ∥xT +1 −x∥2 
+
+> 2ηT
+
+to have 575 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≤ ∥x1 − x∥2
+
+2η1
+
++ 
+
+> T−1
+
+X
+
+> t=1
+
+ 1
+
+ηt+1 
+
+− 1
+
+ηt
+
+ ∥xt+1 − x∥2
+
+2 +
+
+> T
+
+X
+
+> t=1
+
+ηt ∥gt∥2
+
+2
+
+≤ D2
+
+2ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+ηt ∥gt∥2
+
+2 , (22) where the last step is by ∥xt − x∥ ≤ D, ∀t ∈ [T ] and ηt+1 ≤ ηt, ∀t ∈ [T − 1] .576 
+
+Next, observe that for any t ∈ [T ],577 
+
+∥gt∥2 = η2
+
+η2
+
+> t
+
+− η2
+
+η2
+
+> t−1
+
+= η2
+
+ 1
+
+ηt
+
+− 1
+
+ηt−1
+
+  1
+
+ηt
+
++ 1
+
+ηt−1
+
+
+
+≤ 2η2
+
+ηt
+
+ 1
+
+ηt
+
+− 1
+
+ηt−1
+
+
+
+,
+
+where 1/η 0 should be read as 0. The above inequality implies 578 
+
+> T
+
+X
+
+> t=1
+
+ηt ∥gt∥2
+
+2 ≤ η2
+
+> T
+
+X
+
+> t=1
+
+1
+
+ηt
+
+− 1
+
+ηt−1
+
+= η2
+
+ηT
+
+. (23) 17 Combine (22) and (23) to have 579 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≤ D2
+
+2ηT
+
++ η2
+
+ηT
+
+=
+
+ D2
+
+2η + η
+
+ vuut TX
+
+> t=1
+
+∥gt∥2.
+
+Note that there is 580 
+
+vuut TX
+
+> t=1
+
+∥gt∥2 ≤
+
+vuut TX
+
+> t=1
+
+2 ∥∇ ℓt(xt)∥2 + 2 ∥ϵt∥2 ≤
+
+vuut2
+
+> T
+
+X
+
+> t=1
+
+∥∇ ℓt(xt)∥2 +
+
+vuut2
+
+> T
+
+X
+
+> t=1
+
+∥ϵt∥2
+
+≤
+
+vuut2
+
+> T
+
+X
+
+> t=1
+
+∥∇ ℓt(xt)∥2 + √2
+
+> T
+
+X
+
+> t=1
+
+∥ϵt∥p
+
+! 1
+
+> p
+
+,
+
+where the last step is due to ∥·∥ 2 ≤ ∥·∥ p for any p ∈ [1 , 2] . Hence, we obtain 581 
+
+> T
+
+X
+
+> t=1
+
+⟨gt, xt − x⟩ ≤ √2
+
+ D2
+
+2η + η
+
+ vuut TX
+
+> t=1
+
+∥∇ ℓt(xt)∥2 +
+
+> T
+
+X
+
+> t=1
+
+∥ϵt∥p
+
+! 1
+
+> p
+
+ . (24) We take expectations on both sides of (24), then apply Hölder’s inequality to have 582 
+
+E
+
+
+
+> T
+
+X
+
+> t=1
+
+∥ϵt∥p
+
+! 1
+
+> p
+
+ ≤
+
+> T
+
+X
+
+> t=1
+
+E ∥ϵt∥p! 1
+
+> p
+
+≤ σT 1 
+
+> p
+
+,
+
+and finally plug in η = D/ √2 to conclude 583 
+
+E RAdaGrad  
+
+> T
+
+(x) ≲ GD √T + σDT 1/p.
+
+> 584
+
+## D Missing Proofs for Applications: Nonsmooth Convex Optimization 585 
+
+We prove the following last-iterate convergence result for SGD (i.e., OGD for stochastic optimization) 586 
+
+under heavy-tailed noise. The proof of Theorem 8 is inspired by [19, 44]. 587 
+
+Theorem 8. Under Assumption 1 for ℓt(x) = F (x), for any stepsize ηt > 0 in OGD (Algorithm 1), 588 
+
+we have 589 
+
+E [F (xT ) − F (x)] ≲ D2
+
+PTt=1 ηt
+
++ G2
+
+> T
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=( t+1) ∧T ηs
+
++ σpD2−p
+
+> T
+
+X
+
+> t=1
+
+ηp
+
+> t
+
+PTs=( t+1) ∧T ηs
+
+.
+
+Proof. Given x ∈ X , we recursively define 590 
+
+y0 ≜ x and yt ≜
+
+
+
+1 − wt−1
+
+wt
+
+
+
+xt + wt−1
+
+wt
+
+yt−1, ∀t ∈ [T ] , (25) in which 591 
+
+wt ≜ ηT
+
+PTs=t+1 ηs
+
+, ∀t ∈ { 0} ∪ [T − 1] and wT ≜ wT −1 = 1 . (26) Equivalently, yt can be written into a convex combination of x, x1, . . . , xt as 592 
+
+yt = w0
+
+wt
+
+x +
+
+> t
+
+X
+
+> s=1
+
+ws − ws−1
+
+wt
+
+xs, ∀t {0} ∪ [T ] . (27) Therefore, yt also falls into X and satisfies yt ∈ F t−1.593 
+
+18 We invoke (10) for yt to obtain 594 
+
+⟨gt, xt − yt⟩ ≤ ∥xt − yt∥2 − ∥ xt+1 − yt∥2
+
+2ηt
+
++ ηtG2 + C(p)ηp−1 
+
+> t
+
+∥ϵt∥p D2−p. (28) Since xt, yt ∈ F t−1, there is 595 
+
+E [⟨gt, xt − yt⟩] = E [⟨E [gt | F t−1] , xt − yt⟩] = E [⟨∇ F (xt), xt − yt⟩] ≥ E [F (xt) − F (yt)] ,
+
+where the last step is due to the convexity of F . As such, we can take expectations on both sides of 596 
+
+(28) to have 597 
+
+E [F (xt) − F (yt)] ≤
+
+E
+
+h
+
+∥xt − yt∥2i
+
+− E
+
+h
+
+∥xt+1 − yt∥2i
+
+2ηt
+
++ ηtG2 + C(p)ηp−1 
+
+> t
+
+σpD2−p
+
+≤
+
+E
+
+h wt−1 
+
+> wt
+
+xt − yt−1
+
+> 2
+
+i
+
+− E
+
+h
+
+∥xt+1 − yt∥2i
+
+2ηt
+
++ ηtG2 + C(p)ηp−1 
+
+> t
+
+σpD2−p,
+
+(29) where the second step is due to ∥xt − yt∥2 ≤
+
+
+
+1 − wt−1
+
+> wt
+
+
+
+∥xt − xt∥2 + wt−1 
+
+> wt
+
+xt − yt−1 
+
+> 2
+
+=598  
+
+> wt−1
+> wt
+
+xt − yt−1 
+
+> 2
+
+by (25) and the convexity of ∥xt − ·∥ 2. Mutiply both sides of (29) by wtηt and 599 
+
+sum up from t = 1 to T to obtain 600 
+
+E
+
+" TX
+
+> t=1
+
+wtηt (F (xt) − F (yt)) 
+
+#
+
+≤
+
+w0 ∥x1 − y0∥2 − E
+
+h
+
+wT ∥xT +1 − yT ∥2i
+
+2 +
+
+> T
+
+X
+
+> t=1
+
+wtη2 
+
+> t
+
+G2 + C(p)wtηp 
+
+> t
+
+σpD2−p
+
+≤ w0D2
+
+2 +
+
+> T
+
+X
+
+> t=1
+
+wtη2 
+
+> t
+
+G2 + C(p)wtηp 
+
+> t
+
+σpD2−p. (30) Now observe that 601 
+
+F (yt) − F (x) (27) 
+
+≤ w0
+
+wt
+
+(F (x) − F (x)) + 
+
+> t
+
+X
+
+> s=1
+
+ws − ws−1
+
+wt
+
+(F (xs) − F (x)) =
+
+> t
+
+X
+
+> s=1
+
+ws − ws−1
+
+wt
+
+(F (xs) − F (x)) ,
+
+which implies 602 
+
+> T
+
+X
+
+> t=1
+
+wtηt (F (yt) − F (x)) ≤
+
+> T
+
+X
+
+> t=1
+> t
+
+X
+
+> s=1
+
+(ws − ws−1) ηt (F (xs) − F (x)) =
+
+> T
+
+X
+
+> t=1
+
+(wt − wt−1)
+
+> T
+
+X
+
+> s=t
+
+ηs
+
+!
+
+(F (xt) − F (x)) .
+
+Thus, we can lower bound the L.H.S. of (30) by 603 
+
+> T
+
+X
+
+> t=1
+
+wtηt (F (xt) − F (yt)) = 
+
+> T
+
+X
+
+> t=1
+
+wtηt (F (xt) − F (x)) − wtηt (F (yt) − F (x)) 
+
+≥
+
+> T
+
+X
+
+> t=1
+
+"
+
+wtηt − (wt − wt−1)
+
+> T
+
+X
+
+> s=t
+
+ηs
+
+!# 
+
+(F (xt) − F (x)) = wT ηT (F (xT ) − F (x)) , (31) 19 where the last step is due to, for t ∈ [T − 1] ,604 
+
+wtηt − (wt − wt−1)
+
+> T
+
+X
+
+> s=t
+
+ηs
+
+!
+
+> (26)
+
+= ηT
+
+PTs=t+1 ηs
+
+· ηt − ηT
+
+PTs=t+1 ηs
+
+− ηT
+
+PTs=t ηs
+
+! TX
+
+> s=t
+
+ηs
+
+!
+
+= ηT
+
+PTs=t+1 ηs
+
+· ηt − ηT
+
+PTs=t+1 ηs
+
+· ηt = 0 ,
+
+and wT
+
+> (26)
+
+= wT −1 = 1 .605 
+
+We plug (31) back into (30) and divide both sides by wT ηT to obtain 606 
+
+E [F (xT ) − F (x)] ≤ w0D2
+
+2wT ηT
+
++
+
+> T
+
+X
+
+> t=1
+
+wtη2
+
+> t
+
+wT ηT
+
+G2 + C(p) wtηp
+
+> t
+
+wT ηT
+
+σpD2−p
+
+> (26)
+
+≲ D2
+
+PTt=1 ηt
+
++ G2
+
+> T
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=( t+1) ∧T ηs
+
++ σpD2−p
+
+> T
+
+X
+
+> t=1
+
+ηp
+
+> t
+
+PTs=( t+1) ∧T ηs
+
+.
+
+> 607
+
+Equipped with Theorem 8, we show the following anytime last-iterate convergence rate for SGD /OGD .608 
+
+As far as we know, this is the first and the only provable result demonstrating that the last iterate of 609 
+
+SGD can converge in heavy-tailed stochastic optimization without gradient clipping. Compared to 610 
+
+Corollary 2, the difference is up to an extra logarithmic factor. Therefore, it is nearly optimal. 611 
+
+Corollary 4. Under Assumption 1 for ℓt(x) = F (x), taking ηt = DG√t ∧ Dσt 1/p in OGD (Algorithm 612 
+
+1), we have 613 
+
+E [F (xT ) − F (x)] ≲ GD (1 + log T )
+
+√T + σD (1 + log T )
+
+T 1− 1
+
+> p
+
+.
+
+Proof. By Theorem 8, we have 614 
+
+E [F (xT ) − F (x)] 
+
+≲ D2
+
+PTt=1 ηt
+
++ G2
+
+> T
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=( t+1) ∧T ηs
+
++ σpD2−p
+
+> T
+
+X
+
+> t=1
+
+ηp
+
+> t
+
+PTs=( t+1) ∧T ηs
+
+= D2
+
+PTt=1 ηt
+
++ G2 ηT + 
+
+> T−1
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=t+1 ηs
+
+!
+
++ σpD2−p ηp−1 
+
+> T
+
++ 
+
+> T−1
+
+X
+
+> t=1
+
+ηp
+
+> t
+
+PTs=t+1 ηs
+
+!
+
+.
+
+For any t ∈ { 0} ∪ [T − 1] , observe that by Cauchy-Schwarz inequality 615 
+
+(T − t)2 ≤
+
+> T
+
+X
+
+> s=t+1
+
+1
+
+ηs
+
+! TX
+
+> s=t+1
+
+ηs
+
+!
+
+⇒ 1
+
+PTs=t+1 ηs
+
+≤
+
+PTs=t+1 1
+
+> ηs
+
+(T − t)2 .
+
+Thus, there is 616 
+
+E [F (xT ) − F (x)] ≲ D2
+
+T 2
+
+> T
+
+X
+
+> t=1
+
+1
+
+ηt
+
++ G2 ηT + 
+
+> T−1
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=t+1 1
+
+> ηs
+
+(T − t)2
+
+!
+
++ σpD2−p ηp−1 
+
+> T
+
++ 
+
+> T−1
+
+X
+
+> t=1
+
+ηp
+
+> t
+
+PTs=t+1 1
+
+> ηs
+
+(T − t)2
+
+!
+
+. (32) We first bound 617 
+
+> T
+
+X
+
+> t=1
+
+1
+
+ηt
+
+=
+
+> T
+
+X
+
+> t=1
+
+G√tD ∨ σt 1/p
+
+D ≤
+
+> T
+
+X
+
+> t=1
+
+G√tD + σt 1/p
+
+D ≲ GD T 3/2 + σD T 1+1 /p,
+
+20 which implies 618 
+
+D2
+
+T 2
+
+> T
+
+X
+
+> t=1
+
+1
+
+ηt
+
+≲ GD 
+
+√T + σD T 1− 1
+
+> p
+
+. (33) Next, we know 619 
+
+ηT + 
+
+> T−1
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=t+1 1
+
+> ηs
+
+(T − t)2(a)
+
+≤ DG√T + 
+
+> T−1
+
+X
+
+> t=1
+
+"
+
+DG ·
+
+PTs=t+1 
+
+√st(T − t)2 + σD G2 ·
+
+PTs=t+1 s1/p
+
+t(T − t)2
+
+# 
+
+> Fact 1
+
+≲ DG√T + D (1 + log T )
+
+G√T + σD (1 + log T )
+
+G2T 1− 1
+
+> p
+
+,
+
+where (a) is by ηt ≤ DG√t and 1 
+
+> ηs
+
+≤ G√sD ∨ σs 1/p 
+
+> D
+
+. Hence, there is 620 
+
+G2 ηT + 
+
+> T−1
+
+X
+
+> t=1
+
+η2
+
+> t
+
+PTs=t+1 1
+
+> ηs
+
+(T − t)2
+
+!
+
+≲ GD (1 + log T )
+
+√T + σD (1 + log T )
+
+T 1− 1
+
+> p
+
+. (34) Similarly, we can bound 621 
+
+σpD2−p ηp−1 
+
+> T
+
++ 
+
+> T−1
+
+X
+
+> t=1
+
+ηp
+
+> t
+
+PTs=t+1 1
+
+> ηs
+
+(T − t)2
+
+!
+
+≲ GD (1 + log T )
+
+√T + σD (1 + log T )
+
+T 1− 1
+
+> p
+
+. (35) Finally, we plug (33), (34) and (35) back into (32) to conclude. 622 
+
+## E Missing Proofs for Applications: Nonsmooth Nonconvex Optimization 623 
+
+E.1 (δ, ϵ )-Stationary Points 624 
+
+Definition 2 (Definition 4 of [ 5]) . A point x ∈ Rd is a (δ, ϵ )-stationary point of an almost-everywhere 625 
+
+differentiable function F if there is a finite subset S ⊂ B d(x, δ ) such that for y selected uniformly at 626 
+
+random from S, E [y] = x and ∥E [∇F (y)] ∥ ≤ ϵ.627 
+
+The concept of the (δ, ϵ )-stationary point presented here is due to [ 5], which is mildly more stringent 628 
+
+than the notion of [ 46 ], since the latter does not require E [y] = x. For more discussions, see Section 629 
+
+2.1 of [5]. 630 
+
+E.2 Proof of Theorem 4 631 
+
+In this section, our ultimate goal is to prove Theorem 4 for the O2NC algorithm, extending Theorem 632 
+
+8 of [ 5] from p = 2 to any p ∈ (1 , 2] . Notably, our new result does not require any modification 633 
+
+to the O2NC method, but is obtained only from a more careful analysis, indicating that O2NC is a 634 
+
+robust and powerful algorithmic framework. 635 
+
+We begin with Lemma 2, which lies as the cornerstone for establishing the convergence of O2NC .636 
+
+Lemma 2 (Theorem 7 of [ 5 ]) . Under Assumption 2 (only need the second point and the unbiased part 637 
+
+in the fourth point), for any sequence of vectors u1, . . . , uKT ∈ Rd, O2NC (Algorithm 4) guarantees 638 
+
+E [F (yKT )] = F (y0) + E
+
+" KT X
+
+> n=1
+
+⟨gn, xn − un⟩
+
+#
+
++ E
+
+" KT X
+
+> n=1
+
+⟨gn, un⟩
+
+#
+
+. (36) To relate Lemma 2 to the concept of K-shifting regret introduced before (see (9)), suppose now a 639 
+
+sequence of vectors v1, . . . , vK is given, if we set un = vk for all n ∈ { (k − 1) T + 1 , . . . , kT }640 
+
+and k ∈ [K], then the second term on the R.H.S. of (36) can be written as E RA 
+
+> T
+
+(v1, . . . , vK ), and 641 
+
+the third term can be simplified into PKk=1 E
+
+hD PkT n=( k−1) T +1 gn, vk
+
+Ei 
+
+.642 
+
+21 Same as [5], we pick vk ≜ −D   
+
+> PkT n=( k−1) T+1 ∇F(zn)
+
+∥PkT n=( k−1) T +1 ∇F (zn)∥ for some constant D > 0, which gives us 643 
+
+E
+
+* kT X 
+
+> n=( k−1) T+1
+
+gn, vk
+
++ = E
+
+* kT X 
+
+> n=( k−1) T+1
+
+ϵn, vk
+
++ − DE
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn)
+
+
+
+≤ DE
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ϵn
+
+ − DE
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn)
+
+ .
+
+If ϵn has a finite variance (i.e., p = 2 ), then like [ 5 ], one can invoke Hölder’s inequality and use the 644 
+
+fact E [⟨ϵm, ϵn⟩] = 0 , ∀m̸ = n ∈ [KT ] to obtain for any k ∈ [K],645 
+
+E
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ϵn
+
+ ≤
+
+vuuuutE
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ϵn
+
+> 2
+
+ =
+
+vuut kT X 
+
+> n=( k−1) T+1
+
+E
+
+h
+
+∥ϵn∥2i
+
+≤ σ√T . 
+
+However, this argument immediately fails when p < 2 as E
+
+h
+
+∥ϵn∥2i
+
+can be +∞. To handle this 646 
+
+potential issue, we require the following Lemma 3. 647 
+
+Lemma 3 (Lemma 4.3 of [ 20 ]) . Given a vector-valued martingale difference sequence w1, . . . , wT ,648 
+
+there is 649 
+
+E
+
+" TX
+
+> t=1
+
+wt
+
+#
+
+≤ 2√2E
+
+
+
+> T
+
+X
+
+> t=1
+
+∥wt∥p
+
+! 1
+
+> p
+
+ , ∀p ∈ [1 , 2] .
+
+Equipped with Lemmas 2 and 3, we are ready to formally prove Theorem 4, demonstrating that the 650 
+
+O2NC framework provably works under heavy-tailed noise. 651 
+
+Proof of Theorem 4. We invoke Lemma 2 with un = v⌈n/T ⌉, ∀n ∈ [KT ] (equivalently, un = vk if 652 
+
+n ∈ { (k − 1) T + 1 , . . . , kT }) and use the definition of K-shifting regret (see (9)) to obtain 653 
+
+E [F (yKT )] = F (y0) + E RA 
+
+> T
+
+(v1, . . . , vK ) +
+
+> K
+
+X
+
+> k=1
+
+E
+
+* kT X 
+
+> n=( k−1) T+1
+
+gn, vk
+
++ . (37) Recall that gn = ∇F (zn) + ϵn, which implies for any k ∈ [K],654 
+
+E
+
+* kT X 
+
+> n=( k−1) T+1
+
+gn, vk
+
++ = E
+
+* kT X 
+
+> n=( k−1) T+1
+
+ϵn, vk
+
++ + E
+
+* kT X 
+
+> n=( k−1) T+1
+
+∇F (zn), vk
+
++
+
+≤ E
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ϵn ∥vk∥
+
+ + E
+
+* kT X 
+
+> n=( k−1) T+1
+
+∇F (zn), vk
+
++
+
+= DE
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ϵn
+
+ − DE
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn)
+
+ , (38) where the second step is by Cauchy-Schwarz inequality and the last equation holds due to 655 
+
+vk = −D
+
+PkT n=( k−1) T +1 ∇F (zn)
+
+PkT n=( k−1) T +1 ∇F (zn)
+
+, ∀k ∈ [K] . (39) Combine (37) and (38), apply F (yKT ) ≥ F⋆, and rearrange terms to have 656 
+
+E
+
+
+
+> K
+
+X
+
+> k=1
+
+1
+
+K
+
+1
+
+T
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn)
+
+
+
+≤ F (y0) − F⋆
+
+DKT + E RA 
+
+> T
+
+(v1, · · · , vK )
+
+DKT +
+
+PKk=1 E
+
+h PkT n=( k−1) T +1 ϵn
+
+i
+
+KT . (40) 22 For any fixed k ∈ [K], we apply Lemma 3 with wt = ϵ(k−1) T +t, ∀t ∈ [T ] to know 657 
+
+E
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+ϵn
+
+ ≤ 2√2E
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∥ϵn∥p
+
+
+
+> 1
+> p
+
+
+
+≤ 2√2
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+E ∥ϵn∥p
+
+> 1
+> p
+
+≤ 2√2σT 1 
+
+> p
+
+, (41) where the second step is by Hölder’s inequality (note that p > 1). Finally, we conclude the proof 658 
+
+after plugging (41) back into (40). 659 
+
+E.3 Proof of Theorem 5 660 
+
+Proof. By Theorem 4, there is 661 
+
+E
+
+
+
+> K
+
+X
+
+> k=1
+
+1
+
+K
+
+1
+
+T
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn)
+
+ ≲ F (y0) − F⋆
+
+DKT + E RA 
+
+> T
+
+(v1, · · · , vK )
+
+DKT + σT 1− 1
+
+> p
+
+. (42) Note that A has the domain X = Bd(D) and sn ∼ Uniform [0 , 1] . Thus, for any n ∈ [KT ],662 
+
+∥xn∥ ≤ D and sn ∈ [0 , 1] . (43) We first lower bound the L.H.S. of (42). Given k ∈ [K], for any m < n ∈ { (k − 1) T + 1 , . . . , kT },663 
+
+observe that 664 
+
+∥zn − zm∥ = yn−1 + snxn − ym−1 − smxm = snxn − smxm +
+
+> n−1
+
+X
+
+> i=m
+
+xi
+
+≤ sn ∥xn∥ + (1 − sm) ∥xm∥ +
+
+> n−1
+
+X
+
+> i=m+1
+
+∥xi∥ (43) 
+
+≤ (n − m + 1) D ≤ DT. 
+
+Recall that ¯zk = 1
+
+> T
+
+PkT n=( k−1) T +1 zn and D = δ/T now, then the above inequality implies 665 
+
+∥zn − ¯zk∥ ≤ DT = δ, ∀n ∈ { (k − 1) T + 1 , . . . kT } , (44) which means 666 
+
+zn ∈ B d(¯ zk, δ ), ∀n ∈ { (k − 1) T + 1 , . . . kT } .
+
+By the definition of ∥∇ F (¯ zk)∥δ (see Definition 1), there is 667 
+
+∥∇ F (¯ zk)∥δ ≤ 1
+
+T
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+∇F (zn) . (45) Next, we upper bound the R.H.S. of (42). By the definition of K-shifting regret (see (9)), there is 668 
+
+E RA 
+
+> T
+
+(v1, · · · , vK ) =
+
+> K
+
+X
+
+> k=1
+
+E
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+⟨gn, xn − vk⟩
+
+ .
+
+Note that we reset the stepsize in A after every T iterations and vk ∈ B d(D) by its definition (see 669 
+
+(39)). Then for any A ∈ { OGD , DA , AdaGrad }, we can invoke its regret bound 2 (i.e., Theorems 1, 2 670 
+
+and 3) to obtain 671 
+
+E
+
+
+
+> kT
+
+X 
+
+> n=( k−1) T+1
+
+⟨gn, xn − vk⟩
+
+ ≲ GD √T + σDT 1/p, ∀k ∈ [K] ,
+
+> 2
+
+A minor point here is that the current function ℓn(x) = ⟨gn, x⟩ does not entirely fit Assumption 1. We clarify that one does not need to worry about it, since all results proved in Section 3 hold under this change. For example, in the proof of Theorem 1, we can safely replace the L.H.S. of (14) with E
+
+hPTt=1 ⟨gt, xt − x⟩
+
+i
+
+.
+
+23 which implies 672 
+
+E RA 
+
+> T
+
+(v1, · · · , vK ) ≲ GDK √T + σDKT 1/p. (46) Finally, we plug (45) and (46) back into (42), then use D = δ/T and ∆ = F (y0) − F⋆ to have 673 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ ∆
+
+δK + G
+
+√T + σT 1− 1
+
+> p
+
+.
+
+> 674
+
+E.4 Proof of Corollary 3 675 
+
+Proof. Recall that we pick 676 
+
+K =
+
+ NT
+
+
+
+and T =
+
+ N
+
+2
+
+
+
+∧
+
+& δGN 
+
+∆
+
+ 23
+
+'
+
+∨
+
+& δσN 
+
+∆
+
+ p
+
+> 2p−1
+
+'! 
+
+,
+
+where ∆ = F (y0) − F⋆. We invoke Theorem 5 and use KT ≥ N/ 4 (see Fact 2) to obtain 677 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ ∆TδN + G
+
+√T + σT 1− 1
+
+> p
+
+.
+
+By the definition of T , we know 678 
+
+∆TδN ≲ ∆
+
+δN 
+
+"
+
+1 + 
+
+ δGN 
+
+∆
+
+ 23
+
++
+
+ δσN 
+
+∆
+
+ p
+
+> 2p−1
+
+#
+
+= ∆
+
+δN + G 23 ∆ 13
+
+(δN ) 13
+
++ σ p 
+
+> 2p−1
+
+∆ p−12p−1
+
+(δN ) p−12p−1
+
+,
+
+and 679 
+
+G
+
+√T ≲ G
+
+√N + G 23 ∆ 13
+
+(δN ) 13
+
+, σT 1− 1
+
+> p
+
+≲ σN 1− 1
+
+> p
+
++ σ p 
+
+> 2p−1
+
+∆ p−12p−1
+
+(δN ) p−12p−1
+
+.
+
+Therefore, there is 680 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ G
+
+√N + σN 1− 1
+
+> p
+
++ ∆
+
+δN + G 23 ∆ 13
+
+(δN ) 13
+
++ σ p 
+
+> 2p−1
+
+∆ p−12p−1
+
+(δN ) p−12p−1
+
+.
+
+> 681
+
+E.5 Extension to the Case of Unknown Problem-Dependent Parameters 682 
+
+In Corollary 5, we show how to set K and T when all problem-dependent parameters are unknown. 683 
+
+It is particularly meaningful for AdaGrad . As in that case, the rate is achieved without knowing any 684 
+
+problem-dependent parameter. This kind of result is the first to appear for nonsmooth nonconvex 685 
+
+optimization with heavy tails. However, the rate is not as good as Corollary 3. It is currently unclear 686 
+
+whether the same bound 1/(δN ) p−12p−1 as in Corollary 3 can be obtained when no information about 687 
+
+the problem is known. 688 
+
+Corollary 5. Under the same setting of Theorem 5, suppose we have N ≥ 2 stochastic gradient 689 
+
+budgets, taking K = ⌊N/T ⌋ and T = ⌈N/ 2⌉ ∧ 
+
+l
+
+(δN ) 23
+
+m
+
+, we have 690 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ ∆(δN ) ∧ (δN ) 13
+
++ G
+
+√N ∧ (δN ) 13
+
++ σN 1− 1 
+
+> p
+
+∧ (δN ) 2( p−1) 3p
+
+.
+
+Proof. We invoke Theorem 5 and use KT ≥ N/ 4 (see Fact 2) to obtain 691 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ ∆TδN + G
+
+√T + σT 1− 1
+
+> p
+
+.
+
+24 By the definition of T , we know 692 
+
+∆TδN ≲ ∆
+
+δN 
+
+h
+
+1 + ( δN ) 23
+
+i
+
+≲ ∆(δN ) ∧ (δN ) 13
+
+.
+
+and 693 
+
+G
+
+√T ≲ G
+
+√N + G
+
+(δN ) 13
+
+≲ G
+
+√N ∧ (δN ) 13
+
+,σT 1− 1
+
+> p
+
+≲ σN 1− 1
+
+> p
+
++ σ
+
+(δN ) 2( p−1) 3p
+
+≲ σN 1− 1 
+
+> p
+
+∧ (δN ) 2( p−1) 3p
+
+.
+
+Therefore, there is 694 
+
+E
+
+"
+
+1
+
+K
+
+> K
+
+X
+
+> k=1
+
+∥∇ F (¯ zk)∥δ
+
+#
+
+≲ ∆(δN ) ∧ (δN ) 13
+
++ G
+
+√N ∧ (δN ) 13
+
++ σN 1− 1 
+
+> p
+
+∧ (δN ) 2( p−1) 3p
+
+.
+
+> 695
+
+## F Algebraic Facts 696 
+
+We give two useful algebraic facts in this section. 697 
+
+Fact 1. For any T ∈ N and a ∈ (0 , 1) , there is 698  
+
+> T−1
+
+X
+
+> t=1
+
+PTs=t+1 sa
+
+t(T − t)2 ≲ 1 + log TT 1−a .
+
+Proof. Note that PTs=t+1 sa ≤ (T − t)T a, which implies 699  
+
+> T−1
+
+X
+
+> t=1
+
+PTs=t+1 sa
+
+t(T − t)2 ≤ 
+
+> T−1
+
+X
+
+> t=1
+
+T a
+
+t(T − t) = 1
+
+T 1−aT −1X
+
+> t=1
+
+1
+
+t + 1
+
+T − t = 2
+
+T 1−aT −1X
+
+> t=1
+
+1
+
+t ≲ 1 + log TT 1−a .
+
+> 700
+
+Fact 2. Given 2 ≤ N ∈ N, K = ⌊N/T ⌋ and T ∈ N satisfying T ≤ ⌈ N/ 2⌉, there is KT ≥ N/ 4.701 
+
+Proof. Note that KT = ⌊N/T ⌋ T ≥ N − T ≥ (N − 1) /2 ≥ N/ 4.702 
+
+25 NeurIPS Paper Checklist 703 
+
+1. Claims 704 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the 705 
+
+paper’s contributions and scope? 706 
+
+Answer: [Yes] 707 
+
+Justification: The main claims made in the abstract and introduction accurately reflect the 708 
+
+paper’s contributions and scope. 709 
+
+Guidelines: 710 
+
+• The answer NA means that the abstract and introduction do not include the claims 711 
+
+made in the paper. 712 
+
+• The abstract and/or introduction should clearly state the claims made, including the 713 
+
+contributions made in the paper and important assumptions and limitations. A No or 714 
+
+NA answer to this question will not be perceived well by the reviewers. 715 
+
+• The claims made should match theoretical and experimental results, and reflect how 716 
+
+much the results can be expected to generalize to other settings. 717 
+
+• It is fine to include aspirational goals as motivation as long as it is clear that these goals 718 
+
+are not attained by the paper. 719 
+
+2. Limitations 720 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? 721 
+
+Answer: [Yes] 722 
+
+Justification: We discuss the limitation in Section 5. 723 
+
+Guidelines: 724 
+
+• The answer NA means that the paper has no limitation while the answer No means that 725 
+
+the paper has limitations, but those are not discussed in the paper. 726 
+
+• The authors are encouraged to create a separate "Limitations" section in their paper. 727 
+
+• The paper should point out any strong assumptions and how robust the results are to 728 
+
+violations of these assumptions (e.g., independence assumptions, noiseless settings, 729 
+
+model well-specification, asymptotic approximations only holding locally). The authors 730 
+
+should reflect on how these assumptions might be violated in practice and what the 731 
+
+implications would be. 732 
+
+• The authors should reflect on the scope of the claims made, e.g., if the approach was 733 
+
+only tested on a few datasets or with a few runs. In general, empirical results often 734 
+
+depend on implicit assumptions, which should be articulated. 735 
+
+• The authors should reflect on the factors that influence the performance of the approach. 736 
+
+For example, a facial recognition algorithm may perform poorly when image resolution 737 
+
+is low or images are taken in low lighting. Or a speech-to-text system might not be 738 
+
+used reliably to provide closed captions for online lectures because it fails to handle 739 
+
+technical jargon. 740 
+
+• The authors should discuss the computational efficiency of the proposed algorithms 741 
+
+and how they scale with dataset size. 742 
+
+• If applicable, the authors should discuss possible limitations of their approach to 743 
+
+address problems of privacy and fairness. 744 
+
+• While the authors might fear that complete honesty about limitations might be used by 745 
+
+reviewers as grounds for rejection, a worse outcome might be that reviewers discover 746 
+
+limitations that aren’t acknowledged in the paper. The authors should use their best 747 
+
+judgment and recognize that individual actions in favor of transparency play an impor-748 
+
+tant role in developing norms that preserve the integrity of the community. Reviewers 749 
+
+will be specifically instructed to not penalize honesty concerning limitations. 750 
+
+3. Theory assumptions and proofs 751 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and 752 
+
+a complete (and correct) proof? 753 
+
+Answer: [Yes] 754 
+
+26 Justification: For each theoretical result, the paper provides the full set of assumptions and a 755 
+
+complete (and correct) proof. 756 
+
+Guidelines: 757 
+
+• The answer NA means that the paper does not include theoretical results. 758 
+
+• All the theorems, formulas, and proofs in the paper should be numbered and cross-759 
+
+referenced. 760 
+
+• All assumptions should be clearly stated or referenced in the statement of any theorems. 761 
+
+• The proofs can either appear in the main paper or the supplemental material, but if 762 
+
+they appear in the supplemental material, the authors are encouraged to provide a short 763 
+
+proof sketch to provide intuition. 764 
+
+• Inversely, any informal proof provided in the core of the paper should be complemented 765 
+
+by formal proofs provided in appendix or supplemental material. 766 
+
+• Theorems and Lemmas that the proof relies upon should be properly referenced. 767 
+
+4. Experimental result reproducibility 768 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-769 
+
+perimental results of the paper to the extent that it affects the main claims and/or conclusions 770 
+
+of the paper (regardless of whether the code and data are provided or not)? 771 
+
+Answer: [NA] 772 
+
+Justification: The paper does not include experiments. 773 
+
+Guidelines: 774 
+
+• The answer NA means that the paper does not include experiments. 775 
+
+• If the paper includes experiments, a No answer to this question will not be perceived 776 
+
+well by the reviewers: Making the paper reproducible is important, regardless of 777 
+
+whether the code and data are provided or not. 778 
+
+• If the contribution is a dataset and/or model, the authors should describe the steps taken 779 
+
+to make their results reproducible or verifiable. 780 
+
+• Depending on the contribution, reproducibility can be accomplished in various ways. 781 
+
+For example, if the contribution is a novel architecture, describing the architecture fully 782 
+
+might suffice, or if the contribution is a specific model and empirical evaluation, it may 783 
+
+be necessary to either make it possible for others to replicate the model with the same 784 
+
+dataset, or provide access to the model. In general. releasing code and data is often 785 
+
+one good way to accomplish this, but reproducibility can also be provided via detailed 786 
+
+instructions for how to replicate the results, access to a hosted model (e.g., in the case 787 
+
+of a large language model), releasing of a model checkpoint, or other means that are 788 
+
+appropriate to the research performed. 789 
+
+• While NeurIPS does not require releasing code, the conference does require all submis-790 
+
+sions to provide some reasonable avenue for reproducibility, which may depend on the 791 
+
+nature of the contribution. For example 792 
+
+(a) If the contribution is primarily a new algorithm, the paper should make it clear how 793 
+
+to reproduce that algorithm. 794 
+
+(b) If the contribution is primarily a new model architecture, the paper should describe 795 
+
+the architecture clearly and fully. 796 
+
+(c) If the contribution is a new model (e.g., a large language model), then there should 797 
+
+either be a way to access this model for reproducing the results or a way to reproduce 798 
+
+the model (e.g., with an open-source dataset or instructions for how to construct 799 
+
+the dataset). 800 
+
+(d) We recognize that reproducibility may be tricky in some cases, in which case 801 
+
+authors are welcome to describe the particular way they provide for reproducibility. 802 
+
+In the case of closed-source models, it may be that access to the model is limited in 803 
+
+some way (e.g., to registered users), but it should be possible for other researchers 804 
+
+to have some path to reproducing or verifying the results. 805 
+
+5. Open access to data and code 806 
+
+Question: Does the paper provide open access to the data and code, with sufficient instruc-807 
+
+tions to faithfully reproduce the main experimental results, as described in supplemental 808 
+
+material? 809 
+
+27 Answer: [NA] 810 
+
+Justification: The paper does not include experiments requiring code. 811 
+
+Guidelines: 812 
+
+• The answer NA means that paper does not include experiments requiring code. 813 
+
+• Please see the NeurIPS code and data submission guidelines ( https://nips.cc/ 814 
+
+public/guides/CodeSubmissionPolicy ) for more details. 815 
+
+• While we encourage the release of code and data, we understand that this might not be 816 
+
+possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not 817 
+
+including code, unless this is central to the contribution (e.g., for a new open-source 818 
+
+benchmark). 819 
+
+• The instructions should contain the exact command and environment needed to run to 820 
+
+reproduce the results. See the NeurIPS code and data submission guidelines ( https: 821 
+
+//nips.cc/public/guides/CodeSubmissionPolicy ) for more details. 822 
+
+• The authors should provide instructions on data access and preparation, including how 823 
+
+to access the raw data, preprocessed data, intermediate data, and generated data, etc. 824 
+
+• The authors should provide scripts to reproduce all experimental results for the new 825 
+
+proposed method and baselines. If only a subset of experiments are reproducible, they 826 
+
+should state which ones are omitted from the script and why. 827 
+
+• At submission time, to preserve anonymity, the authors should release anonymized 828 
+
+versions (if applicable). 829 
+
+• Providing as much information as possible in supplemental material (appended to the 830 
+
+paper) is recommended, but including URLs to data and code is permitted. 831 
+
+6. Experimental setting/details 832 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyper-833 
+
+parameters, how they were chosen, type of optimizer, etc.) necessary to understand the 834 
+
+results? 835 
+
+Answer: [NA] 836 
+
+Justification: The paper does not include experiments. 837 
+
+Guidelines: 838 
+
+• The answer NA means that the paper does not include experiments. 839 
+
+• The experimental setting should be presented in the core of the paper to a level of detail 840 
+
+that is necessary to appreciate the results and make sense of them. 841 
+
+• The full details can be provided either with the code, in appendix, or as supplemental 842 
+
+material. 843 
+
+7. Experiment statistical significance 844 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate 845 
+
+information about the statistical significance of the experiments? 846 
+
+Answer: [NA] 847 
+
+Justification: The paper does not include experiments. 848 
+
+Guidelines: 849 
+
+• The answer NA means that the paper does not include experiments. 850 
+
+• The authors should answer "Yes" if the results are accompanied by error bars, confi-851 
+
+dence intervals, or statistical significance tests, at least for the experiments that support 852 
+
+the main claims of the paper. 853 
+
+• The factors of variability that the error bars are capturing should be clearly stated (for 854 
+
+example, train/test split, initialization, random drawing of some parameter, or overall 855 
+
+run with given experimental conditions). 856 
+
+• The method for calculating the error bars should be explained (closed form formula, 857 
+
+call to a library function, bootstrap, etc.) 858 
+
+• The assumptions made should be given (e.g., Normally distributed errors). 859 
+
+• It should be clear whether the error bar is the standard deviation or the standard error 860 
+
+of the mean. 861 
+
+28 • It is OK to report 1-sigma error bars, but one should state it. The authors should 862 
+
+preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis 863 
+
+of Normality of errors is not verified. 864 
+
+• For asymmetric distributions, the authors should be careful not to show in tables or 865 
+
+figures symmetric error bars that would yield results that are out of range (e.g. negative 866 
+
+error rates). 867 
+
+• If error bars are reported in tables or plots, The authors should explain in the text how 868 
+
+they were calculated and reference the corresponding figures or tables in the text. 869 
+
+8. Experiments compute resources 870 
+
+Question: For each experiment, does the paper provide sufficient information on the com-871 
+
+puter resources (type of compute workers, memory, time of execution) needed to reproduce 872 
+
+the experiments? 873 
+
+Answer: [NA] 874 
+
+Justification: The paper does not include experiments. 875 
+
+Guidelines: 876 
+
+• The answer NA means that the paper does not include experiments. 877 
+
+• The paper should indicate the type of compute workers CPU or GPU, internal cluster, 878 
+
+or cloud provider, including relevant memory and storage. 879 
+
+• The paper should provide the amount of compute required for each of the individual 880 
+
+experimental runs as well as estimate the total compute. 881 
+
+• The paper should disclose whether the full research project required more compute 882 
+
+than the experiments reported in the paper (e.g., preliminary or failed experiments that 883 
+
+didn’t make it into the paper). 884 
+
+9. Code of ethics 885 
+
+Question: Does the research conducted in the paper conform, in every respect, with the 886 
+
+NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?887 
+
+Answer: [Yes] 888 
+
+Justification: The research conducted in the paper conforms, in every respect, with the 889 
+
+NeurIPS Code of Ethics. 890 
+
+Guidelines: 891 
+
+• The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics. 892 
+
+• If the authors answer No, they should explain the special circumstances that require a 893 
+
+deviation from the Code of Ethics. 894 
+
+• The authors should make sure to preserve anonymity (e.g., if there is a special consid-895 
+
+eration due to laws or regulations in their jurisdiction). 896 
+
+10. Broader impacts 897 
+
+Question: Does the paper discuss both potential positive societal impacts and negative 898 
+
+societal impacts of the work performed? 899 
+
+Answer: [NA] 900 
+
+Justification: There is no societal impact of the work performed because this paper is purely 901 
+
+theoretical. 902 
+
+Guidelines: 903 
+
+• The answer NA means that there is no societal impact of the work performed. 904 
+
+• If the authors answer NA or No, they should explain why their work has no societal 905 
+
+impact or why the paper does not address societal impact. 906 
+
+• Examples of negative societal impacts include potential malicious or unintended uses 907 
+
+(e.g., disinformation, generating fake profiles, surveillance), fairness considerations 908 
+
+(e.g., deployment of technologies that could make decisions that unfairly impact specific 909 
+
+groups), privacy considerations, and security considerations. 910 
+
+29 • The conference expects that many papers will be foundational research and not tied 911 
+
+to particular applications, let alone deployments. However, if there is a direct path to 912 
+
+any negative applications, the authors should point it out. For example, it is legitimate 913 
+
+to point out that an improvement in the quality of generative models could be used to 914 
+
+generate deepfakes for disinformation. On the other hand, it is not needed to point out 915 
+
+that a generic algorithm for optimizing neural networks could enable people to train 916 
+
+models that generate Deepfakes faster. 917 
+
+• The authors should consider possible harms that could arise when the technology is 918 
+
+being used as intended and functioning correctly, harms that could arise when the 919 
+
+technology is being used as intended but gives incorrect results, and harms following 920 
+
+from (intentional or unintentional) misuse of the technology. 921 
+
+• If there are negative societal impacts, the authors could also discuss possible mitigation 922 
+
+strategies (e.g., gated release of models, providing defenses in addition to attacks, 923 
+
+mechanisms for monitoring misuse, mechanisms to monitor how a system learns from 924 
+
+feedback over time, improving the efficiency and accessibility of ML). 925 
+
+11. Safeguards 926 
+
+Question: Does the paper describe safeguards that have been put in place for responsible 927 
+
+release of data or models that have a high risk for misuse (e.g., pretrained language models, 928 
+
+image generators, or scraped datasets)? 929 
+
+Answer: [NA] 930 
+
+Justification: The paper poses no such risks. 931 
+
+Guidelines: 932 
+
+• The answer NA means that the paper poses no such risks. 933 
+
+• Released models that have a high risk for misuse or dual-use should be released with 934 
+
+necessary safeguards to allow for controlled use of the model, for example by requiring 935 
+
+that users adhere to usage guidelines or restrictions to access the model or implementing 936 
+
+safety filters. 937 
+
+• Datasets that have been scraped from the Internet could pose safety risks. The authors 938 
+
+should describe how they avoided releasing unsafe images. 939 
+
+• We recognize that providing effective safeguards is challenging, and many papers do 940 
+
+not require this, but we encourage authors to take this into account and make a best 941 
+
+faith effort. 942 
+
+12. Licenses for existing assets 943 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in 944 
+
+the paper, properly credited and are the license and terms of use explicitly mentioned and 945 
+
+properly respected? 946 
+
+Answer: [NA] 947 
+
+Justification: The paper does not use existing assets. 948 
+
+Guidelines: 949 
+
+• The answer NA means that the paper does not use existing assets. 950 
+
+• The authors should cite the original paper that produced the code package or dataset. 951 
+
+• The authors should state which version of the asset is used and, if possible, include a 952 
+
+URL. 953 
+
+• The name of the license (e.g., CC-BY 4.0) should be included for each asset. 954 
+
+• For scraped data from a particular source (e.g., website), the copyright and terms of 955 
+
+service of that source should be provided. 956 
+
+• If assets are released, the license, copyright information, and terms of use in the 957 
+
+package should be provided. For popular datasets, paperswithcode.com/datasets 958 
+
+has curated licenses for some datasets. Their licensing guide can help determine the 959 
+
+license of a dataset. 960 
+
+• For existing datasets that are re-packaged, both the original license and the license of 961 
+
+the derived asset (if it has changed) should be provided. 962 
+
+30 • If this information is not available online, the authors are encouraged to reach out to 963 
+
+the asset’s creators. 964 
+
+13. New assets 965 
+
+Question: Are new assets introduced in the paper well documented and is the documentation 966 
+
+provided alongside the assets? 967 
+
+Answer: [NA] 968 
+
+Justification: The paper does not release new assets. 969 
+
+Guidelines: 970 
+
+• The answer NA means that the paper does not release new assets. 971 
+
+• Researchers should communicate the details of the dataset/code/model as part of their 972 
+
+submissions via structured templates. This includes details about training, license, 973 
+
+limitations, etc. 974 
+
+• The paper should discuss whether and how consent was obtained from people whose 975 
+
+asset is used. 976 
+
+• At submission time, remember to anonymize your assets (if applicable). You can either 977 
+
+create an anonymized URL or include an anonymized zip file. 978 
+
+14. Crowdsourcing and research with human subjects 979 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper 980 
+
+include the full text of instructions given to participants and screenshots, if applicable, as 981 
+
+well as details about compensation (if any)? 982 
+
+Answer: [NA] 983 
+
+Justification: The paper does not involve crowdsourcing nor research with human subjects. 984 
+
+Guidelines: 985 
+
+• The answer NA means that the paper does not involve crowdsourcing nor research with 986 
+
+human subjects. 987 
+
+• Including this information in the supplemental material is fine, but if the main contribu-988 
+
+tion of the paper involves human subjects, then as much detail as possible should be 989 
+
+included in the main paper. 990 
+
+• According to the NeurIPS Code of Ethics, workers involved in data collection, curation, 991 
+
+or other labor should be paid at least the minimum wage in the country of the data 992 
+
+collector. 993 
+
+15. Institutional review board (IRB) approvals or equivalent for research with human 994 
+
+subjects 995 
+
+Question: Does the paper describe potential risks incurred by study participants, whether 996 
+
+such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) 997 
+
+approvals (or an equivalent approval/review based on the requirements of your country or 998 
+
+institution) were obtained? 999 
+
+Answer: [NA] 1000 
+
+Justification: The paper does not involve crowdsourcing nor research with human subjects. 1001 
+
+Guidelines: 1002 
+
+• The answer NA means that the paper does not involve crowdsourcing nor research with 1003 
+
+human subjects. 1004 
+
+• Depending on the country in which research is conducted, IRB approval (or equivalent) 1005 
+
+may be required for any human subjects research. If you obtained IRB approval, you 1006 
+
+should clearly state this in the paper. 1007 
+
+• We recognize that the procedures for this may vary significantly between institutions 1008 
+
+and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the 1009 
+
+guidelines for their institution. 1010 
+
+• For initial submissions, do not include any information that would break anonymity (if 1011 
+
+applicable), such as the institution conducting the review. 1012 
+
+16. Declaration of LLM usage 1013 
+
+31 Question: Does the paper describe the usage of LLMs if it is an important, original, or 1014 
+
+non-standard component of the core methods in this research? Note that if the LLM is used 1015 
+
+only for writing, editing, or formatting purposes and does not impact the core methodology, 1016 
+
+scientific rigorousness, or originality of the research, declaration is not required. 1017 
+
+Answer: [NA] 1018 
+
+Justification: The core method development in this research does not involve LLMs as any 1019 
+
+important, original, or non-standard components. 1020 
+
+Guidelines: 1021 
+
+• The answer NA means that the core method development in this research does not 1022 
+
+involve LLMs as any important, original, or non-standard components. 1023 
+
+• Please refer to our LLM policy ( https://neurips.cc/Conferences/2025/LLM )1024 
+
+for what should or should not be described. 1025 
+
+32

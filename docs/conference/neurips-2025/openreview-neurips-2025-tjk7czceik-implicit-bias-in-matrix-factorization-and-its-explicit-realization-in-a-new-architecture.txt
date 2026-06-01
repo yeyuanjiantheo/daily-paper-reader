@@ -1,0 +1,1808 @@
+Title: 21664_Implicit_Bias_in_Matrix_.pdf
+
+URL Source: https://openreview.net/pdf?id=tJk7czcEIK
+
+Number of Pages: 19
+
+Markdown Content:
+# Implicit Bias in Matrix Factorization and its Explicit Realization in a New Architecture Anonymous Author(s) 
+
+Affiliation Address 
+
+email 
+
+## Abstract 
+
+Gradient descent for matrix factorization is known to exhibit an implicit bias 1
+
+toward approximately low-rank solutions. While existing theories often assume 2
+
+the boundedness of iterates, empirically the bias persists even with unbounded 3
+
+sequences. We thus hypothesize that implicit bias is driven by divergent dynamics 4
+
+markedly different from the convergent dynamics for data fitting. Using this 5
+
+perspective, we introduce a new factorization model: X ⇡ U DV > , where U and 6
+
+V are constrained within norm balls, while D is a diagonal factor allowing the 7
+
+model to span the entire search space. Our experiments reveal that this model 8
+
+exhibits a strong implicit bias regardless of initialization and step size, yielding truly 9
+
+(rather than approximately) low-rank solutions. Furthermore, drawing parallels 10 
+
+between matrix factorization and neural networks, we propose a novel neural 11 
+
+network model featuring constrained layers and diagonal components. This model 12 
+
+achieves strong performance across various regression and classification tasks 13 
+
+while finding low-rank solutions, resulting in efficient and lightweight networks. 14 
+
+## 1 Introduction 15 
+
+The Burer–Monteiro (BM) factorization (Burer & Monteiro, 2003) is a classical technique for 16 
+
+obtaining low-rank solutions in optimization. One can view it as a simple neural network that uses a 17 
+
+single layer of hidden neurons under linear activation. Indeed, given the factorization X = U V T
+
+> 18
+
+where U 2 R d⇥r and V 2 R c⇥r , one can view U and V as the weights of the first and second layers, 19 
+
+and r as the number of hidden neurons. But despite the similarity suggested by this view, there is a 20 
+
+clear distinction between BM factorization and neural networks in how the rank r is chosen. In BM, 21 
+
+r is typically chosen to be small, close to the rank of the desired solution. Neural networks, on the 22 
+
+other hand, often succeed even in overparametrized settings where r is large. 23 
+
+Recent findings of implicit regularization in matrix factorization narrow the gap between these two 24 
+
+perspectives. For instance, Gunasekar et al. (2017) demonstrate that gradient descent (with certain 25 
+
+parameter selection) on BM factorization tends to converge toward approximately low-rank solutions 26 
+
+even when r = d . Based on this observation, they conjecture that “with small enough step sizes and 27 
+
+initialization close enough to the origin, gradient descent on full-dimensional factorization converges 28 
+
+to the minimum nuclear norm solution.” 29 
+
+In a follow-up work, Razin & Cohen (2020) present a counterexample demonstrating that implicit 30 
+
+regularization in BM factorization cannot be explained by minimal nuclear norm , or in fact any 31 
+
+norm. Specifically, they show that there are instances where the gradient method applied to BM 32 
+
+factorization yields a diverging sequence, and all norms thus grow toward infinity. Intriguingly, 33 
+
+despite this divergence, they found that the rank of the estimate decreases toward its minimum. 34 
+
+Although this phenomenon might seem surprising initially, it is not uncommon for diverging se-35 
+
+quences to follow a structured path. A prime example is the Power Method, the fundamental algorithm 36 
+
+Submitted to 39th Conference on Neural Information Processing Systems (NeurIPS 2025). Do not distribute. for finding the largest eigenvalue and eigenvector pair of a matrix. Starting from a random initial point 37 
+
+x 0 , the Power Method iteratively updates the estimate by multiplying it with the matrix. This process 38 
+
+amplifies the component of the vector that aligns with the direction of the dominant eigenvector 39 
+
+more than the other components, progressively leading x k to align with this eigenvector. In practical 40 
+
+implementations, x k is scaled after each iteration to avoid numerical issues from divergence. 41 
+
+This perspective underpins our approach. Specifically, our key insight is that the implicit regularization 42 
+
+in BM factorization (and neural networks) is driven by divergent dynamical behavior. This is 43 
+
+markedly different from the standard (convergent) optimization dynamics helping with the data 44 
+
+fitting. In this context, we hypothesize that these forces do not merely coexist but actively compete, 45 
+
+influencing model behavior and performance in fundamentally conflicting ways. Our main goal in 46 
+
+the development of this paper is to devise an approach that unravels these competing forces. 47 
+
+1.1 Overview of main contributions 48  
+
+> ⌅
+
+A novel formulation for matrix factorization . We model X = U DV > , where U and V are 49 
+
+constrained within Frobenius norm balls. Projection onto this ball results in a scaling step similar 50 
+
+to the Power Method. The middle term D is a diagonal matrix that allows the model to explore 51 
+
+the entire search space despite U and V being bounded. 1
+
+> 52
+
+Through extensive empirics we demonstrate that the gradient method applied to the proposed 53 
+
+formulation exhibits a pronounced implicit bias toward low-rank solutions. We compare our 54 
+
+formulation against standard BM factorization with two unconstrained factors. Specifically, we 55 
+
+investigate key factors such as step size and initialization, which prior work suggests might be 56 
+
+contributing to implicit bias. We find that our factorization approach largely obviates the need 57 
+
+to rely on these conditions: it consistently finds truly (rather than approximately) low-rank 58 
+
+solutions across a wide range of initializations and step-sizes in our experiments. We believe 59 
+
+these findings should be of broader interest to research on implicit bias. 60  
+
+> ⌅
+
+A novel architecture . Motivated by the strong bias for low-rank solutions of the proposed 61 
+
+factorization, we subsequently extend it to deep neural networks. We do so by adding constrained 62 
+
+layers and diagonal components. We show that this constrained model performs on par with, 63 
+
+or even better than, the standard architecture across various regression and classification tasks. 64 
+
+Importantly, our approach exhibits bias towards low-rank solutions, resulting in a natural pruning 65 
+
+procedure that delivers compact, lightweight networks without compromising performance. 66 
+
+1.2 Related Work 67 
+
+Burer-Monteiro factorization. BM factorization was proposed for solving semidefinite programs 68 
+
+(Burer & Monteiro, 2003, 2005) and has been recognized for its efficiency in addressing low-rank 69 
+
+optimization problems (Boumal et al., 2016; Park et al., 2018). Building on the connections between 70 
+
+matrix factorization and training problems for two-layer neural networks, BM models have served as 71 
+
+foundational building blocks for understanding implicit bias and developing theoretical insights. 72 
+
+Implicit regularization. One promising line of research that aims to explain the successful general-73 
+
+ization abilities of neural networks is that of ‘implicit regularization’ induced by the optimization 74 
+
+methods and architectures (Neyshabur et al., 2014, 2017; Neyshabur, 2017). Several studies explore 75 
+
+matrix factorization to investigate implicit bias (Gunasekar et al., 2017; Arora et al., 2018; Razin & 76 
+
+Cohen, 2020; Belabbas, 2020; Li et al., 2021). Much of the existing work focuses on gradient flow 77 
+
+dynamics in the limit of infinitesimal learning rates. Exceptionally, Gidel et al. (2019) examine dis-78 
+
+crete gradient dynamics in two-layer linear neural networks, showing that the dynamics progressively 79 
+
+learn solutions of reduced-rank regression with a gradually increasing rank. 80 
+
+Constrained neural networks. Regularizers are frequently used in neural network training to prevent 81 
+
+overfitting and improve generalization, or to achieve structural benefits such as sparse and compact 82 
+
+network architectures (Scardapane et al., 2017). However, it is conventional to apply these regularizers 83 
+
+as penalty functions in the objective rather than constraints. This approach is likely favored due to 84 
+
+the ease of implementation, as pre-built functions are readily available in common neural network 85 
+
+packages. Regularization in the form of constraints appears to be rare in neural network training. 86 
+
+One notable exception is in the context of neural network training with the Frank-Wolfe algorithm 87 
+
+(Pokutta et al., 2020; Zimmer et al., 2022; Macdonald et al., 2022). Recently, Pethick et al. (2025) 88      
+
+> 1The reader may notice a “syntactic” similarity with SVD; except using vastly simpler Frobenius norm constraints on Uand Vinstead of orthogonality.
+
+2revealed parallels between Frank-Wolfe on constrained networks and algorithms that post-process 89 
+
+update steps, such as Muon (Jordan et al., 2024), which achieves state-of-the-art results on nanoGPT 90 
+
+by orthogonalizing the update directions before applying them. 91 
+
+Pruning. Neural networks are overparameterized, which can enhance generalization and avoid poor 92 
+
+local minima. But such models then suffer from excessive memory and computational demands, 93 
+
+making them less efficient for deployment in real-world applications (Chang et al., 2021). Pruning 94 
+
+reduces the number of parameters, resulting in more compact and efficient models that are easier to 95 
+
+deploy. A comprehensive review on pruning is beyond the scope of this paper due to space limitations 96 
+
+and the diversity of approaches. We refer to (Reed, 1993; Blalock et al., 2020; Cheng et al., 2024) 97 
+
+and the references therein for detailed reviews. Pruning by singular value thresholding has recently 98 
+
+shown promising results, particularly in natural language processing (Chen et al., 2021), and is often 99 
+
+used along with various enhancements such as importance weights and data whitening for effective 100 
+
+compression of large language models (Hsu et al., 2022; Yuan et al., 2023; Wang et al., 2024). 101 
+
+## 2 Matrix Factorization with a Diagonal Component 102 
+
+Consider matrix sensing , a problem where we seek to recover a positive semidefinite (PSD) matrix 103 
+
+X 2 S d⇥d 
+
+> +
+
+from a set of linear measurements b = A(X) 2 R n . We define A : R d⇥d ! R n through 104 
+
+symmetric measurement matrices A 1 , . . . , A n 2 S d⇥d , such that A(X) = [ hA 1 , X i · · · hA n , X i] >
+
+> 105
+
+and A > y = P ni=1 y i A i . We particularly focus on the data-scarce setting where n ⌧ d 2 . A notable 106 
+
+example here matrix completion, where one completes a matrix X given a subset of its entries. This 107 
+
+problem is inherently under-determined; but successful recovery is possible if X is low-rank (Candes 108 
+
+& Recht, 2012). We focus on recovering a PSD matrix for simplicity; this is without loss of generality, 109 
+
+as the general case can be be easily reformulated as a PSD matrix sensing problem (Park et al., 2017). 110 
+
+The problem described above can be cast as the following rank-constrained optimization problem: 111 
+
+min  
+
+> X2Sd⇥d
+> +
+
+f (X) := 12 kA(X)   bk22 subj . to rank( X)  r. (1) Although rank-constrained matrix optimization problems are typically NP-hard, various methods have 112 
+
+been developed to provide practical approximations. One prominent approach is BM factorization, 113 
+
+which reparametrizes the decision variable X as U U > , where the factor U 2 R d⇥r , and r is a positive 114 
+
+integer that controls the rank of the resulting product. Problem (1) can then be reformulated as: 115 
+
+min    
+
+> U2Rd⇥r
+> 12
+
+kA(U U > )   bk 22 . (2) Despite the fact that finding the global minimum of (2) remains challenging, a local solution can be 116 
+
+approximated using gradient descent (Lee et al., 2016). Initializing at U 0 2 R d⇥r , perform: 117 
+
+U k+1 = U k   ⌘r U f (U k U > 
+
+> k
+
+), (3) where ⌘ > 0 is the step-size, and the gradient is computed as r U f (U U > ) = 2 rf (U U > )U .118 
+
+Selecting the factorization rank r is a critical decision. A small r may lead to spurious local 119 
+
+minima, resulting in inaccurate outcomes (Waldspurger & Waters, 2020). Conversely, a large r might 120 
+
+weaken rank regularization, rendering the problem underdetermined. Conventional wisdom in BM 121 
+
+factorization suggests finding a moderate compromise between these two extremes. However, a key 122 
+
+observation in (Gunasekar et al., 2017) is that the gradient method applied to (2) exhibits a tendency 123 
+
+towards approximately low-rank solutions even when r = d. Below, we restate their conjecture: 124 
+
+Conjecture in (Gunasekar et al., 2017). Suppose gradient flow ( i.e., gradient descent with an 125 
+
+infinitesimally small step-size) is initialized at a full-rank matrix arbitrarily close to the origin. If 126 
+
+the limit of the gradient flow, X GF = U U > , exists and is a global optimum of (1) with A(X GF ) = b ,127 
+
+then X GF is the minimal nuclear-norm solution to (1). 128 
+
+2.1 The Proposed Factorization 129 
+
+We propose reparameterizing X = U DU > , where U 2 R d⇥r is constrained to have a bounded norm, 130 
+
+and D 2 R r⇥r is a non-negative diagonal matrix: 131 
+
+min    
+
+> U2Rd⇥r
+> D2Rr⇥r
+
+12 kA(U DU > )   bk 22 s.t. kU kF  ↵, D ii   0, D ij = 0 , 8i and 8j 6 = i, (4) 3where ↵ > 0 is a model parameter. When the problem is well-scaled, for instance through basic 132 
+
+preprocessing with data normalization, we found that ↵ = 1 is a reasonable choice. 133 
+
+Placing in multiple factors and with constraints, we perform projected-gradient updates on U and D134 
+
+with step-size ⌘ > 0:135 
+
+U k+1 = ⇧U
+
+ U k   ⌘r U f (U k D k U > 
+
+> k
+
+) 
+
+D k+1 = ⇧D
+
+ D k   ⌘r D f (U k D k U > 
+
+> k
+
+)  , (5) where ⇧ U and ⇧ D are projections for the constraints in (4); while the gradients are 136 
+
+r U f (U DU > ) = 2 rf (U DU > )U D and r D f (U DU > ) = U > rf (U DU > )U. 
+
+2.2 Numerical Experiments on Matrix Factorization 137 
+
+We present numerical experiments comparing the empirical performance of the proposed approach 138 
+
+with the classical BM factorization. Specifically, we examine the impact of initialization and 139 
+
+step-size on the singular value spectrum of the resulting solution. We set up a synthetic matrix 140 
+
+completion problem to recover a PSD matrix X \ = U \ U > 
+
+> \
+
+, where the entries of U \ 2 R 100 ⇥3 are 141 
+
+drawn independently from N (0 , 1) . We randomly sample n = 900 entries of X \ and store them in the 142 
+
+vector b 2 R n . The goal is to recover X \ from b by solving problems (2) and (4) . For initialization, 143 
+
+we generate U 0 2 R d⇥d with entries drawn independently from N (0 , 1) ; we rescale U 0 to have 144 
+
+Frobenius norm ⇠ > 0 (we investigate the impact of ⇠). We initialize D 0 = I.145 
+
+The results are shown in Figure 1. First, we examine the impact of step-size. To this end, we fix 146 
+
+⇠ = 10  2 and test different values of ⌘ . In the left panel, we plot the objective residual as a function 147 
+
+of iterations. As expected, we observe that a smaller step-size slows down convergence. In the right 148 
+
+panel, we plot the singular value spectrum of the results attained after 10 6 iterations. We observe no 149 
+
+direct connection between step-size and implicit bias in BM factorization. 150 
+
+Impact of step-size (⌘), in noiseless setting, with fixed initialization. 
+
+Impact of initial distance to origin (⇠), in noiseless setting, with fixed step-size. Figure 1: Impact of step-size and initialization on implicit bias. Solid lines represent our UDU factorization ,while dashed lines denote the classical BM factorization . [ Left ] Objective residual vs. iterations. [ Right ]Singular value spectrum after 10 6 iterations. In all cases, UDU produces truly low-rank solutions, whereas the classical approach results in approximate low-rank structures. Next, we investigate the impact of initialization. We fix the step-size at ⌘ = 10  2 and evaluate the 151 
+
+effect of varying ⇠ . We observe a correlation between the implicit bias of the BM factorization and ⇠ ,152 
+
+4which determines the initial distance from the origin. Initializing closer to the origin in the classical 153 
+
+BM factorization yields solutions with a faster spectral decay. Notably, the UDU factorization 154 
+
+demonstrates a strong implicit bias toward truly low-rank solutions, regardless of the choice of ⌘ or ⇠ .155 
+
+We provide additional experiments in the Appendices. Specifically, Appendix A.1 considers the 156 
+
+matrix completion problem with noisy measurements. The results remain consistent with the noiseless 157 
+
+case: the UDU model exhibits an implicit bias toward truly low-rank solutions, while the classical 158 
+
+BM factorization yields approximately low-rank solutions. Additionally, we present numerical 159 
+
+experiments on a matrix sensing problem arising in phase retrieval image recovery in Appendix A.2. 160 
+
+As before, the UDU framework consistently promotes low-rank solutions, and this structural bias 161 
+
+significantly enhances the quality of the recovered image. 162 
+
+2.3 Theoretical Insights into the Inner Workings and Implicit Bias 163 
+
+A fixed-point analysis of the proposed method provides valuable insights into its inner workings. 164 
+
+Define the update variables before projection as ¯U = U  2⌘rf (X)U D and ¯D = D ⌘U > rf (X)U ,165 
+
+with X = U DU >
+
+. Suppose (U, D ) is a fixed point of the algorithm in (5) . Then, the following hold: 166 
+
+Let u j denote the j th column of U and   j the j th diagonal entry of D.167 
+
+(a) If k ¯U k  ↵, then rf (X)u j   j = 0 for all j,168 
+
+(b) If k ¯U k > ↵, then there exists some   > 0 such that rf (X)u j   j =   u j for all j.169 
+
+At this point, it may seem that choosing a small value of ↵ could promote a fixed point where the 170 
+
+columns of U align with the negative eigenvectors of rf (X) . However, as we will see from the 171 
+
+analysis of D, there are no valid fixed points that satisfy k ¯U k > ↵, since 172 
+
+(c) If   j = 0 , then u > 
+
+> j
+
+rf (X)u j   0, , while (d) If   j > 0, then u > 
+
+> j
+
+rf (X)u j = 0 .173 
+
+Suppose k ¯U k > ↵ . Then, (b) implies that if   j > 0, then u j must be an eigenvector of rf (X)174 
+
+corresponding to a negative eigenvalue; and if   j = 0 , then u j must also be zero. However, the 175 
+
+first statement contradicts (d) , while the second statement agrees with (c) only if u j = 0 . Since 176 
+
+these conditions must hold for all j , it follows that U = 0 . This, in turn, implies that ¯U = 0 , which 177 
+
+contradicts the initial assumption that k ¯U k > ↵ , hence there are no fixed points satisfying k ¯U k > ↵ .178 
+
+Considering (a) , observe that the fixed point characterization obtained here coincides with the fixed 179 
+
+points of the BM factorization after the change of variables from U to U D 1/2 . Thus, incorporating 180 
+
+constraints on U and adding the factor D does not introduce any new fixed points for X.181 
+
+Interestingly, this fixed point analysis also provides insight into the low-rank bias of the algorithm. 182 
+
+In particular, when U tends to grow and k ¯U k exceeds ↵ , the algorithm appears to temporarily favor 183 
+
+directions where the columns of U align with the negative eigenvectors of rf (X) . To see this more 184 
+
+concretely, we can express the update rules in terms of the columns of ¯U and the diagonal entries of 185 
+
+¯D as ¯u j = u j   2⌘rf (X)u j   i and ¯  j =   j   ⌘u > 
+
+> j
+
+rf (X)u j . These expressions show that both 186 
+
+¯u j and ¯  j tend to grow in the directions aligned with the negative eigenvectors of rf (X) . However, 187 
+
+from statement (d) , we know that there is no fixed point with   j > 0 unless u > 
+
+> j
+
+rf (X)u j = 0 . This 188 
+
+suggests that: (i) either the algorithm might push u j towards zero, which could happen only through 189 
+
+the projection steps if another column ¯u j 0 exhibits a faster growth; or (ii) X should evolve such that 190 
+
+f (X) is minimized in the direction of u j , effectively moving towards a point where rf (X)u j = 0 .191 
+
+The analysis presented here is a simplified perspective aimed at gaining insight. In reality, the 192 
+
+alignment or shrinking of the columns of U and the minimization of f (X) along specific directions 193 
+
+reflected in these columns occur simultaneously and interact in a complex manner. Nevertheless, we 194 
+
+can clearly observe these effects in our numerical experiments. In Appendix A.3, we present the 195 
+
+evolution of the column norms of U and the diagonal entries of D over the iterations in our matrix 196 
+
+completion experiment. Our results show that initially, a few specific columns of U grow, pushing all 197 
+
+other columns numerically to zero. Once f (X) is effectively minimized with respect to these initial 198 
+
+columns, some other columns are identified and start to grow. Eventually, the algorithm converges to 199 
+
+a low-rank solution, where the factorization U DU > is rank-revealing since only a few columns of U200 
+
+are nonzero. We further observe that these nonzero columns are orthogonal, effectively demonstrating 201 
+
+how the algorithm’s specific preference to align u j with the negative eigenvectors of rf (X) along 202 
+
+the path implicitly induces a structured solution. 203 
+
+53 Feedforward Neural Networks with Diagonal Hidden Layers 204 
+
+This section extends our approach to neural networks. Consider a dataset comprising n data points 205 
+
+(x i , y i ) 2 R d ⇥ R c . We first define a three-layer neural network defined as 206 
+
+ (x) := X mj=1 v j w j u > 
+
+> j
+
+x ⇡ y. (6) The first and third layers are fully connected, and the middle is a diagonal layer, as illustrated in 207 
+
+Figure 2. Drawing parallels between our matrix factorization model in (4) and neural network training, 208 
+
+we impose Euclidean norm constraints on the weights of the fully connected layers. Under these 209 
+
+conditions, the training problem can be formulated as follows: 210 
+
+min      
+
+> uj,w j,vj
+
+12n
+
+X ni=1 k X mj=1 v j w j u > 
+
+> j
+
+x i   y i k22
+
+subj .to X mj=1 ku j k22  1, X mj=1 kv j k22  1, and w j   0; for all j = 1 , . . . , m. 
+
+(7) The norm constraints in our training problem can be interpreted as a stronger form of weight decay, 211 
+
+one of the most commonly used regularization techniques in neural networks, which lends further 212 
+
+justification to our formulation. We refer to this neural network structure as UDV. 213                        
+
+> Fully Connected Layer ( !)
+> !∈ℝ!×$$∈ℝ$%∈ℝ$×%
+> !!∈ℝ"
+> !#$
+> %$!∈ℝ&
+> !#$
+> %
+> %!∈ℝ!#$
+> %
+> Fully Connected Layer ( ")Diagonal Layer ( #)
+> ...
+> ...
+> ...
+> ...
+> &&
+> &!
+> '&&
+> '&'
+> '&$
+> '!&
+> '!'
+> '!$
+> (&&
+> (&%
+> ('&
+> ('%
+> ($&
+> ($%
+> ...
+> )&
+> )%
+> dInputs cOutputs
+> *$
+> *&
+> *'
+
+Figure 2: UDV structure. The weights in diagonal layer D are denoted as w j .
+
+3.1 Numerical Experiments on Neural Networks 214 
+
+In this section, we test the proposed UDV framework on regression and classification tasks, comparing 215 
+
+it with fully connected two-layer neural networks (denoted as UV in the subsequent text) using both 216 
+
+linear and ReLU activation functions. This comparison is fair in terms of computational cost, as the 217 
+
+cost incurred by the diagonal layer —which can also be viewed as a parameterized linear activation 218 
+
+function— is negligible. We observe a strong empirical bias toward low-rank solutions in all our 219 
+
+experiments. We also present a proof-of-concept use case of this strong bias, combined with an 220 
+
+SVD-based pruning strategy, to produce compact networks. 221 
+
+3.1.1 Implementation Details 222 
+
+Computing environment. All classification tasks were conducted on an NVIDIA A100 GPU with 223 
+
+four cores of the AMD Epyc 7742 processor, while regression tasks were conducted on a single core 224 
+
+of an Intel Xeon Gold 6132 processor. We used Python 3.9.5 and PyTorch 2.0.1. 225 
+
+Datasets. We used two datasets for the regression tasks: House Prices - Advanced Regression 226 
+
+Techniques (HPART) (Anna Montoya, 2016) and New York City Taxi Trip Duration (NYCTTD) 227 
+
+(Risdal, 2017). We allocated 80% of the data for the training and reserved the remaining 20% for 228 
+
+validation. Following (Huang, 2003), we set the number of hidden neurons in the diagonal layer 229 
+
+m = round  p (c + 2) d + 2 pd/ (c + 2)   . This results in a network structure ( d - m - c ) of 79-26-1 230 
+
+for HPART, and 12-10-1 for NYCTTD. 231 
+
+For classification tasks, we used the normalized MNIST dataset (LeCun et al., 2010). We applied 232 
+
+transfer learning by replacing the classifier layers of three advanced neural networks –MaxViT-T (Tu 233 
+
+6Table 1: Model performance using different models. M, E, and R represent the transferred models MaxVit-T, EfficientNet-B0, and RegNetX-32GF, respectively. Tasks Regression (Test Loss) Classification (Test Accuracy) Dataset HPART NYCTTD MNIST UDV 1.304 ⇥ 10  3                           
+
+> Adam: 10  3
+> 5.248 ⇥10  6
+> NAdam: 10  4
+> M: 99.67% MBGDM: 10  2
+> E: 99.63% MBGDM: 10  1
+> R: 99.74% MBGDM: 10  2
+> UV 1.333 ⇥10  3
+> Adam: 10  3
+> 5.251 ⇥10  6
+> Adam: 10  3
+> M: 99.69% MBGDM: 10  2
+> E: 99.60% Adam: 10  3
+> R: 99.66% MBGD: 10 0
+> UV-ReLU 1.167 ⇥10  3
+> Adam: 10  3
+> 5.323 ⇥10  6
+> NAdam: 10  3
+> M: 99.68% NAdam: 10  4
+> E: 99.68% MBGDM: 10  1
+> R: 99.73% MBGD: 10 0
+
+et al., 2022), EfficientNet-B0 (Tan & Le, 2019), and RegNetX-32GF (Radosavovic et al., 2020)– with 234 
+
+UDV, while using pre-trained weights from ImageNet-1K (Deng et al., 2009). Specifically, we retained 235 
+
+all layers up to the first fully connected layer of the classifier and replaced the subsequent layers. 236 
+
+The number of hidden neurons in the diagonal layer was set to as m = floor ( 23 d) . This results in a 237 
+
+UDV network structure ( d - m- c ) of 512-341-10 for MaxViT-T, 1280-853-10 for EfficientNet-B0, and 238 
+
+2520-1680-10 for RegNetX-32GF. 239 
+
+Loss function. We used mean squared error for regression and cross-entropy loss for classification. 240 
+
+Optimization methods. We tested the results using four different optimization algorithms for 241 
+
+training: Adam (Kingma & Ba, 2014), Mini-Batch Gradient Descent (MBGD) (LeCun et al., 2002), 242 
+
+NAdam (Dozat, 2016), and Mini-Batch Gradient Descent with Momentum (MBGDM) (Sutskever 243 
+
+et al., 2013). For classification, we used different batch sizes for different models: 128 for MaxViT-T 244 
+
+and RegNetX-32GF, and 384 for EfficientNet-B0. 245 
+
+We tuned the step size for all models and optimization algorithms: For regression tasks, we tested 246 
+
+step sizes 10  4 , 10  3 , 10  2 , 10  1 , 1 , 2 , 3 . Larger step sizes ( 1 , 2 , 3 ) were often excluded for the 247 
+
+U V model due to divergence. For classification we tested LRs 10  6 , 10  5 , 10  4 , 10  3 , 10  2 , 10  1 ,248 
+
+1 with Adam and NAdam; and we tested 10  3 , 10  2 , 10  1 , 1, 2, 3, 5 with MBGD and MBGDM. 249 
+
+Training Procedure. UV and UDV models were initialized identically, with the diagonal elements 250 
+
+of D initialized using Kaiming Uniform Initialization, consistent with the default initialization for 251 
+
+fully connected layers in PyTorch. The models were trained for 200 epochs on HPART, 50 epochs 252 
+
+on NYCTTD, and 70 epochs on MNIST; and results were averaged over 1000 random seeds for 253 
+
+HPART, 100 for NYCTTD, and 1 for MNIST to ensure robustness. The validation loss, used as a 254 
+
+generalization metric in regression, was averaged over the final 20 epochs for the HPART dataset and 255 
+
+the final 5 epochs for the NYCTTD dataset. Similarly, validation accuracy for classification tasks 256 
+
+was averaged over the last 5 epochs to ensure stability in the reported values. 257 
+
+3.1.2 Low-rank Bias in Neural Network Training 258 
+
+Table 1 presents the validation loss (for regression) or validation accuracy (for classification) of the 259 
+
+UDV model compared to the classical UV model with linear and ReLU activation functions. For 260 
+
+each configuration (dataset and model architecture), the results are obtained by selecting the best 261 
+
+algorithm and learning rate pair. Moreover, Figure 3 illustrates the singular value spectrum of the 262 
+
+solutions corresponding to each entry in these tables. We focus on the singular values from the U263 
+
+and U D layers, as they generate the primary data representation, while omitting the V layer, which 264 
+
+serves as the feature selection layer and is a tall matrix by definition, given that c ⌧ m in most cases. 265 
+
+Collectively, these results show that the UDV framework achieves competitive prediction accuracy 266 
+
+while exhibiting a strong implicit bias toward low-rank solutions, as indicated by the faster decay in 267 
+
+the singular value spectrum. 268 
+
+3.1.3 Reducing Network Size with SVD-based Pruning 269 
+
+Efficient and lightweight feed-forward layers are crucial for real-world applications. For instance, the 270 
+
+Apple Intelligence Foundation Models (Gunter et al., 2024) recently reported that pruning hidden 271 
+
+dimensions in feed-forward layers yields the most significant gains in their foundation models. 272 
+
+7Figure 3: Singular value spectrum corresponding to the solutions reported in Table 1.                                                                 
+
+> -0.10%
+> -0.08%
+> -0.06%
+> -0.04%
+> -0.02%
+> 0.00%
+> 0.02%
+> 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 987654321
+> Worse than the Baseline
+> Remaining number of neurons (Baseline: 26)
+> Validation loss changes under SVD -based pruning
+> UDV
+> -500%
+> 0%
+> 500%
+> 1000%
+> 1500%
+> 2000%
+> 2500%
+> 3000%
+> 3500%
+> 26 25 24 23 22 21 20 19 18 17 16 15 14 13 12 11 10 987654321
+> Worse than the Baseline
+> Remaining number of neurons (Baseline: 26)
+> Train compact networks from scratch
+> UDV-Training loss UDV-Validation loss
+> ReLU-Training loss ReLU-Validation loss
+> -15%
+> -10%
+> -5%
+> 0%
+> 5%
+> 10%
+> 15%
+> 26 24 22 20 18 16 14 12 10 8642
+
+Figure 4: Comparison of SVD-based pruning and re-training compact networks on the HPART dataset using the NAdam algorithm with a learning rate of 10  3 . Negative percentages indicate improvements over the baseline. SVD-based pruning demonstrates that the UDV leads to a compact model without performance degradation, while retraining shows that the UDV achieves better generalization in a compact model. Building on this insight, we leverage the inherent low-rank bias of the UDV architecture through an 273 
+
+SVD-based pruning strategy to produce compact networks without sacrificing performance. 274 
+
+A low-rank solution was observed when applying SVD to U D layers: 275 
+
+U D = USV > , U 2 R d⇥m , S 2 R m⇥m , V> 2 R m⇥m . (8) By dropping small singular values in S, these matrices can be truncated to ¯U 2 R d⇥r , ¯S 2 R r⇥r and 276 
+
+¯V
+
+> 2 R r⇥m , where 0 < r < m . Consequently, ( m   r ) neurons can be pruned, and new weight 277 
+
+matrices are assigned: 278 
+
+¯U = ¯ U 2 R d⇥r , ¯D = ¯ S 2 R r⇥r , ¯V = ¯ V
+
+T V 2 R r⇥c . (9) We applied this pruning strategy on the models from Table 1. The left part of Figure 4 presents an 279 
+
+example comparing the generalization capability of pruned models. For comparison, we created 280 
+
+compact models by training from scratch with a reduced number of neurons m in the hidden layer. 281 
+
+The performance change for these models is shown in the right panel of Figure 4. Although our 282 
+
+pruned networks derived from UDV demonstrate that models with significantly fewer parameters 283 
+
+can still achieve strong generalization, these compressed architectures are often more challenging 284 
+
+to optimize directly within the reduced space, consistent with prior findings in the literature (Arora 285 
+
+et al., 2018; Chang et al., 2021). We omit the results for retraining with the UV model, as they show 286 
+
+similar trends to UDV in this context, though UDV generally exhibits superior generalization. 287 
+
+83.1.4 Further Details and Discussions 288 
+
+Our findings in experiments on neural networks align with the results observed in matrix factorization. 289 
+
+A key distinction, however, was the use of different optimization algorithms, including stochastic 290 
+
+gradients and momentum steps, in neural network experiments. Despite these differences, the 291 
+
+UDV architecture consistently demonstrated a strong bias toward low-rank solutions. Additional 292 
+
+experiments and details can be found in the Appendices, with key results summarized below: 293 
+
+• In the early stages of this research, we explored four variants of UDV, each differing slightly 294 
+
+in their constraints. We selected the version presented in (7) , as it generally exhibits the most 295 
+
+pronounced decay in the singular value spectrum. For completeness, details of the other three 296 
+
+variants are provided in Appendix B.1. 297 
+
+• Appendix B.2 provides additional results for the experiment described in Section 3.1.2. Specif-298 
+
+ically, we present results analogous to those in Table 1 and Figure 3, but focusing exclusively 299 
+
+on the MBGDM algorithm. These results exhibit similar trends, reinforcing consistency across 300 
+
+different methods. Additionally, comprehensive performance comparisons across all algorithms 301 
+
+and models are provided in Tables SM2 to SM5 in the Appendices. 302 
+
+• Additional results on SVD-based pruning are provided in Appendix B.3. We demonstrate that the 303 
+
+UDV framework consistently achieves low-rank solutions across various problem configurations. 304 
+
+Furthermore, we analyze the effect of learning rate on the singular value spectrum, similar to the 305 
+
+analysis in Figure 1, but applied to neural network experiments. This analysis confirms that the 306 
+
+UDV framework produces low-rank solutions across a broad range of learning rates. 307 
+
+• Appendix B.4 extends the UDV framework by incorporating ReLU activation. Preliminary 308 
+
+experiments with the UDV-ReLU model indicate that it also tends to yield low-rank solutions, 309 
+
+similar to those observed in the original UDV framework. 310 
+
+• Prior work on implicit bias in neural networks suggests that increasing depth enhances the 311 
+
+tendency toward low-rank solutions (Arora et al., 2019; Feng et al., 2022), raising the question of 312 
+
+whether the pronounced bias in the UDV framework is just a consequence of adding a diagonal 313 
+
+layer. To investigate this, we conducted experiments comparing the UDV model to fully connected 314 
+
+three-layer networks, as detailed in Appendix B.5. Additionally, we included a UDV model 315 
+
+without constraints in these comparisons. The results indicate that this bias cannot be attributed 316 
+
+solely to depth, highlighting the critical role of explicit constraints. 317 
+
+• Appendix B.6 compares the spectral decay of the UDV network to that induced by classical 318 
+
+weight decay regularization in two- and three-layer networks. While weight decay promotes 319 
+
+singular value decay, it can not reproduce the strong decay observed in the UDV model. 320 
+
+• Appendix B.7 presents a toy example demonstrating the application of the UDV structure within 321 
+
+the LoRA framework to fine-tune a pre-trained LLaMA-2 model on a causal language modeling 322 
+
+task. The pruning results highlight the potential of the proposed UDV block to replace linear 323 
+
+layers in a wide range of models, demonstrating promising performance under compression. 324 
+
+## 4 Conclusions 325 
+
+We proposed a new matrix factorization framework, inspired by the observation that implicit bias is 326 
+
+driven by dynamics that are distinct from those leading to convergence of the objective function. This 327 
+
+framework constrains the factors within Euclidean norm balls and introduces a middle diagonal factor 328 
+
+to ensure the search space is not restricted. Numerical experiments demonstrate that this approach 329 
+
+significantly strengthens the low-rank bias in the solution. 330 
+
+To explore the broader applicability of our findings, we designed an analogous neural network 331 
+
+architecture with three layers, constraining the fully connected layers and adding a diagonal hidden 332 
+
+layer, referred to as UDV. Extensive experiments show that the proposed UDV architecture achieves 333 
+
+competitive performance compared to standard fully connected networks, while inducing a structured 334 
+
+solution with a strong bias toward low-rank representations. Additionally, we explored the utility 335 
+
+of this low-rank structure by applying an SVD-based pruning strategy, illustrating how it can be 336 
+
+leveraged to construct compact networks that are more efficient for downstream tasks. 337 
+
+The proposed model exhibits reduced rank regression behavior, where the training process gradually 338 
+
+increases the model rank. While this promotes a low-rank structure, it can also slow convergence. 339 
+
+Although we provide some theoretical insights, developing a more complete theory and designing al-340 
+
+gorithms that fully exploit the model’s regularization capabilities, especially for large-scale problems, 341 
+
+remain important directions for future work. 342 
+
+9References 343 
+
+DataCanary Anna Montoya. House prices - advanced regression techniques, 2016. URL https: 344 
+
+//kaggle.com/competitions/house-prices-advanced-regression-techniques .345 
+
+Sanjeev Arora, Rong Ge, Behnam Neyshabur, and Yi Zhang. Stronger generalization bounds for deep 346 
+
+nets via a compression approach. In International conference on machine learning , pp. 254–263. 347 
+
+PMLR, 2018. 348 
+
+Sanjeev Arora, Nadav Cohen, Wei Hu, and Yuping Luo. Implicit regularization in deep matrix 349 
+
+factorization. Advances in Neural Information Processing Systems , 32, 2019. 350 
+
+Mohamed Ali Belabbas. On implicit regularization: Morse functions and applications to matrix 351 
+
+factorization. arXiv preprint arXiv:2001.04264 , 2020. 352 
+
+Davis Blalock, Jose Javier Gonzalez Ortiz, Jonathan Frankle, and John Guttag. What is the state of 353 
+
+neural network pruning? Proceedings of machine learning and systems , 2:129–146, 2020. 354 
+
+Nicolas Boumal, Vlad Voroninski, and Afonso Bandeira. The non-convex Burer-Monteiro approach 355 
+
+works on smooth semidefinite programs. Advances in Neural Information Processing Systems , 29, 356 
+
+2016. 357 
+
+Samuel Burer and Renato DC Monteiro. A nonlinear programming algorithm for solving semidefinite 358 
+
+programs via low-rank factorization. Mathematical programming , 95(2):329–357, 2003. 359 
+
+Samuel Burer and Renato DC Monteiro. Local minima and convergence in low-rank semidefinite 360 
+
+programming. Mathematical programming , 103(3):427–444, 2005. 361 
+
+Emmanuel Candes and Benjamin Recht. Exact matrix completion via convex optimization. Commu-362 
+
+nications of the ACM , 55(6):111–119, 2012. 363 
+
+Emmanuel J Candes, Thomas Strohmer, and Vladislav Voroninski. Phaselift: Exact and stable signal 364 
+
+recovery from magnitude measurements via convex programming. Communications on Pure and 365 
+
+Applied Mathematics , 66(8):1241–1274, 2013. 366 
+
+Xiangyu Chang, Yingcong Li, Samet Oymak, and Christos Thrampoulidis. Provable benefits of 367 
+
+overparameterization in model compression: From double descent to pruning neural networks. In 368 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , volume 35, pp. 6974–6983, 2021. 369 
+
+Patrick Chen, Hsiang-Fu Yu, Inderjit Dhillon, and Cho-Jui Hsieh. Drone: Data-aware low-rank 370 
+
+compression for large nlp models. Advances in neural information processing systems , 34:29321– 371 
+
+29334, 2021. 372 
+
+Hongrong Cheng, Miao Zhang, and Javen Qinfeng Shi. A survey on deep neural network pruning: 373 
+
+Taxonomy, comparison, analysis, and recommendations. IEEE Transactions on Pattern Analysis 374 
+
+and Machine Intelligence , 2024. 375 
+
+Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. ImageNet: A large-376 
+
+scale hierarchical image database. In 2009 IEEE Conference on Computer Vision and Pattern 377 
+
+Recognition , pp. 248–255, 2009. doi: 10.1109/CVPR.2009.5206848. 378 
+
+Timothy Dozat. Incorporating Nesterov momentum into Adam. 2016. 379 
+
+Ebrahim Elgazar. Pixel art, 2024. URL https://www.kaggle.com/datasets/ebrahimelgaz 380 
+
+ar/pixel-art/ .381 
+
+Ruili Feng, Kecheng Zheng, Yukun Huang, Deli Zhao, Michael Jordan, and Zheng-Jun Zha. Rank 382 
+
+diminishing in deep neural networks. Advances in Neural Information Processing Systems , 35: 383 
+
+33054–33065, 2022. 384 
+
+Gauthier Gidel, Francis Bach, and Simon Lacoste-Julien. Implicit regularization of discrete gradient 385 
+
+dynamics in linear neural networks. Advances in Neural Information Processing Systems , 32, 386 
+
+2019. 387 
+
+Suriya Gunasekar, Blake E Woodworth, Srinadh Bhojanapalli, Behnam Neyshabur, and Nati Srebro. 388 
+
+Implicit regularization in matrix factorization. Advances in neural information processing systems ,389 
+
+30, 2017. 390 
+
+10 Tom Gunter, Zirui Wang, Chong Wang, Ruoming Pang, Andy Narayanan, Aonan Zhang, Bowen 391 
+
+Zhang, Chen Chen, Chung-Cheng Chiu, David Qiu, et al. Apple Intelligence foundation language 392 
+
+models. arXiv preprint arXiv:2407.21075 , 2024. 393 
+
+Yen-Chang Hsu, Ting Hua, Sungen Chang, Qian Lou, Yilin Shen, and Hongxia Jin. Language model 394 
+
+compression with weighted low-rank factorization. arXiv preprint arXiv:2207.00112 , 2022. 395 
+
+Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, 396 
+
+Weizhu Chen, et al. Lora: Low-rank adaptation of large language models. ICLR , 1(2):3, 2022. 397 
+
+Guang-Bin Huang. Learning capability and storage capacity of two-hidden-layer feedforward 398 
+
+networks. IEEE transactions on neural networks , 14(2):274–281, 2003. 399 
+
+Keller Jordan, Yuchen Jin, Vlado Boza, Jiacheng You, Franz Cesista, Laker Newhouse, and Jeremy 400 
+
+Bernstein. Muon: An optimizer for hidden layers in neural networks, 2024. URL https: 401 
+
+//kellerjordan.github.io/posts/muon/ .402 
+
+Diederik P Kingma and Jimmy Ba. Adam: A method for stochastic optimization. arXiv preprint 403 
+
+arXiv:1412.6980 , 2014. 404 
+
+Yann LeCun, Léon Bottou, Genevieve B Orr, and Klaus-Robert Müller. Efficient backprop. In Neural 405 
+
+networks: Tricks of the trade , pp. 9–50. Springer, 2002. 406 
+
+Yann LeCun, Corinna Cortes, and Christopher J. Burges. MNIST handwritten digit database. 407 
+
+http://yann.lecun.com/exdb/mnist/ , 2010. 408 
+
+Jason D Lee, Max Simchowitz, Michael I Jordan, and Benjamin Recht. Gradient descent converges 409 
+
+to minimizers. arXiv preprint arXiv:1602.04915 , 2016. 410 
+
+Zhiyuan Li, Yuping Luo, and Kaifeng Lyu. Towards resolving the implicit bias of gradient descent 411 
+
+for matrix factorization: Greedy low-rank learning. In International Conference on Learning 412 
+
+Representations , 2021. 413 
+
+Jan Macdonald, Mathieu E Besançon, and Sebastian Pokutta. Interpretable neural networks with 414 
+
+Frank-Wolfe: Sparse relevance maps and relevance orderings. In International Conference on 415 
+
+Machine Learning , pp. 14699–14716. PMLR, 2022. 416 
+
+Stephen Merity, Caiming Xiong, James Bradbury, and Richard Socher. Pointer sentinel mixture 417 
+
+models, 2016. 418 
+
+Behnam Neyshabur. Implicit regularization in deep learning. arXiv preprint arXiv:1709.01953 , 2017. 419 
+
+Behnam Neyshabur, Ryota Tomioka, and Nathan Srebro. In search of the real inductive bias: On the 420 
+
+role of implicit regularization in deep learning. arXiv preprint arXiv:1412.6614 , 2014. 421 
+
+Behnam Neyshabur, Srinadh Bhojanapalli, David McAllester, and Nati Srebro. Exploring generaliza-422 
+
+tion in deep learning. Advances in neural information processing systems , 30, 2017. 423 
+
+Dohyung Park, Anastasios Kyrillidis, Constantine Carmanis, and Sujay Sanghavi. Non-square matrix 424 
+
+sensing without spurious local minima via the Burer-Monteiro approach. In Artificial Intelligence 425 
+
+and Statistics , pp. 65–74. PMLR, 2017. 426 
+
+Dohyung Park, Anastasios Kyrillidis, Constantine Caramanis, and Sujay Sanghavi. Finding low-rank 427 
+
+solutions via nonconvex matrix factorization, efficiently and provably. SIAM Journal on Imaging 428 
+
+Sciences , 11(4):2165–2204, 2018. 429 
+
+Thomas Pethick, Wanyun Xie, Kimon Antonakopoulos, Zhenyu Zhu, Antonio Silveti-Falls, and 430 
+
+Volkan Cevher. Training deep learning models with norm-constrained lmos. arXiv preprint 431 
+
+arXiv:2502.07529 , 2025. 432 
+
+Sebastian Pokutta, Christoph Spiegel, and Max Zimmer. Deep neural network training with Frank-433 
+
+Wolfe. arXiv preprint arXiv:2010.07243 , 2020. 434 
+
+Ilija Radosavovic, Raj Prateek Kosaraju, Ross Girshick, Kaiming He, and Piotr Dollár. Designing 435 
+
+network design spaces, 2020. 436 
+
+Noam Razin and Nadav Cohen. Implicit regularization in deep learning may not be explainable by 437 
+
+norms. Advances in neural information processing systems , 33:21174–21187, 2020. 438 
+
+11 Russell Reed. Pruning algorithms-a survey. IEEE transactions on Neural Networks , 4(5):740–747, 439 
+
+1993. 440 
+
+Meg Risdal. New York City taxi trip duration, 2017. URL https://kaggle.com/competition 441 
+
+s/nyc-taxi-trip-duration .442 
+
+Simone Scardapane, Danilo Comminiello, Amir Hussain, and Aurelio Uncini. Group sparse regular-443 
+
+ization for deep neural networks. Neurocomputing , 241:81–89, 2017. 444 
+
+Ilya Sutskever, James Martens, George Dahl, and Geoffrey Hinton. On the importance of initialization 445 
+
+and momentum in deep learning. In International conference on machine learning , pp. 1139–1147. 446 
+
+PMLR, 2013. 447 
+
+Mingxing Tan and Quoc Le. Efficientnet: Rethinking model scaling for convolutional neural networks. 448 
+
+In International conference on machine learning , pp. 6105–6114. PMLR, 2019. 449 
+
+Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay 450 
+
+Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2: Open foundation 451 
+
+and fine-tuned chat models. arXiv preprint arXiv:2307.09288 , 2023. 452 
+
+Zhengzhong Tu, Hossein Talebi, Han Zhang, Feng Yang, Peyman Milanfar, Alan Bovik, and Yinxiao 453 
+
+Li. MaxViT: Multi-axis vision transformer. In European conference on computer vision , pp. 454 
+
+459–479. Springer, 2022. 455 
+
+Irene Waldspurger and Alden Waters. Rank optimality for the burer–monteiro factorization. SIAM 456 
+
+journal on Optimization , 30(3):2577–2602, 2020. 457 
+
+Xin Wang, Yu Zheng, Zhongwei Wan, and Mi Zhang. Svd-llm: Truncation-aware singular value 458 
+
+decomposition for large language model compression. arXiv preprint arXiv:2403.07378 , 2024. 459 
+
+Zhihang Yuan, Yuzhang Shang, Yue Song, Qiang Wu, Yan Yan, and Guangyu Sun. Asvd: Activation-460 
+
+aware singular value decomposition for compressing large language models. arXiv preprint 461 
+
+arXiv:2312.05821 , 2023. 462 
+
+Max Zimmer, Christoph Spiegel, and Sebastian Pokutta. Compression-aware training of neural 463 
+
+networks using Frank-Wolfe. arXiv preprint arXiv:2205.11921 , 2022. 464 
+
+12 NeurIPS Paper Checklist 465 
+
+1. Claims 466 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the 467 
+
+paper’s contributions and scope? 468 
+
+Answer: [Yes] 469 
+
+Justification: Main claims in abstract and introduction section can reflect the contributions 470 
+
+which are also mentioned in the introduction section. 471 
+
+Guidelines: 472 
+
+• The answer NA means that the abstract and introduction do not include the claims 473 
+
+made in the paper. 474 
+
+• The abstract and/or introduction should clearly state the claims made, including the 475 
+
+contributions made in the paper and important assumptions and limitations. A No or 476 
+
+NA answer to this question will not be perceived well by the reviewers. 477 
+
+• The claims made should match theoretical and experimental results, and reflect how 478 
+
+much the results can be expected to generalize to other settings. 479 
+
+• It is fine to include aspirational goals as motivation as long as it is clear that these goals 480 
+
+are not attained by the paper. 481 
+
+2. Limitations 482 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? 483 
+
+Answer: [Yes] 484 
+
+Justification: We discuss the limitations in the conclusions section, along with future 485 
+
+directions. 486 
+
+Guidelines: 487 
+
+• The answer NA means that the paper has no limitation while the answer No means that 488 
+
+the paper has limitations, but those are not discussed in the paper. 489 
+
+• The authors are encouraged to create a separate "Limitations" section in their paper. 490 
+
+• The paper should point out any strong assumptions and how robust the results are to 491 
+
+violations of these assumptions (e.g., independence assumptions, noiseless settings, 492 
+
+model well-specification, asymptotic approximations only holding locally). The authors 493 
+
+should reflect on how these assumptions might be violated in practice and what the 494 
+
+implications would be. 495 
+
+• The authors should reflect on the scope of the claims made, e.g., if the approach was 496 
+
+only tested on a few datasets or with a few runs. In general, empirical results often 497 
+
+depend on implicit assumptions, which should be articulated. 498 
+
+• The authors should reflect on the factors that influence the performance of the approach. 499 
+
+For example, a facial recognition algorithm may perform poorly when image resolution 500 
+
+is low or images are taken in low lighting. Or a speech-to-text system might not be 501 
+
+used reliably to provide closed captions for online lectures because it fails to handle 502 
+
+technical jargon. 503 
+
+• The authors should discuss the computational efficiency of the proposed algorithms 504 
+
+and how they scale with dataset size. 505 
+
+• If applicable, the authors should discuss possible limitations of their approach to 506 
+
+address problems of privacy and fairness. 507 
+
+• While the authors might fear that complete honesty about limitations might be used by 508 
+
+reviewers as grounds for rejection, a worse outcome might be that reviewers discover 509 
+
+limitations that aren’t acknowledged in the paper. The authors should use their best 510 
+
+judgment and recognize that individual actions in favor of transparency play an impor-511 
+
+tant role in developing norms that preserve the integrity of the community. Reviewers 512 
+
+will be specifically instructed to not penalize honesty concerning limitations. 513 
+
+3. Theory assumptions and proofs 514 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and 515 
+
+a complete (and correct) proof? 516 
+
+13 Answer: [Yes] 517 
+
+Justification: Theory assumptions and proofs are provided in the section "Matrix Factoriza-518 
+
+tion with a Diagonal Component". 519 
+
+Guidelines: 520 
+
+• The answer NA means that the paper does not include theoretical results. 521 
+
+• All the theorems, formulas, and proofs in the paper should be numbered and cross-522 
+
+referenced. 523 
+
+• All assumptions should be clearly stated or referenced in the statement of any theorems. 524 
+
+• The proofs can either appear in the main paper or the supplemental material, but if 525 
+
+they appear in the supplemental material, the authors are encouraged to provide a short 526 
+
+proof sketch to provide intuition. 527 
+
+• Inversely, any informal proof provided in the core of the paper should be complemented 528 
+
+by formal proofs provided in appendix or supplemental material. 529 
+
+• Theorems and Lemmas that the proof relies upon should be properly referenced. 530 
+
+4. Experimental result reproducibility 531 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-532 
+
+perimental results of the paper to the extent that it affects the main claims and/or conclusions 533 
+
+of the paper (regardless of whether the code and data are provided or not)? 534 
+
+Answer: [Yes] 535 
+
+Justification: The experiments are fully reproducible. The datasets we used are properly 536 
+
+cited and publicly available, and the code with sufficient instructions is included in the 537 
+
+supplemental material. 538 
+
+Guidelines: 539 
+
+• The answer NA means that the paper does not include experiments. 540 
+
+• If the paper includes experiments, a No answer to this question will not be perceived 541 
+
+well by the reviewers: Making the paper reproducible is important, regardless of 542 
+
+whether the code and data are provided or not. 543 
+
+• If the contribution is a dataset and/or model, the authors should describe the steps taken 544 
+
+to make their results reproducible or verifiable. 545 
+
+• Depending on the contribution, reproducibility can be accomplished in various ways. 546 
+
+For example, if the contribution is a novel architecture, describing the architecture fully 547 
+
+might suffice, or if the contribution is a specific model and empirical evaluation, it may 548 
+
+be necessary to either make it possible for others to replicate the model with the same 549 
+
+dataset, or provide access to the model. In general. releasing code and data is often 550 
+
+one good way to accomplish this, but reproducibility can also be provided via detailed 551 
+
+instructions for how to replicate the results, access to a hosted model (e.g., in the case 552 
+
+of a large language model), releasing of a model checkpoint, or other means that are 553 
+
+appropriate to the research performed. 554 
+
+• While NeurIPS does not require releasing code, the conference does require all submis-555 
+
+sions to provide some reasonable avenue for reproducibility, which may depend on the 556 
+
+nature of the contribution. For example 557 
+
+(a) If the contribution is primarily a new algorithm, the paper should make it clear how 558 
+
+to reproduce that algorithm. 559 
+
+(b) If the contribution is primarily a new model architecture, the paper should describe 560 
+
+the architecture clearly and fully. 561 
+
+(c) If the contribution is a new model (e.g., a large language model), then there should 562 
+
+either be a way to access this model for reproducing the results or a way to reproduce 563 
+
+the model (e.g., with an open-source dataset or instructions for how to construct 564 
+
+the dataset). 565 
+
+(d) We recognize that reproducibility may be tricky in some cases, in which case 566 
+
+authors are welcome to describe the particular way they provide for reproducibility. 567 
+
+In the case of closed-source models, it may be that access to the model is limited in 568 
+
+some way (e.g., to registered users), but it should be possible for other researchers 569 
+
+to have some path to reproducing or verifying the results. 570 
+
+14 5. Open access to data and code 571 
+
+Question: Does the paper provide open access to the data and code, with sufficient instruc-572 
+
+tions to faithfully reproduce the main experimental results, as described in supplemental 573 
+
+material? 574 
+
+Answer: [Yes] 575 
+
+Justification: The datasets we used are properly cited and publicly available, and the 576 
+
+code with sufficient instructions (including the pre-process of datasets) is included in the 577 
+
+supplemental material. 578 
+
+Guidelines: 579 
+
+• The answer NA means that paper does not include experiments requiring code. 580 
+
+• Please see the NeurIPS code and data submission guidelines ( https://nips.cc/pu 581 
+
+blic/guides/CodeSubmissionPolicy ) for more details. 582 
+
+• While we encourage the release of code and data, we understand that this might not be 583 
+
+possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not 584 
+
+including code, unless this is central to the contribution (e.g., for a new open-source 585 
+
+benchmark). 586 
+
+• The instructions should contain the exact command and environment needed to run to 587 
+
+reproduce the results. See the NeurIPS code and data submission guidelines ( https: 588 
+
+//nips.cc/public/guides/CodeSubmissionPolicy ) for more details. 589 
+
+• The authors should provide instructions on data access and preparation, including how 590 
+
+to access the raw data, preprocessed data, intermediate data, and generated data, etc. 591 
+
+• The authors should provide scripts to reproduce all experimental results for the new 592 
+
+proposed method and baselines. If only a subset of experiments are reproducible, they 593 
+
+should state which ones are omitted from the script and why. 594 
+
+• At submission time, to preserve anonymity, the authors should release anonymized 595 
+
+versions (if applicable). 596 
+
+• Providing as much information as possible in supplemental material (appended to the 597 
+
+paper) is recommended, but including URLs to data and code is permitted. 598 
+
+6. Experimental setting/details 599 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyper-600 
+
+parameters, how they were chosen, type of optimizer, etc.) necessary to understand the 601 
+
+results? 602 
+
+Answer: [Yes] 603 
+
+Justification: We have specified the above details in the main paper (see section "Numerical 604 
+
+experiments on matrix factorization" and the section "Numerical experiments on neural 605 
+
+networks"), and the submitted code includes full details with instructions. 606 
+
+Guidelines: 607 
+
+• The answer NA means that the paper does not include experiments. 608 
+
+• The experimental setting should be presented in the core of the paper to a level of detail 609 
+
+that is necessary to appreciate the results and make sense of them. 610 
+
+• The full details can be provided either with the code, in appendix, or as supplemental 611 
+
+material. 612 
+
+7. Experiment statistical significance 613 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate 614 
+
+information about the statistical significance of the experiments? 615 
+
+Answer: [No] 616 
+
+Justification: Results, especially the neural networks with UDV, were averaged sufficient 617 
+
+random initialization seeds. We introduced how we get robust results in the subsection 618 
+
+"Implementation details" 619 
+
+Guidelines: 620 
+
+• The answer NA means that the paper does not include experiments. 621 
+
+15 • The authors should answer "Yes" if the results are accompanied by error bars, confi-622 
+
+dence intervals, or statistical significance tests, at least for the experiments that support 623 
+
+the main claims of the paper. 624 
+
+• The factors of variability that the error bars are capturing should be clearly stated (for 625 
+
+example, train/test split, initialization, random drawing of some parameter, or overall 626 
+
+run with given experimental conditions). 627 
+
+• The method for calculating the error bars should be explained (closed form formula, 628 
+
+call to a library function, bootstrap, etc.) 629 
+
+• The assumptions made should be given (e.g., Normally distributed errors). 630 
+
+• It should be clear whether the error bar is the standard deviation or the standard error 631 
+
+of the mean. 632 
+
+• It is OK to report 1-sigma error bars, but one should state it. The authors should 633 
+
+preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis 634 
+
+of Normality of errors is not verified. 635 
+
+• For asymmetric distributions, the authors should be careful not to show in tables or 636 
+
+figures symmetric error bars that would yield results that are out of range (e.g. negative 637 
+
+error rates). 638 
+
+• If error bars are reported in tables or plots, The authors should explain in the text how 639 
+
+they were calculated and reference the corresponding figures or tables in the text. 640 
+
+8. Experiments compute resources 641 
+
+Question: For each experiment, does the paper provide sufficient information on the com-642 
+
+puter resources (type of compute workers, memory, time of execution) needed to reproduce 643 
+
+the experiments? 644 
+
+Answer: [Yes] 645 
+
+Justification: We specify the computer resources in the subsection "Implementation details", 646 
+
+where there is a paragraph beginning with "Computing environment ...". Wall time is 7 days 647 
+
+for CPU works and 3 days for GPU works. 648 
+
+Guidelines: 649 
+
+• The answer NA means that the paper does not include experiments. 650 
+
+• The paper should indicate the type of compute workers CPU or GPU, internal cluster, 651 
+
+or cloud provider, including relevant memory and storage. 652 
+
+• The paper should provide the amount of compute required for each of the individual 653 
+
+experimental runs as well as estimate the total compute. 654 
+
+• The paper should disclose whether the full research project required more compute 655 
+
+than the experiments reported in the paper (e.g., preliminary or failed experiments that 656 
+
+didn’t make it into the paper). 657 
+
+9. Code of ethics 658 
+
+Question: Does the research conducted in the paper conform, in every respect, with the 659 
+
+NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?660 
+
+Answer: [Yes] 661 
+
+Justification: The research respects the NeurIPS code of ethics. 662 
+
+Guidelines: 663 
+
+• The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics. 664 
+
+• If the authors answer No, they should explain the special circumstances that require a 665 
+
+deviation from the Code of Ethics. 666 
+
+• The authors should make sure to preserve anonymity (e.g., if there is a special consid-667 
+
+eration due to laws or regulations in their jurisdiction). 668 
+
+10. Broader impacts 669 
+
+Question: Does the paper discuss both potential positive societal impacts and negative 670 
+
+societal impacts of the work performed? 671 
+
+Answer: [NA] 672 
+
+16 Justification: Justification: This research is related to neural network optimization and does 673 
+
+not have direct societal impacts. 674 
+
+Guidelines: 675 
+
+• The answer NA means that there is no societal impact of the work performed. 676 
+
+• If the authors answer NA or No, they should explain why their work has no societal 677 
+
+impact or why the paper does not address societal impact. 678 
+
+• Examples of negative societal impacts include potential malicious or unintended uses 679 
+
+(e.g., disinformation, generating fake profiles, surveillance), fairness considerations 680 
+
+(e.g., deployment of technologies that could make decisions that unfairly impact specific 681 
+
+groups), privacy considerations, and security considerations. 682 
+
+• The conference expects that many papers will be foundational research and not tied 683 
+
+to particular applications, let alone deployments. However, if there is a direct path to 684 
+
+any negative applications, the authors should point it out. For example, it is legitimate 685 
+
+to point out that an improvement in the quality of generative models could be used to 686 
+
+generate deepfakes for disinformation. On the other hand, it is not needed to point out 687 
+
+that a generic algorithm for optimizing neural networks could enable people to train 688 
+
+models that generate Deepfakes faster. 689 
+
+• The authors should consider possible harms that could arise when the technology is 690 
+
+being used as intended and functioning correctly, harms that could arise when the 691 
+
+technology is being used as intended but gives incorrect results, and harms following 692 
+
+from (intentional or unintentional) misuse of the technology. 693 
+
+• If there are negative societal impacts, the authors could also discuss possible mitigation 694 
+
+strategies (e.g., gated release of models, providing defenses in addition to attacks, 695 
+
+mechanisms for monitoring misuse, mechanisms to monitor how a system learns from 696 
+
+feedback over time, improving the efficiency and accessibility of ML). 697 
+
+11. Safeguards 698 
+
+Question: Does the paper describe safeguards that have been put in place for responsible 699 
+
+release of data or models that have a high risk for misuse (e.g., pretrained language models, 700 
+
+image generators, or scraped datasets)? 701 
+
+Answer: [NA] 702 
+
+Justification: There is no high risk of misuse associated with this research. 703 
+
+Guidelines: 704 
+
+• The answer NA means that the paper poses no such risks. 705 
+
+• Released models that have a high risk for misuse or dual-use should be released with 706 
+
+necessary safeguards to allow for controlled use of the model, for example by requiring 707 
+
+that users adhere to usage guidelines or restrictions to access the model or implementing 708 
+
+safety filters. 709 
+
+• Datasets that have been scraped from the Internet could pose safety risks. The authors 710 
+
+should describe how they avoided releasing unsafe images. 711 
+
+• We recognize that providing effective safeguards is challenging, and many papers do 712 
+
+not require this, but we encourage authors to take this into account and make a best 713 
+
+faith effort. 714 
+
+12. Licenses for existing assets 715 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in 716 
+
+the paper, properly credited and are the license and terms of use explicitly mentioned and 717 
+
+properly respected? 718 
+
+Answer: [Yes] 719 
+
+Justification: All datasets and models based on transfer learning were appropriately cited in 720 
+
+this research. 721 
+
+Guidelines: 722 
+
+• The answer NA means that the paper does not use existing assets. 723 
+
+• The authors should cite the original paper that produced the code package or dataset. 724 
+
+17 • The authors should state which version of the asset is used and, if possible, include a 725 
+
+URL. 726 
+
+• The name of the license (e.g., CC-BY 4.0) should be included for each asset. 727 
+
+• For scraped data from a particular source (e.g., website), the copyright and terms of 728 
+
+service of that source should be provided. 729 
+
+• If assets are released, the license, copyright information, and terms of use in the package 730 
+
+should be provided. For popular datasets, paperswithcode.com/datasets has 731 
+
+curated licenses for some datasets. Their licensing guide can help determine the license 732 
+
+of a dataset. 733 
+
+• For existing datasets that are re-packaged, both the original license and the license of 734 
+
+the derived asset (if it has changed) should be provided. 735 
+
+• If this information is not available online, the authors are encouraged to reach out to 736 
+
+the asset’s creators. 737 
+
+13. New assets 738 
+
+Question: Are new assets introduced in the paper well documented and is the documentation 739 
+
+provided alongside the assets? 740 
+
+Answer: [NA] 741 
+
+Justification: We do not refer to the proposed methods as new assets since the datasets and 742 
+
+basic models are existing assets and are properly cited. 743 
+
+Guidelines: 744 
+
+• The answer NA means that the paper does not release new assets. 745 
+
+• Researchers should communicate the details of the dataset/code/model as part of their 746 
+
+submissions via structured templates. This includes details about training, license, 747 
+
+limitations, etc. 748 
+
+• The paper should discuss whether and how consent was obtained from people whose 749 
+
+asset is used. 750 
+
+• At submission time, remember to anonymize your assets (if applicable). You can either 751 
+
+create an anonymized URL or include an anonymized zip file. 752 
+
+14. Crowdsourcing and research with human subjects 753 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper 754 
+
+include the full text of instructions given to participants and screenshots, if applicable, as 755 
+
+well as details about compensation (if any)? 756 
+
+Answer: [NA] 757 
+
+Justification: The paper does not involve crowdsourcing nor research with human subjects. 758 
+
+Guidelines: 759 
+
+• The answer NA means that the paper does not involve crowdsourcing nor research with 760 
+
+human subjects. 761 
+
+• Including this information in the supplemental material is fine, but if the main contribu-762 
+
+tion of the paper involves human subjects, then as much detail as possible should be 763 
+
+included in the main paper. 764 
+
+• According to the NeurIPS Code of Ethics, workers involved in data collection, curation, 765 
+
+or other labor should be paid at least the minimum wage in the country of the data 766 
+
+collector. 767 
+
+15. Institutional review board (IRB) approvals or equivalent for research with human 768 
+
+subjects 769 
+
+Question: Does the paper describe potential risks incurred by study participants, whether 770 
+
+such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) 771 
+
+approvals (or an equivalent approval/review based on the requirements of your country or 772 
+
+institution) were obtained? 773 
+
+Answer: [NA] 774 
+
+Justification: The paper does not involve crowdsourcing nor research with human subjects 775 
+
+Guidelines: 776 
+
+18 • The answer NA means that the paper does not involve crowdsourcing nor research with 777 
+
+human subjects. 778 
+
+• Depending on the country in which research is conducted, IRB approval (or equivalent) 779 
+
+may be required for any human subjects research. If you obtained IRB approval, you 780 
+
+should clearly state this in the paper. 781 
+
+• We recognize that the procedures for this may vary significantly between institutions 782 
+
+and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the 783 
+
+guidelines for their institution. 784 
+
+• For initial submissions, do not include any information that would break anonymity (if 785 
+
+applicable), such as the institution conducting the review. 786 
+
+16. Declaration of LLM usage 787 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or 788 
+
+non-standard component of the core methods in this research? Note that if the LLM is used 789 
+
+only for writing, editing, or formatting purposes and does not impact the core methodology, 790 
+
+scientific rigorousness, or originality of the research, declaration is not required. 791 
+
+Answer: [NA] 792 
+
+Justification: LLM is only used for polishing language. 793 
+
+Guidelines: 794 
+
+• The answer NA means that the core method development in this research does not 795 
+
+involve LLMs as any important, original, or non-standard components. 796 
+
+• Please refer to our LLM policy ( https://neurips.cc/Conferences/2025/LLM )797 
+
+for what should or should not be described. 798 
+
+19

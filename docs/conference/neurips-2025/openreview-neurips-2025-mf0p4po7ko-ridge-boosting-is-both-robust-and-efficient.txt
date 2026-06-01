@@ -1,0 +1,1207 @@
+Title: 22355_Ridge_Boosting_is_Both_R.pdf
+
+URL Source: https://openreview.net/pdf?id=mf0p4PO7ko
+
+Number of Pages: 27
+
+Markdown Content:
+# Ridge Boosting is Both Robust and Efficient 
+
+David Bruns-Smith 
+
+(Stanford University) 
+
+Zhongming Xie 
+
+(UC Berkeley) 
+
+Avi Feller 
+
+(UC Berkeley) 
+
+# Abstract 
+
+Estimators in statistics and machine learning must typically trade off between efficiency, having low variance for a fixed target, and distributional robustness, such as multiaccuracy , or having low bias over a range of possible targets. In this paper, we consider a simple estimator, ridge boosting : starting with any initial predictor, perform a single boosting step with (kernel) ridge regression. Surprisingly, we show that ridge boosting simultaneously achieves both efficiency and distributional robustness: for target distribution shifts that lie within an RKHS unit ball, this estimator maintains low bias across all such shifts and has variance at the semiparametric efficiency bound for each target. In addition to bridging otherwise distinct research areas, this result has immediate practical value. Since ridge boosting uses only data from the source distribution, researchers can train a single model to obtain both robust and efficient estimates for multiple target estimands at the same time, eliminating the need to fit separate semiparametric efficient estimators for each target. We assess this approach through simulations and an application estimating the age profile of retirement income. 
+
+# 1 Introduction 
+
+Estimators in statistics and machine learning must typically trade off between efficiency and robust-ness. Efficient estimators, largely developed in semiparametric statistics and econometrics, focus on having the smallest asymptotic variance (the “efficient variance”) among unbiased estimates for a single target estimand. Importantly, such estimators provide valid asymptotically Normal confidence intervals—critical in many empirical applications—and these intervals have the smallest possible width. By contrast, robust estimators, the focus of an active literature in Distributionally Robust Optimization (DRO) and other subfields, instead aim to have good performance for many, possibly unspecified targets. For example, Kim et al. [2022] show that a class of “multi-accurate” estimators—based on boosting an initial predictor—constrains worst-case bias for predicting the unknown mean in a large class of covariate shift problems. In general, we expect that controlling worst-case bias across many estimands would come at the cost of increased variance. Surprisingly, we show that a simple version of boosting, once-boosting with ridge regression , is simultaneously robust over a large set of possible distribution shifts, while also achieving the efficient variance and smallest possible confidence interval for each estimation target separately. Constructing this ridge boosting predictor is simple: we start with any initial predictor, and then perform one step of boosting using ridge regression in a Reproducing Kernel Hilbert Space (RKHS). For all target populations whose density ratio with respect to the source population is well-approximated by the RKHS, the resulting estimator is approximately unbiased and achieves the semiparametric efficiency bound. This is a very general (but not completely general) class of distribution shifts: it includes any shift whose density ratio can be expressed as linear in a fixed transformation of the covariates, even infinite-dimensional transformations. For example, this includes distribution shifts whose density ratio can be approximated as linear in the last-layer embedding of a pre-trained large language model, but not the more general class that would involve fine-tuning the neural network. 
+
+> 39th Conference on Neural Information Processing Systems (NeurIPS 2025).
+
+We similarly establish this result for a broad class of linear estimands, generalizing the results from Kim et al. [2022] beyond the missing mean to more complex targets like average derivatives and impulse responses. In this more general setting, we replace the density ratio with the more flexible 
+
+Riesz representer corresponding to the estimand of interest [Chernozhukov et al., 2021]. Our key technical insight is that kernel ridge regression implicitly estimates the Riesz representer needed for semiparametric estimation: the ridge boosting estimator we analyze is in fact numerically equivalent to the “Automatic Debiased Machine Learning” estimator of Chernozhukov et al. [2021] and inherits its optimality properties. As a result, we can train a single predictor using only source distribution data. Deploying this predictor to estimate any target estimand (whose Riesz representer is in the RKHS) will then have both low bias under distribution shift and asymptotically optimal confidence intervals—without ever explicitly computing target-specific bias correction terms. Our results have immediate practical implications. In settings where practitioners must estimate many related quantities under different covariate shifts—such as estimating health outcomes across multiple hospitals, or computing age profiles of economic variables—our approach eliminates the need to fit separate semiparametric efficient estimators for each target. As we show in simulations, this approach also yields valid confidence intervals for scalar estimands, an important requirement for many applications. 
+
+Paper organization. The paper proceeds as follows. Section 2 formalizes the problem setup, defining our estimation targets and contrasting robustness and efficiency. Section 3 introduces ridge boosting and proves it is both multiaccurate and semiparametrically efficient. Section 4 demonstrates performance through simulations and an empirical application. Section 5 concludes with limitations and future directions. 
+
+1.1 Related literature Multiaccuracy and Multicalibration: Multi-calibration, introduced by Hébert-Johnson et al. [2018], is a refinement of group calibration that requires a predictor to be simultaneously calibrated across a rich collection of (potentially overlapping) subpopulations. For a prediction task, calibration requires that among the individuals which receive prediction f (x) = v, the true expectation is v. Variants of the original definition have been studied by a number of works [Kim et al., 2019, 2022, Deng et al., 2023, Jung et al., 2021, Gopalan et al., 2022]). Multiaccuracy [Kim et al., 2019] is a weaker version of multi-calibration: it weakens multi-calibration by removing conditioning on the predicted values. Both concepts strengthen classical group fairness by ensuring fine-grained predictive accuracy without sacrificing overall performance. The multiaccuracy criterion is a special case of DRO [Hastings et al., 2024]. The link between multicalibration and boosting is discussed extensively in Globus-Harris et al. [2023]. Long et al. [2025] consider boosting over an RKHS to achieve multiaccuracy, but for classification. It would be interesting to see whether or not we could extend our result to their setting. 
+
+Semiparametric efficiency and doubly robustness: Semiparametric efficiency theory provides a rigorous foundation for the efficient estimation of target parameters in models that incorporate both parametric and nonparametric components [Bickel et al., 1993, Newey, 1994]. In the context of causal inference, doubly robust estimators [Robins et al., 1994, Kennedy, 2024] form a central class of methods that can attain semiparametric efficiency under correct specification of both. One motivation for these estimators comes from orthogonal (or Neyman-orthogonal) estimating equations [Chernozhukov et al., 2018, 2021, Foster and Syrgkanis, 2023], which reduce sensitivity to errors in nuisance function estimation. A complementary line of work [Zubizarreta, 2015, Ben-Michael et al., 2021, Athey et al., 2018, Hirshberg and Wager, 2021, Bruns-Smith et al., 2025a] focuses on balancing weights, which aim to reweight samples so that covariate distributions are matched across treatment groups. When balancing weights are combined with outcome regression, the resulting augmented estimators inherit both double robustness and semiparametric efficiency. In parallel, targeted maximum likelihood estimation (TMLE) [Van Der Laan and Rubin, 2006, Van der Laan et al., 2011] shows that, by incorporating a targeting step based on the efficient influence function of the parameter of interest and grounded in likelihood theory, TMLE achieves semiparametric efficiency. Cho et al. [2024] consider the TMLE update in an RKHS, and find a closely related universal adaptability property. In future work, it may be possible to unify their results with our boosting and multicalibration setting. 2Connection between multicalibration and causal inference: There are several recent papers discussing the connection between multicalibration and causal inference. Wu et al. [2024] show the connection between invariant risk minimization and multicalibration in the context of concept shift. Ye and Li [2024] explores multicalibration and universal adaptability in survival analysis. Kern et al. [2024] shows that the multi-accurate conditional average treatment effect estimate is robust to unknown covariate shifts. Van Der Laan et al. [2023] also calibrate a baseline model to achieve semiparametric efficiency, albeit without using multicalibration. 
+
+# 2 Problem setup: Robustness vs efficiency 
+
+2.1 Notation 
+
+Let X ∈ X denote covariates and Y ∈ Y ⊆ R an outcome of interest. We consider a source distribution P over (X, Y ). We assume that we have np independent and identically distributed observations from P , denoted by {(Xi, Y i)}np 
+
+> i=1
+
+∼i.i.d. P . We let Xp ∈ Rnp×d denote the matrix of observed covariates and Yp ∈ Rnp the corresponding vector of outcomes. Define γ0(x) := 
+
+EP [Y |X = x], the optimal mean-squared error predictor of Y given X in P .
+
+2.2 Defining our estimation target 
+
+We consider the goal of estimating a scalar summary of the optimal predictor γ0 [see Chernozhukov et al., 2018]. Examples include estimating a missing mean under covariate shift, estimating an average treatment effect, and estimating an average derivative. This setup generalizes the estimands considered in Kim et al. [2022]. 
+
+Definition 1 (Target Estimand) . For any function f : X → Y , define: 
+
+θtarget (f ) := EP [m(f, X )] ,
+
+where m is some real-valued function of f and X such that θtarget is linear in f . Our target estimand is: 
+
+θ0 := θtarget (γ0).
+
+Assumption 1 (Continuity) . We assume that θtarget is a continuous linear functional. That is, there exists a constant C > 0 such that: 
+
+θ(f )2 ≤ CEP [f (X)2],
+
+for all f with E[f (X)2] < ∞.
+
+We now make this concrete with some examples. 
+
+Example 1 (Missing Mean Under Covariate Shift): We begin with an example that will be familiar to machine learning practitioners. Let Q be another distribution on (X, Y ). We assume that we observe samples of X drawn from Q, but that Y is unobserved. Our goal is to estimate the missing mean EQ[Y ]. For example, if we collect health outcomes ( Y ) in New York City ( P ), our goal might be to use that data to infer average health outcomes in another city like Raleigh ( Q). The issue is that New York and Raleigh are very different cities. But under the covariate shift assumption that EP [Y |X] = EQ[Y |X], the missing mean can be written as: 
+
+EQ[Y ] = EQ[γ0(X)] = EP
+
+ dQ dP (X)γ0(X)
+
+
+
+=: θtarget (γ0),
+
+exactly as in Definition 1. In this example, Assumption 3 holds if and only if Q is absolutely continuous with respect to P and 
+
+EP
+
+ dQ dP (X)2
+
+
+
+< ∞.
+
+The analogous example in causal inference is estimating the counterfactual potential outcome for treated units when targeting the Average Treatment Effect on the Treated: P are the control units, Q
+
+are the treated units, and Y (0) replaces Y . See Johansson et al. [2022] for discussion. 3Example 2 (Average Derivative): We now consider an example common in applied economics. Let 
+
+X1 denote the first component of X. Then define the average derivative as: 
+
+θtarget (γ0) = EP
+
+ ∂γ 0(X)
+
+∂X 1
+
+
+
+.
+
+This θtarget is also a linear functional. For example, if Y is household spending, X1 is household income, and the remainder of X contains other household characteristics, then θtarget (γ0) measures the average spending response to a change in income, known as the “Marginal Propensity to Consume.” A central object in what follows will be the Riesz representer corresponding to the estimand θtarget :
+
+Definition 2 (Riesz representer) . Every continuous linear functional θ has a corresponding Riesz representer , a unique function αθ (x) such that: 
+
+θ(f ) = EP [αθ (X)f (X)] ,
+
+for all f such that EP [f (X)2] < ∞. We will write αtarget (x) to denote the Riesz representer of θtarget .
+
+Example (Density Ratio): When θtarget (f ) = EQ[f (X)] , then the Riesz representer is the density ratio, αtarget (x) = dQ/dP (x). This has a known analytic form: αtarget (x) = e(x)/(1 − e(x)) where 
+
+e(x) is the propensity score or domain classifier for Q vs. P .Note that our setup focuses on scalar summaries of the optimal predictor, and does not, for example, consider finding a predictor that achieves small mean squared error uniformly over a target distribution 
+
+Q. Recent work in Kern et al. [2024] suggests that we could extend our results to hold uniformly over X . We leave such an extension to future work. 
+
+2.3 Plug-in estimation and regularization bias 
+
+Before turning to robustness and efficiency, we introduce a natural starting place, the plug-in estimator .This first fits ˆγ(X) by predicting Y from X using samples from population P and then computes: 
+
+ˆθtarget (ˆ γ) := 1
+
+npnp
+
+X
+
+> i=1
+
+m(ˆ γ, X i). (1) In the special case of the missing mean (Example 1), we fit our predictor under P , but apply it to covariates drawn from Q. That is, say that we observe nq iid samples of X from Q. The plug-in estimate is then: 1 ˆθtarget (ˆ γ) := 1
+
+> nq
+
+Pnq 
+
+> j=1
+
+ˆγ(Xj ).
+
+The core difficulty with the plug-in estimator is regularization bias . When fitting ˆγ via machine learning, standard methods regularize the predictor to generalize better out-of-sample. Unfortunately, 
+
+ˆγ might regularize away parts of the sample-space that are important for θtarget . Say there is a particular combination of X that is very common in Q, but relatively rare in P . Then a cross-validated predictor trained under P might regularize away the predictions on those values of X to reduce variance. While optimal for prediction under P , this would lead to meaningful bias for EQ[Y ], which in turn could lead to a very poor estimate of the target estimand. Furthermore, bias means that the estimate will not be asymptotically normal, meaning that standard confidence intervals will not be valid — often an important desideratum in applied work. 
+
+2.4 Robustness: Constraining worst-case bias across many unknown targets 
+
+A large literature in robust optimization and algorithmic fairness focuses on constructing estimators that modify ˆγ above such that the plug-in estimate ˆθ(ˆ γ) has small bias for a range of target quantities [Kim et al., 2022]. For example, say we observe data from a single source hospital P , but we want to estimate EQ[Y ] across many different target hospitals Q1, Q 2, . . . Q K , where collecting unlabeled data and estimating density ratios αθ for each target site would be costly or possibly infeasible due to privacy concerns. Can we still estimate a ˆγ from P that is robust to many unknown distribution shifts? Kim et al. [2022] show that the answer is yes— although as we discuss below, we might be concerned about this procedure inflating the variance.    
+
+> 1We can technically write this as a special case of m(ˆ γ, X i)over a single population by combining the two populations and introducing an indicator variable for membership in Q.
+
+4Consider a target estimand θtarget satisfying Definition 1 and Assumption 3, but now assume that we do not have access to θtarget ahead of time. Our goal is to use the observations in P to construct a predictor ˆγ such that the resulting plug-in estimator for θtarget is approximately unbiased. In other words, we want to control the worst-case bias over a large set of possible estimands. In the fair machine learning literature, this condition is known as multiaccuracy :
+
+Definition 3 (Multiaccuracy) . Given an “auditing” function class C and source population P , a predictor f is (C, a )-multiaccurate if for every function c(X) ∈ C ,
+
+sup 
+
+> c∈C
+
+|EP [( Y − f (X)) · c(X)] | ≤ a. 
+
+Kim et al. [2019] show that an initial predictor ˆγinit can be modified to be multiaccurate by running a simple boosting procedure, including a version of our main proposal of boosting with ridge regression. We now generalize the result in Kim et al. [2022], which considered the specific case of estimating a missing mean under covariate shift, to the more general class defined in Definition 1, where we replace the density ratio with the Riesz representer. Even if we do not know θtarget in advance, if we can construct a set Θ such that we believe θtarget ∈ Θ, then we can still obtain an unbiased estimator of θtarget if we can construct a multiaccurate predictor ˆγma .
+
+Proposition 1. Let Θ be some set of functionals θ such that Definition 1 and Assumption 3 hold. Let 
+
+A be the corresponding set of Riesz representers: 
+
+A := {α : ∃θ ∈ Θ s.t. θ(f ) = E[f (X)α(X)] , ∀f with E[f (X)2] < ∞} .
+
+Then if ˆγma is (A, a )-multiaccurate: 
+
+|θ(ˆ γma ) − θ(γ0)| ≤ a, ∀θ ∈ Θ.
+
+Remark 1 (Distributionally-Robust Optimization) . Let Θ contain θ(f ) = EQk [f (X)] for many dis-tributions Qk, where A contains the corresponding density ratios, dQ k/dP . In this case, Definition 3 is a special case of the more general literature on Distributionally-Robust Optimization [Hastings et al., 2024]. For a target estimand, θtarget (f ) = EQtarget [f (X)] , if dQ target /dP ∈ A , then θtarget (ˆ γma )
+
+is approximately unbiased for θtarget (ˆ γ0).
+
+However, we might be concerned about the cost of robustness in terms of additional variance. Since we enforce small bias over a potentially large class of target estimands θ ∈ Θ, we would therefore expect larger variance for our specific target estimand θtarget .
+
+2.5 Efficiency: Unbiased estimate with the smallest variance for a single, known target 
+
+In many applications, we know our target functional θtarget in advance, such as if we observe samples of X from the distribution Q at training time. In this case, one popular strategy is to “bias correct” the initial estimate ˆθtarget (ˆ γ), a problem studied extensively in the semiparametric statistics literature [Chernozhukov et al., 2024]. Importantly, the resulting estimator has the smallest possible variance among all unbiased estimators [Chernozhukov et al., 2018]. Following the general setup in Chernozhukov et al. [2021], we focus on bias correction using the Riesz representer of θtarget . Under minimal conditions, if ˆγ is a consistent estimator of EP [Y |X], and 
+
+ˆα is a consistent estimator of αtarget (X), then the estimator, 
+
+ˆθefficient := ˆθtarget (ˆ γ) + 1
+
+npnp
+
+X
+
+> i=1
+
+ˆα(Xi)( Yi − ˆγ(Xi)) 
+
+| {z }
+
+> bias correction term
+
+,
+
+has the following three properties, asymptotically: (1) it is unbiased, i.e., EP [ˆθefficient ] = θtarget (γ0);(2) it is normally distributed; and (3) it has the smallest variance of all regular asymptotically-linear estimators. This third property is called semiparametric efficiency , and the corresponding variance is called the semiparametric efficiency bound , denoted V ∗ 
+
+> θ
+
+for θ(γ0). Formally, we have: 
+
+√n ˆθefficient − θtarget (γ0) → N (0 , V ∗ 
+
+> θtarget
+
+), and ˆV →p V ∗ 
+
+> θtarget
+
+,
+
+where ˆV is the sample variance, 
+
+ˆV := 1
+
+npnp
+
+X
+
+> i=1
+
+
+
+m(ˆ γ, X i) + ˆ α(Xi)( Yi − ˆγ(Xi)) − ˆθefficient 
+
+2
+
+.
+
+See e.g. Chernozhukov et al. [2023] for a set of minimal conditions under which this result holds. 53 Ridge boosting simultaneously achieves robustness and efficiency 
+
+Thus far, we have explored two classes of estimators: robust estimators that have low bias over many estimands, and bias-corrected estimators that are unbiased and efficient for a specific target estimand. In this section, we demonstrate that it is possible to construct an estimator that is both robust and efficient. Specifically, when the set of target Riesz representers A is the norm ball in an RKHS, we can construct a multiaccurate predictor that has small worst-case bias over the corresponding Θ while simultaneously achieving the semiparametric efficient variance for every target θ ∈ Θ. We refer to the resulting procedure as once-boosting with ridge regression or, more simply, ridge boosting .While our most general theoretical results only hold when A is a norm-ball in an RKHS, in the Appendix we sketch out a version of our result for boosting with Random Forests. Whether there exists a more general result is a exciting topic for future work. 
+
+3.1 Ridge boosting 
+
+In this section, we introduce the main estimator we analyze, once-boosting with ridge regression. 
+
+Setup. An RKHS H is a set of functions h : X → R defined by an inner product. In the most general case, for all x ∈ X there exists ϕ(x) ∈ H such that for any h ∈ H , h(x) = ⟨h, ϕ (x)⟩. One special case is the finite dimensional Hilbert space where ϕ(x) is some feature map from X → Rd
+
+and H = {h(x) = β⊤ϕ(x) : β ∈ Rd}; our results, however also hold for infinite-dimensional RKHS’s. For any h ∈ H , we define the norm ∥h∥2 
+
+> H
+
+= ⟨h, h ⟩.For some RKHS H, we consider the following function class: 
+
+A = {h ∈ H : ∥h∥H ≤ B},
+
+for some B > 0. We set B = 1 (which will be without loss of generality), so that A forms a unit ball. Recall that in our robustness setup, A corresponds to the set of Riesz representers for all θ ∈ Θ. In the covariate shift setting, A is the set of density ratios. Restricting our attention to Riesz representers that belong to such an A is very general, but not fully general. Such a set can include highly non-linear functions of x, but only functions that can be written in terms of the fixed basis ϕ(x). For example, A
+
+could be a set of functions that are linear in the last-layer embedding of a pre-trained large language model (LLM). But A could not include all functions achievable by fine-tuning that pre-trained LLM. 
+
+Estimator. We now introduce once-boosting with ridge regression. For notational simplicity, we present the algorithm in the case where H is a finite-dimensional RKHS with ϕ(x) ∈ Rd — the arguments are identical in the infinite-dimensional case. We will write Φp ∈ Rnp×d for the matrix with rows ϕ(xi) for each observation i. Assume that we have an initial estimator of EP [Y |X],
+
+ˆγinit (X), which could have been fit with some arbitrary machine learning algorithm. We then perform a ridge boosting step on the residuals Yp − ˆγinit (Xp):
+
+min 
+
+> β∈Rd
+
+∥Yp − ˆγinit (Xp) − Φpβ∥22 + λ∥β∥22 .
+
+Call the solution ˆβboost and define ˆγboost (x) := ϕ(x)⊤ ˆβboost . Then define: 
+
+ˆγma (x) = ˆ γinit (x) + ˆ γboost (x). (2) 
+
+3.2 Ridge boosting is multiaccurate 
+
+Next we will show that ˆγma is indeed multiaccurate. In other words, θ(ˆ γma ) is an approxiamtely unbiased estimate of θ(γ0), for all θ ∈ Θ. We first define the notion of the multiaccuracy error. 
+
+Definition 4 (Multi-accuracy error) . For a given auditing function class C and a source population 
+
+P , the multiaccuracy error of an estimator ˆf (X) and its sample analog are defined as: MAE C ( ˆf ) = sup 
+
+> c∈C
+
+|EP [c(X) · (Y − ˆf (X))] |, [MAE C ( ˆf ) = sup 
+
+> c∈C
+
+|c(Xp)⊤(Yp − ˆf (Xp)) |.
+
+Then we have the following guarantees: 6Theorem 1. For ˆγma defined in (2) , we have: 
+
+[MAE A(ˆ γma ) ≤ max 
+
+> 1≤j≤d
+
+λλ + σ2
+
+> j
+
+[MAE A(ˆ γinit ),
+
+where σ2 
+
+> j
+
+are the eigenvalues of Φ⊤ 
+
+> p
+
+Φp. Under standard regularity conditions, with probability 1 − η,MAE A(ˆ γma ) ≤ O δn +
+
+s
+
+1/η np
+
+!
+
+,
+
+for δn such that δn → 0 as n → ∞ .
+
+We provide a proof and additional discussion in the Appendix. The first result shows that one step of ridge boosting is guaranteed to decrease the sample multiaccuracy error. The second result shows we can generalize out of sample. The rate of convergence of δn depends on the dimensionality and smoothness of H. When H is finite-dimensional with dimension d, δn ≤ pd/n .
+
+Remark 2. We emphasize that Theorem 1 is not a fundamentally new result. The multiaccuracy literature already proves generalization bounds on the multiaccuracy error for boosting estimators using ridge regression; see Kim et al. [2019]. However, our boosting procedure differs slightly in its specifics (e.g. linear boosting instead of exponential weighting) and so we provide Theorem 1 for completeness. Our proof uses standard techniques from the analysis of kernel ridge regression. 
+
+3.3 Ridge boosting is semiparametrically efficient 
+
+We showed above that boosting with ridge regression produces a predictor that is multiaccurate with respect to A. We now show that this multiaccurate estimator is also semiparametrically efficient for all θ ∈ Θ. Specifically, we will show that ridge boosting implicitly estimates the Riesz representer and performs semiparametric bias correction. In fact, the resulting estimator θ(ˆ γma ) is numerically equivalent to a special case of Automatic Debiased Machine Learning using kernel Riesz regression Chernozhukov et al. [2021], Singh [2024]. 
+
+3.3.1 Ridge regression implicitly estimates Riesz representers 
+
+The key fact that will lead to our main result is that ridge regression implicitly estimates Riesz representers. To see this, notice that for any continuous linear functional θ, the Riesz representer 
+
+αθ (X) is the unique solution to the following loss minimization problem 
+
+αθ = argmin 
+
+> α:E[α(X)2]<∞
+
+{EP [α(X)2] − 2θ(α)}. (3) See Chernozhukov et al. [2021] for more discussion. One way to approximate αθ (X) is to minimize (3) over an RKHS H. The sample version of this optimization problem is: 
+
+min 
+
+> η∈Rd
+
+ 1
+
+np
+
+η⊤Φ⊤ 
+
+> p
+
+Φpη − 2θ(Φ p)⊤η + λ∥η∥22
+
+
+
+, (4) with minimizer ˆηλ and corresponding Riesz representer estimate ˆαλθ (x) := ϕ(x)⊤ ˆηλ. See Singh [2024] for an analysis of this estimator. Ridge regression when used to estimate θ can always be rewritten as a weighting estimator with weights ˆαλθ (Xp), as we show in the following proposition. 
+
+Proposition 2. Let θ be any continuous linear functional, and define the Riesz representer estimate 
+
+ˆαλθ from (4) . Let Zp be any function of Xp and Yp. Consider the ridge regression in H that predicts 
+
+Zp given Xp:
+
+min 
+
+> β∈Rd
+
+∥Zp − Φpβ∥22 + λ∥β∥22.
+
+Call the solution ˆβridge and the corresponding predictor ˆγridge (x) = ϕ(x)⊤ ˆβridge . Then: 
+
+ˆθ(ˆ γridge ) = 1
+
+np
+
+ˆαλθ (Xp)⊤Zp.
+
+7This is a well-known result; see Kallus [2020], and see Bruns-Smith et al. [2025a] for an extensive discussion of the implications for semiparametric estimation. 
+
+Remark 3. Ridge regression can be written as a linear smoother. The result above says that when we compute ˆθ(ˆ γridge ), the smoother weights estimate the Riesz representer. Random forests can also be written as a linear smoother, and Lin and Han [2022] show that the weights converge to the Riesz representer in a similar sense. We use this connection to show that the same robustness/efficiency properties apply to boosting with Random Forests in Appendix B. 
+
+3.3.2 Main result: Semiparametric efficiency for all θ ∈ Θ
+
+We now apply Section 3.3.1 to our estimator ˆγma to establish our main result: θ(ˆ γma ) does not just have small worst-case bias over all θ ∈ Θ, it is semiparametrically efficient for each individual θ ∈ Θ.For any θ ∈ Θ, we have the following: 
+
+ˆθ(ˆ γma ) = ˆθ(ˆ γinit ) + ˆθ(ˆ γboost )= ˆθ(ˆ γinit ) + 1
+
+np
+
+ˆαλθ (Xp)⊤(Yp − ˆγinit (Xp)) , (5) where the second equality follows from applying Proposition 2 for Zp = Yp − ˆγinit (Xp).Note that (6) has exactly the form of ˆθefficient from Section 2.5. In fact, this estimation strategy — in which we fit an arbitrary machine learning estimator ˆγinit and use a ˆαθ (X) that minimizes (3) for bias correction — is a well-studied estimator from the semiparametric statistics literature [Athey et al., 2018, Hirshberg and Wager, 2021, Chernozhukov et al., 2021, Bruns-Smith et al., 2025a]. The particular form of ˆαλθ (X) used here, which is obtained by minimizing (4) in an RKHS, is specifically considered in Hirshberg et al. [2019], Kallus [2020], Hazlett [2020], Singh [2024]. Thus, once-boosting with ridge provides a multiaccurate predictor, but the resulting point estimate θ(ˆ γma )
+
+is numerically-equivalent to well-studied semiparametrically efficient estimators. We leverage this connection to establish our main theoretical result. 
+
+Theorem 2 (Informal) . Given standard regularity assumptions and some conditions on the quality of ˆγinit , then for all θ ∈ Θ, the ridge boosting plug-in estimator is asymptotically Normal and its variance achieves the asymptotic variance lower bound V ∗ 
+
+> θ
+
+:
+
+√n ˆθ(ˆ γma ) − θ(γ0) → N (0 , V ∗ 
+
+> θ
+
+), and ˆV →p V ∗ 
+
+> θ
+
+.
+
+where ˆV is the sample variance, 
+
+ˆV := 1
+
+npnp
+
+X
+
+> i=1
+
+ m(ˆ γma , X i) − θ(ˆ γma )2.
+
+See the Appendix for a formal Theorem statement and proof. This result establishes that for any estimand θ whose Riesz representer belongs to the RKHS ball A, the ridge boosting estimator ˆθ(ˆ γma )
+
+is not just robust, it is semiparametrically efficient. This estimator is also computationally convenient for practitioners interested in efficient inference. We simply take the initial predictor and run one step of boosting with kernel ridge regression, which has many readily-available implementations. And since a plug-in estimator using this new predictor is semiparametrically efficient for any estimand in Θ, we do not have to (explicitly) fit individual Riesz representer estimates ˆαθ for each θ, which can be expensive when there are many θs of interest. We also do not require specialized code for minimizing the Riesz loss (3) , which can be a barrier for practitioners with less familiarity with Riesz representers. 
+
+# 4 Experiments 
+
+4.1 Simulation study 
+
+We now demonstrate in simulation that we simultaneously achieve robust and efficient inference by deploying our multiaccurate predictor on different estimands in different environments. To 8100 200 300 400 500         
+
+> Sample Size
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coverage
+> = 0
+> Naive
+> Boosted
+> 100 200 300 400 500
+> Sample Size
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coverage
+> = 1
+> 100 200 300 400 500
+> Sample Size
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coverage
+> = -1
+
+Figure 1: The empirical coverage comparisons between single kernel ridge outcome regression and kernel-ridge-boosted estimator across sample-sizes and the three environments μ ∈ { 0, 1, −1}. The blue lines with triangle markers plot the coverage for the base ridge model, and the orange line with circular markers for the once-boosted ridge model. The dotted line is at 0.95. demonstrate the generality of the framework, we consider estimating an average derivative with correlated covariates — on its own, already a difficult task — under distribution shift. We will fit both ridge and once-boosted ridge models in a training sample, and then compute the usual 95% asymptotic Normal confidence interval for the average derivative across three test distributions, assessing empirical coverage over simulation draws. 
+
+Simulation Setup: We consider three-dimensional correlated covariates: X1, X 2 ∼ N (μ, 1) , and 
+
+X3 = 4 · σ(X1 − X2) + ϵ − 2,
+
+where σ(·) is the sigmoid, and ϵ ∼ N (0 , 22). For the training distribution, P , μ = 0 ; for the test distributions, we vary μ. The outcomes are generated as: 
+
+Y = Y ∼ f (X) + η, f (X) = X1 · (0 .2 + sin( X1) + σ(X2) − 0.2 · X3), η ∼ N (0 , 22).
+
+The estimand is the average derivative of f (X) with respect to X1 under Q, EQ[∂f (X)/∂X 1]. We consider three different distributions for Q, with the same setup but with μ ∈ {− 1, 0, 1}. The dependence of X3 on both X1 and X2 makes the average derivative more challenging to estimate. 
+
+Methods: We compare two estimators. (1) Naive Kernel Ridge: a standard kernel ridge outcome regression trained on the source data and plugged in for each target estimand. (2) Boosted Kernel Ridge: a one-step kernel ridge boosting procedure applied to the residuals of the initial kernel ridge regression. Both models are trained solely on the training (source) data and evaluated on each of the three test (target) distributions. 
+
+Monte Carlo Simulation: For each simulation, we draw a training sample of X and Y from the source distribution, and fit the kernel ridge and boosted kernel ridge model. We then draw one sample of X from each of the three test distributions, and estimate the average derivative with respect to 
+
+X1 on that test distribution by symmetric differencing, along with the usual 95% asymptotic normal confidence interval. The whole process is repeated for sample sizes ranging from 50 to 500 and with 1,000 Monte Carlo replications. We report the empirical coverage of the confidence intervals for both methods across sample sizes and replications. The full simulation study is run on a four-core laptop. 
+
+Results: The results are shown in Figure 1. Across all three test distributions, the naive confidence intervals using the base ridge model under cover. By contrast, the confidence intervals from once-boosted ridge regression achieve good empirical coverage even with a moderate sample size ( n =300 ). The same pattern holds across all three randomly generated covariate shifts, showing the boosted ridge regression can achieve robustness toward covariate shifts and statistical efficiency at the same time. This reveals a new practical benefit of the multiaccurate estimator in this setting previously unexplored in the multicalibration literature: we achieve valid uncertainty quantification under distribution shift. 
+
+4.2 Empirical application to retirement income 
+
+We now consider an empirical economics application: estimating the age profile of income throughout retirement. For an individual i, let Yi be total income (including retirement income), let Ai be age, and let Xi be other covariates like education, race, and marital status. Define γ0(A, X ) := E[Y |A, X ].965 70 75 80 85 90      
+
+> Ages
+> 50000
+> 52000
+> 54000
+> 56000
+> 58000
+> 60000
+> 62000
+> Average Income
+> Naive
+> Boosted
+> 65 70 75 80 85 90
+> Ages
+> 1400
+> 1500
+> 1600
+> 1700
+> 1800
+> 1900
+> Confidence Interval Width
+
+Figure 2: The left panel shows our point estimates for the age profile of income using a naive kernel ridge regression plug-in estimator and our ridge boosting estimator. The dotted lines are the corresponding 95% confidence intervals and the width of the intervals are plotted in the right panel. Our estimand is the age profile of income (for ages 65 , . . . , 89 ), which is defined as the following 
+
+counterfactual means: 
+
+θ65 := E[γ0(65 , X )] , θ66 := E[γ0(66 , X )] , ... , θ89 := E[γ0(89 , X )] .
+
+That is, for each θa, we want the average value of γ0(A, X ), but where we have counterfactually replaced the age of every individual with the fixed value a. This is a key input into structural models of the macroeconomy — see, for example, Gourinchas and Parker [2002], Kaplan and Violante [2014]. Because the distribution of the covariates X varies with A, this can induce very significant distribution shift, especially late in retirement. We emphasize that this is a highly simplified example inspired by Bruns-Smith et al. [2025b], although applying our methodology to their setting is a promising direction for future work. State of the art modeling here would construct separate semiparametric efficient estimators for each point in the age profile, necessarily requiring a separate debiasing term at every age. In this application, we instead use a single multiaccurate predictor to estimate the 25 different target estimands—one for each year of retirement age— demonstrating the utility of our procedure in practice. We estimate the age profile of retirement using data from 2018 American Community Survey as processed by the 
+
+FolkTables package [Ding et al., 2021]. As in Section 4.1 we fit a single kernel ridge and boosted kernel ridge model, and then compute plug-in estimates of θa using these two models. The results are displayed in Figure 2. Whereas the naive estimate (without boosting) features a steep decline of $11k from ages 65-89, our boosted estimates are substantially flatter — better matching the theoretical model for pension and social security income from Kaplan and Violante [2014]. Furthermore, while the naive confidence intervals shrink for the highest ages, our boosted confidence intervals actually grow slightly, suggesting that the naive model may undercover for the oldest part of the age profile. 
+
+# 5 Conclusion 
+
+In this manuscript, we investigate the connection between multiaccuracy and semiparametric effi-ciency. Specifically, we show that boosting an initial predictor with kernel ridge produces an estimator that is not only multiaccurate over estimands in an RKHS norm ball but is also semiparametrically efficient for each target separately. This result can be understood through the lens of Riesz regression: ridge boosting implicitly performs Riesz regression, thereby yielding an augmented balancing weight estimator that attains the semiparametric efficiency bound. We demonstrate one practical benefit: valid confidence intervals across distributions under covariate-shifts not seen at training time. How-ever, our results are limited to shifts described by an RKHS. And making this proposal fully practical requires additional investigation of appropriate hyperparameter tuning. We hope this initial work leads to further exchange between the robustness and semiparametrics literatures. 10 References 
+
+S. Athey, G. W. Imbens, and S. Wager. Approximate residual balancing: debiased inference of average treatment effects in high dimensions. Journal of the Royal Statistical Society Series B: Statistical Methodology , 80(4):597–623, 2018. E. Ben-Michael, A. Feller, D. A. Hirshberg, and J. R. Zubizarreta. The balancing act in causal inference. arXiv preprint arXiv:2110.14831 , 2021. P. J. Bickel, C. A. Klaassen, P. J. Bickel, Y. Ritov, J. Klaassen, J. A. Wellner, and Y. Ritov. Efficient and adaptive estimation for semiparametric models , volume 4. Johns Hopkins University Press Baltimore, 1993. D. Bruns-Smith, O. Dukes, A. Feller, and E. L. Ogburn. Augmented balancing weights as linear regression. Journal of the Royal Statistical Society Series B: Statistical Methodology , page qkaf019, 2025a. D. Bruns-Smith, E. Nakamura, and J. Steinsson. Disentangling age, time, and cohort effects in income inequality: A proxy machine learning approach. Working Paper 34380, National Bureau of Economic Research, October 2025b. URL https://www.nber.org/papers/w34380 .V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, W. Newey, and J. Robins. Double/debiased machine learning for treatment and structural parameters, 2018. V. Chernozhukov, W. K. Newey, V. Quintas-Martinez, and V. Syrgkanis. Automatic debiased machine learning via riesz regression. arXiv preprint arXiv:2104.14737 , 2021. V. Chernozhukov, W. K. Newey, and R. Singh. A simple and general debiased machine learning theorem with finite-sample guarantees. Biometrika , 110(1):257–264, 2023. V. Chernozhukov, C. Hansen, N. Kallus, M. Spindler, and V. Syrgkanis. Applied causal inference powered by ml and ai. arXiv preprint arXiv:2403.02467 , 2024. B. Cho, Y. Mukhin, K. Gan, and I. Malenica. Kernel debiased plug-in estimation: Simultaneous, automated debiasing without influence functions for many target parameters. Proceedings of machine learning research , 235:8534, 2024. Z. Deng, C. Dwork, and L. Zhang. Happymap: A generalized multi-calibration method. arXiv preprint arXiv:2303.04379 , 2023. F. Ding, M. Hardt, J. Miller, and L. Schmidt. Retiring adult: New datasets for fair machine learning. 
+
+Advances in neural information processing systems , 34:6478–6490, 2021. S. Fischer and I. Steinwart. Sobolev norm learning rates for regularized least-squares algorithms. 
+
+Journal of Machine Learning Research , 21(205):1–38, 2020. D. J. Foster and V. Syrgkanis. Orthogonal statistical learning. The Annals of Statistics , 51(3):879–908, 2023. I. Globus-Harris, D. Harrison, M. Kearns, A. Roth, and J. Sorrell. Multicalibration as boosting for regression. In International Conference on Machine Learning , pages 11459–11492. PMLR, 2023. P. Gopalan, M. P. Kim, M. A. Singhal, and S. Zhao. Low-degree multicalibration. In Conference on Learning Theory , pages 3193–3234. PMLR, 2022. P.-O. Gourinchas and J. A. Parker. Consumption over the life cycle. Econometrica , 70(1):47–89, 2002. J. Hastings, C. Jung, C. Peale, and V. Syrgkanis. Taking a moment for distributional robustness. 
+
+arXiv preprint arXiv:2405.05461 , 2024. C. Hazlett. Kernel balancing. Statistica Sinica , 30(3):1155–1189, 2020. U. Hébert-Johnson, M. Kim, O. Reingold, and G. Rothblum. Multicalibration: Calibration for the (computationally-identifiable) masses. In International Conference on Machine Learning , pages 1939–1948. PMLR, 2018. 11 D. A. Hirshberg and S. Wager. Augmented minimax linear estimation. The Annals of Statistics , 49 (6):3206–3227, 2021. D. A. Hirshberg, A. Maleki, and J. R. Zubizarreta. Minimax linear estimation of the retargeted mean. 
+
+arXiv preprint arXiv:1901.10296 , 2019. F. D. Johansson, U. Shalit, N. Kallus, and D. Sontag. Generalization bounds and representation learning for estimation of potential outcomes and causal effects. Journal of Machine Learning Research , 23(166):1–50, 2022. C. Jung, C. Lee, M. Pai, A. Roth, and R. Vohra. Moment multicalibration for uncertainty estimation. In Conference on Learning Theory , pages 2634–2678. PMLR, 2021. N. Kallus. Generalized optimal matching methods for causal inference. Journal of Machine Learning Research , 21(62):1–54, 2020. G. Kaplan and G. L. Violante. A model of the consumption response to fiscal stimulus payments. 
+
+Econometrica , 82(4):1199–1239, 2014. E. H. Kennedy. Semiparametric doubly robust targeted double machine learning: a review. Handbook of Statistical Methods for Precision Medicine , pages 207–236, 2024. C. Kern, M. Kim, and A. Zhou. Multi-cate: Multi-accurate conditional average treatment effect estimation robust to unknown covariate shifts. arXiv preprint arXiv:2405.18206 , 2024. M. P. Kim, A. Ghorbani, and J. Zou. Multiaccuracy: Black-box post-processing for fairness in classification. In Proceedings of the 2019 AAAI/ACM Conference on AI, Ethics, and Society , pages 247–254, 2019. M. P. Kim, C. Kern, S. Goldwasser, F. Kreuter, and O. Reingold. Universal adaptability: Target-independent inference that competes with propensity scoring. Proceedings of the National Academy of Sciences , 119(4):e2108097119, 2022. Z. Lin and F. Han. On regression-adjusted imputation estimators of the average treatment effect. 
+
+arXiv preprint arXiv:2212.05424 , 2022. C. X. Long, W. Alghamdi, A. Glynn, Y. Wu, and F. P. Calmon. Kernel multiaccuracy. In 6th Symposium on Foundations of Responsible Computing (FORC 2025) , pages 7–1. Schloss Dagstuhl– Leibniz-Zentrum für Informatik, 2025. W. K. Newey. The asymptotic variance of semiparametric estimators. Econometrica: Journal of the Econometric Society , pages 1349–1382, 1994. N. Pimentel, A. Schuler, and M. van der Laan. Score-preserving targeted maximum likelihood estimation. arXiv preprint arXiv:2502.00200 , 2025. J. M. Robins, A. Rotnitzky, and L. P. Zhao. Estimation of regression coefficients when some regressors are not always observed. Journal of the American statistical Association , 89(427):846–866, 1994. A. Schuler, A. Hagemeister, and M. van der Laan. Highly adaptive ridge. arXiv preprint arXiv:2410.02680 , 2024. R. Singh. Kernel ridge riesz representers: Generalization, mis-specification, and the counterfactual effective dimension. arXiv preprint arXiv:2102.11076v4 , 2024. L. Van Der Laan, E. Ulloa-Pérez, M. Carone, and A. Luedtke. Causal isotonic calibration for heterogeneous treatment effects. In International Conference on Machine Learning , pages 34831– 34854. PMLR, 2023. M. J. Van Der Laan and D. Rubin. Targeted maximum likelihood learning. The international journal of biostatistics , 2(1), 2006. M. J. Van der Laan, S. Rose, et al. Targeted learning: causal inference for observational and experimental data , volume 4. Springer, 2011. 12 M. J. Wainwright. High-dimensional statistics: A non-asymptotic viewpoint , volume 48. Cambridge university press, 2019. J. Wu, J. Liu, P. Cui, and Z. S. Wu. Bridging multicalibration and out-of-distribution generalization beyond covariate shift. arXiv preprint arXiv:2406.00661 , 2024. H. Ye and H. Li. Multicalibration for censored survival data: Towards universal adaptability in predictive modeling. arXiv preprint arXiv:2405.15948 , 2024. J. R. Zubizarreta. Stable weights that balance covariates for estimation with incomplete outcome data. Journal of the American Statistical Association , 110(511):910–922, 2015. 13 NeurIPS Paper Checklist 
+
+1. Claims 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? Answer: [Yes] Justification: We have reflected the contributions and scope in both the abstract and intro-duction. Guidelines: • The answer NA means that the abstract and introduction do not include the claims made in the paper. • The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A No or NA answer to this question will not be perceived well by the reviewers. • The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. • It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 2. Limitations 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? Answer: [Yes] Justification: We have discussed the limitations in Section 5. Guidelines: • The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper. • The authors are encouraged to create a separate "Limitations" section in their paper. • The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be. • The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. • The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon. • The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size. • If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness. • While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an impor-tant role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. 3. Theory assumptions and proofs 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? Answer: [Yes] 14 Justification: We provided assumptions in the manuscript and proof in the supplemental material. Guidelines: • The answer NA means that the paper does not include theoretical results. • All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced. • All assumptions should be clearly stated or referenced in the statement of any theorems. • The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. • Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material. • Theorems and Lemmas that the proof relies upon should be properly referenced. 4. Experimental result reproducibility 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-perimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? Answer: [Yes] Justification: We provide simulations to justify the efficiency of the proposed method in Section 4.1. Guidelines: • The answer NA means that the paper does not include experiments. • If the paper includes experiments, a No answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not. • If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. • Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed. • While NeurIPS does not require releasing code, the conference does require all submis-sions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example (a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm. (b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. 5. Open access to data and code 
+
+15 Question: Does the paper provide open access to the data and code, with sufficient instruc-tions to faithfully reproduce the main experimental results, as described in supplemental material? Answer: [Yes] Justification: The code is provided in the Supplemental Material. Guidelines: • The answer NA means that paper does not include experiments requiring code. • Please see the NeurIPS code and data submission guidelines ( https://nips.cc/ public/guides/CodeSubmissionPolicy ) for more details. • While we encourage the release of code and data, we understand that this might not be possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark). • The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines ( https: //nips.cc/public/guides/CodeSubmissionPolicy ) for more details. • The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc. • The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why. • At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable). • Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. 6. Experimental setting/details 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyper-parameters, how they were chosen, type of optimizer, etc.) necessary to understand the results? Answer: [Yes] Justification: We provide simulation details in Section 4.1. Guidelines: • The answer NA means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in appendix, or as supplemental material. 7. Experiment statistical significance 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? Answer: [Yes] Justification: We reported the empirical coverage of the confidence intervals for different methods in Section 4.1. Guidelines: • The answer NA means that the paper does not include experiments. • The authors should answer "Yes" if the results are accompanied by error bars, confi-dence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper. • The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions). 16 • The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.) • The assumptions made should be given (e.g., Normally distributed errors). • It should be clear whether the error bar is the standard deviation or the standard error of the mean. • It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis of Normality of errors is not verified. • For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g. negative error rates). • If error bars are reported in tables or plots, The authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. 8. Experiments compute resources 
+
+Question: For each experiment, does the paper provide sufficient information on the com-puter resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? Answer: [Yes] Justification: We provide these information in Section 4.1. Guidelines: • The answer NA means that the paper does not include experiments. • The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage. • The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. • The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). 9. Code of ethics 
+
+Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?Answer: [Yes] Justification: Our research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics. Guidelines: • The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics. • If the authors answer No, they should explain the special circumstances that require a deviation from the Code of Ethics. • The authors should make sure to preserve anonymity (e.g., if there is a special consid-eration due to laws or regulations in their jurisdiction). 10. Broader impacts 
+
+Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? Answer: [Yes] Justification: We have discussed this in the introduction. Guidelines: • The answer NA means that there is no societal impact of the work performed. • If the authors answer NA or No, they should explain why their work has no societal impact or why the paper does not address societal impact. 17 • Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations. • The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster. • The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology. • If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). 11. Safeguards 
+
+Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pretrained language models, image generators, or scraped datasets)? Answer: [NA] Justification: The paper poses no such risks. Guidelines: • The answer NA means that the paper poses no such risks. • Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. • Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images. • We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. 12. Licenses for existing assets 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? Answer: [NA] Justification: The paper does not use existing assets. Guidelines: • The answer NA means that the paper does not use existing assets. • The authors should cite the original paper that produced the code package or dataset. • The authors should state which version of the asset is used and, if possible, include a URL. • The name of the license (e.g., CC-BY 4.0) should be included for each asset. • For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided. • If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets 
+
+has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset. 18 • For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided. • If this information is not available online, the authors are encouraged to reach out to the asset’s creators. 13. New assets 
+
+Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? Answer: [NA] Justification: The paper does not release new assets. Guidelines: • The answer NA means that the paper does not release new assets. • Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. • The paper should discuss whether and how consent was obtained from people whose asset is used. • At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. 14. Crowdsourcing and research with human subjects 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? Answer: [NA] Justification: The paper does not involve crowdsourcing nor research with human subjects. Guidelines: • The answer NA means that the paper does not involve crowdsourcing nor research with human subjects. • Including this information in the supplemental material is fine, but if the main contribu-tion of the paper involves human subjects, then as much detail as possible should be included in the main paper. • According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 15. Institutional review board (IRB) approvals or equivalent for research with human subjects 
+
+Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? Answer: [NA] Justification: The paper does not involve crowdsourcing nor research with human subjects. Guidelines: • The answer NA means that the paper does not involve crowdsourcing nor research with human subjects. • Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. • We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. • For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. 19 16. Declaration of LLM usage 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does not impact the core methodology, scientific rigorousness, or originality of the research, declaration is not required. Answer: [NA] Justification: The core method development in this research does not involve LLMs as any important, original, or non-standard components. Guidelines: • The answer NA means that the core method development in this research does not involve LLMs as any important, original, or non-standard components. • Please refer to our LLM policy ( https://neurips.cc/Conferences/2025/LLM )for what should or should not be described. 20 A Proofs of Theoretical Results 
+
+A.1 Proof of Proposition 1 Proposition. Let Θ be some set of functionals θ such that Definition 1 and Assumption 3 hold. Let A
+
+be the corresponding set of Riesz representers: 
+
+A := {α : ∃θ ∈ Θ s.t. θ(f ) = E[f (X)α(X)] , ∀f with E[f (X)2] < ∞} .
+
+Then if ˆγma is (A, a )-multiaccurate: 
+
+|θ(ˆ γma ) − θ(γ0)| ≤ a, ∀θ ∈ Θ.
+
+Proof. For all θ ∈ Θ,
+
+|θ(γ0) − θ(ˆ γma )| = |EP [αθ (X)γ0(X)] − EP [αθ (X)ˆ γma (X)] |
+
+= |E[αθ (X)( γ0(X) − ˆγma (X))] |
+
+= |E[αθ (X)( Y − ˆγma (X))] |≤ sup 
+
+> α∈A
+
+|E[α(X)( Y − ˆγma (X))] | ≤ a. 
+
+A.2 Proof of Theorem 1 Assumption 2. We require the following boundedness conditions: 1. Assume that EP [∥ϕ(X)∥2
+
+> H
+
+] < B 1.2. Assume that Y , ˆγinit (X), and ϕ(X) are bounded P -almost-surely. 
+
+Theorem. For ˆγma defined in (2) , we have: 
+
+[MAE A(ˆ γma ) ≤ max 
+
+> 1≤j≤d
+
+λλ + σ2
+
+> j
+
+[MAE A(ˆ γinit ),
+
+where σ2 
+
+> j
+
+are the eigenvalues of Φ⊤ 
+
+> p
+
+Φp. Under standard regularity conditions, with probability 1 − η,MAE A(ˆ γma ) ≤ O δn +
+
+s
+
+1/η np
+
+!
+
+,
+
+for δn such that δn → 0 as n → ∞ .Proof. We begin by proving the first inequality — that the sample multiaccuracy of ˆγma is always smaller than that of ˆγinit . We have: 
+
+[MAE A(ˆ γma ) = sup 
+
+> a∈A
+
+1
+
+n a(Xp)T (Yp − ˆγinit (Xp) − Φp ˆβ) .
+
+Here A is a Hilbert ball with norm 1. Since Hilbert spaces are self-dual, we can use the definition of the dual norm: 
+
+[MAE A(ˆ γma ) = sup 
+
+> a∈A
+
+1
+
+n a(Xp)T (Yp − ˆγinit (Xp) − Φp ˆβ) = 1
+
+n ∥ΦTp (Yp − ˆγinit (Xp) − Φp ˆβ)∥22.
+
+Similarly, the multi-accuracy error of ˆγinit is 
+
+[MAE A(ˆ γinit ) = 1
+
+n ∥ΦTp (Yp − ˆγinit (Xp)) ∥22.
+
+Using the closed-form for ridge regression, we have: 
+
+ˆβboost =
+
+ 1
+
+n ΦTp Φp + λI d
+
+−1 1
+
+n ΦTp (Yp − ˆγinit (Xp)) .
+
+21 Therefore: 
+
+[MAE C (ˆ γma ) = 1
+
+n ∥ΦTp (Yp − ˆγinit (Xp)) − ΦTp Φp( 1
+
+n ΦTp Φp + λI d)−1 1
+
+n ΦTp (Yp − ˆγinit (Xp)) ∥22
+
+= 1
+
+n ∥(In − 1
+
+n ΦTp Φp( 1
+
+n ΦTp Φp + λI d)−1) · (Yp − ˆγinit (Xp)) ∥22.
+
+Define 
+
+Pλ = 1
+
+n ΦTp Φp
+
+ 1
+
+n ΦTp Φp + λI d
+
+−1
+
+.
+
+Consider the singular value decomposition (SVD) of 1√n Φp = U Σ1/2 
+
+> p
+
+V T , we have 
+
+Pλ = V Σp(Σ p + λI d)−1V T
+
+The eigenvalues of Pλ are thus 
+
+σ2
+
+> j
+
+σ2 
+
+> j
+
++ λ , j = 1 , . . . , d, 
+
+where σ2 
+
+> j
+
+are the eigenvalues of Φ⊤ 
+
+> p
+
+Φp. The eigenvalues of In − Pλ are 
+
+λσ2 
+
+> j
+
++ λ , j = 1 , . . . , d. 
+
+Thus we have 
+
+[MAE A(ˆ γma ) ≤ 1
+
+n max 
+
+> 1≤j≤d
+
+λλ + σ2
+
+> j
+
+∥ΦTp (Yp − ˆγ(Xp)) ∥22 = max 
+
+> 1≤j≤d
+
+λλ + σ2
+
+> j
+
+[MAE A(ˆ γinit ).
+
+Now we turn to the second inequality, that the multiaccuracy of ˆγma generalizes. We apply the same dual norm argument to the population multiaccuracy error: MAE A( ˆf ) = sup 
+
+> a∈A
+
+|EP [a(X) · (Y − ˆγma (X))] |
+
+= ∥EP [ϕ(X) · (Y − ˆγma (X))] ∥H
+
+≤ pB1EP [( Y − ˆγma (X)) 2]= pB1EP [(( Y − ˆγinit (X)) − ˆγboost (X)) 2]
+
+where the expression in the second line is well-defined when Assumption 4 holds, the third line uses Jensen’s inequality for norms plus Cauchy-Schwarz and Assumption 4, and the last line uses the law of iterated expectations. So ultimately, the expression depends on the mean squared error of kernel ridge regression for predicting Y − ˆγinit (X) using X. Here we can use any off-the-shelf bound to get our main result. For example, when ϕ(X) ∈ Rd, as we assume for simplicity in the main text, and if λ is sufficiently small, we can apply the standard critical radius argument in Wainwright [2019] to get that with probability at least 1 − η,
+
+EP [(( Y − ˆγinit (X)) − ˆγboost (X)) 2] ≤ O
+
+r dn +
+
+r 1/η n
+
+!
+
+.
+
+More generally, if H is an infinite dimensional Hilbert space, then given an effective dimension b and certain standard smoothness assumptions, then by following Fischer and Steinwart [2020], Singh [2024] we can show that taking λ = (log( n)/n )b/ (b+1) , the squared generalization error of kernel ridge regression converges to 0 at rate: 
+
+O
+
+
+
+(log( n)/n )b/ (b+1) 
+
+.
+
+22 A.3 Proof of Proposition 2 (Numerical equivalence of ridge regression and Riesz regression) Ridge Regression: Given the auditing function class H, ridge regression solves 
+
+min 
+
+> β∈Rd
+
+∥Zp − Φpβ∥22 + λ∥β∥22.
+
+with closed-form solution 
+
+ˆβλ = ( 1
+
+np
+
+ΦTp Φp + λI d)−1 · 1
+
+np
+
+ΦTp Zp.
+
+The ridge boosting estimator is then given by 
+
+θ(Φ p)T ˆβλ = θ(Φ p)T ( 1
+
+np
+
+ΦTp Φp + λI d)−1 · 1
+
+np
+
+ΦTp Zp.
+
+Riesz regression: The Riesz regression solves 
+
+ˆηλ = min  
+
+> f∈F
+
+ 1
+
+np
+
+ηT ΦTp Φpη − 2θ(Φ p)⊤η + λ∥η∥2
+
+
+
+.
+
+The resulting Riesz representer estimator is 
+
+ˆαλθ (Φ p) = Φ p ˆηλ = Φ p( 1
+
+np
+
+ΦTp Φp + λI )−1θ(Φ p).
+
+The corresponding bias correction term is thus given by 
+
+1
+
+np
+
+ˆαλθ (Φ p)T · Zp = θ(Φ p)T ( 1
+
+np
+
+ΦTp Φp + λI )−1 · 1
+
+np
+
+ΦTp Zp.
+
+This shows the numerical equivalence: 
+
+1
+
+np
+
+ˆαλθ (Xp)T · Zp = θ(Φ p)T ˆβλ.
+
+Therefore, ridge regression estimator is numerically equivalent to the Riesz regression-based aug-mented estimator. 
+
+A.4 Proof of Theorem 2 A.4.1 Notation 
+
+We first introduce notation that will be used in the proofs. • We denote the conditional excess risks of the nuisance estimators ˆγ and ˆα given the observed covariates as follows: 
+
+R(ˆ γ) := E
+
+h
+
+{ˆγ(X) − γ0(X)}2 Xp
+
+i
+
+, R(ˆ α) := E
+
+h
+
+{bα(X) − αθ (X)}2 Xp
+
+i
+
+.
+
+• We denote the efficient influence function for θ(γ0) as ψ0(X) and its high-order moments as 
+
+σ20 = EQ[ψ0(X)2], κ3 = EQ[ψ0(X)3], ζ4 = EQ[ψ0(X)4].
+
+A.4.2 Assumptions Assumption 3 (Continuity) . We assume that θtarget is a continuous linear functional. That is, there exists a constant C > 0 such that: 
+
+θ(f )2 ≤ CEP [f (X)2],
+
+for all f with E[f (X)2] < ∞.
+
+Assumption 4. We require the following boundedness conditions: 
+
+23 1. Assume that EP [∥ϕ(X)∥2
+
+> H
+
+] < B 1.2. Assume that Y , ˆγinit (X), and ϕ(X) are bounded P -almost-surely. 
+
+Assumption 5. EP
+
+γ20 (X) < ∞ and σ20 (X) = EP [( Y − γ0(X)) 2|X] is bounded. 
+
+Assumption 6. The initial estimator ˆγ for γ0 is consistent in the sense that R(ˆ γ) →p 0.
+
+Assumption 7. The moments of the efficient influence function ψ0(X) satisfy 
+
+ κσ
+
+3
+
++ ζ2
+
+
+
+n−1/2 → 0.
+
+A.4.3 Revisiting the theorems Theorem 3. Assume that we have a source population P and Assumption 3-7 hold. Consider a RKHS H satisfying αθ ∈ H and √nR 1/2(ˆ γ) →p 0. . Then the ridge boosting estimator with λ = n−1/2 is asymptotically normal and its variance achieves the asymptotic variance lower bound V ∗ 
+
+> θ
+
+:
+
+√n(ˆθ(ˆ γma ) − θ(γ0)) ˆV (λ) → N (0 , 1) , and ˆV (λ) →p V ∗ 
+
+> θ
+
+.
+
+where 
+
+ˆV (λ) = 1
+
+nQnQ
+
+X
+
+> i=1
+
+(ˆθ(ˆ γinit ) + Φ Ti (Φ Tp Φp + λI )−1ΦTp (Yp − ˆγinit (Xp)) − ˆθ(ˆ γma )) 2.
+
+A.4.4 Proof of Theorem 3 
+
+In Proposition 2, we established the numerical equivalence between ridge regression and Riesz regression. For any θ ∈ Θ, we have the following: 
+
+ˆθ(ˆ γma ) = ˆθ(ˆ γinit ) + ˆθ(ˆ γboost )= ˆθ(ˆ γinit ) + ¯ΦTq ˆβλ
+
+= ˆθ(ˆ γinit ) + 1
+
+np
+
+ˆαλθ (Xp)⊤(Yp − ˆγinit (Xp)) ,
+
+where the last equality follows from applying Proposition 2 for Zp = Yp − ˆγinit (Xp).With this result, we then can derive the asymptotic normality using the Riesz regression formulation. The asymptotic normality of the Riesz regression-based augmented estimator follows from Corollary 5.1 in [Chernozhukov et al., 2023] (Lemma 1 in the Appendix). The constants ¯σ , ¯α and ¯α′ are assumed to be bounded and are independent of sample size n. With a sufficiently large sample size, the last three conditions in Theorem 3 reduce to 
+
+{R(ˆ γ)}1/2 = op(1) , {R(ˆ αλ)}1/2 = op(1) , {nR (ˆ γ)R(ˆ αλ)}1/2 = op(1) .
+
+{R(ˆ γ)}1/2 = op(1) is guaranteed from the conditions in Theorem 3. Now it remains to study E
+
+h
+
+{bαλ(X) − αθ (X)}2 Xp
+
+i
+
+. Theorem 2 in [Singh, 2024] implies that when λ = n− 12 ,
+
+lim   
+
+> τ→∞
+
+lim sup 
+
+> n→∞
+
+PXp∼P
+
+n
+
+E
+
+h
+
+{bαλ(X) − αθ (X)}2 Xp
+
+i
+
+> τ · n−1o
+
+= 0 .
+
+Now we can show 
+
+{R(ˆ αλ)}1/2 = op(1) and {nR (ˆ γ)R(ˆ αλ)}1/2 = op(1) .
+
+Therefore, we can directly show the asymptotic normality of the ridge boosting estimator. 
+
+√n(ˆθ(ˆ γma ) − θ)ˆV (λ) → N (0 , 1) .
+
+Finally, the consistency of the variance estimator follows from the law of large numbers. 24 A.4.5 Additional Lemma Lemma 1 (Corollary 5.1 in [Chernozhukov et al., 2023]) . Suppose the following regularity and learning rate conditions hold as n → ∞ :
+
+• The conditional variance is uniformly bounded: E[( Y − γ0(W )) 2 | W ] ≤ ¯σ2,
+
+• The nuisance parameter and estimator are uniformly bounded: ∥αθ ∥∞ ≤ ¯α, ∥ˆα∥∞ ≤ ¯α′,
+
+• The moments of the efficient influence function are controlled: 
+
+ κσ0
+
+3
+
++ ζ2
+
+
+
+n−1/2 → 0,
+
+• The excess risks decay appropriately: 
+
+( ¯ασ0
+
++ ¯ α′) · { R(ˆ γ)}1/2 = op(1) , ¯σ · { R(ˆ α)}1/2 = op(1) , {nR (ˆ γ)R(ˆ α)}1/2
+
+σ0
+
+= op(1) .
+
+Then the estimator ˆθ is consistent and asymptotically normal. 
+
+ˆθ = θ0 + op(1) , σ−10 n1/2(ˆθ − θ0) ⇝ N (0 , 1) .
+
+# B Random Forest Boosting 
+
+Our main “Universal Efficiency” argument for Ridge Boosting hinges on the fact that: For any θ ∈ Θ,we have the following: 
+
+ˆθ(ˆ γma ) = ˆθ(ˆ γinit ) + ˆθ(ˆ γboost )= ˆθ(ˆ γinit ) + 1
+
+np
+
+ˆαλθ (Xp)⊤(Yp − ˆγinit (Xp)) , (6) which has a form of a debiased estimator. Following the semiparametric efficiency theory results from Chernozhukov et al. [2023], as long as ˆγinit converges to γ0 as n → ∞ , and ˆαλθ (Xp) → α0, and their product rate is sufficiently fast, the resulting estimator is efficient. Furthermore, The implied weights that come from ridge boosting, ˆαλθ (Xp) are equivalent to a ridge minimizer of the Riesz loss. That allows us to use the fast rates proven in Singh [2024] for kernel Riesz representer estimates. What about other linear smoothers that have the form: ˆθ(ˆ γlinsmooth ) = 1 
+
+> np
+
+w(Xp)⊤Zp? Ridge regression is one example with the important property that the smoother weights implicitly estimate the Riesz representer, but are there other examples? Remarkably, Lin and Han [2022] show that Random Forests (which can be written as a linear smoother) also have implied weights that estimate the Riesz representer. Furthermore, the rate is fast enough to secure semiparametric efficiency. Therefore, boosting with Random Forests will have exactly the same efficiency guarantees that we show for ridge boosting. This is important because Random Forests are much more flexible than ridge regression in a fixed basis — indeed, one can think of Random Forests as kernel ridge regression but that learns an adaptive kernel. That would mean that the robustness/universal efficiency properties would hold to a wider class of estimands than just those expressible by a single RKHS. However, the proof in Lin and Han [2022] is specific to ATE / covariate shift type estimands. It would be interesting to see if this could be generalized in future work to apply to generic Riesz representers. 
+
+# C Connection between multiaccuracy and TMLE: A unified view from boosting 
+
+C.1 Boosting to get a multiaccurate estimator 
+
+The multi-accurate estimator can be derived by a boosting strategy, where you first have an initial estimator ˆγ of the outcome regression function, and then solve the following least square regression 25 problem: 
+
+min 
+
+> {λϕ}ϕ∈H
+
+EP [( Y − ˆγ(X) − X
+
+> ϕ∈H
+
+λϕ · ϕ(X)) 2].
+
+Let ˆ{λϕ}ϕ∈H be the optimal solution, the first order optimality condition for this is exactly the definition of multiaccuracy with α = 0 :
+
+EP [h(X) · (Y − ˆγ(X) − X
+
+> ϕ∈H
+
+ˆλϕ · ϕ(X))] = 0 .
+
+In this way, the final estimator ˆγ(X) + P 
+
+> ϕ∈H
+
+ˆλϕ · ϕ(X) is multiaccurate. In the context of ridge boosting, you could treat the above H as the basis of the Hilbert space. 
+
+C.2 TMLE C.2.1 TMLE can be viewed as boosting in the direction of the estimated clever covariate 
+
+The boosting step to get a multi-accurate estimator share a similar principle as the targeting step of the TMLE. In the targeting step of TMLE, we first have an initial estimator ˆγ(X). Then, we specify a parametric working submodel: 
+
+ˆμϵ(X) = ˆ μ(X) + ϵ · ˆϕ(X), ϵ ∈ (−δ, δ ).
+
+Here ˆϕ(X) is the estimated clever covariate, which is usually given in the explicitly derived efficient influence function. Then the targeting step in TMLE solves the following boosting-type regression: 
+
+ˆϵ = arg min  
+
+> ϵ
+
+EP [( Y − ˆμϵ(X)) 2] = arg min  
+
+> ϵ
+
+EP [( Y − ˆμ(X) − ϵ · ˆϕ(X)) 2].
+
+In the case of estimating ATE, solving the optimization once (one-step TMLE) will give you the semiparametrically efficient estimator under the standard assumptions, because it automatically solves the score equation 
+
+EP [ ˆϕ(X) · (Y − ˆμ(X) − ˆϵ · ˆϕ(X))] = 0 .
+
+and the update of clever covariate ˆϕ is not needed. 
+
+C.3 Ridge boosting multiaccurate estimator can be seen as a TMLE for multidimensional parameters with known clever covariate (Riesz representer) C.3.1 Ridge boosting multiaccurate estimator 
+
+Consider auditing with the function class, 
+
+C = c(x) = βT ϕ(x) : ∥β∥H ≤ B =
+
+(
+
+c(x) = 
+
+> d
+
+X
+
+> k=1
+
+βk · ϕk(x) : ∥β∥H ≤ B
+
+)
+
+,
+
+We could implement the following boosting step: 
+
+ˆβ := arg min 
+
+> β∈Rd
+
+EP
+
+∥y − ˆγ(X) − ϕ(X)T β∥22
+
+ + λ∥β∥22
+
+to obtain a multiaccurate estimator ˆγ(X) + ϕ(X)T ˆβ.
+
+C.3.2 Viewing this as TMLE for multidimensional parameters 
+
+From the TMLE perspective, the auditing function class C here can be seen as a multidimensional (possibly infinite) parametric submodel in the targeting step. However, instead of targeting a single target parameter, we simultaneously target multiple parameters 
+
+[EQ1 (Y ), . . . , EQd (Y )] T .
+
+26 with dQ k/dP = ϕk(X), where ϕk(X) is the kth dimension basis of C. Here dQ k/dP can be seen as the clever covariate for the target parameter EQk (Y ).With this multidimensional parametric submodel, unregularized TMLE simulateneously solves multiple score equations for these different parameters. 
+
+EP [ϕk(X) · (y − ˆγ(X) − ϕ(X)T ˆβ)] = 0 , ∀k = 1 , . . . , d. 
+
+By doing this, we get a simultaneously semiparametrically efficient estimator for 
+
+[EQ1 (Y ), . . . , E Qd (Y )] T .
+
+Moreover, if dQ/dP (Q is the target population) can be approximated by the linear combination of 
+
+[dQ 1/dP, . . . , dQ d/dP ]T . In other words, 
+
+min  
+
+> c∈C
+
+∥ dQ dP − c∥2 → 0.
+
+Then we could still obtain a semiparametrically efficient estimator for EQ[Y ] by applying ˆγ(X) + 
+
+ϕ(X)T ˆβ on Xq if the initial estimator ˆγ is good enough in the sense that: 
+
+∥ˆγ − γ0∥2 → 0, and √n∥ˆγ − γ0∥2 · min  
+
+> c∈C
+
+∥ dQ dP − c∥2 →p 0.
+
+# D Score-preserving TMLE 
+
+There is a recent paper about Score-Preserving TMLE [Pimentel et al., 2025]. The general idea is that instead of using the estimated clever covariate only, we add the basis functions in the nuisance parameter estimation into the targeting step. This paper mentioned that solving additional scores reduces the remainder term in the von-Mises expansion of our estimator because these scores may come close to spanning higher-order influence functions and result in an estimator with better finite-sample performance. In the case of estimating E[Y (1)] , the authors use the following parametric submodel in the targeting step: logit ˆQ(ϵ) 
+
+> n
+
+(W ) = logit ˆQn(W ) + ϵ0 · A
+
+ˆgn(W ) + X
+
+> j
+
+ϵj Φn,j (W ),
+
+where ˆQn(W ) is the initial estimator, A  
+
+> ˆgn(W)
+
+is the estimated clever covariate and Φn,j (W ) is the basis function in the nuisance parameter estimation. There is a deep connection between Score-preserving TMLE and ridge boosting: If we use ridge outcome regression and ridge boosting with function class C, it seems that we are indeed performing a version of score-preserving TMLE because we include the basis functions of outcome regression in this submodel, and the clever covariate can also be represented using these basis functions. Right now, the Score-preserving TMLE is studied in the setting of highly adaptive lasso. But there is a recent paper on highly adaptive ridge [Schuler et al., 2024], where ridge regression might be a good fit for score-preserving TMLE. 27

@@ -1,0 +1,4270 @@
+Title: 15355_Minimax_Adaptive_Online_.pdf
+
+URL Source: https://openreview.net/pdf?id=nKuFQhKZtt
+
+Number of Pages: 40
+
+Markdown Content:
+# Minimax Adaptive Online Nonparametric Regression over Besov spaces 
+
+Paul Liautaud 
+
+Sorbonne Université, CNRS, LPSM F-75005 Paris, France 
+
+paul.liautaud@sorbonne-universite.fr 
+
+Pierre Gaillard 
+
+Université Grenoble Alpes, Inria CNRS, Grenoble INP, LJK 38000 Grenoble, France 
+
+pierre.gaillard@inria.fr 
+
+Olivier Wintenberger 
+
+Sorbonne Université, CNRS, LPSM F-75005 Paris, France Institut Pauli, CNRS and University of Vienna Oskar-Morgenstern-Platz 1, 1090 Wien, Austria 
+
+olivier.wintenberger@sorbonne-universite.fr 
+
+Abstract 
+
+We study online adversarial regression with convex losses against a rich class of continuous yet highly irregular competitor functions,modeled by Besov spaces 
+
+Bspq with general parameters 1 ⩽ p, q ⩽ ∞ and smoothness s > dp . We introduce an adaptive wavelet-based algorithm that performs sequential prediction without prior knowledge of (s, p, q ), and establish minimax-optimal regret bounds against any comparator in Bspq . We further design a locally adaptive extension capable of sequentially adapting to spatially inhomogeneous smoothness. This adaptive mech-anism adjusts the resolution of the predictions over both time and space, yielding refined regret bounds in terms of local regularity. Consequently, in heterogeneous environments, our adaptive guarantees can significantly surpass those obtained by standard global methods. 
+
+1 Introduction 
+
+We consider the online regression framework [ 5, 6], where inputs x1, . . . , x t, . . . ∈ X arrive in a stream, and the task is to sequentially predict a response ˆft(xt) ∈ R using an online predictive algorithm 
+
+ˆft : X → R based on past observations s = 1 , . . . , t − 1 and the current input xt. The goal is to design a sequence of predictors ( ˆft) in the competitive approach , i.e., with guarantees that hold uniformly over all individual (and potentially adversarial) data sequences. Prediction accuracy is assessed over time using a sequence of convex loss functions (ℓt)t⩾1, for instance ℓt( ˆft(xt)) = | ˆft(xt) − yt|
+
+or ( ˆft(xt) − yt)2, where yt is the observed response associated with xt. After T ⩾ 1 rounds, the performance of the algorithm is measured through its regret with respect to competitive continuous functions f ,
+
+RT (f ) := 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(f (xt)) . (1) Much of the early literature [ 7, 17 , 23 , 25 ] focuses on competitors f belonging to smooth benchmark classes, such as Lipschitz or kernel-based functions. In this work, we extend this setting by designing constructive algorithms that are competitive with a much richer class of prediction rules, namely functions in general Besov spaces [ 20 , 37 , 40 ]. Building on wavelet-based representations, we design an adaptive algorithm that achieves optimal regret performance (1) , against broad classes of prediction rules, modeled by Besov spaces. Wavelets [ 8, 11 ] are indeed a powerful and widely used tool for 
+
+39th Conference on Neural Information Processing Systems (NeurIPS 2025). capturing local features and regularities in signals. Their applications range from image segmentation and change point detection to EEG analysis and financial time series. Moreover, in many practical scenarios, the environment may exhibit spatial heterogeneity, with varying degrees of regularity across the domain. This motivates the need for methods that can adapt locally to different smoothness levels. To tackle this challenge, we develop a locally adaptive algorithm [ 28 , 29 ] that sequentially adjusts the resolution of its predictions over space, effectively adapting to inhomogeneous regularity. Our analysis provides minimax optimal regret guarantees that depend on the local smoothness of the target function, improving upon globally-tuned algorithms. 
+
+Wavelets and multiscale approaches. Classical wavelet-based methods for statistical function estimation have been primarily developed and analyzed in the batch (i.i.d.) setting, where the entire dataset is available upfront. Notable examples include the wavelet shrinkage procedure of [ 15 ], which achieves near-minimax estimation rates over Besov spaces. More generally, wavelets play a central role in the signal processing and compressed sensing framework developed by [ 30 ], where they are well understood and widely applied. In the context of adaptive and nonparametric estimation, [ 1, 2] introduced universal algorithms based on tree-structured approximations, closely related in spirit to wavelet thresholding. While these methods are computationally efficient and amenable to online implementation, their theoretical analysis is performed in the batch statistical learning setting and focuses on specific classes of approximation spaces. Multiscale and chaining ideas have also emerged in the online learning literature, beginning with the early work of [ 5] and continuing more recently in [ 34 ] (in a non-constructive fashion) and [ 17 ], although typically without relying on explicit wavelet constructions. Recently, [ 43 ] studied an online algorithm that combines discrete wavelets with parameter-free learning to minimize dynamic regret under general convex losses. Beyond this, the combination of wavelet-based representations with principled online nonparametric learning guarantees remains largely unexplored. Our work contributes to this direction by developing an online algorithm that leverages multiscale wavelet structures with theoretical regret guarantees over large nonparametric Besov function classes. 
+
+Online nonparametric regression. A classical line of work in online regression focuses on competing with smooth benchmark functions with a given degree of smoothness s > 0. For instance, [ 7, 17 , 29 ] design constructive online algorithms that achieve optimal regret against Lipschitz functions (s ⩽ 1) by using chaining-based techniques and exploiting regularity properties such as uniform continuity to build refined predictors. Much of the early literature also focused on reproducing kernel Hilbert spaces (RKHS) [ 3, 4, 19 , 25 , 38 ], which correspond to the case where the smoothness index satisfies s > d 
+
+> 2
+
+and p = 2 . This setting offers convenient geometric properties, such as inner products and representer theorems, but it excludes many natural function classes of interest, e.g. general Lp(X ) spaces with p ⩾ 1, Sobolev spaces with low smoothness s, or more generally Besov spaces. A key milestone in the direction of generalizing beyond RKHS is the work [ 40 ], which introduces the method of defensive forecasting to compete with wild prediction rules ,i.e., rules drawn from general Banach spaces (e.g., Lp(X ), p ⩾ 2). Their framework shows that online learning is possible in highly irregular settings and provides regret bounds that depend on the geometry of the underlying Banach space. However, their analysis yields bounds that depend solely on the integrability parameter p ⩾ 2, and does not account for any additional smoothness structure that the benchmark functions may possess. This motivates the need for online learning strategies that adapt not only to integrability , but also to spatial regularity or smoothness . Another paper in this line is [ 42 ], where they study the performance of Sobolev kernels on restricted classes of Sobolev spaces W sp (X ) with integrability p ⩾ 2 and smoothness s > dp . Going one step further, our paper proposes an algorithm with regret guarantees against any competitor in general Besov spaces Bspq ,for any integrability parameters 1 ⩽ p, q ⩽ ∞ and smoothness s > dp . This generalizes and improves upon previous methods by addressing a broad range of function spaces. More importantly, none of the constructive methods mentioned above provide the minimax optimal rate for generic Besov spaces, as established by [ 34 ]. To the best of our knowledge, we present the first constructive and adaptive algorithm that bridges wavelet theory with online nonparametric learning, while providing minimax optimal regret guarantees against functions in general Besov spaces. Table 1 summarizes our contributions and the corresponding regret rates in the literature. 
+
+Local adaptivity in inhomogeneous smoothness regimes. Many real-world functions exhibit spatially varying regularity, motivating the development of locally adaptive methods. In the batch setting, [ 14 ] pioneered spatially adaptive wavelet estimators that adjust to unknown smoothness. Bayesian approaches such as [ 36 ] further model locally Hölder functions with hierarchical priors. In a 2Table 1: Comparison of regret rates and parameter requirements for online regression.                                                                                                                                         
+
+> Paper Setting ((ℓt)square losses, s > dp)Input Parameters Regret Rate
+> Vovk [39] f∈Bspq , p, q ⩾1s, p, B ⩾∥f∥∞T1−ss+d
+> Vovk [40] f∈Bspq , p ⩾2, q ∈[pp−1, p ]s, p, B ⩾∥f∥∞
+> T1−1
+> p
+> f∈Ws
+> ∞=Cs, p =∞, s ∈[d
+> 2,1] T1−sd+ε
+> Gaillard and Gerchinovitz [17] f∈Wsp, p ⩾2, s ⩾d
+> 2s, p, B ⩾∥f∥∞
+> T1−2s
+> 2s+d
+> f∈Wsp, p > 2, s < d
+> 2T1−sd
+> Zadorozhnyi et al. [42] f∈Wsp, p ⩾2, s ⩾d
+> 2s, p T1−2s
+> 2s+d+ε
+> f∈Wsp, p > 2, s < d
+> 2T1−sdp−d/s p−2+ε
+> This work - Alg. 2 f∈Bspq , p, q ⩾1, s ⩾d
+> 2or p⩽2S⩾s, ε < s −dp, B ⩾∥f∥∞
+> T1−2s
+> 2s+d
+> f∈Bspq , p > 2, q ⩾1, s < d
+> 2T1−sd
+
+distribution-free framework, [ 21 , 27 ] introduced the notion of average smoothness , based on averaging local Hölder semi-norms at a fixed degree of regularity. In the online setting, [ 28 , 29 ] developed algorithms that sequentially adapt to local smoothness across time. However, these approaches typically focus on adapting to local norms while assuming a fixed degree of regularity. In contrast, our method jointly adapts to both the local regularity norm and the local smoothness exponent, enabling a data-driven compromise that is well suited to highly inhomogeneous environments. 
+
+Context and notation. Throughout the paper, we assume the following. X denotes a compact domain of Rd, d ⩾ 1. For any subset X ′ ⊆ X , we set its diameter as |X ′| = sup x,y ∈X ′ ∥x − y∥∞.Without loss of generality, we assume that X is a regular hypercube of volume |X | d. We denote the horizon of time by T ⩾ 1. The sequence losses (ℓt) are assumed to be convex and G-Lipschitz for some G > 0. For any natural integer k ∈ N, we denote [k] := {0, . . . , k }.
+
+2 Background and function representation 
+
+We consider compactly supported functions f : X → R that lie in L2(X ) equipped with the standard inner product ⟨f, g ⟩ = R 
+
+> X
+
+f (x)g(x) dx . To design a sequential algorithm we rely on a multiscale representation of f based on an orthonormal wavelet basis. For a chosen starting scale j0 ∈ N, we write: 
+
+f = P 
+
+> k∈¯Λj0
+
+αj0,k ϕj0,k + P∞
+
+> j=j0
+
+P 
+
+> k∈Λj
+
+βj,k ψj,k , (2) where the families (ϕj0,k )k∈ ¯Λj0 and (ψj,k )k∈Λj ,j ⩾j0 form an orthonormal basis of L2(X ). We now highlight the key properties of the expansion (2) , and refer the interested reader to Appendix E for further details. 
+
+Scaling (coarse-scale) component. The functions ϕj0,k (x) := 2 j0d/ 2ϕ(2 j0 x − k) are the scaling functions at resolution level j0, constructed from a fixed father wavelet ϕ. They span 
+
+Vj0 := span {ϕj0,k : k ∈ ¯Λj0 },
+
+where the index set ¯Λj0 satisfies |¯Λj0 | ⩽ λ2j0d for some constant λ > 0. The corresponding coefficients 
+
+αj0,k := ⟨f, ϕ j0,k ⟩ are known as the scaling coefficients .
+
+Wavelet (detail-scale) components. The functions ψj,k (x) := 2 jd/ 2ψ(2 j x − k) are the wavelet functions at scale j, obtained from a fixed mother wavelet ψ. Here, the multi-index k encodes both spatial position and directional information in d dimensions - see Appendix E for a brief summary of the tensor-product construction used to define such wavelets in dimension d ⩾ 1. The detail space at level j is defined as 
+
+Wj := span {ψj,k : k ∈ Λj },
+
+where Λj indexes the active wavelet functions whose supports intersect X , and |Λj | ⩽ λ2jd , j ⩾ j0,for the same constant λ > 0 as above with no loss of generality. The coefficients βj,k := ⟨f, ψ j,k ⟩
+
+are called detail coefficients at scale j. Within the multiresolution analysis framework, the sequence of spaces (Vj )j∈Z forms a nested hierarchy with Vj ⊂ Vj+1 and dense union in L2(Rd), while the wavelet spaces Wj are orthogonal complements such that Vj+1 = Vj ⊕ Wj . Figure 1 illustrates the hierarchical, stage-wise approximation process over levels j that enables multiresolution analysis. 3−1.00 −0.75 −0.50 −0.25 0.00 0.25 0.50 0.75 1.00                     
+
+> X
+> −1.0
+> −0.50.00.51.01.52.0fJ= 1
+> J= 2
+> J= 3
+> J= 4
+> J= 5 −1.00 −0.75 −0.50 −0.25 0.00 0.25 0.50 0.75 1.00
+> X
+> −1.5
+> −1.0
+> −0.50.00.51.01.52.0fJ= 1
+> J= 2
+> J= 3
+> J= 4
+> J= 5
+
+Figure 1: Approximation with Daubechies wavelets of regularity 
+
+S = 1 (top) and S = 5 (bottom) at levels J = 1 , . . . , 5.The decomposition (2) is a classical result from multiresolu-tion analysis (see [ 22 , Chap. 3] for a deeper introduction), and holds for all functions in L2(X ) when the basis functions are derived from appropriately constructed wavelets. More gener-ally, similar dyadic expansions can also be built from splines or piecewise polynomial systems. In this work, we focus on the wavelet setting as described above; we refer to [ 11 , Chap. 6] and [8] for further details. One property of this representation (2) is that it can begin at any arbitrary scale j0 ∈ N, offering flexibility to adapt the starting resolution level. In particular, we will later allow j0 to be selected in a data-driven and local fashion. Throughout the paper, we do not rely on a specific wavelet basis, but require that it satisfies the standard S-regularity property for some S ∈ N∗, as recalled in Definition 2 in Appendix E. This condition ximplies compact support, smoothness, vanishing moments, and bounded overlap. Notable examples include the compactly supported orthonormal wavelets of Daubechies [11 ,Chap. 7 ], and the biorthogonal, symmetric, and highly regular wavelet bases of Cohen et al. [9] - see Figure 1 for an illustration of approximation with S-regular Daubechies wavelets. When working with S-regular wavelet bases, the expansion in (2) converges not only in L2(X ) but also in other function spaces, such as Lp(X ) for p ⩾ 1 (or the space of uniformly continuous functions) depending on whether f ∈ Lp(X ), p ⩾ 1. This broader convergence behavior is a key reason for adopting such bases. 
+
+Approximation results with wavelets. Approximation properties of wavelet expansions are by now classical and well understood; see, e.g., [ 8 , 13 , 20 ] for reviews. In particular, for functions f
+
+belonging to smoothness spaces such as Besov spaces Bspq with s > dp (so that f ∈ L∞(X )), one can construct an approximation ˆf using nonlinear methods — see [ 12 ]. For instance, the so-called best 
+
+N -term approximant ˆf in a S-regular wavelet basis ( S > s , see Definition 2) achieves the bound 
+
+∥f − ˆf ∥∞ ≲ N −s/d , where the hidden factor depends on the wavelet basis and the norm of the target function f . The precise construction of ˆf and justification of this rate are provided in the Appendix (see the proof of Theorem 1). These rates will serve as a benchmark in our analysis of the regret (1) .
+
+3 Parameter-free online wavelet decomposition 
+
+In this section, we develop a sequential algorithm that performs an online, parameter-free decomposi-tion of incoming data using wavelets. The key idea is to learn wavelet coefficients incrementally -without prior knowledge of the function’s regularity or the optimal resolution depth - while obtaining strong regret guarantees over broad function classes. 
+
+3.1 Algorithm: Online Wavelet Decomposition 
+
+Let {ϕj0,k , ψ j,k } denote an S-regular wavelet basis as introduced in the previous section. We consider an online predictor based on a wavelet expansion (2) that begins at scale j0 ∈ N and is truncated at level J ⩾ j0, where the predictor at time t ⩾ 1 takes the form: 
+
+ˆft(x) = X 
+
+> k∈¯Λj0
+
+αj0,k,t ϕj0,k (x) + 
+
+> J
+
+X
+
+> j=j0
+
+X
+
+> k∈Λj
+
+βj,k,t ψj,k (x), (3) where the scaling and detail coefficients {αj0,k,t , β j,k,t } are updated sequentially over time. 
+
+Online optimization of wavelet coefficients. Our algorithm maintains and updates the collection of scaling and detail coefficients {αj0,k,t , β j,k,t } in (3) across scales j and positions k. At each round 
+
+t ⩾ 1, after observing a new input xt, the prediction is computed using only the coefficients and basis functions whose support intersects xt. This defines the active index set at time t:
+
+Γt := (j0, k ) : ϕj0,k (xt)̸ = 0 ∪
+
+> J
+
+[
+
+> j=j0
+
+(j, k ) : ψj,k (xt)̸ = 0 ⊊ ¯Λj0 ∪
+
+> J
+
+[
+
+> j=j0
+
+Λj . (4) 4Only the coefficients indexed by Γt are updated at time t, based on gradient feedback from the loss. The full procedure is summarized in Algorithm 1. 
+
+Algorithm 1: Online Wavelet Decomposition at time t
+
+Input :Current coefficients {αj0,k,t , β j,k,t }; active index set Γt defined in (4).  
+
+> 1
+
+Predict with coefficients in Γt
+
+ˆft(xt) = P 
+
+> (j,k )∈Γt
+
+cj,k,t φj,k (xt)
+
+where φj,k stands for either ϕj0,k or ψj,k ; similarly, cj,k,t = αj0,k,t or βj,k,t ; 
+
+> 2
+
+Receive gradients {gj,k,t } associated with the active coefficients, defined in Eq. (5);  
+
+> 3
+
+for (j, k ) ∈ Γt do  
+
+> 4
+
+Update cj,k,t to cj,k,t +1 by approximately minimizing 
+
+c 7 → ℓt
+
+  ˆft(xt) − cj,k,t φj,k (xt) + c φ j,k (xt)
+
+using corresponding gradient gj,k,t and a parameter-free update rule satisfying Assumption 1; 
+
+Output : Updated coefficients {αj0,k,t +1 , β j,k,t +1 }.
+
+Computation of gradients. We assume that after making its prediction, the algorithm receives first-order feedback in the form of gradients {gj,k,t } with respect to each active coefficient cj,k,t ,where cj,k,t denotes either a scaling coefficient αj0,k,t or a wavelet coefficient βj,k,t . These gradients are efficiently computed using the chain rule: 
+
+gj,k,t =
+
+h
+
+∇cℓt
+
+  ˆft(xt) − cj,k,t φj,k (xt) + c φ j,k (xt)i
+
+> c=cj,k,t
+
+= ℓ′
+
+> t
+
+( ˆft(xt)) · φj,k (xt), (5) where φj,k is either ϕj0,k or ψj,k depending on the scale, and ℓ′ 
+
+> t
+
+is the derivative of the loss function with respect to its prediction argument. Note that the gradient expression in (5) vanishes whenever the corresponding basis function satisfies φj,k (xt) = 0 . This justifies restricting the optimization step at round t to the active set Γt defined in (4). 
+
+Assumption on the gradient step. To analyze the regret (1) of our method, we assume that the update rule used in Algorithm 1 satisfies a parameter-free regret guarantee of the following form. 
+
+Assumption 1 (Parameter-free regret bound) . Let T ⩾ 1 and suppose g1, . . . , g T ∈ [− ˆG, ˆG] are the gradients observed over time. We assume that the coefficient update rule satisfies, for any c ∈ R,
+
+> T
+
+X
+
+> t=1
+
+gt(ct − c) ⩽ |c − c1|
+
+
+
+C1
+
+qPTt=1 |gt|2 + C2 ˆG
+
+
+
+for some C1, C 2 > 0.
+
+This regret bound holds with an additional term ˆGε , ε > 0 as small as possible, for a broad class of first-order online learning algorithms, such as online mirror descent with self-tuned learning rates or coin-betting style updates [ 33 ]. For simplicity we consider that Assumption 1 holds omitting this additional term and the dependence in the hyperparameter ε > 0 in the sequel. These algorithms are referred to as “parameter-free”, and they provide optimal adaptivity to |c|, at the expense of logarithmic factors absorbed in C1 and C2 (see, e.g., [ 10 , 32 ]). Note also that this type of algorithms are explicit and maintain their iterates through a closed-form update, resulting in low computational complexity—see, for instance, the update rule in [32, Eq. (9)]. 
+
+3.2 Regret analysis of Online Wavelet Decomposition (Alg. 1) 
+
+In this section, we analyze the regret performance of Algorithm 1 under general convex losses (ℓt),and against a broad class of potentially irregular prediction rules, specifically those lying in Besov spaces Bspq (X ), which we introduce later. We focus in particular on the case s > dp , ensuring that the competing functions are continuous and bounded; see the standard embedding results in [ 20 , 37 ]. As a corollary, we show that Algorithm 1 achieves minimax-optimal rates when competing against functions in Hölder spaces, while automatically adapting to the unknown regularity of the target function. 5Besov spaces. Besov spaces Bspq (X ) constitute a classical family of function spaces indexed by three parameters: a smoothness parameter s > 0, an integrability parameter p ∈ [1 , ∞],                      
+
+> 1
+> p
+> s
+> 1
+> ∞
+> 121
+> 012
+> Intermediate optimal regret
+> T1−sd
+> Smooth functions
+> Fast optimal regret
+> ℓtconvex: √T
+> ℓtexp-concave: T1−2s/(2 s+d)
+> Wild non-continuous functions
+> See Appendix D
+> s=d
+> 2
+> s=dp
+> L∞C0
+> C1
+> C2
+> C∞
+> ...
+> Cα
+> C1,α
+> C2,α
+> s=α
+> L2L1
+> Lp
+> 1
+> p
+
+Figure 2: Diagram (d/p, s ) of regret regimes against Besov spaces. and a summability parameter q ∈ [1 , ∞]. For those un-familiar with Besov spaces, this space can be intuitively viewed as the space of functions with s > 0 derivatives in Lp(X ), with p ⩾ 1, and parameter q ⩾ 1 allows for additional finer control of the regularity of the underlying functions. These spaces interpolate between Sobolev and Hölder spaces and are designed to capture both smooth and non-smooth behaviors in functions. There exist several equivalent definitions of Besov spaces (e.g. using differ-ences, or interpolation theory): we refer to [ 20 , 22 , 37 ] for detailed and general background on Besov spaces. In this work, we adopt the wavelet characterization, which is par-ticularly well suited for the analysis of our wavelet-based algorithm. Let s > 0 and let {ϕj0,k , ψ j,k } be an orthonormal S-regular wavelet basis with S > s (see Definition 2). We say that a function f belongs to the Besov space Bspq if the following wavelet-based norm is finite, with s′ = s + d 
+
+> 2
+
+− dp :
+
+∥f ∥Bspq := ∥αj0 ∥p +
+
+ X
+
+> j⩾j0
+
+2jqs ′
+
+∥βj ∥qp
+
+1/q 
+
+, if 1 ⩽ q < ∞,
+
+∥f ∥Bsp := ∥αj0 ∥p + sup 
+
+> j⩾j0
+
+2js ′
+
+∥βj ∥p, if q = ∞,
+
+(6) where αj0 = ( ⟨f, ϕ j0,k ⟩)k∈ ¯Λj0 denotes the vector of scaling coefficients at level j0, and βj =(⟨f, ψ j,k ⟩)k∈Λj are the wavelet coefficients at scale j ⩾ j0.We now present our first result, establishing regret guarantees for Algorithm 1 when competing against irregular but bounded prediction rules. 
+
+Theorem 1 (Regret against Besov predictors) . Let T ⩾ 1, s > 0, 1 ⩽ p, q ⩽ ∞ with s − dp > ε > 0.Let {ϕj0,k , ψ j,k } be an S-regular wavelet basis (Definition 2) for some S > s . Suppose Algorithm 1 is run with updates satisfying Assumption 1, starting at αj0 = 0 , βj = 0 , j ⩾ j0 and using a wavelet expansion (3) from scale j0 = 0 to J = ⌈ Sdε log 2 T ⌉. Then, for any f ∈ Bspq (X ), the regret satisfies: 
+
+RT (f ) ⩽ CG ∥f ∥Bspq 
+
+(√T if s ⩾ d 
+
+> 2
+
+or p < 2
+
+T 1−s/d else ,
+
+where C = C(λ, ψ, s, p, C 1, C 2) > 0 depend only on s, p, the wavelet basis, and the C1, C 2 in Assumption 1. 
+
+Theorem 1 is proved in Appendix A, where we provide the full statement including explicit constants. Our bounds are minimax-optimal in the regimes s > dp when facing convex losses; see [ 35 ]. Note that logarithmic factors in T may be absorbed into the constant in the regret bound of Theorem 1, typically in the case p < q . The details are provided in Appendix A. 
+
+Adaptivity and tradeoff. Importantly, our procedure is adaptive to the Besov norm ∥f ∥Bspq , and the parameters (s, p, q ) whenever s < S . Notably, via the usual embeddings, f can belong simultaneously to several Besov spaces Bsp∞ with different norms ∥f ∥Bsp∞ depending on s and p. Remarkably, our algorithm effectively competes against any oracle associated to the best (which are not necessarily the largest) values of (s, p ), yielding a regret bound of type: 
+
+RT (f ) ⩽ inf  
+
+> s,p
+
+CG ∥f ∥Bsp∞ T r(s,p ) (7) where the infimum is taken over all admissible pairs (s, p ) such that f ∈ Bsp∞(X ), the exponent 
+
+r(s, p ) reflects the rate in each regime according to (s, p ) (see Theorem 1), and the constant C =
+
+C(λ, ψ, s, p, C 1, C 2) detailed in Appendix A. 
+
+Complexity and choice of wavelet basis. While one can use wavelets with infinite regularity (i.e., S = ∞), such as Meyer wavelets, these are not compactly supported in space and thus lack 6good localization properties. In practice, it is more common to use compactly supported wavelets that offer a good trade-off between smoothness and spatial localization. Their compact support implies that most basis functions ψj,k vanish at any given input xt: only the indices k ∈ Λj such that xt ∈ supp( ψj,k ) contribute to the prediction. For example, Daubechies wavelets of regularity  
+
+> S
+
+are supported on the hypercube [0 , S ]d, so at most O(Sd) coefficients per scale j are nonzero at any point xt. Among all wavelet families, the Haar basis (corresponding to S = 1 ) yields the most efficient updates, as its basis functions are non-overlapping, but it is limited to capturing piecewise constant (i.e., Lipschitz-1) regularity; see [ 29 ] for an algorithm exploiting this structure and Figure 1 for an illustration in the cases S = 1 and S = 5 . Each wavelet coefficient is updated through a closed-form function of its scalar gradient, satisfying Assumption 1 and leading to O(1) cost per coefficient and keeping the overall update as light as standard gradient descent (see [ 10 , 32 ]). As a result, the per-round computational cost of our algorithm scales as O(JS d), where J is the total number of levels. 
+
+The case of Hölder function spaces C s(X ) = Bs 
+
+> ∞∞ (X)
+
+. We previously showed that Algorithm 1 effectively competes against any comparator in the broad class of Besov spaces Bspq . In particular, by classical embedding results, when p = q = ∞ one has the identification C s(X ) = Bs  
+
+> ∞∞ (X)
+
+where    
+
+> Cs(X)
+
+is the set of Hölder continuous functions. A function f ∈ C s(X ) with s ∈ (0 , 1] if it satisfies the Hölder condition:          
+
+> |f(x)−f(y)|⩽L∥x−y∥s
+> ∞
+
+for all x, y ∈ X , (8) where L > 0 is the smallest such constant, denoted |f |s. For s > 1, we extend the definition by requiring that all derivatives Dmf exist and satisfy (8) with exponent s − ⌊ s⌋ for any multi-indices    
+
+> m∈Nd
+
+such that |m| = ⌊s⌋.We now state a corollary of Theorem 1 for Hölder continuous functions, expressed in terms of the Hölder semi-norm |f |s and sup norm ∥f ∥∞.
+
+Corollary 1 (Regret against Hölder predictors) . Let T ⩾ 1 and s > 0. Let {ϕj0,k , ψ j,k } be an 
+
+> S
+
+-regular wavelet basis with S > s . Under the same assumptions as in Theorem 1, Algorithm 1 has regret bounded for any f ∈ C s(X ) as           
+
+> RT(f)⩽CG ∥f∥∞
+> √T+CG |f|s·
+> 
+> √T
+
+if s > d   
+
+> 2,
+> log 2(T)√T
+
+if s = d    
+
+> 2,T1−sd
+
+if s < d 
+
+> 2.
+
+where C = C(C1, C 2, λ, ϕ, ψ, s ) is a constant independent of T and f , and depend only on s, p, the wavelet basis, and Assumption 1. 
+
+We prove Corollary 1 in Appendix B. Our results are minimax-optimal for general convex losses, as established in [ 34 , 35 ], and improve over the guarantees of [ 29 ], which are restricted to functions with at most Lipschitz regularity ( s ⩽ 1). In contrast, our method adapts to any smoothness level  
+
+> s > 0
+
+. Moreover, Corollary 1 shows that Algorithm 1 adapts simultaneously to both the smoothness  
+
+> s
+
+and the Hölder semi-norm |f |s of any competitor f ∈ C s. As in the Besov case, our algorithm automatically trades off between leveraging higher smoothness s and benefiting from smaller |f |s,see (7). This tradeoff will be discussed and exemplified in the next section. 
+
+4 Adaptive learning in inhomogeneous regularity regimes 
+
+In this section, we extend Algorithm 1 to enable local adaptivity, with a particular focus on settings where the target function exhibits spatially inhomogeneous regularity; see Figure 3 for an illustration. Our method is inspired by the localized chaining approach of [ 29 ], and we show that it can adapt to local variations in regularity across a broad class of functions in Besov spaces Bspq . This adaptive procedure also yields improved global regret rates over those of Theorem 1 for exp-concave loss functions with optimal guarantees formally established in Theorem 2. 
+
+4.1 Adaptive Online Wavelet Regression 
+
+We begin by describing the partitionning process we use in our strategy, and we further describe the aggregation procedure leading to our adaptive Algorithm 2. 
+
+Partitioning tree. A common strategy to construct partitions of X is via hierarchical refinement, with dyadic partitions being a canonical example. Fix J0 ∈ N∗. For each j0 ∈ [J0], let Dj0 = Dj0 (X )
+
+denote the collection of dyadic subcubes of X at resolution level j0, where each subcube has side 7length |X | 2−j0 . We define the full multiscale dyadic collection as D = SJ0 
+
+> j0=0
+
+Dj0 , spanning scales 
+
+j0 = 0 , . . . , J 0. This collection is naturally aligned with a tree structure T = T (D) with node set 
+
+N (T ). Each node n ∈ N (T ) is associated with a unique cube Xn ∈ D at some level l( n) ∈ [J0], such that Xn ∈ D l( n). For any fixed scale j0 ∈ [0 , J 0], the cubes in Dj0 form a uniform partition of X , and each cube Xn ∈ D j0 with l( n) = j0 has side length |X n| = |X | 2−j0 . Furthermore, each node n at level l( n) = j0 has 2d children corresponding to the dyadic subcubes Xn′ ⊂ X n at level l( n′) = j0 + 1 .Finally, we refer to any subtree T ′ ⊂ T that shares the same root and whose leaves or terminal nodes 
+
+L(T ′) form a (potentially non-uniform) partition of X as a pruning of T ; see [ 29 , Def. 2]. The goal is to design an algorithm that effectively tracks the best partition induced by such prunings T ′.
+
+Local adaptation via multi-scale expert aggregation. Our objective is to identify the optimal starting scale j0 locally over X , in order to adapt to the spatial variability in function regularity. Intuitively, allowing finer-scale precision in regions with lower regularity can significantly improve prediction accuracy. To this end, we launch a family of global predictors ˆfj0 of the form (3) , each initialized at a different starting scale j0 ∈ [J0] and sharing a common maximum scale J = ⌈ Sdε log 2 T ⌉.Following the tree structure T of depth J0 we associate each node n ∈ N (T ) to starting scale j0 = l( n)
+
+and a local expert predictor ˆfn, an := ˆfj0 |Xn as the restriction of the global predictor ˆfj0 to the subregion Xn and whose scaling coefficients are set to αj0 = an in (3) . The scaling coefficients an
+
+are supported on a grid A of precision T −1/2. The local predictor is then associated with a restricted scaling index set ¯Λj0,n ⊂ ¯Λj0 and wavelet index set Λj,n ⊂ Λj for j ⩾ j0, both supported on Xn.For simplicity, we define the tuples e = ( n, an) belonging to some expert set E ⊂ N (T ) × A whose cardinal is bounded as |E| ⩽ |N (T )||A| λ.At each time t ⩾ 1, we define the set of active experts at round t as Et := {e = ( n, an) ∈ E : xt ∈ X n}.The prediction is then formed by aggregating the outputs of active local multi-scale experts in Et,yielding: 
+
+ˆft(xt) = X
+
+> e∈E t
+
+we,t [ ˆfe,t (xt)] B , where we,t ∈ [0 , 1] , X
+
+> e∈E t
+
+we,t = 1 , (9) and [·]B = max( −B, min( B, ·)) denotes the clipping operator in [−B, B ]. Each localized expert 
+
+ˆfe,t = ˆfn, an,t is trained independently using Algorithm 1, with scaling coefficients initialized at some an, and contributes only within its local region Xn. This framework mirrors an instance of the sleeping expert problem, as described for example in [ 18 ], and requires a standard sleeping reduction, such as the one in line 4, and then used in lines 5-7 of Algorithm 2. The weights (we,t )e∈E 
+
+are updated over time in line 7 using a weight procedure based on gradients ∇t ∈ [− ˜G, ˜G]|E| that satisfies Assumption 2. The overall procedure is summarized in Algorithm 2. 
+
+Algorithm 2: Adaptive Online Wavelet Regression 
+
+Input :Bounds G, B > 0; Set of experts E;Initial uniform weights ˜w1 = ( ˜ we, 1)e∈E ; Initial prediction functions ( ˆfe, 1)e∈E ; 
+
+> 1
+
+for t = 1 to T do  
+
+> 2
+
+Receive xt; 
+
+> 3
+
+Reveal active expert set Et and local active index set 
+
+Γe,t := Γ t ∩ ¯Λj0,n ∩ ∪ Jj⩾j0 Λj,n , for every e = ( n, an) ∈ E t, j 0 = l( n)
+
+with Γt as in (4);  
+
+> 4
+
+Reduce weights we,t ← ˜we,t / P 
+
+> e∈E t
+
+˜we,t if e ∈ E t and wt,e = 0 else ;  
+
+> 5
+
+Predict ˆft(xt) = P 
+
+> e∈E t
+
+we,t [ ˆfe,t (xt)] B using active weights (we,t )e∈E t ; 
+
+> 6
+
+Reveal gradient ∇t = ∇ ˜wt ℓt
+
+  P  
+
+> e∈E t
+
+˜we,t [ ˆfe,t (xt)] B + P 
+
+> e / ∈E t
+
+˜we,t ˆft(xt); 
+
+> 7
+
+Update ˜wt+1 ← weight ( ˜ wt, ∇t) with weight satisfying Assumption 2 ;  
+
+> 8
+
+for e ∈ E t do  
+
+> 9
+
+Reveal gradient ge,t = ( gj,k,t )(j,k )∈Γe,t as in (5), on active index set Γe,t ; 
+
+> 10
+
+Update ˆfe,t using Algorithm 1 with input Γe,t and ge,t ;
+
+Output : ˆfT +1 = P 
+
+> e∈E
+
+we,T +1 [ ˆfe,T +1 ]B
+
+Assumption on the aggregation algorithm. Our method relies on any expert-aggregation algo-rithm satisfying a second-order regret bound, stated in Assumption 2. State-of-the-art aggregation 8algorithms, such as those proposed in [ 18 , 26 , 41 ], satisfy this second-order regret bound and are compatible with the sleeping expert setting. 
+
+Assumption 2. Let ∇1, . . . , ∇T ∈ [− ˜G, ˜G]|E| for T ⩾ 1 and ˜G > 0. Assume that the weight vectors 
+
+˜wt = ( ˜ we,t )e∈E , initialized with a uniform distribution ˜w1, are updated via the weight function in Algorithm 2 and satisfy the following second-order regret bound: 
+
+> T
+
+X
+
+> t=1
+
+∇⊤ 
+
+> t
+
+˜wt − ∇ e,t ⩽ C3
+
+vuutlog( |E| )
+
+> T
+
+X
+
+> t=1
+
+(∇⊤ 
+
+> t
+
+˜wt − ∇ e,t )2 + C4 ˜G, 
+
+for all e ∈ E , where C3, C 4 > 0 are constants. 
+
+Note that for Assumption 2 to hold, the loss gradients ∇t must be uniformly bounded in the sup-norm by ˜G. Indeed, this is ensured by two factors: first, we consider oracle prediction rules in L∞(X ),ensuring that their outputs are also uniformly bounded, and second the predictions produced in (9) are clipped to a bounded range. 
+
+4.2 Regret guarantees under spatially inhomogeneous smoothness (Alg. 2) Local Besov regularity. Let f ∈ Bspq for some fixed 1 ⩽ p, q ⩽ ∞ and s > dp . Let T ′ be a pruning of T and (Xn)n∈L (T ′) be the associated partition of X . To model spatially varying smoothness,       
+
+> s1= 0 .5
+> X1
+> s2= 0 .8
+> X2
+> s3= 3
+> X3
+> s4=56
+> X4
+> s5= 0 .9
+> X5
+> X
+> f
+
+Figure 3: Example of inhomogeneous func-tion ( d = 1 ). we define the local Besov regularity of a function f
+
+over each region Xn as 
+
+sn := sup α : f|X n ∈ Bαpq (Xn) ⩾ s, (10) where the restriction f|X n belongs to the Besov space 
+
+Bsn 
+
+> pq
+
+over the domain Xn for fixed global parameters 
+
+1 ⩽ p, q ⩽ ∞. For each region, we denote by ∥f ∥sn
+
+the corresponding local Besov norm (6). More generally, one could define ’fully’ local Besov spaces via triplets (sn, p n, q n), allowing both the smoothness and the integrability parameters to vary across regions. We leave the analysis of such fully adaptive schemes to future work, and we focus on local adaptation in terms of smoothness only. We prove a regret bound for Algorithm 2, expressed in terms of the local regularity of any competitor in a Besov space and that achieves minimax-optimal rates with convex or exp-concave loss functions. 
+
+Theorem 2. Let T ⩾ 1, 1 ⩽ p, q ⩽ ∞, s > dp > ε . Let f ∈ Bspq (X ) and B ⩾ ∥f ∥∞. Let T ′ be any pruning of T , together with a collection of local smoothness indices (sn)n∈L (T ′) and of local norms 
+
+(∥f ∥sn )n∈L (T ′) defined as in (10) . Then, under the same assumptions of Theorem 1 and Assumption 2, Algorithm 2 satisfies 
+
+RT (f ) ≲ G X 
+
+> n∈L (T′)
+
+
+
+B1− d 
+
+> 2sn
+
+(2 −l( n)sn ∥f ∥sn ) d
+
+> 2sn
+
+p|Tn|1sn⩾ d
+
+> 2
+
++  2−l( n)sn ∥f ∥sn |Tn|1− sn d
+
+1sn< d
+
+> 2
+
++ Bp|Tn|
+
+
+
+and moreover we also have, if (ℓt) are exp-concave: 
+
+RT (f ) ≲ G X 
+
+> n∈L (T′)
+
+
+
+B1− 2d
+
+> 2sn +d
+
+ 2−l( n)sn ∥f ∥sn
+
+ 2d 
+
+> 2sn +d
+
+|Tn| d 
+
+> 2sn +d
+
+1sn⩾ d
+
+> 2
+
++ 2 −l( n)sn ∥f ∥sn |Tn|1− sn d 1sn< d
+
+> 2
+
++ B
+
+
+
+,
+
+where ≲ hides logarithmic factors in T , and constants independent of f or T .
+
+The proof of Theorem 2 is deferred to Appendix C. Taking T ′ as the pruning corresponding to the root of T , Theorem 2 yields minimax-optimal rates in the case s = min n sn > dp , both for convex and exp-concave losses simultaneously. Importantly, the local adaptivity of Algorithm 2 is reflected in the regret bounds in Theorem 2, which now depend on the local Besov regularity of the target function. This is especially advantageous in inhomogeneous settings where the function alternates between smooth and highly irregular regions; see Figure 3 for an illustrative example. In such cases, our approach can substantially improve the overall regret compared to classical global adaptive methods that aim to recover the largest (but worst case) smoothness exponent s such that f ∈ Bspq (X ),assuming the semi-norm ∥f ∥Bspq is uniformly bounded. 9Adaptive trade-off between smoothness and norm. To illustrate the benefit of our strategy, consider the function f : x ∈ [0 , 1] 7 → xs, with s ∈ (1 , 2) . We have f ∈ C s(X ), with global semi-norm 
+
+|f |s < ∞ (as defined in (8) ). However, the semi-norm |f |s becomes large near x = 0 due to the unbounded second derivative, which equals s(s − 1) xs−2 with s < 2 and explodes when x → 0. As a result, this directly affects the regret bound of non-local algorithms. Now consider a partition 
+
+X1 = [0 , δ ] and X2 = ( δ, 1] induced by some pruning, with δ = 2 −j0 for some j0 ⩾ 1. The function f
+
+belongs to C s(X1) near x = 0 , and to C 2(X2) with bounded semi-norm |f |2 over X2. Estimating f
+
+under this higher regularity on X2 yields improved guarantees. Our adaptive algorithm automatically exploits this spatial inhomogeneity by focusing on the relevant local smoothness and local semi-norm, leading to improved overall performance. Indeed, applying Theorem 2 to functions in C s(X ), with 
+
+s > 12 and exp-concave losses, yields: 
+
+RT (f ) ≲ (|f |s|X 1|s) 22s+1 |T1| 12s+1 + ( |f |2|X 2|2) 25 |T2| 15 , (11) where |f |2 = sup x∈(δ, 1] |f ′′ (x)| = s(s − 1) δs−2, and |f |s < ∞ by definition. Equation (11) illustrates a trade-off: if |T1| is negligible — i.e., only a small fraction of the data falls near 0 — then the second term dominates, and we obtain a regret rate of O(T 1/5). Conversely, we incur the worst-case rate 
+
+O(T 1/(2 s+1) ), but it is diluted by the small measure of |X 1| = δ. Finally, consider the case where the data are uniformly distributed, i.e., |T1| ≈ δT and |T2| ≈ (1 − δ)T . We obtain: 
+
+RT (f ) ≲ δ 2s 
+
+> 2s+1
+
+(δT ) 12s+1 + δ 2( s−2) 5 (1 − δ)T 15 ⩽ δT 12s+1 + δ 2( s−2) 5 T 15 .
+
+Optimizing over δ, which is automatically handled by our procedure that selects the best pruning, yields a regret rate of O(T r ) with r ∈ (1/5, 1/(2 s+1) ), improving upon the worst-case rate O(T 1/(2 s+1) )
+
+achieved by any non-local algorithm. 
+
+Conclusion and perspectives 
+
+We proposed adaptive wavelet-based algorithms and analyzed them in the competitive online learning framework against comparator functions in general Besov spaces. Our algorithms achieve minimax-optimal regret guarantees while adapting simultaneously to the regularity of the target function, the convexity properties of the loss functions, and spatially inhomogeneous smoothness - resulting in significant improvements over globally-tuned methods. A limitation of our algorithm, which is common with wavelet-based methods, is the exponential increase in dimensional complexity with the regularity parameter S. An interesting parallel can be drawn with traditional wavelet thresholding methods [ 15 ] used in the batch setting: in an online manner, our parameter-free algorithm implicitly mimics their behavior by selectively updating coefficients across scales, without requiring explicit thresholds or prior knowledge of the function’s regularity. Finally, like most prior work, we focused on functions embedded in L∞ (i.e., with s > dp ). A natural and compelling direction for future research is to extend this analysis to competitors in general Lp spaces with p < ∞, which would likely require new analytical tools beyond those used here. 
+
+Acknowledgments 
+
+The authors would like to thank Stéphane Jaffard and Albert Cohen for insightful discussions and suggestions on wavelet and approximation theory. P.L. is supported by a PhD scholarship from the Sorbonne Center for Artificial Intelligence (SCAI), Paris. 
+
+References 
+
+[1] Peter Binev, Albert Cohen, Wolfgang Dahmen, Ronald DeVore, Vladimir Temlyakov, and Peter Bartlett. Universal algorithms for learning theory part i: Piecewise constant functions. Journal of Machine Learning Research , 6(9), 2005. [2] Peter Binev, Albert Cohen, Wolfgang Dahmen, and Ronald DeVore. Universal algorithms for learning theory. part ii: Piecewise polynomial functions. Constructive approximation , 26: 127–152, 2007. [3] Daniele Calandriello, Alessandro Lazaric, and Michal Valko. Efficient second-order online kernel learning with adaptive embedding. Advances in Neural Information Processing Systems ,30, 2017. 10 [4] Daniele Calandriello, Alessandro Lazaric, and Michal Valko. Second-order kernel online convex optimization with adaptive sketching. In International Conference on Machine Learning , pages 645–653. PMLR, 2017. [5] Nicolo Cesa-Bianchi and Gábor Lugosi. On prediction of individual sequences. The Annals of Statistics , 27(6):1865–1895, 1999. [6] Nicolo Cesa-Bianchi and Gábor Lugosi. Prediction, learning, and games . Cambridge university press, 2006. [7] Nicolò Cesa-Bianchi, Pierre Gaillard, Claudio Gentile, and Sébastien Gerchinovitz. Algorithmic chaining and the role of partial feedback in online nonparametric learning. In Conference on Learning Theory , pages 465–481. PMLR, 2017. [8] Albert Cohen. Numerical analysis of wavelet methods , volume 32. Elsevier, 2003. [9] Albert Cohen, Ingrid Daubechies, and J-C Feauveau. Biorthogonal bases of compactly supported wavelets. Communications on pure and applied mathematics , 45(5):485–560, 1992. [10] Ashok Cutkosky and Francesco Orabona. Black-box reductions for parameter-free online learning in banach spaces. In Conference On Learning Theory , pages 1493–1529. PMLR, 2018. [11] Ingrid Daubechies. Ten lectures on wavelets . SIAM, 1992. [12] Ronald A DeVore. Nonlinear approximation. Acta numerica , 7:51–150, 1998. [13] Ronald A DeVore and George G Lorentz. Constructive approximation , volume 303. Springer Science & Business Media, 1993. [14] David L Donoho and Iain M Johnstone. Ideal spatial adaptation by wavelet shrinkage. 
+
+biometrika , 81(3):425–455, 1994. [15] David L Donoho and Iain M Johnstone. Minimax estimation via wavelet shrinkage. The annals of Statistics , 26(3):879–921, 1998. [16] David L Donoho, Iain M Johnstone, Gérard Kerkyacharian, and Dominique Picard. Density estimation by wavelet thresholding. The Annals of statistics , pages 508–539, 1996. [17] Pierre Gaillard and Sébastien Gerchinovitz. A chaining algorithm for online nonparametric regression. In Conference on Learning Theory , pages 764–796. PMLR, 2015. [18] Pierre Gaillard, Gilles Stoltz, and Tim Van Erven. A second-order bound with excess losses. In 
+
+Conference on Learning Theory , pages 176–196. PMLR, 2014. [19] Alex Gammerman, Yuri Kalnishkan, and Vladimir Vovk. On-line prediction with kernels and the complexity approximation principle. In Proceedings of the 20th conference on Uncertainty in artificial intelligence , pages 170–176, 2004. [20] Evarist Giné and Richard Nickl. Mathematical foundations of infinite-dimensional statistical models . Cambridge university press, 2021. [21] Steve Hanneke, Aryeh Kontorovich, and Guy Kornowski. Efficient agnostic learning with average smoothness. In International Conference on Algorithmic Learning Theory , pages 719–731. PMLR, 2024. [22] Wolfgang Härdle, Gerard Kerkyacharian, Dominique Picard, and Alexander Tsybakov. Wavelets, approximation, and statistical applications , volume 129. Springer Science & Business Media, 2012. [23] Elad Hazan and Nimrod Megiddo. Online learning with prior knowledge. In Learning Theory: 20th Annual Conference on Learning Theory, COLT 2007, San Diego, CA, USA; June 13-15, 2007. Proceedings 20 , pages 499–513. Springer, 2007. [24] Elad Hazan et al. Introduction to online convex optimization. Foundations and Trends® in Optimization , 2(3-4):157–325, 2016. 11 [25] Rémi Jézéquel, Pierre Gaillard, and Alessandro Rudi. Efficient online learning with kernels for adversarial large scale problems. Advances in Neural Information Processing Systems , 32, 2019. [26] Wouter M Koolen and Tim Van Erven. Second-order quantile methods for experts and combina-torial games. In Conference on Learning Theory , pages 1155–1175. PMLR, 2015. [27] Guy Kornowski, Steve Hanneke, and Aryeh Kontorovich. Near-optimal learning with average hölder smoothness. Advances in Neural Information Processing Systems , 36:21135–21157, 2023. [28] Ilja Kuzborskij and Nicolo Cesa-Bianchi. Locally-adaptive nonparametric online learning. 
+
+Advances in Neural Information Processing Systems , 33:1679–1689, 2020. [29] Paul Liautaud, Pierre Gaillard, and Olivier Wintenberger. Minimax-optimal and locally-adaptive online nonparametric regression. In Algorithmic Learning Theory , pages 702–735. PMLR, 2025. [30] Stéphane Mallat. A Wavelet Tour of Signal Processing . Academic Press, 1999. [31] Yves Meyer. Ondelettes et opérateurs. I: Ondelettes , 1990. [32] Zakaria Mhammedi and Wouter M Koolen. Lipschitz and comparator-norm adaptivity in online learning. In Conference on Learning Theory , pages 2858–2887. PMLR, 2020. [33] Francesco Orabona and Dávid Pál. Coin betting and parameter-free online learning. Advances in Neural Information Processing Systems , 29, 2016. [34] Alexander Rakhlin and Karthik Sridharan. Online non-parametric regression. In Conference on Learning Theory , pages 1232–1264. PMLR, 2014. [35] Alexander Rakhlin and Karthik Sridharan. Online nonparametric regression with general loss functions. arXiv preprint arXiv:1501.06598 , 2015. [36] Veronika Roˇ cková and Judith Rousseau. Ideal bayesian spatial adaptation. Journal of the American Statistical Association , 119(547):2078–2091, 2024. [37] Hans Triebel. Theory of Function Spaces . Birkhäuser, 2006. [38] Vladimir Vovk. On-line regression competitive with reproducing kernel hilbert spaces. In 
+
+International Conference on Theory and Applications of Models of Computation , pages 452–463. Springer, 2006. [39] Vladimir Vovk. Metric entropy in competitive on-line prediction. arXiv preprint cs/0609045 ,2006. [40] Vladimir Vovk. Competing with wild prediction rules. Machine Learning , 69:193–212, 2007. [41] Olivier Wintenberger. Optimal learning with bernstein online aggregation. Machine Learning ,106:119–141, 2017. [42] Oleksandr Zadorozhnyi, Pierre Gaillard, Sebastien Gerschinovitz, and Alessandro Rudi. Online nonparametric regression with sobolev kernels. arXiv preprint arXiv:2102.03594 , 2021. [43] Zhiyu Zhang, Ashok Cutkosky, and Yannis Paschalidis. Unconstrained dynamic regret via sparse coding. Advances in Neural Information Processing Systems , 36:74636–74670, 2023. 12 APPENDIX 
+
+Contents 
+
+1 Introduction 12 Background and function representation 33 Parameter-free online wavelet decomposition 4
+
+3.1 Algorithm: Online Wavelet Decomposition . . . . . . . . . . . . . . . . . . . . . . . 43.2 Regret analysis of Online Wavelet Decomposition (Alg. 1) . . . . . . . . . . . . . . 5
+
+4 Adaptive learning in inhomogeneous regularity regimes 7
+
+4.1 Adaptive Online Wavelet Regression . . . . . . . . . . . . . . . . . . . . . . . . . . . 74.2 Regret guarantees under spatially inhomogeneous smoothness (Alg. 2) . . . . . . . . 9
+
+A Proof of Theorem 1 14 B Proof of Corollary 1 20 C Proof of Theorem 2 22 D Discussion on the unbounded case: s < dp 29 E Review of multi-resolution analysis 30 F Summary of the results and comparison to the literature 32 G Besov embeddings in usual functional spaces 33 H Summary of optimal regret in Online Nonparametric Regression 33 
+
+13 A Proof of Theorem 1 
+
+Let 1 ⩽ p, q ⩽ ∞, 0 < s < S and f ∈ arg min f ∈Bspq (X )
+
+PTt=1 ℓt(f (xt)) the best function to fit the T
+
+data over X × [−B, B ]. We start the proof with a decomposition of regret, with any oracle function 
+
+f ∗ ∈ RX , as 
+
+RT (f ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) − ℓt(f (xt)) =
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) − ℓt(f ∗(xt)) +
+
+> T
+
+X
+
+> t=1
+
+ℓt(f ∗(xt)) − ℓt(f (xt)) = estimation regret + approximation regret .
+
+Nonlinear oracle. Let j0 ∈ N and J ⩾ j0 to be optimized. We first recall that we use a wavelet development defined for any J ⩾ j0 as 
+
+fJ (x) := X 
+
+> k∈¯Λj0
+
+αj0,k ϕj0,k (x) + 
+
+> J
+
+X
+
+> j=j0
+
+X
+
+> k∈Λj
+
+βj,k ψj,k (x), (12) with αj0,k = ⟨f, ϕ j0,k ⟩ and βj,k = ⟨f, ψ j,k ⟩, j ⩾ j0, is a truncated wavelet expansion up to level J ⩾ j0.Using a truncated approximation fJ with a large value of J in (12) can lead to suboptimal regret performance, as it requires estimating a large number of wavelet coefficients, thereby incurring a high estimation error. To address this, we introduce a nonlinear oracle f ∗ that depends only on a selected subset of coefficients across the J levels. This approach, known as best-term or nonlinear approximation, is surveyed in the textbook [ 12 ], while constructions close to us in spirit can be found in [ 15 , 16 ]. We now make this oracle explicit and show that it balances approximation and estimation errors, in particular achieving minimax optimality in our setting. We define the oracle as 
+
+f ∗ = fJ∗ + fΛ∗ , (13) where fJ∗ is a truncated wavelet expansion up to level J∗ ⩽ J, as in (12) (i.e. we keep all the detail coefficients up to level J∗), and the nonlinear part 
+
+fΛ∗ = X
+
+> (j,k )∈Λ∗
+
+βj,k ψj,k , Λ∗ ⊂ { (j, k ) : k ∈ Λj , J ∗ < j ⩽ J},
+
+uses only wavelet coefficients indexed by an oracle set Λ∗ drawn from the finer scales j ∈ (J∗, J ].The cardinality of Λ∗, i.e., the number of retained coefficients, will be optimized in the analysis. Intuition: The component fΛ∗ of the oracle consists of the |Λ∗| largest coefficients chosen adaptively from the fine scales greater than J∗. The procedure is termed nonlinear because the choice of coefficients varies with the function f , rather than being a fixed linear rule, contrary to the first J∗
+
+levels which keep all coefficients independently of the function. For any k ∈ Λj , j > j 0, define vj,k := βj,k 2js ′
+
+with s′ = s + d 
+
+> 2
+
+− dp as in (6) . Observe that the definition of the Besov norm (6) allows a control over the set {vj,k : k ∈ Λj , J ∗ < j ⩽ J} in terms of ℓp-norm since 
+
+X
+
+> J∗<j ⩽J
+
+X
+
+> k∈Λj
+
+|vj,k |p ⩽ (J−J∗)(1 − pq )+
+
+ X
+
+> J∗<j ⩽J
+
+ X
+
+> k∈Λj
+
+|vj,k |p
+
+ qp  pq
+
+⩽ (J−J∗)( 1    
+
+> p−1
+> q)+
+
+∥f ∥Bspq 
+
+p =: Cpf ,
+
+(14) by Hölder’s inequality if q > p , else by convexity with q ⩽ p.Let Λ∗ denote the set of indices corresponding to the |Λ∗| largest wavelet coefficients (in absolute value) among all (vj,k ) with j ∈ [J∗ + 1 , J ] and k ∈ Λj . The cardinality |Λ∗| - that is, the number of wavelet coefficients retained in the nonlinear component of the oracle estimator (13) —will be selected later in the analysis as a tuning parameter. Let j > J ∗. We have that 
+
+|Λ∗| · min  
+
+> (j,k )∈Λ∗
+
+|vj,k |p ⩽ X
+
+> (j,k )∈Λ∗
+
+|vj,k |p ⩽ Cpf < ∞,
+
+and in particular since ∀(j, k )̸ ∈ Λ∗, |vj,k | ⩽ min (j′,k ′)∈Λ∗ |vj′,k ′ | one has 
+
+∀(j, k )̸ ∈ Λ∗, |Λ∗|| vj,k |p ⩽ Cpf =⇒ ∀ (j, k )̸ ∈ Λ∗, |βj,k | ⩽ Cf 2−js ′
+
+|Λ∗|− 1 
+
+> p
+
+. (15) We are now ready to analyze the regret in two steps—that is an estimation error and an approximation error .14 Step 1: Bounding the estimation regret. We set 
+
+R1 := 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) − ℓt(f ∗(xt)) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt
+
+P 
+
+> (j,k )
+
+cj,k,t φj,k (xt)
+
+
+
+− ℓt
+
+P 
+
+> (j,k )
+
+cj,k φj,k (xt)
+
+
+
+,
+
+where the sum is over all scaling and detail coefficients with indices in {(j0, k ) : k ∈ ¯Λj0 } ∪ { (j, k ) : 
+
+j ⩾ j0, k ∈ Λj }, where cj,k stands for either the scaling coefficient αj0,k or the detail coefficient βj,k 
+
+(and their sequential counterparts cj,k,t depend on t), and φj,k denotes either the scaling function 
+
+ϕj0,k or the wavelet function ψj,k .Since ˆy 7 → ℓt(ˆ y) is convex and both ˆft, f ∗ are linear in the {cj,k }, then ℓt ◦ ˆf and ℓt ◦ f ∗ are convex in 
+
+{cj,k } and we have by convexity: 
+
+R1 ⩽
+
+> T
+
+X
+
+> t=1
+
+X
+
+> j,k
+
+gj,k,t (cj,k,t − cj,k ),
+
+where gj,k,t = ℓ′
+
+> t
+
+( ˆft(xt)) φj,k (xt) by Equation (5) . Observe that max t gj,k,t ⩽ 2 dj  
+
+> 2
+
+G∥φ∥∞ =: ˆGj for any j, k . Then, first by Assumption 1, and second by the structure of the oracle (13) — namely, that 
+
+∀j > J ∗ such that (j, k )̸ ∈ Λ∗, we have cj,k = 0 — we get: 
+
+R1 ⩽ X
+
+> j,k T
+
+X
+
+> t=1
+
+gj,k,t (cj,k,t − cj,k )
+
+⩽ X
+
+> j,k
+
+|cj,k |
+
+
+
+C1
+
+qPTt=1 |gj,k,t |2 + C2 ˆGj
+
+
+
+= X
+
+> j⩽J∗, k
+
+|cj,k |
+
+
+
+C1
+
+qPTt=1 |gj,k,t |2 + C2 ˆGj
+
+| {z } 
+
+> := R1(fJ∗)
+
++ X
+
+> (j,k )∈Λ∗
+> j>J ∗
+
+|cj,k |
+
+
+
+C1
+
+qPTt=1 |gj,k,t |2 + C2 ˆGj
+
+| {z } 
+
+> := R1(fΛ∗)
+
+(16) where C1, C 2 > 0 are factors (possibly including log T ; see Assumption 1). The estimation regret 
+
+R1 is thus controlled in (16) by a sum of individual regrets over the nonzero coefficients cj,k that define f ∗ = fJ∗ + fΛ∗ . The sum naturally splits into two parts: the linear part R1(fJ∗ ) over 
+
+{(j0, k ) : k ∈ ¯Λj0 } ∪ { (j, k ) : j0 ⩽ j ⩽ J∗, k ∈ Λj }, and the nonlinear part R1(fΛ∗ ) over the indices in 
+
+Λ∗.• Linear part: bounding R1(fJ∗ ). The wavelet basis {ϕj0,k , ψ j,k } is assumed to be S-regular with 
+
+S > s , so we can invoke the characterization of Besov spaces with ∥f ∥Bspq < ∞ (see Eq. (6) ). Let 
+
+p, p ′ ⩾ 1 be such that 1 
+
+> p
+
++ 1 
+
+> p′
+
+= 1 . Applying Hölder’s inequality to the detail coefficients at levels 
+
+j ∈ [j0, J ∗], we obtain, with ˆGj = G2 jd  
+
+> 2
+
+∥ψ∥∞, j ⩾ j0:
+
+X
+
+> j0⩽j⩽J∗
+
+X
+
+> k∈Λj
+
+|βj,k |
+
+
+
+C1
+
+qPTt=1 |gj,k,t |2 + C2G∥ψ∥∞2 jd 
+
+> 2
+
+
+
+⩽ X
+
+> j0⩽j⩽J∗
+
+ X 
+
+> k∈Λj
+
+|βj,k |p 1
+
+> p
+
+
+
+C1
+
+ X 
+
+> k∈Λj
+
+ qPTt=1 |gj,k,t |2p′  1
+
+> p′
+
++ C2G∥ψ∥∞2 jd  
+
+> 2
+
+|Λj | 1
+
+> p′
+
+
+
+= X
+
+> j0⩽j⩽J∗
+
+∥βj ∥p
+
+
+
+C1
+
+r P
+
+> k∈Λj
+
+  P Tt=1 |gj,k,t |2 p′
+
+> 2
+
+ 2
+
+> p′
+
++ C2G∥ψ∥∞2 jd  
+
+> 2
+
+|Λj | 1
+
+> p′
+
+
+
+⩽ X
+
+> j0⩽j⩽J∗
+
+∥βj ∥p
+
+
+
+C1|Λj |( 12 − 1 
+
+> p)+
+
+qP
+
+> k∈Λj
+
+PTt=1 |gj,k,t |2 + C2G2 jd  
+
+> 2
+
+|Λj |1− 1
+
+> p
+
+
+
+(17) where the last inequality uses ∥x∥ p′
+
+> 2
+
+⩽ |Λj |( 2  
+
+> p′−1) +
+
+∥x∥1 for a vector x of dimension |Λj | and 
+
+(·)+ := max {· , 0}.Repeating for the scaling coefficients for k ∈ ¯Λj0 , summing in j = j0, . . . , J ∗ and bounding 
+
+|Λj | ⩽ λ2dj and |¯Λj0 | ⩽ λ2dj 0 , we get: 
+
+R1(fJ∗ ) ⩽ ∥αj0 ∥p
+
+
+
+C1λ2dj 0( 12 − 1 
+
+> p)+
+
+qP
+
+> k∈Λj
+
+PTt=1 |gj0,k,t |2 + C2G∥ϕ∥∞2 j0d 
+
+> 2
+
+λ2dj 0(1 − 1 
+
+> p)
+
+
+
++ PJ∗ 
+
+> j=j0
+
+∥βj ∥p
+
+
+
+C1λ2dj ( 12 − 1 
+
+> p)+
+
+qP
+
+> k∈Λj
+
+PTt=1 |gj,k,t |2 + C2G∥ψ∥∞2 jd  
+
+> 2
+
+λ2dj (1 − 1 
+
+> p)
+
+
+
+(18) 15 where we recall the scaling coefficients are αj0 = ( αj0,k ) and the detail coefficients at scale j are 
+
+βj = ( βj,k ).On the other hand, over each level j ⩾ j0, one has 
+
+vuut X
+
+> k∈Λj
+> T
+
+X
+
+> t=1
+
+|gj,k,t |2 =
+
+vuut X
+
+> k∈Λj
+> T
+
+X
+
+> t=1
+
+|ℓ′
+
+> t
+
+( ˆft(xt)) ψj,k (xt)|2
+
+⩽ G
+
+vuut X
+
+> k∈Λj
+> T
+
+X
+
+> t=1
+
+|ψj,k (xt)|2
+
+= G2 dj 
+
+> 2
+
+vuut
+
+> T
+
+X
+
+> t=1
+
+X
+
+> k∈Λj
+
+|ψ(2 j xt − k)|2 , (19) where we used the fact that |ℓ′( ˆft(xt)) | ⩽ G (since ˆy 7 → ℓt(ˆ y) is G-Lipschitz), the definition of ψj,k 
+
+and we applied Jensen’s inequality. Equation (19) also holds for the scaling level, replacing ψj,k 
+
+by ϕj0,k over the index set ¯Λj0 .By D.2, one has 
+
+sup x
+
+P 
+
+> k
+
+|ϕ(x − k)|2 ⩽ Mϕ∥ϕ∥∞ and sup x
+
+P 
+
+> k
+
+|ψ(x − k)|2 ⩽ Mψ ∥ψ∥∞.
+
+With 1 − 1 
+
+> p
+
+⩽ 12 + ( 12 − 1 
+
+> p
+
+)+ we get from (18) and (19) 
+
+R1(fJ∗ ) ⩽ λG 
+
+ C1(Mϕ∥ϕ∥∞) 12
+
+√T + C2∥ϕ∥∞2 d  
+
+> 2j0
+
+∥αj0 ∥p2dj 0( 12 +( 12 − 1 
+
+> p)+)
+
+ C1(Mψ ∥ψ∥∞) 12
+
+√T + C2∥ψ∥∞2 d  
+
+> 2J∗
+
+ J∗
+
+X
+
+> j=j0
+
+∥βj ∥p2dj ( 12 +( 12 − 1 
+
+> p)+)
+
+
+
+. (20) Then since ∥f ∥Bspq < ∞ in (6), we apply Hölder’s inequality with q, q ′ ⩾ 1 that entails 
+
+> J∗
+
+X
+
+> j=j0
+
+∥βj ∥p2jd ( 12 +( 12 − 1  
+
+> p)+)
+
+=
+
+> J
+
+X
+
+> j=j0
+
+2−j(s+ d   
+
+> 2−dp)
+
+2j(s+ d   
+
+> 2−dp)
+
+∥βj ∥p2jd ( 12 +( 12 − 1 
+
+> p)+)
+
+⩽
+
+ J∗
+
+X
+
+> j=j0
+
+2−jq ′(s− dp −d( 12 − 1 
+
+> p)+)
+
+ 1 
+
+> q′
+
+ JX
+
+> j=j0
+
+2jq (s+ d   
+
+> 2−dp)
+
+∥βj ∥qp
+
+ 1
+
+> q
+
+⩽ ∥f ∥Bspq 
+
+> J∗
+
+X
+
+> j=0
+
+2−j(s− dp −d( 12 − 1 
+
+> p)+)
+
+, since ∥ · ∥ q′ ⩽ ∥ · ∥ 1, q ′ ⩾ 1.Finally, we get from (20) with ∥αj0 ∥p ⩽ ∥f ∥Bspq :
+
+R1(fJ∗ ) ⩽ λG ∥f ∥Bspq M
+
+ C1
+
+√T + C22 d  
+
+> 2j0
+
+2dj 0( 12 +( 12 − 1 
+
+> p)+)
+
++  C1
+
+√T + C22 d  
+
+> 2J∗
+
+ J∗
+
+X
+
+> j=j0
+
+2−jβ 
+
+
+
+, (21) with β := s − dp − d( 12 − 1 
+
+> p
+
+)+ and M :=   max( Mϕ∥ϕ∥∞, M ψ ∥ψ∥∞, ∥ϕ∥2
+
+> ∞
+
+, ∥ψ∥2
+
+> ∞
+
+) 12 < ∞
+
+• Nonlinear part: bounding R1(fΛ∗ ). Let Λ∗ = ∪Jj=J∗+1 Λ∗ 
+
+> j
+
+where |Λ∗ 
+
+> j
+
+| ⩽ |Λj | is now the oracle sparse set made of positions k at level j. One has by (17) on the levels j = J∗ + 1 , . . . , J ,
+
+R1(fΛ∗ ) ⩽ X
+
+> J∗<j ⩽J
+
+∥βj ∥p
+
+
+
+C1|Λ∗ 
+
+> j
+
+|( 12 − 1 
+
+> p)+
+
+rP
+
+> k∈Λ∗
+> j
+
+PTt=1 |gj,k,t |2 + C2G2 jd  
+
+> 2
+
+∥ψ∥∞|Λ∗ 
+
+> j
+
+|1− 1
+
+> p
+
+
+
+⩽ GM X
+
+> J∗<j ⩽J
+
+∥βj ∥p
+
+ C1|Λ∗ 
+
+> j
+
+|( 12 − 1  
+
+> p)+
+
+2 dj 
+
+> 2
+
+√T + C22 jd  
+
+> 2
+
+|Λ∗ 
+
+> j
+
+|1− 1
+
+> p
+
+
+
+16 where second inequality follows from (19). Then, using Hölder’s inequality with q ⩾ 1 one has 
+
+X
+
+> J∗<j ⩽J
+
+2 dj  
+
+> 2
+
+∥βj ∥p|Λ∗ 
+
+> j
+
+|( 12 − 1  
+
+> p)+
+
+= X
+
+> J∗<j ⩽J
+
+2j(s+ d   
+
+> 2−dp)
+
+∥βj ∥p · 2−j(s− dp )|Λ∗ 
+
+> j
+
+|( 12 − 1 
+
+> p)+
+
+⩽ ∥f ∥Bspq 
+
+X
+
+> J∗<j ⩽J
+
+2−j(s− dp )|Λ∗ 
+
+> j
+
+|( 12 − 1  
+
+> p)+
+
+.
+
+Finally, since P 
+
+> J∗<j ⩽J
+
+|Λ∗ 
+
+> j
+
+| = |Λ∗|, one has 
+
+X
+
+> J∗<j ⩽J
+
+2−j(s− dp )|Λ∗ 
+
+> j
+
+|( 12 − 1  
+
+> p)+
+
+⩽ |Λ∗|( 12 − 1 
+
+> p)+
+
+X
+
+> J∗<j ⩽J
+
+2−j(s− dp ) ⩽ |Λ∗|( 12 − 1  
+
+> p)+
+
+2−J∗(s− dp )
+
+2s− dp − 1
+
+,
+
+by Hölder’s inequality in the case p ⩾ 2 and since s > dp . Similarly, for the second term we have 
+
+X
+
+> J∗<j ⩽J
+
+2 dj  
+
+> 2
+
+∥βj ∥p|Λ∗ 
+
+> j
+
+|1− 1 
+
+> p
+
+⩽ ∥f ∥Bspq 
+
+2−J∗(s− dp )
+
+2s− dp − 1
+
+|Λ∗|1− 1 
+
+> p
+
+.
+
+All in one, with |Λ∗|1− 1 
+
+> p
+
+⩽ |Λ∗| 12 +( 12 − 1  
+
+> p)+
+
+one has 
+
+R1(fΛ∗ ) ⩽ GM ∥f ∥Bspq 
+
+C1
+
+√T + C2|Λ∗| 12
+
+2s− dp − 1
+
+· 2−J∗(s− dp )|Λ∗|( 12 − 1  
+
+> p)+
+
+. (22) • Bound on R1: We use (21) and (22) and we reach 
+
+R1 ⩽ R1(fJ∗ ) + R1(fΛ∗ )
+
+⩽ G∥f ∥Bspq M
+
+
+
+λ C1
+
+√T + C22 d  
+
+> 2j0
+
+2dj 0( 12 +( 12 − 1 
+
+> p)+)
+
++ λ C1
+
+√T + C22 d  
+
+> 2J∗
+
+ J∗
+
+X
+
+> j=j0
+
+2−jβ 
+
++  C1
+
+√T + C2|Λ∗| 12
+
+|Λ∗|( 12 − 1  
+
+> p)+
+
+2−J∗(s− dp )
+
+2s− dp − 1
+
+
+
+, (23) where we recall β := s − dp − d( 12 − 1 
+
+> p
+
+)+ and s′ = s + d 
+
+> 2
+
+− dp and |Λ∗| is the number of ’non-linear’ coefficients we keep below level J∗.
+
+Step 2: Bounding the approximation regret. We now bound the term incurred by approximating 
+
+f by its nonlinear wavelet approximation f ∗. Using the G-Lipschitz property of each loss ℓt and the uniform bound on the approximation error, we obtain: 
+
+R2 := 
+
+> T
+
+X
+
+> t=1
+
+ ℓt(f ∗(xt)) − ℓt(f (xt))  ⩽ G
+
+> T
+
+X
+
+> t=1
+
+|f ∗(xt) − f (xt)| ⩽ GT ∥f ∗ − f ∥∞. (24) With f ∗ = fJ∗ + fΛ∗ and fJ the truncated wavelet expansion (12) at level J ⩾ J∗ ⩾ j0 we have with the triangle inequality 
+
+R2 ⩽ GT (∥(fJ∗ + fΛ∗ ) − fJ ∥∞ + ∥fJ − f ∥∞)
+
+First, since fJ∗ , f J are both wavelet expansion truncated respectively at level J∗ and J, one has 
+
+∥(fJ∗ + fΛ∗ ) − fJ ∥∞ = X
+
+> (j,k )̸∈ Λ∗
+
+βj,k ψj,k 
+
+> ∞
+
+⩽ X
+
+> (j,k )̸∈ Λ∗
+
+∥βj,k ψj,k ∥∞
+
+⩽
+
+> J
+
+X
+
+> j=J∗+1
+
+2j d 
+
+> 2
+
+sup 
+
+> k:( j,k )̸∈ Λ∗
+
+|βj,k | · ∥ P 
+
+> k∈Λj
+
+|ψ(2 j · − k)|∥ ∞ ← by definition of ψj,k 
+
+⩽ Mψ Cf |Λ∗|− 1
+
+> p
+> J
+
+X
+
+> j=J∗+1
+
+2j d 
+
+> 2
+
+2−js ′
+
+← by Definition D.2 and (15) 
+
+⩽ Mψ Cf |Λ∗|− 1 
+
+> p
+
+2−J∗(s− dp )
+
+2s− dp − 1
+
+← replacing s′ and with s > dp . (25) 17 Second, with s > dp , using the characterizations of Besov spaces and classical results on Sobolev embeddings (see, e.g., [20, Prop. 4.3.8] or [8, 13]), Bspq (X ) ⊂ Bs− dp 
+
+> ∞∞
+
+(X ) and one has 
+
+∥fJ − f ∥∞ ⩽ Mψ ∥f ∥Bspq 
+
+X
+
+> j>J
+
+2−j(s− dp ) ⩽ Mψ ∥f ∥Bspq 
+
+2−J(s− dp )
+
+2s− dp − 1
+
+, (26) where s > dp .Finally, with (25) and (26) one has 
+
+R2 ⩽ GM ψ ∥f ∥Bspq 
+
+2s− dp − 1
+
+ 2−J(s− dp )T + ( J − J∗)( 1    
+
+> p−1
+> q)+
+
+2−J∗(s− dp )|Λ∗|− 1 
+
+> p
+
+T . (27) 
+
+Step 3: Optimization on J∗, J, |Λ∗| and conclusion. Let j0 = 0 . From (23) and (27) we reach the following regret bound 
+
+RT (f ) = R1 + R2 ⩽ CG ∥f ∥Bspq 
+
+"
+
+C1
+
+√T + C22 d 
+
+> 2J∗
+
+ 
+
+1 + 
+
+> J∗
+
+X
+
+> j=0
+
+2−jβ 
+
+
+
++
+
+
+
+C1
+
+√T + C2|Λ∗| 12
+
+
+
+2−J∗(s− dp )|Λ∗|( 12 − 1 
+
+> p)+
+
+
+
++ 2 −J(s− dp )T + ( J − J∗)( 1    
+
+> p−1
+> q)+
+
+2−J∗(s− dp )|Λ∗|− 1 
+
+> p
+
+T
+
+#
+
+, (28) with C some constant that can change from a line to another (depending on λ, ∥ψ∥∞, M, M ψ ,...), 
+
+β = s− dp −d( 12 − 1 
+
+> p
+
+)+. We keep the explicit dependence on J, J∗, and |Λ∗|, as we now aim to optimize the upper bound with respect to these parameters. We have three different regimes depending on the sign of β in (28). Observe that 
+
+β =
+
+(
+
+s − d 
+
+> 2
+
+if p ⩾ 2,
+
+s − dp if p < 2,and we also have s > dp .
+
+Case 1: β > 0. This regime corresponds to sufficiently regular functions: since s > dp , this corresponds to the case 
+
+p < 2, or s > d
+
+2 .
+
+In this case, the geometric sum is bounded by 
+
+> J∗
+
+X
+
+> j=0
+
+2−jβ ⩽ 11 − 2−β .
+
+Choosing 
+
+
+
+J∗ =  1 
+
+> d
+
+log 2(T ) ,
+
+|Λ∗| = 2 J∗d,J =
+
+l Sd 
+
+> ε
+
+log 2(T )
+
+m
+
+,
+
+=⇒
+
+
+
+2−J∗(s− dp )|Λ∗|− 1 
+
+> p
+
+T = 2 −sJ ∗
+
+T = T 1− sd ,
+
+2−J∗(s− dp )|Λ∗|( 12 − 1  
+
+> p)+
+
+⩽ T 12 − sd ,
+
+2−J(s− dp )T ⩽ T 1− sd ,
+
+|Λ∗| 12 = 2 d 
+
+> 2J∗
+
+= √T
+
+(29) with s − dp > ε > 0 and S > s , and this entails a total regret 
+
+RT (f ) ⩽ CG ∥f ∥Bspq 
+
+ C1 + C2
+
+√T
+
+
+
+2 + 11 − 2−β + T 12 − sd
+
+
+
++ T 1− sd
+
+
+
+1 + 
+
+ 1
+
+d
+
+ Sε − 1
+
+
+
+log 2(T )
+
+( 1    
+
+> p−1
+> q)+
+
+ 
+
+. (30) With s ⩾ d/ 2, we have T 1−s/d ⩽ √T and RT (f ) = O(G∥f ∥Bspq 
+
+√T ).
+
+Remark. The notation O(·) here hides log 2(T ) factors that appear when p < q . This originates from the nonlinear oracle construction in the analysis (see Inequality (14) ). In addition, log terms may also be absorbed into the constants C1, C 2 coming from the parameter-free subroutine (see Assumption 1). This remark also holds for the remaining cases. 18 Case 2: β = 0 . This critical regime occurs when p ⩾ 2 and s = d 
+
+> 2
+
+. The sum becomes: 
+
+> J∗
+
+X
+
+> j=0
+
+2−jβ = J∗ + 1 .
+
+Choosing J∗, |Λ∗| and J as in (29) yields the bound: 
+
+RT (f ) ⩽ CG ∥f ∥Bspq 
+
+
+
+(C1 + C2)√T
+
+
+
+2 + 1
+
+d log 2 T + T 12 − sd
+
+
+
++ √T
+
+
+
+1 + 
+
+ 1
+
+d
+
+ Sε − 1
+
+
+
+log 2(T )
+
+( 1    
+
+> p−1
+> q)+
+
+ 
+
+. (31) That is RT (f ) = O(G∥f ∥Bspq log 2(T )√T ).
+
+Case 3: β < 0. This corresponds to the low regularity case: β = s − d 
+
+> 2
+
+and 
+
+p ⩾ 2 and dp < s < d
+
+2 .
+
+Here, the geometric sum is bounded as: 
+
+> J∗
+
+X
+
+> j=0
+
+2−jβ ⩽ 2−J∗β
+
+2−β − 1 .
+
+With J∗, |Λ∗| and J as in (29), the regret bound becomes: 
+
+RT (f ) ⩽ CG ∥f ∥Bspq 
+
+
+
+(C1 + C2)√T
+
+
+
+1 + T − βd
+
+2−β − 1 + T 12 − sd
+
+
+
++ T 1− sd
+
+
+
+1 + 
+
+ 1
+
+d
+
+ Sε − 1
+
+
+
+log 2(T )
+
+( 1    
+
+> p−1
+> q)+
+
+ 
+
+. (32) With √T T − βd = √T T 12 − sd = T 1− sd , one has RT (f ) = O(G∥f ∥Bspq T 1− sd ).19 B Proof of Corollary 1 
+
+The proof is based on that of Theorem 1, in Appendix A, case p = q = ∞.Let s > 0, f ∈ arg min f ∈C s(X )
+
+PTt=1 ℓt(f (xt)) the best function to fit the T data over X × R and 
+
+f ∗ = fJ defined as in (12) . One key point is that in the case of Hölder-smooth function ( p = q = ∞), the nonlinear set Λ∗ of wavelet coefficients will not be needed to achieve optimal rates. We start with a decomposition of regret with the oracle f ∗ = fJ as in the proof of Theorem 1 in Appendix A and we have: 
+
+RT (f ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) − ℓt(fJ (xt)) 
+
+| {z }
+
+> =: R1
+
++
+
+> T
+
+X
+
+> t=1
+
+ℓt(fJ (xt)) − ℓt(f (xt)) 
+
+| {z }
+
+> =: R2
+
+Step 1: Bounding estimation regret R1. From (16), one has 
+
+R1 ⩽ X 
+
+> k∈¯Λj0
+
+|αj0,k |
+
+
+
+C1
+
+qPTt=1 |gj,k,t |2 + C2G∥ϕ∥∞2 j0d
+
+> 2
+
+
+
++
+
+> J
+
+X
+
+> j=j0
+
+X
+
+> k∈Λj
+
+|βj,k |
+
+
+
+C1
+
+qPTt=1 |gj,k,t |2 + C2G∥ψ∥∞2 jd 
+
+> 2
+
+
+
+(33) where C1, C 2 > 0 are relative to Assumption 1, αj,k refers to the scaling coefficients and βj,k the detail coefficients. Since the wavelet basis {ϕj0,k , ψ j,k } is assumed to be S-regular with S > s (Definition 2) and 
+
+f ∈ C s(X ), by Proposition 1, the detail coefficients at every level j ⩾ j0 are bounded as: 
+
+|βj,k | = |⟨ f, ψ j,k ⟩| ⩽ C(ψ, s )|f |s2−j(s+d/ 2) ,
+
+where C(ψ, s ) is a positive constant that only depends on the S-regular wavelet basis and |f |s refers to the semi-norm of f defined in (8). For the scaling level j0, then for every k, one has: 
+
+|αj0,k | = |⟨ f, ϕ j0,k ⟩| ⩽ ∥f ∥∞ · ∥ ϕj0,k ∥1 ⩽ 2− j0d 
+
+> 2
+
+∥ϕ∥1∥f ∥∞,
+
+where we used 
+
+∥ϕj0,k ∥1 ⩽
+
+Z
+
+> Rd
+
+2j0d/ 2ϕ(2 j0 x − k) dx u=2 j0 x−k
+
+= 2j0 d 
+
+> 2
+
+2−j0d
+
+Z
+
+> Rd
+
+|ϕ(u)| du = 2 − j0d 
+
+> 2
+
+∥ϕ∥1
+
+and ∥ϕ∥1 < ∞ since the scaling function ϕ is assumed to be localized (e.g. compactly supported). Then, plugging the above upper bound, we get with gj0,k,t ⩽ G∥ϕ∥∞2 j0d 
+
+> 2
+
+:
+
+R1 ⩽ G∥ϕ∥1∥f ∥∞2− j0d 
+
+> 2
+
+· | ¯Λj0 | · ∥ ϕ∥∞
+
+ C12 j0d
+
+> 2
+
+√T + C22 j0d
+
+> 2
+
+
+
++ C(ψ, s )|f |sJX
+
+> j=j0
+
+2−j(s+d/ 2) 
+
+C1
+
+X
+
+> k∈Λj
+
+vuut TX
+
+> t=1
+
+|gj,k,t |2 + C2G∥ψ∥∞2 jd  
+
+> 2
+
+|Λj |
+
+ ,
+
+Using Cauchy-Schwarz’s inequality as long as the form of the gradients in (5) and the bound (19) ,we have over each level j ∈ [j0, J ],
+
+X
+
+> k∈Λj
+
+vuut TX
+
+> t=1
+
+|gj,k,t |2 ⩽ Gλ 12 2dj 
+
+vuut
+
+> T
+
+X
+
+> t=1
+
+X
+
+> k∈Λj
+
+|ψ(2 j xt − k)|2
+
+⩽ G(λ∥ψ∥∞Mψ ) 12 2dj √T
+
+where ∥ P 
+
+> k∈Λj
+
+|ψ(· − k)|2∥∞ ⩽ ∥ψ∥∞Mψ < ∞ (see D.2) and |Λj | = λ2dj . Finally, with M =max( Mψ ∥ψ∥∞, ∥ϕ∥2
+
+> ∞
+
+, ∥ψ∥2
+
+> ∞
+
+) 12
+
+R1 ⩽ GM λ 
+
+
+
+∥f ∥∞∥ϕ∥1 2j0d (C1
+
+√T + C2) + C(ψ, s ) |f |s
+
+ C1
+
+√T + C22 d  
+
+> 2J
+
+ JX
+
+> j=j0
+
+2−j(s−d/ 2) 
+
+
+
+(34) Setting j0 = 0 , the sum can be upper-bounded with 3 different cases as 
+
+> J
+
+X
+
+> j=0
+
+2−j(s− d  
+
+> 2)
+
+⩽
+
+
+
+(1 − 2−(s− d 
+
+> 2)
+
+)−1 if d < 2s , J + 1 if d = 2 s , 
+
+2−(J+1)( s− d 
+
+> 2)
+
+(2 −(s− d  
+
+> 2)
+
+− 1) −1 if d > 2s . 
+
+20 Step 2: Bounding the approximation regret. Following (27), one has: 
+
+R2 := 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆf ∗(xt)) −ℓt(f (xt)) ⩽ G
+
+> T
+
+X
+
+> t=1
+
+| ˆf ∗(xt)−f (xt)| ⩽ GT ∥KJ f −f ∥∞ ⩽ C4GT |f |s2−sJ , (35) where C4 = C4(ψ, s ) - see [20, Prop. 4.1.5] for instance with assumption D.3. 
+
+Step 3: upper-bounding RT (f ). We need to balance (34) and (35) , and finding the optimal J ⩾ 0.Taking j0 = 0 — i.e. |¯Λj0 | ⩽ λ — and J = ⌈ 1 
+
+> d
+
+log 2(T )⌉ entails the desired bound in the 3 cases 
+
+d < 2s, d = 2 s and d > 2s.
+
+Remark. In the preceding proof we showed that a single (linear) global resolution level J = 1 
+
+> d
+
+log 2 T  suffices to attain the minimax regret for Hölder-smooth competitors, in contrast to general competitors in Bspq (X ), which require a nonlinear mechanism (see Appendix A). Nevertheless, even in the Hölder-smooth case one may take a larger level J =  Sdε log 2 T  ⩾  1 
+
+> d
+
+log 2 T  as in Theorem 1. In the analysis, set the oracle coefficients βj,k = 0 for levels j >  1 
+
+> d
+
+log 2 T ; the estimation regret, combined with Assumption 1, reduces to a sum over the remaining nonzero coefficients—namely, those in the linear part—and leads to the same rates. 21 C Proof of Theorem 2 
+
+The proof uses a first key result that we state and prove right after. 
+
+Theorem 3 (Local regret over Besov spaces) . Let T ⩾ 1, 1 ⩽ p, q ⩽ ∞, s > dp and f ∈ Bspq . Under the same assumptions of Theorem 1 and Assumption 2, Algorithm 2 with ∥f ∥∞ ⩽ B has regret 
+
+RT (f ) ≲ G inf T ′
+
+ P   
+
+> n∈L (T′)
+
+Bp|Tn| + ∥f ∥sn · 2−l( n)sn · | Tn|r(sn,p ) ,
+
+and if (ℓt) are exp-concave: 
+
+RT (f ) ≲ G inf T ′
+
+B|L (T ′)| + P  
+
+> n∈L (T′)
+
+∥f ∥sn · 2−l( n)sn · | Tn|r(sn,p ) ,
+
+where ≲ hides logarithmic factors in T , and constants independent of f or T , L(T ′) denotes the set of leaves in a pruning T ′ ⊂ T , ∥f ∥sn are local Besov norms, l( n) is the level of node n ∈ L (T ′), and the local rate exponent is given by 
+
+r(sn, p ) = 
+
+( 12 if sn ⩾ d 
+
+> 2
+
+or p < 2,
+
+1 − sn 
+
+> d
+
+otherwise .
+
+Remark. Theorem 3 holds for any pruning T ′ of T . In particular, our procedure effectively competes against the best pruning with respect to the profile of the competitor f . Intuitively, Algorithm 2 achieves a spatial trade-off over the input space: it can refine locally by going deeper with high l( n) at the cost of increasing the number of leaves |L (T ′)|, while remaining coarser and less accurate in other regions, with fewer leaves to compete against. In particular, when applying the result to a specific pruning, we show in Theorem 4 that Algorithm 2 achieves minimax-optimal (local) regret when facing exp-concave losses. 
+
+Proof of Theorem 3. Let 1 ⩽ p, q ⩽ ∞, s > dp , f ∈ Bspq such that B := ∥f ∥∞ < ∞ - this is possible since f is continuous over X with the condition s > d/p and embedding of Bspq in L∞.
+
+Grid for scaling coefficients at starting scale j0. Observe that 
+
+|αj0,k | = |⟨ f, ϕ j0,k ⟩| ⩽ ∥f ∥∞ · ∥ ϕj0,k ∥1 ⩽ 2− j0d 
+
+> 2
+
+∥ϕ∥1B. 
+
+Let εj0 > 0. We define the regular grid Aj0 of εj0 -precision, used to learn the scaling coefficients at level j0, denoted (αj0,k ), with 
+
+|A j0 | =
+
+l
+
+2−j0 d 
+
+> 2
+
+2B ∥ϕ∥1 ε−1
+
+> j0
+
+m
+
+points, regularly spaced in the interval [−B2−j0 d 
+
+> 2
+
+∥ϕ∥1, B 2−j0 d 
+
+> 2
+
+∥ϕ∥1]. In the following, we will use a local grid Al( n) to learn scaling coefficient αn,k at a scale j0 = l( n) locally over the space X . In particular, we will carefully set the local precision εl( n) to handle regret terms. 
+
+Definition of the oracle associated to a pruning. Let T ′ be some pruning of T and P(T ′) = (Xn)n∈L (T ′) be the associated partition of X . Let Al( n) denote the grid of precision εl( n) as described above. We define the prediction function of pruning T ′, at any time t ⩾ 1ˆfT ′,t (x) = X 
+
+> n∈L (T′)
+
+[ ˆfn, an,t (x)] B , x ∈ X ,
+
+where each ˆfn, an,t is a sequential predictor of type (3) , with starting scale j0 = l( n), restricted to Xn,and initialized at the oracle scaling coefficients 
+
+an = ( an,k )k∈ ¯Λj0,n = arg min 
+
+> a∈A l( n)
+
+∥a − αj0,n ∥∞,
+
+that is, the best approximating vector a in the grid Al( n) for the subset of scaling coefficients 
+
+αj0,n,k , k ∈ ¯Λj0,n , whose basis functions ϕj0,k are supported on Xn. For simplicity, we slightly abuse notation by writing a ∈ A l( n), treating the grid as a tensor grid of the same dimension as a. In particular, the number of coefficients in ¯Λj0 whose supports intersect Xn satisfies 
+
+|¯Λj0,n | ⩽ |¯Λj0 | 2−l( n)d ⩽ λ, 
+
+since l( n) = j0.22 Decomposition of regret. We have a decomposition of regret as: 
+
+Reg T (f ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) − ℓt( ˆfT ′,t (xt)) 
+
+| {z }
+
+> =: R1
+
++
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆfT ′,t (xt)) − ℓt(f (xt)) 
+
+| {z }
+
+> =: R2
+
+, (36) 
+
+R1 is the regret related to the estimation error of the expert-aggregation algorithm compared to some oracle partition P(T ′) associated to T ′, i.e. the error the algorithm commits while aiming the oracle partition P(T ′). On the other hand, R2 is related to the error of the model predicting over subregions in P(T ′), against some function f ∈ Bspq and corresponds to the (localised) regret discussed in Theorem 1. 
+
+Step 1: Upper-bounding R2 as local regrets. Recall that P(T ′) form a partition of X . Hence, for any xt ∈ X , the prediction at time t is ˆfT ′,t (xt) = [ ˆfj0,n, an,t (xt)] B with n ∈ N (T ′) the unique node such that xt ∈ X n at time t. Then, R2 can be written as follows: 
+
+R2 =
+
+> T
+
+X
+
+> t=1
+
+X 
+
+> n∈L (T′)
+
+(ℓt( ˆfT ′,t (xt)) − ℓt(f (xt))) 1xt∈X n
+
+= X 
+
+> n∈L (T′)
+
+X
+
+> t∈Tn
+
+ℓt([ ˆfn, an,t (xt)] B ) − ℓt(f (xt)) 
+
+⩽ X 
+
+> n∈L (T′)
+
+X
+
+> t∈Tn
+
+ℓt( ˆfn, an,t (xt)) − ℓt(f (xt)) , (37) where we set Tn = {1 ⩽ t ⩽ T : xt ∈ X n}, Xn ⊂ X , n ∈ L (T ′) and (37) is because [ ˆfn, an,t ]B ⩽ ˆfn, an,t 
+
+and ℓt is convex and has minimum in [−B, B ] with B ⩾ ∥f ∥∞.The decomposition in (37) represents a sum of local error approximations of the function f over the partition P(T ′), using predictors ˆfn, an , n ∈ L (T ′). Recall that for every n ∈ L (T ′), ˆfn, an is a prediction function associated to a wavelet decomposition (3) , where the scaling coefficients start at 
+
+an over Xn and with j0 = l( n). In proof of Theorem 1 (Appendix A) we showed that any wavelet decomposition adapts to any regularity via ∥f ∥Bspq , s of f . Thus, the approximation error of ˆfj0,n, an
+
+with respect to f remains similar to that in (27) , but now with regard to a Besov function with local smoothness sn and norm ∥f ∥sn := ∥f ∥Bsn pq (Xn) over Xn - see (10) . Specifically, from (37) , (23) , (27) ,we get (without applying Hölder’s inequality on the scaling coefficients): 
+
+R2 ⩽ X 
+
+> n∈L (T′)
+
+"
+
+G∥ϕ∥∞
+
+X 
+
+> k∈¯Λj0,n
+
+|αj0,k − an,k | C1
+
+p|Tn| + C22 l( n)d
+
+> 2
+
+
+
++
+
+> l( n)+ J∗
+> n
+
+X
+
+> j=l( n)
+
+λ∥βj ∥p2dj ( 12 − 1  
+
+> p)+
+
+ C1
+
+qP
+
+> k∈Λj,n
+
+PTt=1 |gj,k,t |2 + C2G∥ψ∥∞2 jd  
+
+> 2
+
+2dj (1 − 1 
+
+> p)
+
+| {z }
+
+> estimation error on wavelet coefficients as in (23)
+
++ 2 −(l( n)+ J∗  
+
+> n)( sn−dp)
+
+|Λ∗
+
+> n
+
+|( 12 − 1 
+
+> p)+
+
+| {z }
+
+> estimation error on nonlinear wavelet coefficients
+
++ C5G∥f ∥sn
+
+ 2−(l( n)+ J∗  
+
+> n)( sn−dp)
+
+|Λ∗
+
+> n
+
+|− 1 
+
+> p
+
+|Tn| + 2 −(l( n)+ Jn)( sn− dp )|Tn|| {z }     
+
+> approximation error (27) over Xnat scale j0+Jn
+
+#
+
+, (38) with C1, C 2 as in Assumption 1 and C5 a constant that can be deduced from (27) and j0 = l( n) for each n ∈ L (T ′). In particular, by definition of an = arg min a∈A l( n) ∥αj0,n − a∥∞, and given that 
+
+Al( n) is a grid with precision εl( n) > 0, one has 
+
+|αj0,k − an,k | ⩽ εl( n)
+
+2 for every k ∈ ¯Λj0,n .
+
+From (38) , one can bound the absolute values of the scaling terms by εl( n)/2 and using |¯Λj0,n | ⩽ λ.For every n ∈ L (T ′), let 
+
+εl( n) = B 2 l( n)d
+
+> 2
+
+√T −1
+
+23 that gives for every n ∈ L (T ′)
+
+X 
+
+> k∈¯Λj0,n
+
+εl( n)
+
+2
+
+ C1
+
+p|Tn| + C22 l( n)d
+
+> 2
+
+ ⩽ λ
+
+2 B C12− l( n)d 
+
+> 2
+
++ C2T − 12
+
+,
+
+where we used p|Tn|/√T ⩽ 1. Then, one can factorize the sum in j and the approximation term by 2−l( n)sn over each n ∈ L (T ′). Finally, applying Hölder’s inequality over the sum in j (see (21) )and following the same optimization steps in J∗
+
+> n
+
+, J n, |Λ∗
+
+> n
+
+| as in Proof of Theorem 1 we get, with M
+
+defined as in (21): 
+
+R2 ⩽ λGM B |L (T ′)| C1 + C2T − 12
+
+
+
++ λGM X 
+
+> n∈L (T′)
+
+Cn∥f ∥sn 2−l( n)sn
+
+(p |Tn| if sn ⩾ d 
+
+> 2
+
+or p < 2
+
+|Tn|1− sn d else , (39) where Cn = Cn(C1, C 2, C 3, s n, ψ, p ) can be deduced from similar calculation as in (30) , (31) and (32) and can include log T dependencies. 
+
+Step 2: Upper-bounding the estimation error R1. R1 is due to the error incurred by sequentially learning the prediction rule ˆfT ′ associated with an oracle pruning T ′ of T , along with the best scaling coefficients (an)n∈L (T ′) selected from the grid (Al( n))n∈L (T ′).Note that at each time t, only a subset of nodes in T are active and output predictions. Specifically, for any time t ⩾ 1, we define in Algorithm 2 the set of active experts at round t as 
+
+Et = {(n, an) : xt ∈ X n}.
+
+Moreover, we assume bounded gradients: for any time t ⩾ 1 and expert e ∈ E ,
+
+|∇ t,e | = ℓ′
+
+> t
+
+( ˆft(xt)) · [ ˆfe,t (xt)] B ⩽ GB, 
+
+which satisfies Assumption 2 with ˜G = BG .Using standard sleeping reduction, one can prove that, for any expert (n, an), n ∈ L (T ′), t ⩾ 1 - see Proof of Theorem 2 in [29] Eq. (31)-(35): 
+
+(ℓt( ˆft(xt)) − ℓt( ˆfn, an,t (xt))) 1xt∈X n ⩽ ℓ′
+
+> t
+
+( ˆft(xt))( ˆft(xt) − ˆfn, an,t (xt)) 1xt∈X n ← by convexity of ℓt
+
+= ( ∇⊤ 
+
+> t
+
+˜wt − ∇ (n, an),t )1xt∈X n (40) 
+
+= ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t . (41) Then, with Tn = {1 ⩽ t ⩽ T : xt ∈ X n}, n ∈ L (T ′):
+
+R1 =
+
+> T
+
+X
+
+> t=1
+
+X 
+
+> n∈L (T′)
+
+(ℓt( ˆft(xt)) − ℓt( ˆfn, an,t (xt)) 1xt∈X n ← {X n, n ∈ L (T ′)} partition of X
+
+⩽ X 
+
+> n∈L (T′)
+> T
+
+X
+
+> t=1
+
+(∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t ) ← by (41) 
+
+⩽ X 
+
+> n∈L (T′)
+
+
+
+C3
+
+q
+
+log  |E| qPTt=1 
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t )2 + C4 ˜G
+
+
+
+← by Assumption 2= C4BG |L (T ′)| + C3
+
+q
+
+log  |E|  X 
+
+> n∈L (T′)
+
+s X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t )2, (42) where the last equality holds because for any n ∈ L (T ′), ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t = 0 if xt̸ ∈ X n and 
+
+˜G = BG .The proof goes on with two different cases depending on the losses’ convex properties: • Case 1: (ℓt)1⩽t⩽T convex. 
+
+Observe that at any time t ∈ [T ], ∥∇ t∥∞ ⩽ ˜G and ∥wt∥1 = 1 , which gives |∇ ⊤ 
+
+> t
+
+wt| ⩽ ˜G = BG .Then, from (42) 
+
+R1 ⩽ C4BG |L (T ′)| + 2 C3
+
+q
+
+log  |E| BG X 
+
+> n∈L (T′)
+
+p|Tn| (43) 24 In case of convex losses, we finally have by (36), (39) and (43): 
+
+Reg T (f ) ⩽ 2C3BG 
+
+q
+
+log  |E|  X 
+
+> n∈L (T′)
+
+p|Tn| + λGBM |L (T ′)| C1 + C2T − 12
+
+
+
++ λGM X 
+
+> n∈L (T′)
+
+Cn∥f ∥sn 2−l( n)sn
+
+(p |Tn| if sn ⩾ d 
+
+> 2
+
+or p < 2,
+
+|Tn|1− sn d else , (44) where |E| ⩽ |N (T )| 2∥ϕ∥1T 12
+
+λ since for every n ∈ T one has |¯Λj0,n | ⩽ λ and 
+
+|A l( n)| = ⌈2B∥ϕ∥1/ε l( n)⌉ = ⌈2∥ϕ∥1T 12 ⌉
+
+by the choice of the precision εl( n) = B2− l( n)d 
+
+> 2
+
+T − 12 . In particular, the grids have a number of points that does not grow exponentially with T , making the construction computationally feasible. Finally, since (44) holds for all pruning T ′ of our main tree T , one can take the infimum over all pruning to get the desired upper-bound. • Case 2: (ℓt)1⩽t⩽T η-exp-concave. 
+
+If the sequence of loss functions (ℓt) is η-exp-concave for some η > 0, then thanks to [ 24 ,Lemma 4.3] we have for any 0 < μ ⩽ 12 min { 1˜G , η } and all t ⩾ 1, n ∈ L (T ′), using (41): 
+
+(ℓt( ˆft(xt)) − ℓt( ˆfn, an,t (xt))) 1xt∈X n ⩽ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t − μ
+
+2
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t 
+
+2 (45) Summing (45) over t ∈ [T ] and n ∈ L (T ′), we get: 
+
+R1 ⩽ X 
+
+> n∈L (T′)
+
+X
+
+> t∈Tn
+
+∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t − μ
+
+2
+
+X 
+
+> n∈L (T′)
+
+X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t 
+
+2
+
+⩽ C4 ˜G|L (T ′)| + ˜C3
+
+X 
+
+> n∈L (T′)
+
+s X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t )2 − μ
+
+2
+
+X 
+
+> n∈L (T′)
+
+X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t 
+
+2 ,
+
+(46) where last inequality is by (42) and we set ˜C3 = C3
+
+q
+
+log  |E|  and ˜G = BG . Young’s inequality gives, for any ν > 0, the following upper-bound: 
+
+s X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t )2 ⩽ 12ν + ν
+
+2
+
+X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t )2 . (47) Finally, plugging (47) with ν = μ/ ˜C3 > 0 in (46), we get 
+
+R1 ⩽ C4BG |L (T ′)| + ˜C3
+
+X 
+
+> n∈L (T′)
+
+˜C3
+
+2μ + μ
+
+2 ˜C3
+
+X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t )2
+
+!
+
+− μ
+
+2
+
+X 
+
+> n∈L (T′)
+
+X
+
+> t∈Tn
+
+ ∇⊤ 
+
+> t
+
+wt − ∇ (n, an),t 
+
+2
+
+= C23 log  |E| 
+
+2μ + C4BG 
+
+!
+
+|L (T ′)|, (48) again with |E| ⩽ |N (T )| 2∥ϕ∥1T 12
+
+λ. Then, one can deduce the final bound from equations (36) ,(39) and (48) and taking the infimum over the prunings T ′.
+
+Worst case regret bound. Note that since we assume that ∥f ∥∞ ⩽ B, and that all local predictors 
+
+ˆfe, e ∈ E in Algorithm 2 are clipped in [−B, B ], we first have for any x ∈ X ,
+
+| ˆft(x)| = X
+
+> e∈E t
+
+we,t |[ ˆfe,t (x)] B | ⩽ B X
+
+> e∈E t
+
+we,t = B. 
+
+25 Thus, 
+
+Reg T (f ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt( ˆft(xt)) − ℓt(f (xt)) 
+
+⩽
+
+> T
+
+X
+
+> t=1
+
+G| ˆft(xt) − f (xt)| ← ℓt is G-Lipschitz 
+
+⩽ G
+
+> T
+
+X
+
+> t=1
+
+| ˆft(xt)| + |f (xt)|
+
+= 2 BGT (49) We now restate a complete version of Theorem 2 from the main text and provide its proof below. 
+
+Theorem 4. Let T ⩾ 1, 1 ⩽ p, q ⩽ ∞, s > dp . Let f ∈ Bspq and B ⩾ ∥f ∥∞. Let T ′ be any pruning of T ,together with a collection of local smoothness indices (sn)n∈L (T ′) defined as in (10) and local norms 
+
+∥f ∥sn . Then, under the same assumptions of Theorem 1 and Assumption 2, Algorithm 2 satisfies 
+
+RT (f ) ≲ G X 
+
+> n∈L (T′)
+
+
+
+B1− d 
+
+> 2sn
+
+(2 −l( n)sn ∥f ∥sn ) d
+
+> 2sn
+
+p|Tn|1sn⩾ d
+
+> 2
+
++  2−l( n)sn ∥f ∥sn |Tn|1− sn d
+
+1sn< d
+
+> 2
+
++ Bp|Tn|
+
+
+
+and moreover we also have, if (ℓt) are exp-concave: 
+
+RT (f ) ≲ G X 
+
+> n∈L (T′)
+
+
+
+B1− 2d
+
+> 2sn +d
+
+ 2−l( n)sn ∥f ∥sn
+
+ 2d 
+
+> 2sn +d
+
+|Tn| d 
+
+> 2sn +d
+
+1sn⩾ d
+
+> 2
+
++ 2 −l( n)sn ∥f ∥sn |Tn|1− sn d 1sn< d
+
+> 2
+
++ B
+
+
+
+,
+
+where ≲ hides logarithmic factors in T , and constants independent of f or T .
+
+Proof of Theorem 4. 
+
+Let T ′ ⊂ T be some pruning of T . We define T ′ 
+
+> ext
+
+the extension of T ′ such that all terminal nodes n ∈L(T ′) is extended with a tree T ′ 
+
+> n
+
+of depth hn ∈ N. In particular, for any n′ ∈ L (T ′
+
+> ext
+
+), l( n′) = l( n) + hn
+
+with n ∈ L (T ′). See Figure 4 for an illustrative example.           
+
+> T′
+> 2
+> T′
+> 5
+> T′
+> 1
+> T′
+> 3T′
+> 4
+> T′
+> 6T′
+> 7
+> T′
+
+Figure 4: Example of an extended tree T ′ 
+
+> ext
+
+= T ′ ∪ T ′ 
+
+> 1
+
+∪ · · · ∪ T ′ 
+
+> 7
+
+, formed by a subtree T ′ (black nodes) and its extensions (colored nodes). Each dotted set corresponds to a subtree T ′
+
+> n
+
+, rooted at a leaf n ∈ L (T ′) and extended to depth hn. The depths vary: h2 = h5 = 0 (black boxes), h1 = h4 = 1 
+
+(orange), h3 = h6 = 2 (blue), and h7 = 3 (green). The leaves of T ′ 
+
+> ext
+
+appear at different levels depending on the values of (hn) and the level l( n) of the leaves n ∈ L (T ′) = {1, 2, 3, 4, 5, 6, 7}.Observe that the total number of leaves in the extended pruning T ′ 
+
+> ext
+
+is 
+
+|L (T ′
+
+> ext
+
+)| = X 
+
+> n∈L (T′)
+
+|L (T ′
+
+> n
+
+)|. (50) 26 Define 
+
+sn := min  
+
+> n′∈L (T′
+> ext )
+
+sn′ , n ∈ N (T ′). (51) Remark also that by definition of the Besov norm in (6) (and via the usual embedding (p, q ) fixed - see, e.g., [ 20 ]), one has for any n ∈ L (T ′), ∥f ∥sn ⩾ ∥f ∥sn′ , n ′ ∈ L (T ′
+
+> ext
+
+). In particular, every tree extension T ′ 
+
+> n
+
+at node n ∈ L (T ′) has |L (T ′
+
+> n
+
+)| = 2 hnd leaves. 
+
+Case (ℓt) convex. Applying Theorem 3 in the convex case on the extended pruning T ′
+
+> ext
+
+, gives 
+
+RT (f ) ⩽ CG X 
+
+> n′∈L (T′
+> ext )
+
+ Bp|Tn′ | + ∥f ∥sn′ · 2−l( n′)sn′ · | Tn′ |rn′  (52) with C some constant that hides log T terms that can change from an inequality to another and rn′ ∈{ 12 , 1 − sn′ 
+
+> d
+
+} is the local rate described in Theorem 3. Note that by (51) one has r′ 
+
+> n
+
+⩽ rn, n ′ ∈ L (T ′
+
+> n
+
+).Recall that for every n′ ∈ L (T ′
+
+> ext
+
+), l( n′) = l( n) + hn for n ∈ L (T ′) and since every leaves in L(T ′
+
+> n
+
+) is partitioning each terminal node n ∈ T ′, one has by Jensen’s inequality: 
+
+X 
+
+> n′∈L (T′
+> ext )
+
+p|Tn′ | = X 
+
+> n∈L (T′)
+
+X 
+
+> n′∈L (T′
+> n)
+
+p|Tn′ | ⩽ X 
+
+> n∈L (T′)
+
+p|L (T ′
+
+> n
+
+)|| Tn|. (53) Then, by (51),(52) and (53) one gets (with rn′ ⩽ rn, n ′ ∈ L (T ′
+
+> n
+
+))
+
+RT (f ) ⩽ CG X 
+
+> n∈L (T′)
+
+X 
+
+> n′∈L (T′
+> n)
+
+ Bp|Tn′ | + ∥f ∥sn 2−(l( n)+ hn)sn |Tn′ |rn 
+
+⩽ CG X 
+
+> n∈L (T′)
+
+ Bp|L (T ′
+
+> n
+
+)|| Tn| + ∥f ∥sn 2−(l( n)+ hn)sn P  
+
+> n′∈L (T′
+> n)
+
+|Tn′ |rn . (54) Further, applying Hölder’s inequality over the sum over n′ ∈ L (T ′
+
+> n
+
+) in (54) with (1 − rn) + rn = 1 
+
+(rn is constant over the sum in n′): 
+
+RT (f ) ⩽ CG X 
+
+> n∈L (T′)
+
+ Bp|L (T ′
+
+> n
+
+)|| Tn| + ∥f ∥sn 2−l( n)sn 2−hnsn |L (T ′
+
+> n
+
+)|1−rn   P   
+
+> n′∈L (T′
+> n)
+
+|Tn′ |rn 
+
+(55) 
+
+= CG X 
+
+> n∈L (T′)
+
+ Bp|Tn|2hnd + ∥f ∥sn 2−l( n)sn 2dh n(1 − sn d −rn)|Tn|rn 
+
+where we used 
+
+X 
+
+> n′∈L (T′
+> n)
+
+|Tn′ | = |Tn| and 2−hnsn |L (T ′
+
+> n
+
+)|1−rn = 2 −hnsn (2 dh n )1−rn = 2 dh n(1 − sn d −rn).
+
+Define the local regrets under the sum over n ∈ N (T ′) by 
+
+Rn(f ) := Bp|Tn|2hnd + ∥f ∥sn 2−l( n)sn 2dh n(1 − sn d −rn)|Tn|rn ,
+
+that we now want to optimize in hn ∈ N. This leads to two different cases depending on the values of the local exponent rn, defined in Theorem 3. • Case sn ⩾ d 
+
+> 2
+
+or p < 2: rn = 12
+
+The local regret grows as: 
+
+Bp|Tn|2hnd + ∥f ∥sn 2−l( n)sn 2−hn(sn− d 
+
+> 2)
+
+p|Tn|.
+
+Therefore, setting hn = max 0,  1 
+
+> sn
+
+log 2
+
+ 2−l( n)sn ∥f ∥sn B−1 this entails 
+
+Rn(f ) ⩽ C max {B, B 1− d 
+
+> 2sn
+
+(2 −l( n)sn ∥f ∥sn ) d 
+
+> 2sn
+
+}p|Tn|
+
+• Case sn < d 
+
+> 2
+
+: rn = 1 − sn
+
+> d
+
+The local regret grows as: 
+
+Rn(f ) = Bp|Tn|2hnd + ∥f ∥sn 2−l( n)sn |Tn|1− sn d ,
+
+and the best choice is hn = 0 in this case that entails 
+
+Rn(f ) = Bp|Tn| + ∥f ∥sn 2−l( n)sn |Tn|1− sn d
+
+27 Finally, in the case (ℓt) are convex losses, we deduce that the regret is upper bounded as 
+
+RT (f ) ⩽ CG X 
+
+> n∈L (T′)
+
+Rn(f )
+
+⩽ CG X 
+
+> n∈L (T′)
+
+  max {B, B 1− d 
+
+> 2sn
+
+(2 −l( n)sn ∥f ∥sn ) d 
+
+> 2sn
+
+}p|Tn|1sn⩾ d
+
+> 2
+
++  B√Tn + 2 −l( n)sn ∥f ∥sn |Tn|1− sn d
+
+1sn< d
+
+> 2
+
+
+
+(56) 
+
+Case (ℓt) exp-concave. Applying Theorem 3 in the exp-concave case on the extended pruning T ′
+
+> ext
+
+,gives 
+
+RT (f ) ⩽ CG 
+
+
+
+B|L (T ′
+
+> ext
+
+)| + X 
+
+> n′∈L (T′
+> ext )
+
+∥f ∥sn′ · 2−l( n′)sn′ · | Tn′ |rn′
+
+
+
+(57) with C some constant that hides log T terms and that can change from an inequality to another and 
+
+rn′ ∈ { 12 , 1 − sn′ 
+
+> d
+
+} is the local rate described in Theorem 3. Note that |L (T ′
+
+> ext
+
+)| = P  
+
+> n∈L (T′)
+
+|L (T ′
+
+> n
+
+)|
+
+and again for every n′ ∈ L (T ′
+
+> ext
+
+), l( n′) = l( n) + hn for n ∈ L (T ′) and rn′ ⩽ rn, n ′ ∈ L (T ′
+
+> n
+
+). We get 
+
+RT (f ) ⩽ CG X 
+
+> n∈L (T′)
+
+
+
+B|L (T ′
+
+> n
+
+)| + ∥f ∥sn 2−(l( n)+ hn)sn P  
+
+> n′∈L (T′
+> n)
+
+|Tn′ |rn
+
+
+
+. (58) Using |L (T ′
+
+> n
+
+)| = 2 hnd and applying Hölder’s inequality over the sum over n′ ∈ L (T ′
+
+> n
+
+) in (58) with 
+
+(1 − rn) + rn = 1 as in (55) entails 
+
+RT (f ) ⩽ CG X 
+
+> n∈L (T′)
+
+ B2hnd + ∥f ∥sn 2−l( n)sn 2dh n(1 − sn d −rn)|Tn|rn .
+
+Again, we define the local regrets under the sum over n ∈ N (T ′) as 
+
+Rn(f ) := B2hnd + ∥f ∥sn 2−l( n)sn 2dh n(1 − sn d −rn)|Tn|rn ,
+
+that we optimize in hn ∈ N. The cases are the same as for the convex case, according to the values of the local exponent rn, defined in Theorem 3. • Case sn ⩾ d 
+
+> 2
+
+or p < 2: rn = 12
+
+The local regret grows as 
+
+Rn(f ) = B2hnd + ∥f ∥sn 2−l( n)sn 2−hn(sn− d 
+
+> 2)
+
+p|Tn|.
+
+Afterwards, optimizing in hn such that 
+
+B2hnd = 2 −l( n)sn ∥f ∥sn 2−hn(sn− d 
+
+> 2)
+
+p|Tn|
+
+leads to hn = max 0,  12sn+d log 2
+
+ (B−12−l( n)sn ∥f ∥sn )2|Tn| , that entails 
+
+Rn(f ) ⩽ C max 
+
+
+
+B, B 1− 2d
+
+> 2sn +d
+
+ 2−l( n)sn ∥f ∥sn
+
+ 2d 
+
+> 2sn +d
+
+|Tn| d
+
+> 2sn +d
+
+
+
+• Case sn < d 
+
+> 2
+
+: rn = 1 − sn
+
+> d
+
+The local regret grows as 
+
+Rn(f ) = B2hnd + 2 −l( n)sn ∥f ∥sn |Tn|1− sn d ,
+
+and the best choice is hn = 0 which entails 
+
+Rn(f ) = B + 2 −l( n)sn ∥f ∥sn |Tn|1− sn d ,
+
+Finally, with (ℓt) exp-concave losses, the regret is bounded as 
+
+RT (f ) ⩽ CG X 
+
+> n∈L (T′)
+
+Rn(f )
+
+⩽ CG X 
+
+> n∈L (T′)
+
+
+
+max B, B 1− 2d
+
+> 2sn +d
+
+ 2−l( n)sn ∥f ∥sn
+
+ 2d 
+
+> 2sn +d
+
+|Tn| d 
+
+> 2sn +d
+
+1sn⩾ d
+
+> 2
+
+(59) 
+
++  B + 2 −l( n)sn ∥f ∥sn |Tn|1− sn d
+
+1sn< d
+
+> 2
+
+
+
+. (60) 
+
+Remark. Taking T ′ as the pruning associated to the root, this entails O(T d 
+
+> 2s+d
+
+) = O(T 1− 2s 
+
+> 2s+d
+
+) which is minimax-optimal for this case - see [35]. 28 D Discussion on the unbounded case: s < dp
+
+As in most previous works in statistical learning, this paper primarily considers competitive functions 
+
+f ∈ Bspq (X ) with s > dp , which ensures that f ∈ L∞(X ) with ∥f ∥∞ < ∞.A natural question is whether our Algorithm 1 remains competitive - that is, achieves sublinear regret - in the more challenging regime where s < dp . Indeed, in the case s < dp , prediction rules may no longer be bounded in sup-norm. For example, the function f (x) = x−1/21x∈(0 ,1] belongs to Lp([0 , 1]) 
+
+for p < 2 but not to L∞([0 , 1]) , illustrating the type of singularity permitted when s < dp . In such cases, the boundedness condition ∥fJ − f ∥∞ < ∞ required in (24) may fail, where fJ denotes the truncated J-level wavelet expansion defined in (2) . Nevertheless, we discuss how Algorithm 1 can still offer performance guarantees in certain settings, particularly when the input data {xt} are well distributed over X .Indeed, by Hölder’s inequality, (24) can be upper bounded as: 
+
+> T
+
+X
+
+> t=1
+
+|fJ (xt) − f (xt)| ⩽ T
+
+ 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+|fJ (xt) − f (xt)|p
+
+ 1
+
+> p
+
+, (61) where the sum on the right-hand side defines an empirical ℓp semi-metric over the input data {xt}Tt=1 ,denoted: 
+
+dpT (fJ , f ) := 
+
+ 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+|fJ (xt) − f (xt)|p
+
+ 1
+
+> p
+
+.
+
+The upper bound (61) suggests that tighter control may be obtained by focusing on the empirical norm dpT (fJ , f ) rather than on the sup-norm, which may not be finite. 
+
+First case: the empirical semi-norm dpT approximates the Lp norm. Assume that the semi-norm 
+
+dpT (fJ , f ) is close to the true Lp norm ∥fJ − f ∥Lp . Such an equivalence is expected when the data 
+
+{xt} are well distributed over X , for example when xt ∼ U (X ) i.i.d., or when xt are equally spaced, such as xt = tT for t = 1 , . . . , T . By the law of large numbers or standard concentration arguments, one typically has dpT (fJ , f ) ≈ ∥ fJ − f ∥Lp in expectation or with high probability. Classical approximation results (e.g., [ 20 , Prop. 4.3.8]) then yield ∥fJ − f ∥Lp ≲ 2−Js for f ∈
+
+Bspq (X ) ⊂ Lp(X ). Optimizing over J to balance estimation and approximation regrets leads to a regret bound of O(T 1− sd ) - see the proof of Theorem A, last case β < 0. This regret is sublinear as soon as s > 0 and becomes linear when s = 0 , as is typical for f ∈ Lp.Nevertheless, minimax analysis from [ 34 , 35 ] shows that a regret of O(T 1−1/p) is possible, which improves upon our bound whenever s < dp . Whether a constructive algorithm achieving this minimax regret exists in the regime s < dp remains, to the best of our knowledge, an open and interesting question. 
+
+Second case: the semi-norm dpT fails to approximate the Lp norm. If the data points {xt} are concentrated near singularities (e.g., near 0 in the example above), the empirical norm dpT (fJ , f ) can differ significantly from the true norm ∥fJ − f ∥Lp , making the latter less informative in practice. In such adversarial or non-uniform settings, it seems preferable to control the empirical norm dpT (fJ , f )
+
+directly, as it more accurately reflects the distribution of the observed data. Addressing this challenge may require adaptive sampling strategies, localization techniques, or alternative norms that account for the geometry or density of the input distribution. 29 E Review of multi-resolution analysis 
+
+In this section we present some of the basic ingredients of wavelet theory. Let’s assume we have a multivariate function f : Rd → R.
+
+Definition 1 (Scaling function) . We say that a function ϕ ∈ L2(Rd) is the scaling function of a multiresolution analysis (MRA) if it satisfies the following conditions: 1. the family 
+
+{x 7 → ϕ(x − k) = Qdi=1 ϕ(xi − ni) : k ∈ Zd}
+
+is an ortho-normal basis, that is ⟨ϕ(· − k), ϕ (· − n)⟩ = δk,n ;2. the linear spaces 
+
+V0 = f = P 
+
+> k∈Zd
+
+ck ϕ(· − k), (ck ) : P 
+
+> k∈Zd
+
+c2 
+
+> k
+
+< ∞ , . . . , V j = {h = f (2 j ·) : f ∈ V0}, . . . , 
+
+are nested, i.e. Vj−1 ⊂ Vj for all j ⩾ 0.
+
+We note that under these two conditions, it is immediate that the functions 
+
+{ϕj,k = 2 dj/ 2ϕ(2 j · − k) , k ∈ Zd}
+
+form an ortho-normal basis of the space Vj , j ∈ N. One can define the projection kernel of f over Vj
+
+(from here we also say kernel projection at scale or level j) as 
+
+Kj f (x) := X
+
+> k∈Zd
+
+⟨f, ϕ j,k ⟩ϕj,k (x) = 
+
+Z
+
+> Rd
+
+Kj (x, y )f (y) dy , (62) with Kj (x, y ) = P 
+
+> n∈Zd
+
+ϕj,k (x)ϕj,k (y) = P 
+
+> k∈Zd
+
+2dj ϕ(2 j x − n)ϕ(2 j y − n) (which is not of convolution type) but has comparable approximation properties that we detail after. 
+
+Incremental construction via wavelets. Since the spaces (Vj ) are nested, one can define nontrivial subspaces as the orthogonal complements Wj := Vj+1 ⊖ Vj . We can then telescope these orthogonal complements to see that each space Vj , j ⩾ j0 can be written as 
+
+Vj = Vj0 ⊕
+
+ j
+
+M
+
+> l=j0
+
+Wl
+
+
+
+for any j0 ∈ N.
+
+Let ψ be a mother wavelet corresponding to the scaling function ϕ. The associated wavelets are defined as follows: for E = {0, 1}d \ { 0}, we set 
+
+ψε(x) = ψε1 (x1) · · · ψεd (xd), ψεj,n = 2 jd/ 2ψε(2 j x − n), j ⩾ 0, n ∈ Zd,
+
+where ψ0 = ϕ, ψ1 = ψ. For each j, these functions form an orthonormal basis of Wj .Analogously, one can now observe that for every j ⩾ j0,
+
+Kj f = Kj0 f +
+
+> j−1
+
+X
+
+> l=j0
+
+(Kl+1 f − Klf ) , (63) where each increment in the sum can be written as 
+
+Kj+1 f − Kj f = X
+
+> k
+
+X
+
+> ε
+
+⟨f, ψ εj,k ⟩ψεj,k ,
+
+where for each j ⩾ 1, the set n
+
+ψej,k = 2 dj/ 2ψε(2 j x − k) : ε ∈ E, k ∈ Zdo
+
+forms a basis of Wj for some wavelet ψ, with E := {0, 1}d \ { 0}. For simplicity, we include the index 
+
+ε in the multi-index k. Finally, the set {ϕj0,k , ψ j,k } constitutes a wavelet basis .For our results we will not be needing a particular wavelet basis, but any that satisfies the following key properties. 
+
+Definition 2 (S-regular wavelet basis) . Let S ∈ N∗ and j0 = 0 . The multiresolution wavelet basis 
+
+{ϕk = ϕ(· − k), ψ j,k = 2 jd/ 2ψ(2 d · − k)}
+
+of L2(Rd) with associated projection kernel K(x, y ) = P 
+
+> k
+
+ϕk (x)ϕk (y) is said to be S-regular if the following conditions are satisfied: 
+
+30 (D.1) Vanishing moments and normalization: 
+
+R 
+
+> Rd
+
+ψ(x) xα dx = 0 for all multi-indices α with |α| < S, R 
+
+> Rd
+
+ϕ(x) dx = 1 .
+
+Moreover, for all v ∈ Rd and α with 1 ⩽ |α| < S ,
+
+R 
+
+> Rd
+
+K(v, v + u) du = 1 , R 
+
+> Rd
+
+K(v, v + u) uα du = 0 .
+
+(D.2) Bounded basis sums: 
+
+Mϕ := sup x∈Rd
+
+P 
+
+> k
+
+|ϕ(x − k)| < ∞, Mψ := sup x∈Rd
+
+P 
+
+> k
+
+|ψ(x − k)| < ∞.
+
+(D.3) Kernel decay: For κ(x, y ) equal to K(x, y ) or P 
+
+> k
+
+ψ(x − k)ψ(y − k), there exist constants 
+
+c1, c 2 > 0 and a bounded integrable function ϕ : [0 , ∞) → R such that 
+
+sup v∈Rd |κ(v, v − u)| ⩽ c1ϕ(c2∥u∥), CS := R 
+
+> Rd
+
+∥u∥S ϕ(∥u∥) du < ∞.
+
+Case of a bounded compact X ⊂ Rd. The above definition applies to wavelet systems on Rd, but can be extended to compact domains X ⊂ Rd using standard boundary-corrected or periodized con-structions. Notable examples include the compactly supported orthonormal wavelets of Daubechies [11 , Chapter 7 ] and the biorthogonal, symmetric, and highly regular wavelet bases of Cohen et al. [9] . Just as in the case of Rd, we can build a tensor-product wavelet basis {ϕk , ψ j,k }, for example using periodic or boundary-corrected Daubechies wavelets. At the j-th level, there are now O(2 jd )
+
+wavelets ψj,k , which we index by k ∈ Λj , the set of indices corresponding to wavelets at level j. This coincides with the expansion used in Equation (2). 
+
+Control of wavelet coefficients and characterization of Hölder spaces. Remarkably, the norm of the space C s(X ) has a useful characterisation by wavelet bases - see [ 31 ] or [ 20 ] for a review on the characterisation of smoothness according to wavelet basis. 
+
+Proposition 1. Let s > 0 we thus have the following: 
+
+f ∈ C s(X ) = ⇒ sup 
+
+> k
+
+|⟨ f, ψ j,k ⟩| ⩽ C|f |s2−j(s+d/ 2) , (64) 
+
+where C = C(ψ, S ) is some constant that depends only on the ( S-regular) wavelet basis. 
+
+Proof. Let ψ be a compactly supported wavelet in Rd with S vanishing moments, i.e., 
+
+Z
+
+> Rd
+
+xβ ψ(x) dx = 0 for all multi-indices β with |β| < S. 
+
+Assume that f ∈ C s(Rd) for some s > 0, with s < S , so the wavelet vanishing moments match the regularity of f . Let ψj,k (x) := 2 jd/ 2ψ(2 j x − k) be the wavelet at scale j and location k ∈ Zd. The wavelet coefficient is given by 
+
+cj,k := ⟨f, ψ j,k ⟩ =
+
+Z
+
+> Rd
+
+f (x)ψj,k (x) dx. 
+
+We define the center of the wavelet support as xj,k := 2 −j k and write a Taylor expansion of f at xj,k :
+
+f (x) = Pxj,k (x) + Rxj,k (x),
+
+where Pxj,k is the Taylor polynomial of degree ⌊s⌋ and |Rxj,k (x)| ⩽ |f |s∥x − xj,k ∥s 
+
+> ∞
+
+for x near xj,k 
+
+and where |f |s = sup |m|=⌊s⌋ ∥Dmf ∥s−| m|.Using the vanishing moments of ψ, we have 
+
+cj,k =
+
+Z
+
+> Rd
+
+Rxj,k (x)ψj,k (x) dx. 
+
+Now perform the change of variables u = 2 j x − k, so x = 2 −j u + xj,k and dx = 2 −jd du :
+
+cj,k = 2 −jd/ 2
+
+Z
+
+> Rd
+
+Rxj,k (xj,k + 2 −j u)ψ(u) du. 
+
+By the Hölder remainder estimate, we have 
+
+|Rxj,k (xj,k + 2 −j u)| ⩽ |f |s∥2−j u∥s = |f |s2−js ∥u∥s.
+
+Therefore, 
+
+|cj,k | ⩽ |f |s2−j(s+d/ 2) 
+
+Z
+
+> Rd
+
+|ψ(u)|∥ u∥s du, 
+
+and since ψ is compactly supported and smooth, the integral is finite. Hence, defining C(ψ, s ) = R 
+
+> Rd
+
+|ψ(u)|∥ u∥s du < ∞ we get the result. 
+
+Remark. The smoothness s of f translates into faster decay of the coefficients given sufficiently (S > s ) regular wavelets. 31 F Summary of the results and comparison to the literature 
+
+Table 2: Regret rates, parameter requirements and time complexity for online regression algorithm with (ℓt)
+
+square losses and s > d/p.                                                                                                                                                                                                                       
+
+> Paper Setting Input Parameters Regret Rate Complexity
+> Vovk [39] f∈Bspq , p, q ⩾1s, p, B ⩾∥f∥∞T1−ss+dexp( T) + T d
+> Vovk [40] f∈Bspq , p ⩾2, q ∈[pp−1, p ]s, p, B ⩾∥f∥∞
+> T1−1
+> p
+> Not feasible
+> f∈Cs, p =∞, s ⩾d
+> 2T1−sd+ε
+> Gaillard and Gerchinovitz [17]
+> f∈Wsp, p ⩾2, s ⩾d
+> 2
+> s, p, B ⩾∥f∥∞
+> T1−2s
+> 2s+dexp( dT )
+> f∈Wsp, p > 2, s < d
+> 2T1−sdexp( dT )
+> f∈Cs, p =∞, d = 1 , s > 12T1−2s
+> 2s+1 poly( T)
+> Liautaud et al. [29] f∈Cs, p =∞, s ∈(1/2,1] , d = 1 B⩾∥f∥∞T1−2s
+> 2s+1 poly( T)
+> Zadorozhnyi et al. [42] f∈Wsp, p ⩾2, s ⩾d
+> 2s, p T1−2s
+> 2s+d+ε
+> poly( T)df∈Wsp, p > 2, s < d
+> 2T1−sdp−d/s p−2+ε
+> This work
+> Alg. 1 f∈Bspq , p, q ⩾1, s ⩾d
+> 2or p⩽2S⩾s, ε < s −dp
+> √Tpoly( T)Sd
+> f∈Bspq , p > 2, q ⩾1, s < d
+> 2T1−sd
+> Alg. 2 f∈Bspq , p, q ⩾1, s ⩾d
+> 2or p⩽2S⩾s, ε < s −dp, B ⩾∥f∥∞
+> T1−2s
+> 2s+d
+> poly( T)Sd
+> f∈Bspq , p > 2, q ⩾1, s < d
+> 2T1−sd
+> Minimax rates f∈Bspq , p, q ⩾1, s ⩾d
+> 2Non constructive T1−2s
+> 2s+d
+> Non constructive Rakhlin and Sridharan [34, 35] f∈Bspq , p > 2, q ⩾1, s < d
+> 2T1−sd
+
+Comparison to Vovk [40] . Vovk [40] provide a general analysis for prediction in Banach spaces, focusing on the regime s > d/p. They achieve regret rates of O(T 1−1/p) for certain Besov spaces Bspq 
+
+with p ⩾ 2 and q ∈ [p/(p−1) , p ]. These rates are independent of the smoothness parameter s, except in the case p = ∞, where they obtain O(T 1− sd ). However, this remains suboptimal in their setting with square loss. In contrast, our analysis yields the minimax-optimal rate O(T 1− 2s 
+
+> 2s+d
+
+) over a broader class of Besov spaces Bspq with arbitrary p, q ∈ [1 , ∞] and s > d/p.
+
+Comparison to Vovk [39] . Vovk [39] investigates prediction under general metric entropy con-ditions, proposing algorithms that compete with a reference class of functions in terms of covering numbers. While their approach is highly general and applies to a broad range of normed spaces, the regret bounds they derive, of order O(T 1− ss+d ), still do not match the minimax-optimal rates known for functions in Bspq .
+
+Comparison to Zadorozhnyi et al. [42] . Their approach focuses on Sobolev spaces W sp (X ) with 
+
+p ⩾ 2 and s > dp , and they obtain suboptimal rates, in the regime s < d 
+
+> 2
+
+, of O(T 1− sd · p−d/s p−2 +ε), for arbitrarily small ε. In comparison, our rates O(T 1− 2s 
+
+> 2s+d
+
+) are minimax-optimal over a broader class of Besov spaces Bspq with arbitrary s, p, q satisfying s > dp , which include the Sobolev balls considered in their work. 
+
+Computational complexity. Most existing work in online nonparametric regression over Besov spaces (including Sobolev spaces), such as Rakhlin and Sridharan [34 , 35] , Vovk [39 , 40] , does not provide efficient (i.e., polynomial-time) algorithms. The work by Rakhlin and Sridharan [34 , 35] offers a minimax-optimal analysis, but does not yield constructive procedures - computing the offset Rademacher complexity, as required by their method, is numerically infeasible in practice. The approach of using the Exponentiated Weighted Average (EWA) algorithm in nonparametric settings, as proposed by Vovk [39] , suffers from both suboptimal regret rates and prohibitive computational complexity, since it requires updating the weights of each expert in a covering net, leading to a total cost of O(exp( T )) . Vovk [40] introduce the defensive forecasting approach, which also avoids efficient implementation as it relies on the so-called Banach feature map - a representation that is typically inaccessible or intractable in practice. The Chaining EWA forecaster of Gaillard and Gerchinovitz [17] achieves optimal regret bounds in the online nonparametric setting. However, its algorithm is provably polynomial-time only in the case p = ∞ and d = 1 ; in general dimensions and p, its direct implementation requires O(exp( dT )) operations. Zadorozhnyi et al. [42] propose an efficient algorithm with total computational complexity of order O(T 3 + dT 2). We note that their algorithm has a linear cost in d, making it particularly suitable for high-dimensional settings with smooth competitors in W sp (X ) (with s > d 
+
+> 2
+
+). 32 Finally, our algorithms are both optimal and efficient, with computational costs (after T rounds) of 
+
+O(T ×J ×Sd) = O
+
+
+
+T Sdε log 2(T )Sd
+
+
+
+and O(T ×|A| λ ×J0 ×J ×Sd) = O
+
+
+
+T 1+ λ 
+
+> 2
+
+S2
+
+d2ε2 log 2(T )2Sd
+
+
+
+for Algorithm 1 and Algorithm 2 respectively (taking a partitioning tree of maximum depth J0 =
+
+⌈ Sdε log 2 T ⌉). 
+
+G Besov embeddings in usual functional spaces 
+
+We refer to [ 8 , 13 , 20 ] for precise statements of the classical embedding theorems. For convenience, we recall some of the most useful embeddings in Table 3. 
+
+Table 3: Classical embeddings of Besov spaces Bspq 
+
+Condition on (s, p, q ) Target Space Embedding Type 
+
+s > dp L∞ Continuous embedding 
+
+s = dp , q = 1 L∞ Critical embedding 
+
+s > d 
+
+ 1 
+
+> p
+
+− 1
+
+> r
+
+
+
+, p < r Lr Continuous embedding 
+
+s1 > s 2 Bs2 
+
+> pq
+
+Continuous embedding 
+
+s = s, p1 ⩽ p2, q1 ⩽ q2 Bsp2q2 Continuous embedding 
+
+Bspp W sp Equivalence (for s ∈ N)
+
+Bs 
+
+> ∞∞
+
+C s Norm equivalence with Hölder 
+
+H Summary of optimal regret in Online Nonparametric Regression 
+
+This section summarizes the results in [ 34 , 35 ] for mimimax-optimal rate of regret in the adversarial online nonparametric regression setting. 
+
+Proposition 2 ([ 35 ]) . Assume the sequential entropy at scale ε > 0 is O(ε−α), α > 0 for the target class function. Optimal regret is then summarized in the table: 
+
+Table 4: Optimal regret for different loss functions 
+
+Loss Function Range on α Optimal Regret Absolute loss α ∈ (0 , 2] T 12
+
+α > 2 T 1− 1
+
+> α
+
+Square loss α ∈ (0 , 2] T 1− 22+ α
+
+α > 2 T 1− 1
+
+> α
+
+In particular, for Hölder functions C s(X ), s > 0, and Bspq (X ), s > dp one has α = ds .
+
+33 NeurIPS Paper Checklist 
+
+1. Claims 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? Answer: [Yes] Justification: We give an overview of the related literature and of our main results. Guidelines: • The answer NA means that the abstract and introduction do not include the claims made in the paper. • The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A No or NA answer to this question will not be perceived well by the reviewers. • The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. • It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 2. Limitations 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? Answer: [Yes] Justification: After providing each result we discuss the limitations with respect to the literature. We discuss the computational efficiency of our algorithm. Guidelines: • The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper. • The authors are encouraged to create a separate "Limitations" section in their paper. • The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be. • The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. • The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon. • The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size. • If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness. • While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an impor-tant role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. 3. Theory assumptions and proofs 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? Answer: [Yes] 34 Justification: All the theorems, formulas, and proofs in the paper are numbered, cross-referenced and well detailed. Guidelines: • The answer NA means that the paper does not include theoretical results. • All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced. • All assumptions should be clearly stated or referenced in the statement of any theorems. • The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. • Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material. • Theorems and Lemmas that the proof relies upon should be properly referenced. 4. Experimental result reproducibility 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-perimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? Answer: [NA] Justification: We only provide graph to illustrate and explain our theoretical results. Guidelines: • The answer NA means that the paper does not include experiments. • If the paper includes experiments, a No answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not. • If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. • Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed. • While NeurIPS does not require releasing code, the conference does require all submis-sions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example (a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm. (b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. 5. Open access to data and code 
+
+Question: Does the paper provide open access to the data and code, with sufficient instruc-tions to faithfully reproduce the main experimental results, as described in supplemental material? 35 Answer: [NA] Justification: We do not have experimental results on data. Guidelines: • The answer NA means that paper does not include experiments requiring code. • Please see the NeurIPS code and data submission guidelines ( https://nips.cc/ public/guides/CodeSubmissionPolicy ) for more details. • While we encourage the release of code and data, we understand that this might not be possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark). • The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines ( https: //nips.cc/public/guides/CodeSubmissionPolicy ) for more details. • The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc. • The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why. • At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable). • Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. 6. Experimental setting/details 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyper-parameters, how they were chosen, type of optimizer, etc.) necessary to understand the results? Answer: [NA] Justification: No experiment. Guidelines: • The answer NA means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in appendix, or as supplemental material. 7. Experiment statistical significance 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? Answer: [NA] Justification: No experiment. Guidelines: • The answer NA means that the paper does not include experiments. • The authors should answer "Yes" if the results are accompanied by error bars, confi-dence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper. • The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions). • The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.) • The assumptions made should be given (e.g., Normally distributed errors). • It should be clear whether the error bar is the standard deviation or the standard error of the mean. 36 • It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis of Normality of errors is not verified. • For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g. negative error rates). • If error bars are reported in tables or plots, The authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. 8. Experiments compute resources 
+
+Question: For each experiment, does the paper provide sufficient information on the com-puter resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? Answer: [NA] Justification: No experiment. Guidelines: • The answer NA means that the paper does not include experiments. • The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage. • The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. • The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). 9. Code of ethics 
+
+Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?Answer: [NA] Justification: Yes and we have reviewed the NeurIPS Code of Ethics. Guidelines: • The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics. • If the authors answer No, they should explain the special circumstances that require a deviation from the Code of Ethics. • The authors should make sure to preserve anonymity (e.g., if there is a special consid-eration due to laws or regulations in their jurisdiction). 10. Broader impacts 
+
+Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? Answer: [NA] Justification: There is no societal impact in the work performed. Guidelines: • The answer NA means that there is no societal impact of the work performed. • If the authors answer NA or No, they should explain why their work has no societal impact or why the paper does not address societal impact. • Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations. • The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to 37 generate deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster. • The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology. • If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). 11. Safeguards 
+
+Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pretrained language models, image generators, or scraped datasets)? Answer: [NA] Justification: The paper poses no such risks as it is a general theoretical work. Guidelines: • The answer NA means that the paper poses no such risks. • Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. • Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images. • We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. 12. Licenses for existing assets 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? Answer: [NA] Justification: The paper does not use existing assets. Guidelines: • The answer NA means that the paper does not use existing assets. • The authors should cite the original paper that produced the code package or dataset. • The authors should state which version of the asset is used and, if possible, include a URL. • The name of the license (e.g., CC-BY 4.0) should be included for each asset. • For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided. • If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets 
+
+has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset. • For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided. • If this information is not available online, the authors are encouraged to reach out to the asset’s creators. 13. New assets 
+
+Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? 38 Answer: [NA] Justification: The paper does not release new assets. Guidelines: • The answer NA means that the paper does not release new assets. • Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. • The paper should discuss whether and how consent was obtained from people whose asset is used. • At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. 14. Crowdsourcing and research with human subjects 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? Answer: [NA] Justification: The paper does not involve crowd-sourcing nor research with human subjects. Guidelines: • The answer NA means that the paper does not involve crowdsourcing nor research with human subjects. • Including this information in the supplemental material is fine, but if the main contribu-tion of the paper involves human subjects, then as much detail as possible should be included in the main paper. • According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 15. Institutional review board (IRB) approvals or equivalent for research with human subjects 
+
+Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? Answer: [NA] Justification: The paper does not involve crowdsourcing nor research with human subjects. Guidelines: • The answer NA means that the paper does not involve crowdsourcing nor research with human subjects. • Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. • We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. • For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. 16. Declaration of LLM usage 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does not impact the core methodology, scientific rigorousness, or originality of the research, declaration is not required. Answer: [NA] 39 Justification: The core methods development in this research involves pencil and paper. No LLM was used to this end. Guidelines: • The answer NA means that the core method development in this research does not involve LLMs as any important, original, or non-standard components. • Please refer to our LLM policy ( https://neurips.cc/Conferences/2025/LLM )for what should or should not be described. 40
