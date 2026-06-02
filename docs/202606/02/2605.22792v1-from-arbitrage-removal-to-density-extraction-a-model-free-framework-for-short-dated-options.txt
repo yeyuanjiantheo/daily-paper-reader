@@ -1,0 +1,5350 @@
+Title: From Arbitrage Removal to Density Extraction: A Model-Free Framework for Short-Dated Options
+
+URL Source: https://arxiv.org/pdf/2605.22792v1
+
+Published Time: Fri, 22 May 2026 01:36:06 GMT
+
+Number of Pages: 84
+
+Markdown Content:
+# From Arbitrage Removal to Density Extraction: A Model-Free Framework for Short-Dated Options 
+
+## Aaron Wizman ∗ Gabriel Turinici † Gregory Merran ‡
+
+## May 2026 
+
+Abstract 
+
+We study risk-neutral density extraction from short-dated option chains. As expiry approaches, option premia decline and bid–ask spreads can be large relative to prices, making mid quotes particularly uninformative. Stale or asynchronous quotes may also generate potential static arbitrages, rendering standard procedures infeasible or unstable. We develop a model-free pipeline that treats bid–ask quotes as the primitive market constraint. The pipeline consists of two steps. First, a procedure called “Arbitrage Removal Iterative Executable Strategy” (ARIES) filters executable static arbitrage at quoted bid and ask prices under market-depth constraints. Second, the “Smooth Entropic Density EXtraction” (SEDEx) then recovers the density through a criterion leveraging smoothness and entropy under bid–ask constraints. We test the pipeline on synthetic Heston panels and short-dated SPX option data, sam-pled from a few hours to one week before expiry. Computation is fast and returns robust densities across various market conditions, including scheduled macroeconomic announcements. As an empirical application, we use the re-covered densities to construct short dated implied-volatility smiles. 
+
+Keywords: risk-neutral density; short-dated options; 0DTE options; static arbi-trage; bid–ask quotes; implied volatility smile. 
+
+JEL Classification: C14, C61, G12, G13. 
+
+> ∗
+
+CEREMADE, Universit´ e Paris Dauphine–PSL, Pl. du Mar´ echal de Lattre de Tassigny, 75016 Paris, France. Email: aaron.wizman@dauphine.psl.eu .
+
+> †
+
+CEREMADE, Universit´ e Paris Dauphine–PSL, Pl. du Mar´ echal de Lattre de Tassigny, 75016 Paris, France. Email: gabriel.turinici@dauphine.fr .
+
+> ‡
+
+DRM–Finance, Universit´ e Paris Dauphine–PSL, Pl. du Mar´ echal de Lattre de Tassigny, 75016 Paris, France. Email: gregory.merran@dauphine.eu .
+
+1
+
+> arXiv:2605.22792v1 [q-fin.CP] 21 May 2026
+
+# 1 Introduction 
+
+The risk-neutral density (hereafter RND) is the market-implied distribution of an asset’s future price. It is a central object in derivatives research, with applications to option pricing, implied-volatility surface construction, tail-risk management (A¨ ıt-Sahalia and Lo, 2000), and the study of market beliefs and preferences (Beber and Brandt, 2006), among others. Recovering the RND from observed option quotes is a nontrivial inverse problem. Market data are discrete and finite in strike coverage, may be noisy or affected by arbitrage violations, and are observed through bid–ask quotes rather than exact prices. The difficulty is most acute for short-dated options, defined here as contracts with at most one week to expiry; we use nDTE to denote contracts expiring exactly 
+
+n days after the trading date. According to market statistics provided by Cboe Global Markets, 1 U.S. listed options averaged approximately 68 .6 million contracts per day in the first quarter of 2026, with 0DTE volume alone reaching 18 .55 million. Contracts expiring within one week now exceed those with longer maturities. The phenomenon is most visible in S&P 500 index options: SPX averaged 4 .9 million contracts per day, with roughly 58% in 0DTE. Originally confined to a handful of index products, short-dated cycles have since spread across asset classes, including single names, rates, metals, crypto-linked products, and selected commodities. They are used by both retail and institutional investors, with applications ranging from short-horizon volatility exposure and intraday hedging to low-premium directional views and event-risk trading. The recent literature on short-dated options highlights the specificity of the very short tenor and motivates studying RND extraction in this regime as a problem of its own. Andersen et al. (2017) show that weekly S&P 500 options carry distinc-tive information about short-horizon volatility and jump risk, and develop a semi-nonparametric procedure tailored to that setting. Todorov and Zhang (2024) exploit the ratio of risk-neutral variance measures from 0DTE and 1DTE S&P 500 options to estimate intraday volatility patterns nonparametrically. Their identification rests on a short-time asymptotic regime in which the stochastic component of volatility cancels. Bandi et al. (2023) develop local-in-time pricing expansions designed for 0DTE options, with closed-form skewness and kurtosis adjustments, and document gains in pricing and hedging. Short-dated options are also where the standard treatment of option data becomes most fragile. As expiry approaches, premia decline, and for deep out-of-the-money contracts the bid–ask spread is of the same order of magnitude as the premium itself. 
+
+> 1We thank Cboe Global Markets for providing the market statistics reported in this paragraph.
+
+2Distinct strikes may then share identical mid quotes, making the corresponding ob-servations uninformative. At very short maturities, the bid–ask interval is therefore the natural primitive market observation. Quoted panels may also contain potential static arbitrage opportunities arising from asynchronous or stale quotes, which can make the subsequent inverse problem infeasible or numerically unstable. These observations motivate our approach whose main goal is to recover risk-neutral densities from short-dated option chains under bid–ask pricing constraints, after filtering executable static arbitrage. Our method has two autonomous com-ponents. First, the “Arbitrage Removal Iterative Executable Strategy” (ARIES) is a filtering procedure that detects and removes static arbitrage opportunities from bid–ask quotes. It operates directly on executable quotes subject to market-depth constraints. When multiple quotes are simultaneously candidates for removal, ARIES selects the one with the smallest available size, a criterion that retains as much mar-ket information as possible. Second, the “Smooth Entropic Density EXtraction” (SEDEx) operates on the cleaned panel. It recovers the RND by maximizing en-tropy and enforcing smoothness under the bid–ask constraints. The two procedures are conceptually independent and can be used separately. When combined, they yield a natural pipeline for short-dated option data. Both operate on a single-maturity option cross-section; the joint treatment of the option surface across maturities lies beyond the scope of this paper. The proposed methodology connects to two parts of the literature. The first concerns no-arbitrage constraints on option panels and the operational treatment of arbitrage in observed data. In this context, Carr and Madan (2005) provide sufficient conditions for the absence of static arbitrage on regular call price grids, expressed through adjacent call-spread, butterfly, and calendar inequalities. Davis and Hobson (2007) extend the analysis to finite option panels. They clarify the distinction between consistency with an arbitrage-free martingale model, model-independent arbitrage, and weak arbitrage. Cousot (2007) is the closest theoretical reference for our setting. He derives necessary inequalities for the absence of arbitrage formulated directly on bid and ask quotes, and shows that under these inequalities there exists a martingale measure whose call prices lie inside the observed intervals. Cohen et al. (2020) formulate arbitrage repair as a linear program. No-arbitrage relations are imposed as hard constraints on a single repaired price vector, while bid– ask spreads enter as soft bounds in the objective. The repaired vector is arbitrage-free by construction, but may lie outside the original bid–ask intervals. ARIES departs from this repair paradigm by filtering executable violations at bid and ask prices, subject to market-depth constraints. The second part is the literature on RND extraction. This literature splits into 3two routes. Price-first and volatility-first methods fit a call price function or implied volatility surface before applying the seminal identity of Breeden and Litzenberger (1978). Examples include parametric volatility-smile smoothing (Shimko, 1993) and nonparametric kernel estimation of the call price function (A¨ ıt-Sahalia and Lo, 1998). The latter highlights the slower convergence of derivatives relative to the estimated function itself, the so-called curse of differentiation. By contrast, density-first meth-ods target the terminal distribution directly. Among density-first methods, parametric and semi-parametric approaches impose structure directly on the terminal distribution. Jarrow and Rudd (1982) approximate the risk-neutral distribution by an expansion around a reference lognormal, with corrections in higher moments. Bahra (1997) represents the RND as a mixture of lognormal components fitted to the observed cross-section. The flexibility of these specifications is controlled by a finite set of parameters rather than by an unrestricted functional class. Parametric models such as Black and Scholes (1973) and Heston (1993) provide a related benchmark in which the RND is induced by a specified risk-neutral dynamic. SEDEx belongs to the class of fully nonparametric density-first methods, which relax these restrictions on the terminal distribution. Among such approaches, Jack-werth and Rubinstein (1996) select terminal probabilities by minimizing a curvature criterion. SEDEx also regularizes the recovered density, but rather includes a first-order smoothness penalty: the L2 norm of its first derivative. This penalty controls local variation in the density and acts as a first-order Tikhonov regularization of the discretized inverse problem. Such regularization is necessary because the pricing operator that maps a high-dimensional vector of terminal probabilities into a smaller set of option-price constraints is rank-deficient by construction (Hansen, 1998). The criterion also includes an entropic component, in the spirit of the maximum-entropy approach of Buchen and Kelly (1996). Entropy is therefore used as a com-plementary selection principle, rather than as the sole objective. Bondarenko (2003) provides another nonparametric route by recovering the RND within a positive con-volution class. A final distinction concerns the treatment of quotes. In most applications, bid–ask intervals are collapsed into mid prices. Rubinstein (1994) is a notable exception: he recovers terminal probabilities under bid–ask constraints on a recombining binomial tree and around a lognormal prior. SEDEx retains this bid–ask-aware formulation, but recovers a continuous density without a tree construction or a prior density. As an empirical application of the recovered densities, we construct implied-volatility smiles and compare them to SVI (Gatheral and Jacquier, 2014). The SVI parametrization has become a standard market reference for its parsimony and 4flexibility, and works well in most standard settings, except for ultra short-dated ex-pirations. This motivates a method specifically designed for the short-dated regime. Against this background, the paper makes two methodological contributions. First, it introduces ARIES, an executable static-arbitrage filter that treats bid–ask quotes as the primitive market constraint. Second, it introduces SEDEx, a model-free RND recovery method based on a hybrid criterion encouraging smoothness and maximizing entropy under bid–ask constraints. We evaluate the resulting pipeline on synthetic and SPX option data, showing that it is fast and stable across contrast-ing market conditions, including scheduled events, and across short-dated horizons from a few hours to one week before expiry. As an empirical application, we use the recovered densities to construct implied-volatility smiles in this short-dated setting. The remainder of the paper is organized as follows. Section 2 introduces the market framework and the two methodologies. Section 3 establishes the theoretical guarantees for ARIES and SEDEx. Section 4 presents the numerical results on syn-thetic and market data, including the implied-volatility smile application. Section 5 concludes. Detailed proofs and additional information are deferred to the appendices and supplementary material. 
+
+# 2 Market Framework and Methodology 
+
+## 2.1 Market Setup 
+
+We consider a market M with no transaction costs that contains N European call options with strikes 0 < K 1 < · · · < K N , all expiring at time T . Their best bid and ask prices at t = 0 are denoted by Cbid  
+
+> i
+
+and Cask  
+
+> i
+
+satisfying Cbid  
+
+> i
+
+≤ Cask  
+
+> i
+
+, with corresponding finite bid and ask sizes Qbid  
+
+> i
+
+and Qask  
+
+> i
+
+. The continuously compounded risk-free rate and dividend yield are r and q, both assumed constant and determin-istic. The underlying asset is denoted by S = ( St)t∈[0 ,T ]. In particular its price at t = 0 is S0; to account for possible dividends distributed before T we discount its price by 
+
+q and thus we can assume that one unit of S costs S0e−qT at time t = 0. Note that we can see S as a call with strike K0 = 0. We formalize the class of portfolios constructible from instruments in M. Aportfolio is defined by a position vector w = ( wK0 , . . . , w KN ) ∈ RN +1 , where wKi
+
+denotes the number of call options held at strike Ki for i = 0 , . . . , N , with K0 = 0 corresponding to the underlying asset. Portfolios are assumed to be static , with positions chosen at time 0 and held until maturity T ; short positions are permitted. 5The resulting terminal payoff is 
+
+VT (w) := 
+
+> N
+
+X
+
+> i=0
+
+wKi (ST − Ki)+. (1) Because options are traded at bid and ask quotes, the time–0 cost of a given net position w depends on its execution. 
+
+Definition 1 (Execution cost at time 0) . For any execution quantities qask , q bid ∈ RN
+
+> +
+
+and an underlying position u ∈ R satisfying the depth constraints 0 ≤ qbid  
+
+> i
+
+≤ Qbid  
+
+> i
+
+, 0 ≤ qask  
+
+> i
+
+≤ Qask  
+
+> i
+
+, i = 1 , . . . , N, (2) we define the associated time–0 execution cost by 
+
+π0(qask , q bid , u ) := 
+
+> N
+
+X
+
+> i=1
+
+ qask  
+
+> i
+
+Cask  
+
+> i
+
+− qbid  
+
+> i
+
+Cbid 
+
+> i
+
+ + u S 0e−qT . (3) 
+
+Remark 2 (Induced net weights) . Any triple ( qask , q bid , u ) induces net weights w =(wK0 , . . . , w KN ) via 
+
+wK0 := u, wKi := qask  
+
+> i
+
+− qbid  
+
+> i
+
+, i = 1 , . . . , N. (4) 
+
+Definition 3 (Time–0 value) . Assume that the net weights satisfy the depth con-straints 
+
+− Qbid  
+
+> i
+
+≤ wKi ≤ Qask  
+
+> i
+
+, i = 1 , . . . , N. (5) We define the time–0 value of the static portfolio w = ( wK0 , . . . , w KN ) by 
+
+V0(w) := wK0 S0e−qT +
+
+> N
+
+X
+
+> i=1
+
+
+
+w+ 
+
+> Ki
+
+Cask  
+
+> i
+
+− w− 
+
+> Ki
+
+Cbid 
+
+> i
+
+
+
+, (6) where x+ = max( x, 0) and x− = max( −x, 0). 
+
+Remark 4 (Minimal-cost implementation) . For a given net position w, the pair of execution quantities ( qask , q bid ) satisfying (4) and (2) is not unique. The value 
+
+V0(w) in Definition 3 corresponds to the least costly implementation in the sense of Definition 1. Equivalently, V0(w) is attained by the canonical choice qask  
+
+> i
+
+=
+
+w+ 
+
+> Ki
+
+and qbid  
+
+> i
+
+= w− 
+
+> Ki
+
+. In particular, any trade at the same strike with qask  
+
+> i
+
+> 0, 
+
+qbid  
+
+> i
+
+> 0, qask  
+
+> i
+
+− qbid  
+
+> i
+
+= wKi , will leave wKi unchanged while increasing the cost by min( qask  
+
+> i
+
+, q bid  
+
+> i
+
+) ( Cask  
+
+> i
+
+− Cbid  
+
+> i
+
+) ≥ 0. 6In the following sections, we employ two option strategies defined as follows. 
+
+Definition 5 (Vertical spread and butterfly on a non-uniform strike grid) .
+
+• Vertical spread. For any indices 0 ≤ i < j ≤ N , the vertical spread with strikes ( Ki, K j ) is the portfolio with weights VS i,j :(VS i,j )Ki = 1 , (VS i,j )Kj = −1, (VS i,j )Kℓ = 0 for ℓ / ∈ { i, j }. (7) Note that the terminal payoff of such a spread is: 
+
+VT (VS i,j ) = ( ST − Ki)+ − (ST − Kj )+ ≥ 0. (8) 
+
+• Butterfly spread. For a, b ∈ { 0, ..., N }, a̸ = b denote 
+
+αa,b := 1
+
+Kb − Ka
+
+. (9) Consider indices 0 ≤ i < j < k ≤ N . The butterfly spread supported on (Ki, K j , K k) is the portfolio with weights BF i,j,k :(BF i,j,k )Ki = αi,j ,
+
+(BF i,j,k )Kj = −(αi,j + αj,k ),
+
+(BF i,j,k )Kk = αj,k ,
+
+(BF i,j,k )Kℓ = 0 for ℓ / ∈ { i, j, k }. (10) Its terminal payoff is 
+
+VT (BF i,j,k ) = αi,j (ST − Ki)+ − (αi,j + αj,k )( ST − Kj )+
+
++ αj,k (ST − Kk)+ ≥ 0. (11) 
+
+## 2.2 Arbitrage Definitions 
+
+We next define the notion of arbitrage for static portfolios built from the instruments available in the market M, see comments in Section 4.3.1 for further motivation. 
+
+Definition 6 (Weak Arbitrage, Strong Arbitrage, No Arbitrage) .
+
+1. Let (Ω , F, P) be a probability space. We say that a static portfolio V (w)together with a cash position c generates a weak arbitrage (with respect to P)if 
+
+V0(w) + c = 0 ,
+
+P   ω ∈ Ω : VT (w)( ω) + ce rT ≥ 0  = 1 ,
+
+P   ω ∈ Ω : VT (w)( ω) + ce rT > 0  > 0.
+
+(12) This notion depends on the choice of the measure P.72. A static portfolio with a cash position c generates a strong arbitrage if 
+
+V0(w) + c = 0 , for all ω ∈ Ω : VT (w)( ω) + ce rT > 0. (13) This yields a sure profit and is therefore an arbitrage under every probability measure on (Ω , F). 3. We say that no-arbitrage holds for the market M if for any probability measure 
+
+P on ( R+, B(R+)) that is absolutely continuous with respect to the Lebesgue measure, no weak arbitrage exists. We also accept the following assumption. 
+
+(Hyp-Spot) The underlying asset can be traded frictionlessly, with zero bid–ask spread and no position limits. Its spot price is consistent with the absence of static arbitrage relative to the option market. (14) 
+
+Remark 7. This standard assumption reflects the fact that spot markets typically dis-play substantially higher liquidity and more efficient price formation than derivatives markets. As a result, potential violations of no-arbitrage conditions are attributed exclusively to the option quotes, which may incorporate genuine inconsistencies or residual data imperfections such as asynchronicity. We formalize this by introducing a fictitious call option with strike K0 = 0 whose bid and ask prices coincide with the discounted forward price: 
+
+Cbid 0 = Cask 0 = e−rT F T 
+
+> 0
+
+, (15) where F T 
+
+> 0
+
+:= S0e(r−q)T denotes the forward price of the underlying asset for maturity 
+
+T .
+
+## 2.3 Methodology 
+
+2.3.1 Optimization Framework for Arbitrage Detection 
+
+This subsection introduces the mathematical framework used to detect arbitrage op-portunities in observed option quotes, excluding those related to the term structure. We formulate the problem as an optimization program over static portfolios. The admissible portfolios must satisfy bid–ask constraints as well as market depth re-strictions. The resulting optimization problem allows us to identify violations of the arbitrage conditions introduced in Definition 6. 8The theoretical analysis is presented in Section 3.1, while the numerical imple-mentation is discussed in Section 4. We consider static portfolios formed from the underlying, the quoted call options, and a cash account accruing at the risk-free rate r. For each strike Ki, let qask 
+
+> i
+
+(respectively qbid  
+
+> i
+
+) denote the number of contracts bought at the ask (respectively sold at the bid), subject to the depth constraints (2). Let u, c ∈ R denote the positions in the underlying and the cash account, respectively. The time–0 execution cost is π0(qask , q bid , u ) as defined in Definition 1, and we impose the zero-cost condition 
+
+π0(qask , q bid , u ) + c = 0 . (16) The induced net weights are wK0 = u and, for i = 1 , . . . , N ,
+
+wKi := qask  
+
+> i
+
+− qbid  
+
+> i
+
+. (17) For a realized terminal spot level s ≥ 0, the total terminal payoff (including cash) is Π( qask , q bid , u, c, s ) := VT (w)( s) + ce rT =
+
+> N
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+)( s − Ki)+ + us + ce rT . (18) We therefore consider the following max–min optimization problem: (P1) max             
+
+> qask , q bid , u, c π0(qask ,q bid ,u ) + c= 0 0≤qbid ≤Qbid ,0≤qask ≤Qask
+
+min  
+
+> s≥0
+
+Π( qask , q bid , u, c, s ).
+
+(19) Although the Problem (19) is formulated in execution variables ( qask , q bid , u, c ), any feasible solution induces a static portfolio w through (17). By Remark 4, an optimal solution necessarily satisfies the canonical implementation qask  
+
+> i
+
+= w+ 
+
+> Ki
+
+and 
+
+qbid  
+
+> i
+
+= w− 
+
+> Ki
+
+, so that the budget constraint π0(qask , q bid , u ) + c = 0 is equivalent to 
+
+V0(w) + c = 0. The value of Problem (19) determines whether an arbitrage opportunity exists among admissible portfolios initiated at zero cost. Depending on the payoff Π across all possible future states s, two distinct cases arise. If the optimal function Π is not identically zero, the strategy constitutes a strong arbitrage when its minimum is strictly positive, and a weak arbitrage when it is null. Conversely, if Π is identically zero, the absence of any arbitrage opportunity is guaranteed. 9In line with the no-arbitrage concept in Definition 6 Item 3, we will eliminate all weak arbitrages upfront via the ARIES procedure detailed in Algorithm 1. ARIES identifies static arbitrage portfolios supported by available market depth by repeatedly solving the executable arbitrage detection problem (34). Each detected arbitrage triggers the removal of the option associated with the smallest saturated bid or ask size, iterating until all arbitrages are eliminated. This will stabilize the subsequent inverse problem and allow us to extract a smoother, more robust risk-neutral density from market data. 
+
+2.3.2 Hybrid Criterion Framework for Risk-Neutral Density Extraction 
+
+Following the application of ARIES (Algorithm 1), we assume that the market M is free of arbitrage opportunities. To extract a risk-neutral density, we formulate our problem on a bounded support X := (0 , b ) and enforce bid–ask intervals as inequality constraints. The upper boundary b has to be sufficiently large relative to a fictitious strike KN +1 > K N , to which we assign a zero call price. Furthermore, we introduce the augmented set of strikes K′ := {K′, K 1, . . . , K N +1 }, where K′ is an intermediate strike satisfying K0 < K ′ < K 1, see Equations (46), (58) and (75). 
+
+Remark 8 (On the bounded domain X ). Beyond the empirical observation that very short-term return distributions are sharply concentrated, the assumption of a bounded domain is consistent with market mechanisms that limit extreme price moves over short horizons. 2     
+
+> 2A first example is provided by the circuit breakers on the S&P 500, which are applied on the downside and defined according to three levels. Levels 1 and 2 can be triggered once between 9:30 a.m. and 3:25 p.m.; level 1 corresponds to a 7% drop relative to the previous close and leads to a trading halt of at least 15 minutes; level 2 corresponds to a 13% drop, again followed by a minimum 15-minute halt; level 3 is triggered by a 20% drop and stops trading for the rest of the session. A second mechanism is the Limit Up–Limit Down (LULD) scheme, applied to S&P 500 con-stituents. Introduced after the 2010 flash crash, it aims at limiting extreme and abrupt price moves in individual stocks. It relies on dynamic price bands (upper and lower) around a reference price computed as the average of trades over the last five minutes. When the price exits this band (typ-ically ±5%), a limit state is triggered; if it persists for 15 seconds, a 5-minute trading pause is imposed. These constraints mechanically cap instantaneous price variations, and therefore support the assumption of a bounded domain Xfor the densities under consideration.
+
+10 Definition 9 (Admissible densities) . We define the admissible set 
+
+A := 
+
+
+
+f ∈ H1(X )
+
+f (x) ≥ 0 a.e. on X ,
+
+Z
+
+> X
+
+f (x) dx = 1 ,
+
+Z
+
+> X
+
+xf (x) dx = F T 
+
+> 0
+
+,e−rT 
+
+Z
+
+> X
+
+(x − Ki)+f (x) dx ∈ [Cbid  
+
+> i
+
+, C ask  
+
+> i
+
+], i = 1 , . . . , N 
+
+
+
+.
+
+(20) In other terms, admissible functions are H1(X )3 probability densities whose first moment matches the forward price and whose associated call prices remain within the market bid–ask intervals. We fix λ1 > 0 and λ2 > 0 and introduce the continuous hybrid L2–entropy objective on the admissible set A.
+
+Definition 10 (Continuous objective function) . Let H : A → R denote the func-tional 
+
+H(f ) := λ1∥f ′∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+f (x) ln f (x) dx = λ1∥f ′∥2  
+
+> L2(X)
+
+− λ2S(f ), (21) where S(f ) := − R 
+
+> X
+
+f (x) ln f (x) dx denotes the (differential) Shannon entropy of f ,with the usual convention 0 ln 0 := 0. While H(f ) provides a theoretical characterization of the risk-neutral density (see Appendix A.4), numerical calibration requires a discrete formulation. We present the numerical implementation and establish existence and uniqueness of the resulting discrete solution in Section 3.2.3. 
+
+Definition 11 (Grid and decision variable) . Let M ∈ N. We consider a uniform grid of M points on X that includes the set K′. We denote the mesh size by ∆ s := bM .The grid points are defined by 
+
+si := i∆s = b iM , i = 1 , . . . , M. (22) The decision variable is p := ( p1, . . . , p M )⊤ ∈ RM .
+
+Definition 12 (Discrete admissible set) . We define the discrete admissible set AM ⊂
+
+RM as the set of vectors p satisfying:                 
+
+> 3We recall that H1(X) is the Sobolev space H1(X) = {f∈L2(X) : f′∈L2(X)}, where f′is understood in the weak sense.
+
+11 1. Simplex constraint: 
+
+ΣM := 
+
+n
+
+p ∈ RM : pi ≥ 0,
+
+> M
+
+X
+
+> i=1
+
+pi = 1 
+
+o
+
+, (23) 2. Forward constraint: MX
+
+> i=1
+
+sipi = F T 
+
+> 0
+
+, (24) 3. Call price constraints: for each j = 1 , . . . , N ,
+
+e−rT MX
+
+> i=1
+
+(si − Kj )+ pi ∈ Cbid  
+
+> j
+
+, C ask 
+
+> j
+
+. (25) We define the first-order difference matrix D(1) ∈ RM −1×M as the linear operator mapping any vector v = ( v1, . . . , v M )⊤ ∈ RM to its forward differences: (D(1) v)i := vi+1 − vi, i = 1 , . . . , M − 1. (26) 
+
+Definition 13 (Discrete objective function) . The discrete entropy is: 
+
+SM (p) := −
+
+> M
+
+X
+
+> i=1
+
+pi ln pi, (27) with the continuous extension at pi = 0. We next define the discrete functional 
+
+HM : ( R+)M → R by 
+
+HM (p) := λ1
+
+(∆ s)3 ∥D(1) p∥22 − λ2SM (p) = λ1
+
+(∆ s)3 
+
+> M−1
+
+X
+
+> i=1
+
+(pi+1 − pi)2 + λ2
+
+> M
+
+X
+
+> i=1
+
+pi ln pi. (28) In summary, the SEDEx procedure amounts to minimizing HM (·) over AM in-troduced in Definition 12. The next section provides the theoretical guarantees for this procedure. 12 3 Theoretical Results 
+
+## 3.1 Arbitrage Filtering Procedure 
+
+We now derive a tractable formulation of Problem (19) and study the properties of its solution. To this end, we introduce a slack variable ε′ representing the minimal payoff across states, which can be interpreted as an arbitrage margin. This allows us to reformulate the max–min problem (19) as follows: (P2) max                    
+
+> qask , q bid , u, c, ε ′
+> π0(qask ,q bid ,u ) + c= 0 Π( qask ,q bid ,u,c,s )≥ε′,∀s≥00≤qbid ≤Qbid ,0≤qask ≤Qask
+
+ε′.
+
+(29) Substituting (16) into (18) and renaming ε′ = εe rT , we obtain the equivalent payoff constraints 
+
+> N
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+)( s − Ki)+ + us −  π0(qask , q bid , u ) + εerT ≥ 0, ∀s ≥ 0. (30) By aggregating the initial cost and the arbitrage margin into a single term denoted 
+
+α := π0(qask , q bid , u ) + ε we can rewrite the problem as follows: (P3) max 
+
+> qask , q bid , u, α N
+
+X
+
+> i=1
+
+ qbid  
+
+> i
+
+Cbid  
+
+> i
+
+− qask  
+
+> i
+
+Cask 
+
+> i
+
+ − uS 0e−qT + α
+
+s.t.
+
+> N
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+)( s − Ki)+ + us − αe rT ≥ 0 , ∀ s ≥ 00 ≤ qbid ≤ Qbid , 0 ≤ qask ≤ Qask .
+
+(31) For notational convenience, we collect the objective and payoff expressions into the following reduced-form quantities: ˜π0(qask , q bid , u, α ) := 
+
+> N
+
+X
+
+> i=1
+
+ qask  
+
+> i
+
+Cask  
+
+> i
+
+− qbid  
+
+> i
+
+Cbid 
+
+> i
+
+ + uS 0e−qT − α, (32) ˜Π( qask , q bid , u, α, s ) := 
+
+> N
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+)( s − Ki)+ + us − αe rT . (33) 13 Then (31) is equivalent to: (P3 ′) max                  
+
+> qask , q bid , u, α
+> ˜Π( qask ,q bid ,u,α,s )≥0,∀s≥00≤qbid ≤Qbid ,0≤qask ≤Qask
+
+− ˜π0(qask , q bid , u, α ).
+
+(34) Next, we reduce the problem to a finite set of constraints, yielding a tractable linear program. Since ˜Π is piecewise linear in s, its extrema occur at breakpoints and boundaries, thus ˜Π( ..., s ) ≥ 0 for all s ≥ 0 is equivalent to : ˜Π|s=0 ≥ 0, ˜Π|s=Ki ≥ 0 ( i = 1 , . . . , N ), lim 
+
+> s→∞
+
+˜Π( ..., s )
+
+s ≥ 0. (35) Consequently, the constraints in (34) can be rewritten as: 
+
+> j
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+)( Kj − Ki) + uK j − αe rT ≥ 0, j = 1 , . . . , N, 
+
+> N
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+) + u ≥ 0,α ≤ 0, 0 ≤ qask ≤ Qask , 0 ≤ qbid ≤ Qbid .
+
+(36) Consequently, Problem (34) is a finite-dimensional linear program over a polyhedral feasible set, denoted by C and characterized by the constraints in (36). 
+
+Remark 14 (Homogeneity) . The objective function and all constraints in (34) are positively homogeneous of degree 1 in ( qask , q bid , u, α ). The following proposition shows that this linear program is well-posed. 
+
+Proposition 15 (Existence of an Optimal Solution) . Problem (34) admits at least one optimal solution. Moreover, an optimal solution can be chosen at a vertex of C.Proof. See Appendix A.2.1. Having established existence, we now provide a complete characterization of opti-mal portfolios and their arbitrage content. Specifically, exactly one of three mutually exclusive cases holds, corresponding to strong, weak, or no arbitrage. 
+
+Proposition 16 (Characterization of Optimal Solutions and Link to Arbitrage) . Let 
+
+x = ( qask , q bid , u, α ) and consider the linear program (34) over the feasible polytope C
+
+defined in (36) . Let x∗ = ( qask ∗, q bid ∗, u ∗, α ∗) be an optimal solution, and set 
+
+˜Π∗(s) := ˜Π( qask ∗, q bid ∗, u ∗, α ∗, s ), ˜π∗ 
+
+> 0
+
+:= ˜ π0(qask ∗, q bid ∗, u ∗, α ∗).
+
+Exactly one of the following cases occurs: 
+
+14 1. Strong-arbitrage case. If ˜π∗ 
+
+> 0
+
+< 0, then the optimizer must saturate at least one depth constraint, i.e., there exists i ∈ { 1, . . . , N } such that 
+
+qask ∗ 
+
+> i
+
+= Qask  
+
+> i
+
+or qbid ∗ 
+
+> i
+
+= Qbid  
+
+> i
+
+.
+
+Moreover, the associated implementation (w, c ) constructed from x∗ via (16) 
+
+and (17) yields a strong arbitrage. 2. Weak-arbitrage case. If ˜π∗ 
+
+> 0
+
+= 0 and ˜Π∗ is not identically zero, then the set of optimal solutions contains a non-trivial segment along the ray generated by x∗:
+
+{λx ∗ : 0 ≤ λ ≤ ¯λ(x∗)} ⊆ arg max ( P 3′),
+
+where ¯λ(x∗) is the maximal scaling factor compatible with the upper size bounds, i.e. 
+
+¯λ(x∗) = min 
+
+
+
+min   
+
+> i:qask ∗
+> i>0
+
+Qask 
+
+> i
+
+qask ∗
+
+> i
+
+, min   
+
+> i:qbid ∗
+> i>0
+
+Qbid 
+
+> i
+
+qbid ∗
+
+> i
+
+
+
+. (37) 
+
+The extremal point ¯λ(x∗)x∗ lies on the boundary of C and therefore saturates at least one depth constraint. In addition, the associated implementation (w, c ) constructed from x∗ via (16) 
+
+and (17) yields a weak arbitrage. 3. No-arbitrage case. The market is arbitrage-free if and only if 
+
+˜Π∗(s) = 0 for all s ≥ 0.
+
+In this case, the unique optimal solution is the null portfolio x∗ = 0 .Proof. See Appendix A.2.2 
+
+## 3.2 Well-Posedness of Risk-Neutral Density Extraction 
+
+This subsection establishes that the proposed extraction procedure (SEDEx) is well-posed under no-arbitrage. The argument proceeds in three steps. First, we charac-terize admissible call price vectors consistent with market quotes and static arbitrage restrictions. Second, we show that any such vector admits a discrete risk-neutral rep-resentation on an augmented strike grid. Third, we show that the proposed density extraction problem admits a unique solution. 15 3.2.1 Admissible Call Price Vectors 
+
+We assume throughout the remainder of Section 3.2 that ARIES has been applied and that the market M is free of arbitrage opportunities. We first introduce the notion of an admissible call price vector. 
+
+Definition 17 (Admissible call price vector) . A vector C := ( C0, . . . , C N ) ∈ RN +1 +
+
+is said to be an admissible call price vector if it satisfies the following conditions: 1. Positivity. For all i ∈ { 0, . . . , N },
+
+Ci > 0. (38) 2. Monotonicity. For all i ∈ { 0, . . . , N − 1},
+
+Ci > C i+1 . (39) 3. Convexity. For all i ∈ { 0, . . . , N − 2},
+
+Ci − Ci+1 
+
+Ki+1 − Ki
+
+> Ci+1 − Ci+2 
+
+Ki+2 − Ki+1 
+
+. (40) 4. Slope control on [K0, K 1] (Lower Bound on Call Prices). We have 
+
+C0 − C1 < K 1e−rT , equivalently C1 − C0
+
+K1
+
+> −e−rT . (41) 5. Bid–ask bounds. For all i ∈ { 0, . . . , N },
+
+Cbid  
+
+> i
+
+≤ Ci ≤ Cask  
+
+> i
+
+, Cask 0 = Cbid 0 = S0e−qT . (42) The aforementioned local properties are, in fact, global; we provide the formal proof in Appendix A.2.3. Conditions (38)–(41) correspond to the standard static arbitrage restrictions for call prices, while condition (42) enforces consistency with executable market quotes. 
+
+Remark 18 . With the notation of Definition 5, suppose that call option prices Ci are observed on the market at time 0 for strikes Ki. Then the initial value of the vertical spread supported on ( Ki, K i+1 ) satisfies V0(VS i,i +1 ) = Ci − Ci+1 . In this case, the strict monotonicity condition (39) is equivalent to the strict positivity of adjacent vertical-spread prices, namely 
+
+∀ i ∈ { 0, . . . , N − 1}, Ci > C i+1 ⇐⇒ V0(VS i,i +1 ) > 0. (43) 16 Likewise, the strict convexity condition (40) is equivalent to the strict positivity of adjacent butterfly-spread prices: 
+
+∀ i ∈ { 0, . . . , N − 2} : Ci − Ci+1 
+
+Ki+1 − Ki
+
+− Ci+1 − Ci+2 
+
+Ki+2 − Ki+1 
+
+> 0 ⇐⇒ V0(BF i,i +1 ,i +2 ) > 0.
+
+(44) The remaining issue is feasibility. We will use a corollary of Motzkin’s theorem of the alternative (Theorem 30 in the Section A.3; see also Motzkin (1936); Abhyankar et al. (2002)), which provides the basis for establishing the existence of an admissible call-price vector in Proposition 20. 
+
+Corollary 19 (Motzkin with strict positivity) . Let A ∈ Rm×n, B ∈ Rℓ×n, b ∈ Rm,and c ∈ Rℓ. Exactly one of the following two assertions holds: 1. The system Ax ≤ b, Bx < c admits a solution x > 0.2. There exist y ∈ Rm 
+
+> +
+
+and z ∈ Rℓ 
+
+> +
+
+such that, 
+
+A⊤y + B⊤z ≥ 0 and b⊤y + c⊤z < 0,
+
+or 
+
+A⊤y + B⊤z ≥ 0, z ̸ = 0 and b⊤y + c⊤z ≤ 0,
+
+or 
+
+A⊤y + B⊤z ≥ 0, A ⊤y + B⊤z̸ = 0 and b⊤y + c⊤z ≤ 0.
+
+Proposition 20 (Existence of an admissible call-price vector) . Under the no-arbitrage assumption (Definition 6), there exists an admissible call price vector 
+
+C = ( C0, C 1, . . . , C N ) ∈ RN +1 (45) 
+
+satisfying all constraints of Definition 17. Proof. The detailed proof is deferred to Appendix A.2.4; only its main outline is presented below. 
+
+Outline and intuition We encode the admissibility constraints in Definition 17 as a system of mixed strict and weak linear inequalities 
+
+Amkt C ≤ bmkt , Astruct C < b struct , C > 0,
+
+17 where Amkt collects the bid–ask bounds, and Astruct collects the shape constraints (monotonicity, convexity, and slope constraint). Thus the goal is to find C that satisfies these inequalities. Next, we argue by contradiction. If no solution exists, that is, the admissible-price constraints are infeasible, Motzkin’s alternative (Corol-lary 19) provides a dual certificate of infeasibility. Financially, this certificate can be read as an explicit static strategy constructed from two ingredients: (i) executable trades at the quoted bid–ask prices, and (ii) nonnegative combinations of elementary strategies. By construction, this strategy has a terminal payoff that is nonnegative. We then inspect its inception cost. Either the strategy produces a strictly negative initial cost (cash received upfront), which yields a strong arbitrage ; or it is costless and is strictly profitable in some future state, which yields a weak arbitrage under a suitably chosen probability measure. Both possibilities contradict the no-arbitrage assumption; hence the admissible-price system must be feasible. 
+
+3.2.2 Discrete Risk-Neutral Measure Construction 
+
+Given an admissible call price vector C (Definition 17), we construct a discrete risk-neutral measure that reproduces C and is supported in the state space X = (0 , b ). The construction proceeds in three steps. We first augment the strike grid with a fictitious terminal strike KN +1 and set CN +1 = 0. We then derive a sequence of weights on the augmented grid. The natural allocation places a Dirac mass at K0 =0 /∈ X ; we therefore substitute K0 by an interior strike K′ ∈ (K0, K 1) and redistribute the leftmost mass on the support K′ = {K′, K 1, . . . , K N +1 }. The admissible range for K′ is derived below. 
+
+Tail extrapolation. Let ξ > 1 be arbitrarily fixed. We define the terminal strike 
+
+KN +1 by 
+
+KN +1 := KN + ξ CN
+
+(CN −1 − CN )/(KN − KN −1), (46) and set 
+
+CN +1 := 0 . (47) Choosing ξ > 1 guarantees that the call-price vector extended with CN +1 = 0 remains strictly decreasing and convex. 
+
+Risk-neutral weights on K′. Define the auxiliary quantities, for i ∈ { 0, . . . , N },
+
+Qi := erT Ci − Ci+1 
+
+Ki+1 − Ki
+
+. (48) 18 Under Definition 17 together with (47), the sequence ( Qi)Ni=0 is strictly decreasing and takes values in (0 , 1). We define the weights at K2, . . . , K N +1 by 
+
+q′ 
+
+> j
+
+:= Qj−1 − Qj , j = 2 , . . . , N, q′  
+
+> N+1
+
+:= QN , (49) which satisfy PN +1  
+
+> j=2
+
+q′ 
+
+> j
+
+= Q1. The mass remaining for the two leftmost weights is therefore 
+
+m := 1 − Q1. (50) Let ¯K := (1 − Q0)K0 + ( Q0 − Q1)K1
+
+1 − Q1
+
+. (51) For any given K′ ∈ (K0, K 1), the two remaining weights are defined by 
+
+q′ 
+
+> 0
+
+:= m K1 − ¯KK1 − K′ , q′ 
+
+> 1
+
+:= m ¯K − K′
+
+K1 − K′ . (52) 
+
+Definition 21 (Discrete measure on K′). Let K′ ∈ (K0, K 1) and define q′ =(q′
+
+> 0
+
+, . . . , q ′ 
+
+> N+1
+
+)⊤ by (49)–(52). The associated discrete measure on K′ is 
+
+ν := q′ 
+
+> 0
+
+δK′ + 
+
+> N+1
+
+X
+
+> j=1
+
+q′ 
+
+> j
+
+δKj , (53) where δK denotes the Dirac mass at K.
+
+Remark 22 (Canonical interpretation) . Consider the discrete probability measure on the augmented grid {K0, . . . , K N +1 } defined by 
+
+ν0 := (1 − Q0) δK0 +
+
+> N
+
+X
+
+> j=1
+
+(Qj−1 − Qj ) δKj + QN δKN +1 . (54) The sequence ( Qi)Ni=0 coincides with the survival function of ν0, namely Qi = ν0(ST >Ki). Equivalently, ν0 arises as the distributional second derivative of the piecewise-linear interpolation of the extended call price vector on [ K0, K N +1 ], in the sense of Breeden and Litzenberger (1978). The mass (50) and barycenter (51) then admit the representation 
+
+ν0({K0, K 1}) = m, ¯K = Eν0 [ ST | ST ∈ { K0, K 1} ] . (55) Moreover, ( q′
+
+> 0
+
+, q ′
+
+> 1
+
+) in (52) is the unique solution of 
+
+q′ 
+
+> 0
+
++ q′ 
+
+> 1
+
+= m, q′ 
+
+> 0
+
+K′ + q′ 
+
+> 1
+
+K1 = m ¯K, (56) and therefore preserves the mass and the first moment on {K0, K 1}. Accordingly, ν
+
+is referred to as the extended Breeden–Litzenberger measure on K′.19 Proposition 23 (Replication and uniqueness on K′). Fix K′ ∈ (K0, K 1) and let ν
+
+be the extended Breeden–Litzenberger measure of Definition 21. Then ν reproduces the admissible call price vector C, namely 
+
+e−rT Eν [( ST − Ki)+] = Ci, i = 0 , . . . , N. (57) 
+
+Moreover, ν is a probability measure on K′ if and only if K′ satisfies the barycentric condition 
+
+K′ < ¯K. (58) 
+
+For any fixed support K′, the probability measure satisfying (57) is unique. Proof. See Appendix A.2.5. This result establishes that the admissibility of a call price vector is equivalent to the existence of a discrete arbitrage-free pricing measure. Such a measure induces a feasible element within the admissible optimization set AM .
+
+3.2.3 Existence and Uniqueness of the Minimizer 
+
+We conclude this section by establishing well-posedness of SEDEx, namely the mini-mization of HM over the admissible set AM introduced in Section 2.3.2. In particular, we prove existence of a minimizer and its uniqueness. 
+
+Proposition 24. The set AM is a non-empty compact convex subset of RM .Proof. The constraint (23) defines a simplex, hence a polytope in RM . The forward constraint (24) defines an affine hyperplane, and each of the call price constraints (25) defines the intersection of two closed affine half-spaces. Therefore AM is the finite intersection of closed convex sets, hence is itself closed and convex. Boundedness follows from the simplex constraint. The non-emptiness of AM is guaranteed by the construction of the discrete measure ν
+
+(53) under the no-arbitrage assumption. Hence AM is a non-empty compact convex subset of RM .
+
+Proposition 25. The functional HM is continuous and strictly convex on AM .Proof. The continuity is immediate from the expression (28), so we focus on strict convexity. 
+
+Quadratic part. We have 
+
+∥D(1) p∥22 = ( D(1) p)⊤(D(1) p) = p⊤(D(1) )⊤D(1) p = p⊤Qp, (59) 20 where Q := ( D(1) )⊤D(1) ∈ RM ×M is a symmetric tridiagonal matrix. Moreover, Q is positive semidefinite and its kernel is given by the one-dimensional subspace spanned by the vector 1 = (1 , . . . , 1) ⊤:ker( Q) = Vect {1}. (60) Thus the quadratic form p 7 → p⊤Qp = ∥D(1) p∥22 is convex on RM , but not strictly convex on all of RM .On the simplex Σ M , however, strict convexity is recovered. Let p, q ∈ ΣM with 
+
+p̸ = q and θ ∈ (0 , 1). By adapting (186) to the discrete setting, 
+
+∥D(1) (θp + (1 − θ)q)∥22 = θ∥D(1) p∥22 + (1 − θ)∥D(1) q∥22 − θ(1 − θ)∥D(1) (p − q)∥22. (61) The last term vanishes if and only if D(1) (p − q) = 0, i.e. p − q is constant. Since p
+
+and q both have total mass 1, this is only possible if p = q. Therefore, for p̸ = q in ΣM ,
+
+∥D(1) (θp + (1 − θ)q)∥22 < θ ∥D(1) p∥22 + (1 − θ)∥D(1) q∥22, (62) which shows that p 7 → ∥ D(1) p∥22 is strictly convex on Σ M , and hence on AM ⊂ ΣM .
+
+Entropy part. On the strictly positive orthant ( R+)M , the discrete entropy SM is twice continuously differentiable with Hessian 
+
+∇2(−SM )( p) = Diag 
+
+ 1
+
+pi
+
+Mi=1 
+
+, (63) which is positive definite. Thus −SM is strictly convex on ( R+)M .To handle the boundary points where some pi may vanish, consider p̸ = q in (R+)M and θ ∈ (0 , 1). Define the index sets 
+
+I := {i : pi > 0 and qi > 0}, P0 := {i : pi = 0 , q i > 0}, Q0 := {i : pi > 0, q i = 0 }.
+
+(64) Then 
+
+−SM (θp + (1 − θ)q) = 
+
+> M
+
+X
+
+> i=1
+
+ θp i + (1 − θ)qi
+
+ ln  θp i + (1 − θ)qi
+
+
+
+= X
+
+> i∈I
+
+ θp i + (1 − θ)qi
+
+ ln  θp i + (1 − θ)qi
+
+
+
++ X
+
+> i∈Q0
+
+θp i ln( θp i) + X
+
+> i∈P0
+
+(1 − θ)qi ln  (1 − θ)qi
+
+. (65) 21 Using the strict convexity in I, we obtain 
+
+X
+
+> i∈I
+
+ θp i + (1 − θ)qi
+
+ ln  θp i + (1 − θ)qi
+
+ < θ X
+
+> i∈I
+
+pi ln pi + (1 − θ) X
+
+> i∈I
+
+qi ln qi, (66) whenever I̸ = ∅. In addition, expanding the last two terms in (65) yields 
+
+X
+
+> i∈Q0
+
+θp i ln( θp i) = θ X
+
+> i∈Q0
+
+pi ln pi + θ ln θ X
+
+> i∈Q0
+
+pi,
+
+X
+
+> i∈P0
+
+(1 − θ)qi ln  (1 − θ)qi
+
+ = (1 − θ) X
+
+> i∈P0
+
+qi ln qi + (1 − θ) ln(1 − θ) X
+
+> i∈P0
+
+qi. (67) If I = ∅ then either P0 or Q0 is non-empty. Since θ ∈ (0 , 1), any strictly positive mass in these sets yields a strictly negative term. Hence −SM is strictly convex on ( R+)M , and a fortiori on AM .Combining the strict convexity of the quadratic part on AM with the strict con-vexity of the entropy part on AM , we conclude that HM is strictly convex on AM .
+
+Theorem 26. Let M ∈ N and consider the grid (si)Mi=1 introduced in Definition 11. Then the discrete functional HM admits a unique minimizer p∗ over AM .Proof. By Proposition 24, the set AM is a non-empty compact convex subset of RM .The functional HM is continuous on ( R+)M and strictly convex on AM (Proposi-tion 25). By the Weierstrass theorem, any (lower semi-) continuous function on a compact set attains its minimum; thus HM attains its minimum on AM . The strict convexity of HM on AM ensures that this minimizer is unique. 
+
+# 4 Numerical Results 
+
+## 4.1 Data Cleaning and Preprocessing 
+
+Data Source and Coverage. Our empirical analysis is based on intraday index and option data on the S&P 500 from January 2012 to July 2023, obtained from the Cboe DataShop. For the underlying index, the dataset provides bid and ask quotes sampled at five-minute intervals. Option data include bid and ask quotes and associated quoted sizes, executed trading volumes, opening and closing prices, as well as high and low transaction prices, all recorded at the same five-minute frequency. The dataset also includes contract characteristics; namely option type (standard SPX or weekly 22 SPXW), strike prices and expiration dates. Finally, the dataset reports the open interest measured at the beginning of each trading day. Although both SPX and SPXW options are European-style and cash-settled, they differ in their trading and settlement conventions. Weekly SPXW options expire from Monday to Friday at the market close (PM settlement) and remain tradable throughout the expiration day. In contrast, standard monthly SPX options expire on the third Friday of each month at the market open (AM settlement) and cease trading at the market close on the preceding day. As a consequence, 0DTE SPX options are exposed to overnight gap risk between the last trading opportunity and settlement, whereas 0DTE SPXW options are not. 
+
+Data Cleaning and Sample Construction. The data-cleaning procedure is de-liberately parsimonious. Rather than aggressively filtering observations ex ante, we rely on ARIES (introduced in Section 2.3.1) to identify and eliminate arbitrage-violating quotes. This approach allows us to preserve broad market information while ensuring arbitrage-free inputs at the estimation stage. We implement the following preliminary filters. First, we discard all observations on standard SPX options and retain only SPXW contracts. Second, we remove option quotes exhibiting a zero bid price, zero open interest, or zero bid and ask sizes, as these are unlikely to reflect meaningful trading interest or reliable price discovery. Third, except for the specific purpose of estimating the risk-free rate and dividend yield outlined hereafter, we exclude in-the-money options. 
+
+Data Normalization Throughout the following implementation, we exploit the first-order homogeneity of call prices with respect to the underlying asset and the strike. To improve numerical stability, we normalize all market quantities by the spot price S0. Equivalently, we work in units of spot and set S0 = 1. Under this normalization, strikes are replaced by Ki/S 0, the forward price is F T 
+
+> 0
+
+/S 0 = e(r−q)T ,and bid and ask call prices become Cbid  
+
+> i
+
+/S 0 and Cask  
+
+> i
+
+/S 0.
+
+Conventions. For options with at least one day to expiry, we retain quotes ob-served 15 minutes before the market close, that is, at 16:00 EST. Time to maturity is measured on a calendar-day basis using a 365-day year; for instance, an option with one remaining trading day to expiration has T = 1 /365. Using a 252-day convention yields quantitatively similar results and does not affect our conclusions. Throughout the analysis, the underlying index level is proxied by the mid-quote, defined as the average of the bid and ask prices. Together, these conventions and the limited filter-23 ing described above yield a clean dataset suitable for the estimation and empirical analyses that follow. 
+
+Estimation of the Risk-Free Rate and Dividend Yield Accurate estimation of the risk-free rate, r, and the continuous dividend yield, q, is fundamental for ex-tracting arbitrage-free risk-neutral densities. While standard practice often relies on Treasury yields, recent literature (Van Binsbergen et al. (2022); Diamond and Van Tassel (2022)) argues that option-implied rates provide a more consistent pric-ing benchmark. Unlike Treasury valuations, which may be distorted by convenience yields, implied rates reflect the actual funding costs facing market participants. Ac-cordingly, we estimate r and q directly from the option chain at each maturity using put–call parity 4, following the comprehensive procedure detailed in Appendix D.3. 
+
+Unified Call Option Dataset Our raw data universe contains European calls and puts quoted with bid–ask spreads. More precisely, we observe Nc call options with strikes Kci and bid–ask quotes ( Cbid  
+
+> i
+
+, C ask  
+
+> i
+
+) for i = 1 , . . . , N c, and Np put options with strikes Kpj and bid–ask quotes ( P bid  
+
+> j
+
+, P ask  
+
+> j
+
+) for j = 1 , . . . , N p.For the theoretical analysis, it is convenient to work with a single family of payoffs. The next lemma shows that, given the forward level F T 
+
+> 0
+
+and the discount factor e−rT ,put constraints can be rewritten as constraints on call payoffs at the same strikes with appropriately shifted bid–ask bounds. We begin by collecting the baseline restrictions that define the discrete admissible (risk-neutral) distributions on the grid ( si)Mi=1 , including the forward condition: 
+
+DM := 
+
+(
+
+p ∈ ΣM
+
+> M
+
+X
+
+> i=1
+
+sipi = F T
+
+> 0
+
+)
+
+, (68) where Σ M is the simplex defined in (23). For brevity, given an admissible distribution p, we introduce the associated call and put price functions by 
+
+Cp(K) := e−rT MX
+
+> i=1
+
+(si − K)+ pi, K ≥ 0, (69) and 
+
+P p(K) := e−rT MX
+
+> i=1
+
+(K − si)+ pi, K ≥ 0. (70)       
+
+> 4Note that if T < 1/365, we apply the convention r=q= 0, as detailed in Appendix D.3.
+
+24 The admissible set induced by the raw call–put dataset is 
+
+Acp M := 
+
+(
+
+p ∈ D M
+
+Cp(Kci ) ∈ [Cbid  
+
+> i
+
+, C ask  
+
+> i
+
+], i = 1 , . . . , N c,P p(Kpj ) ∈ [P bid  
+
+> j
+
+, P ask  
+
+> j
+
+], j = 1 , . . . , N p.
+
+)
+
+. (71) For convenience we will transform the put prices into synthetic calls by: [ eCbid  
+
+> j
+
+, eCask  
+
+> j
+
+] = 
+
+h
+
+P bid  
+
+> j
+
++ e−rT  F T 
+
+> 0
+
+− Kpj
+
+, P ask  
+
+> j
+
++ e−rT  F T 
+
+> 0
+
+− Kpj
+
+i
+
+, j = 1 , . . . , N p.
+
+(72) The unified call admissible set is 
+
+AcM := 
+
+(
+
+p ∈ D M
+
+Cp(Kci ) ∈ [Cbid  
+
+> i
+
+, C ask  
+
+> i
+
+], i = 1 , . . . , N c,Cp(Kpj ) ∈ [ eCbid  
+
+> j
+
+, eCask  
+
+> j
+
+], j = 1 , . . . , N p.
+
+)
+
+. (73) 
+
+Lemma 27 (Equivalence of Admissible Sets) . We have Acp M = AcM . That is, the set of discrete admissible distributions constrained by the original dataset of calls and puts coincides with the set constrained by calls and synthetic calls. Proof. See Appendix A.1.1. Building upon this result, we restrict our analysis to call options without loss of generality, ensuring consistency with the market framework established in Section 2. Specifically, the unified dataset is mapped onto a single family of N := Np + Nc call constraints. The first Np entries represent synthetic calls derived from out-of-the-money puts at strikes Kpj , with associated bid–ask spreads [ eCbid  
+
+> j
+
+, eCask  
+
+> j
+
+]. 
+
+## 4.2 Numerical Implementation 
+
+Our numerical procedure involves two sequential stages: isolating an arbitrage-free set of options and subsequently extracting the risk-neutral density. For the first stage, Proposition 16 ensures that whenever an arbitrage is detected (strong or weak), at least one upper size bound is active at an optimal solution of (34). Based on this property, ARIES (Algorithm 1, detailed in the Appendix) (i) solves the linear pro-gram (34), (ii) removes an option associated with an active upper bound (selecting the one with the smallest available size if multiple bounds are simultaneously active), and (iii) repeats this process until the unique optimizer is the null portfolio. Since at least one option is removed at each iteration, the procedure terminates after at most 
+
+N iterations. The selection rule (ii) effectively eliminates arbitrage while preserv-ing the maximum amount of market information, yielding a strictly arbitrage-free 25 dataset denoted by the index set I∗.Having secured the arbitrage-free subset I∗, we proceed to apply SEDEx to the arbitrage-free quotes. As established in Theorem 26, the associated discrete optimiza-tion problem on this filtered dataset is well-posed and admits a unique minimizer. To implement this extraction, we first define the spatial grid and then specify the objective function’s parameters. Let the strike bounds of our filtered dataset be defined as 
+
+Kinf := min  
+
+> i∈I ∗
+
+Ki, Ksup := max  
+
+> i∈I ∗
+
+Ki, (74) and let σATM denote the mplied volatility computed from at-the-money (ATM) mid price. The numerical support is defined as (22), where the upper bound b is estab-lished as the maximum of two complementary quantities: 
+
+b = max 
+
+
+
+Ksup + ( κ1 − 1)( Ksup − Kinf ), S 0eκ2σATM 
+
+> √T
+
+
+
+. (75) The first term extends the observed strike range by a proportion controlled by κ1 > 1, thereby enlarging the support beyond the largest quoted strike Ksup while preserving the scale of the quoted interval [ Kinf , K sup ]. The second term provides a volatility-based upper bound derived from a lognormal scaling around the spot level S0, where 
+
+κ2 > 0 controls the number of volatility standard deviations retained in the support. In practice 5, we set κ1 = 1 .50 and κ2 = 10. A natural requirement on the spatial discretization, discussed in Section D.2, is that the mesh size ∆ s be sufficiently fine relative to the typical variation in the underlying corresponding to a probability increment δ; see (224). In practice, we set 
+
+δ = 0 .5% and select the number of points M according to the asymptotic guideline in (229), 
+
+M =
+
+ bσATM 
+
+√2πT δ 
+
+
+
+, ∆s = b/M. (76) With the grid fully specified, the final requirement is to calibrate the hybrid criterion HM defined in (28), which involves the regularization weights λ1 and λ2.Following Section D.1, we select λ1 and λ2 so that their ratio satisfies the scaling relation in (222), yielding a reasonable balance between the L2 and entropy terms in        
+
+> 5For computational efficiency, the lower bound of the support can alternatively be truncated to min
+> 
+> Kinf −(κ1−1)( Ksup −Kinf ), S 0e−κ2σATM
+> √T
+> 
+> . Empirical evidence suggests this yields iden-tical results while substantially reducing the number of discretization points.
+
+26 the density recovery: 
+
+λ1
+
+λ2
+
+∼ − 4√π σ 3ATM T 3/2 ln( σATM 
+
+√T ).
+
+The complete sequence of SEDEx operations for this second stage is summarized in Algorithm 2, which is detailed in the Appendix. 
+
+## 4.3 Consistency Tests 
+
+This subsection provides a validation step between the theoretical results of Section 3 and the empirical analysis. It is organized around two complementary exercises. First, the Cousot conditions are used as a consistency test to determine whether observed bid–ask quotes contain static arbitrage and, if so, which type of violation is present. Second, a synthetic Heston panel serves as a standard toy model to evaluate the full procedure in a controlled environment where the underlying risk-neutral density is known. 
+
+4.3.1 Cousot Conditions 
+
+Within the market setup introduced above, the absence of static arbitrage implies a set of model-free constraints on quoted call prices. These constraints correspond to the bid–ask counterparts of the standard positivity, monotonicity, convexity, and lower-bound conditions for call option prices. They are closely related to the inequal-ities established by Cousot (2007, Proposition 3), except that in our framework they must hold in strict rather than weak form. This distinction is important because weak inequalities only exclude strong (model-independent) arbitrage. As discussed in Cousot (2007, Remark 4), weak arbitrages inherently depend on the choice of the probability measure and cannot be ruled out prior to its specification, as they may materialize on events of zero probability. Ac-cordingly, weak inequalities are necessary model-free restrictions, but they do not exclude all forms of arbitrage. When these weak inequalities hold, Cousot (2007, Proposition 5) shows that there exists at least one (atomic) martingale measure consistent with observed quotes. However, such a measure might assign zero probability to states that would oth-erwise generate weak arbitrages. Under our no-arbitrage definition (Definition 6), equality cases must be excluded because they generate zero-cost portfolios with non-negative payoff everywhere and strictly positive payoff on a nontrivial set of states. Consequently, we work throughout with the strict counterparts of these inequalities. 27 1. Positivity: For all i ∈ { 0, . . . , N }, the ask price with strike Ki must be strictly positive: 
+
+Cask  
+
+> i
+
+> 0. (77) 2. Vertical Spread - Monotonicity: For all 0 ≤ i < j ≤ N , the cost of a vertical spread with strikes ( Ki, K j ) executed at market quotes must be strictly positive: 
+
+Cask  
+
+> i
+
+− Cbid  
+
+> j
+
+> 0. (78) 3. Butterfly Spread - Convexity: For all 0 ≤ i < j < k ≤ N , the cost of a butterfly strategy with strikes ( Ki, K j , K k) executed at market quotes must be strictly positive: 
+
+Cask  
+
+> i
+
+− Cbid 
+
+> j
+
+Kj − Ki
+
+− Cbid  
+
+> j
+
+− Cask 
+
+> k
+
+Kk − Kj
+
+> 0. (79) 4. Lower Bound: For all i ∈ { 1, . . . , N }, call ask prices must satisfy the lower bound: 
+
+Cask  
+
+> i
+
+− S0e−qT + Kie−rT > 0. (80) In particular, no inequality involves more than three quoted strikes. These conditions will subsequently be employed as a consistency test within our arbitrage detection and removal procedure to ensure the absence of arbitrage in the processed data. 
+
+4.3.2 Toy Model: Heston 
+
+We consider a 1DTE slice of European call prices generated under the Heston stochas-tic volatility model (Heston, 1993). Heston serves here solely as a controlled synthetic environment providing a known ground-truth risk-neutral density. The extraction procedure itself is fully model-free: it makes no parametric assumption about the underlying price dynamics. Parameter values are reported in the footnote below. 6
+
+Our synthetic option panel consists of 84 strikes ranging from 0 .87 to 1 .03. This asymmetric strike range is designed to mimic the structure of short-dated option data, where quoted strikes are often deeper on the in-the-money side than on the out-of-the-money side. Throughout the experiment, the option prices and associated density are computed using the COS method (Fang and Oosterlee, 2009) and serve as references.               
+
+> 6The Heston parameters used in the toy experiment are v0= 0 .117 ·10 −1,θ= 0 .394 ·10 −1,
+> κ= 1 .0, σ= 0 .30, and ρ=−0.70.
+
+28 (a) (b) 
+
+Figure 1: Frictionless baseline for 1DTE options. (a) Heston reference risk-neutral density (blue solid line) and SEDEx density (red dots): the two densities are visually indistinguishable at the scale of the figure. (b) Heston call prices (blue line with circles) and call prices implied by SEDEx (orange diamonds): the two series overlap perfectly over the full strike range, up to a numerical tolerance of 10 −4 in absolute price terms. The purpose of this toy example is threefold. First, we verify that the extraction procedure in Algorithm 2 recovers a density consistent with the true Heston density when quotes are frictionless and arbitrage-free. Second, we study the effect of intro-ducing bid–ask spreads while preserving arbitrage consistency. Third, we analyze the case where arbitrage violations are deliberately injected into the bid–ask quotes. We finally show that ARIES (Algorithm 1) is necessary to restore feasibility and recover a stable density estimate. 
+
+Frictionless Baseline We begin with a frictionless baseline in which the call prices are observed without bid–ask spreads and satisfy the no-arbitrage conditions. In this setting, SEDEx performs as expected. As shown in Figure 1.a, the recovered risk-neutral density closely overlaps the Heston density over the relevant support. The same conclusion emerges from the pricing side: the call prices implied by the extracted density are indistinguishable from the Heston model prices across the whole strike range considered (Figure 1.b). This first experiment therefore validates SEDEx in the ideal case, confirming the procedure’s ability to recover the underlying risk-neutral distribution with negligible error from exact, arbitrage-free quotes. 
+
+Arbitrage-Free Bid–Ask Setting We next introduce artificial bid-ask spreads. In the absence of a standard benchmark in the literature, we adopt the following 29 parsimonious parametric form: taking the Heston prices as mid quotes, we construct bid and ask by subtracting and adding, respectively, half of a strike-dependent spread 
+
+S(K) = Speak exp 
+
+
+
+−(K − F T 
+
+> 0
+
+)2
+
+2h2
+
+
+
++ Sbase . (81) In this specification, Sbase > 0 defines the baseline spread, and the Gaussian compo-nent is centered at the forward price with amplitude Speak and scale h.The parameters are set to reflect typical short-dated quotes. The floor Sbase is set to one tick (0.05 index points), the minimum quoted spread for SPXW contracts quoted below three points. This regime is typical of short-dated deep out-of-the-money contracts. The amplitude Speak is set to four ticks. The width is taken to be 
+
+h = σATM 
+
+√T to anchor the spread to the natural risk-neutral dispersion scale of the underlying over the life of the option. The absolute spread S has a Gaussian shape, which may seem inconsistent with the view that liquidity concentrates at the money, but the two are readily reconciled. Transaction costs are better measured by the relative spread 
+
+R(K) := S(K)
+
+M (K),
+
+where M (K) denotes the out-of-the-money mid price: the put for K < F T 
+
+> 0
+
+and the call for K ≥ F T 
+
+> 0
+
+. At the forward, R is small: its numerator is bounded by a few ticks, its denominator is the at-the-money premium, which is orders of magnitude larger. Far from the money, option premia collapse toward the tick floor. Both numerator and denominator are then of order Sbase , so R is of order one. The relative spread therefore traces a U-shape with a global minimum at K = F T 
+
+> 0
+
+. This argument is made rigorous in the footnote below. 7
+
+In this setting, the SEDEx density remains close to the reference Heston density, although the two no longer coincide exactly (Figure 2.a). This discrepancy is not                                          
+
+> 7That FT
+> 0is a strict local minimum of Rfollows from two structural properties, independent of the parameter values. First, S′(FT
+> 0) = 0 by construction. Second, the mid price has a kink at FT
+> 0,with positive left derivative from the put and negative right derivative from the call. A quotient rule computation then gives
+> R′ (FT
+> 0)−<0< R ′ (FT
+> 0)+.(82) Global minimality over the traded strike range follows from the log-slope dominance condition ΛC(K)>Γ( K) for K > F T
+> 0,ΛP(K)>Γ( K) for K < F T
+> 0,
+> with Λ C(K) = −d ln C(K)/dK, Λ P(K) = d ln P(K)/dK, and Γ( K) = |d ln S(K)/dK|.This condition is verified numerically for the parameter values used throughout.
+
+30 (a) (b) 
+
+Figure 2: Arbitrage-free bid–ask setting for 1DTE options. (a) Heston reference risk-neutral density (blue solid line) and SEDEx density (red dots): both remain close but do not coincide exactly under interval constraints. (b) Heston reference call prices (blue line with circles) and call prices implied by SEDEx (orange diamonds): the recovered prices satisfy the bid–ask constraints up to a numerical tolerance of 10 −7
+
+in absolute price terms. surprising. Once option prices are observed through bid–ask intervals rather than as exact point values, multiple risk-neutral densities may be consistent with the same admissible quotes. The role of our hybrid criterion is precisely to select a unique density within this feasible set. As shown in Figure 2.b, the call prices implied by SEDEx are very close to the Heston reference prices. Furthermore, they remain within the prescribed bid–ask bounds over the full strike range, which is the relevant requirement in this setting. 
+
+Arbitrage-Contaminated Bid–Ask Setting Finally, we consider a deliberately contaminated bid–ask panel in which arbitrage violations are introduced by perturb-ing quoted prices across a broad portion of the strike range 8. Affecting over one-third of the strikes, this setup amplifies typical market contamination to an unusually se-vere level, incidentally serving as a rigorous stress test for the full pipeline. Table 1 reports the number of violated inequalities when the perturbed quotes are tested against the strict Cousot conditions of Section 4.3.1. The very large number of butterfly violations should be interpreted with care. Because our implementation checks convexity across all admissible butterfly combinations rather than strictly on 
+
+> 8The contamination is constructed by increasing selected bid quotes and decreasing selected ask quotes so as to create static arbitrage violations. Therefore, the contaminated bid–ask intervals are included in the original ones.
+
+31 adjacent triplets, a distortion affecting a limited subset of quotes can simultaneously invalidate a vast number of inequalities. Table 1: Number of violated Cousot inequalities after arbitrage injection in the Heston bid–ask panel. Type of inequality Number of violations Lower bound 18 (out of 84) Vertical spread 110 (out of 3,486) Butterfly spread 12,902 (out of 95,284) Without prior application of ARIES, the inverse problem is infeasible, so no ad-missible density can match the contaminated quotes. This failure highlights the necessity of our filtering procedure. Because many violated constraints overlap, mul-tiple quote-removal configurations could theoretically restore feasibility. Our pro-cedure resolves this ambiguity by prioritizing the removal of the least informative quotes, characterized by the smallest available size. After filtering, density extrac-tion becomes feasible again on the arbitrage-free subset extracted from the contam-inated panel. As shown in Figure 3, the SEDEx density remains very close to the Heston density and is visually indistinguishable from the density obtained in the arbitrage-free bid–ask experiment. The call prices implied by this density are, by construction, compatible with the arbitrage-free subset retained in the decontami-nated panel. More interestingly, when the density is evaluated on the broader set of strikes from the original non-contaminated panel, the resulting call prices still fall within the original bid–ask bounds, including at strikes removed during filtering. 32 (a) (b) 
+
+Figure 3: Arbitrage-contaminated bid–ask setting for 1DTE options. (a) Heston reference risk-neutral density (blue solid line) and SEDEx density after ARIES fil-tering (red dots). (b) Heston reference call prices (blue line with circles) and call prices implied by SEDEx (orange diamonds). Dashed vertical lines indicate strikes removed by ARIES. Maximum deviation from the original bid–ask bounds: 10 −7 in absolute price terms. In summary, this synthetic experiment illustrates the ability of the SEDEx proce-dure to recover the risk-neutral density in a controlled environment. Furthermore, it highlights the necessity of prior arbitrage filtering when quote inconsistencies render the inverse problem infeasible. 
+
+## 4.4 Market Data: Results and Application 
+
+We next evaluate the proposed methodology on representative market data, where the risk-neutral density is not directly observable, unlike in the toy experiment above. In all cases considered below, the full pipeline (from arbitrage filtering to density extraction) runs in a few seconds on a standard laptop, which makes the procedure suitable for intraday monitoring as well as for empirical work. 
+
+First Test: “Business As Usual” We begin with the 1DTE slice observed on 2023-07-19, for which 120 strikes remain after preliminary cleaning and 118 after ARIES filtering 9. Figure 4 reports the extracted density and the associated implied-volatility diagnostics, showing that SEDEx performs very well in this case. For 
+
+> 9For this first test, the spot is 4565. ARIES detects a strong arbitrage at strike 4220 and a weak arbitrage at strike 4300. All other slices discussed in this subsection are already arbitrage-free.
+
+33 comparison, we also calibrate the implied volatilities from mid prices to a standard SVI parameterization (Gatheral and Jacquier (2014)), 
+
+w(k) = a + b
+
+h
+
+ρ(k − m) + p(k − m)2 + σ2
+
+i
+
+, k = log 
+
+ KF T
+
+> 0
+
+
+
+. (83) SVI provides a good overall fit, especially in the wings, but is less accurate around the money and can lie by as much as 1.90 volatility points outside the quoted inter-val 10 . By contrast, the smile implied by the SEDEx procedure remains admissible over the full chain with maximum error of 10 −6 volatility points. More generally, this slice illustrates one of the main applications of risk-neutral density extraction: once an admissible density has been recovered from quoted prices, it can be used to construct a full implied-volatility smile by repricing options on a finer grid of strikes, thereby delivering a nonparametric interpolation and extrapolation of the smile. 
+
+Second Case: “Binary-Outcome Event Driven Day” A more revealing case is the 1DTE slice observed on 2022-12-13, with 106 strikes and expiration on 2022-12-14. This date sits between the November CPI release on December 13 and the FOMC decision on December 14, 11 and the option chain displays a pronounced W-shaped smile. The extracted density in Figure 5 is slightly bimodal, suggesting that the market attached non-negligible probability to several distinct terminal scenarios over the remaining one-day horizon. This interpretation should, however, be stated carefully. As emphasized by Glasserman and Pirjol (2023), the relation between smile shape and density shape is not one-to-one: a bimodal risk-neutral density need not generate a W-shaped smile, and a unimodal density can generate oscillatory or W-shaped smiles. Accordingly, our point is not that the bimodality of the extracted density explains the W-shape. Rather, the coexistence of a pronounced W-shape and a slightly bimodal extracted density is economically consistent with short-dated event risk driven by multiple plausible macro outcomes. This reading is close to the empirical evidence of Alexiou et al. (2025), who document that concave short-expiry implied-volatility curves often appear around scheduled events, are frequently associated with bimodal risk-neutral densities, and are linked to a premium for gamma.               
+
+> 10 For this slice, the standard SVI calibration outputs parameters (a, b, ρ, m, σ )=(−0.0357 ,0.1107 ,0.4095 ,0.1640 ,0.3544).
+> 11 On December 13, 2022, the U.S. Bureau of Labor Statistics reported that CPI inflation for November 2022 was 7.1% year-over-year; on December 14, 2022, the FOMC raised the target range for the federal funds rate by 50 basis points to 4.25–4.50%.
+
+34 (a) (b) 
+
+(c) (d) 
+
+Figure 4: 1DTE slice on 2023-07-19. (a) Risk-neutral density extracted by SEDEx (red dots). (b) Implied volatility smile obtained by repricing options on a finer strike grid: market ask (red triangles-up), market bid (blue triangles-down), and SEDEx implied volatilities (orange circles). (c) Market bid–ask implied volatilities and SEDEx implied volatilities (orange circles) compared with the SVI benchmark fit (black circles). (d) Deviations from the bid–ask envelope for SEDEx (red triangles-up for ask, blue triangles-down for bid) and SVI (orange triangles-up for ask, pur-ple triangles-down for bid), reported only when the fitted volatility lies outside the quoted interval. SEDEx errors are sparse, all within 10 −6 vol points. The comparison with SVI is especially instructive in this case. 12 The SVI para-meterization produces more frequent violations of the bid–ask envelope and errors exceeding 2 volatility points, while the SEDEx smile remains admissible over the full                    
+
+> 12 For this slice, the standard SVI calibration outputs parameters (a, b, ρ, m, σ )=(0 .0005 ,0.0088 ,−1.0000 ,−0.0600 ,0.0186). The calibration pushes ρessentially to its boundary and σclose to zero, which is a symptom of the tension between the observed shape and the flexi-bility of the specification.
+
+35 chain, with a maximum error of 10 −6 volatility points. Despite this non-standard geometry, the density-based interpolation and extrapolation remain stable and yield a plausible smile outside the quoted strike range. This in turn highlights the flexibility of the proposed methodology, which accommodates irregular short-dated market shapes without imposing a parametric structure on the smile.   
+
+> (a) (b)
+> (c) (d)
+
+Figure 5: Event-driven 1DTE slice on 2022-12-13. (a) Risk-neutral density extracted by SEDEx (red dots), which is slightly bimodal. (b) Implied volatility smile obtained by repricing options on a finer strike grid: market ask (red triangles-up), market bid (blue triangles-down), and SEDEx implied volatilities (orange circles). (c) Market bid–ask implied volatilities and SEDEx implied volatilities (orange circles) compared with the SVI benchmark fit (black circles). (d) Deviations from the bid–ask envelope for SEDEx (red triangles-up for ask, blue triangles-down for bid) and SVI (orange triangles-up for ask, purple triangles-down for bid), reported only when the fitted volatility lies outside the quoted interval. SVI violations are frequent and of signifi-cant magnitude, whereas SEDEx errors are sparse, all within 10 −6 vol points. 36 Third Case: Very Short-Dated We finally turn to 0DTE options observed on 2023-05-08. We consider two intraday timestamps, 10:30 and 15:00, corresponding to one hour after the open and one hour before expiration. The corresponding chains contain 44 and 14 strikes, respectively. Figure 6 shows that SEDEx remains stable even with few quoted strikes and only a few hours remaining to expiration. Two facts stand out. First, the support of the SEDEx density contracts dramatically over the day; by 15:00, most of the mass lies within roughly ±0.5% of spot, consistent with the concentration of the terminal distribution as expiration approaches. Second, the bid–ask envelope widens as maturity vanishes. This is precisely the regime in which procedures based solely on smooth parametric implied-volatility fits become fragile.   
+
+> (a) (b)
+> (c) (d)
+
+Figure 6: 0DTE intraday slices on 2023-05-08. (a)–(b) Risk-neutral densities ex-tracted by SEDEx at 10:30 and 15:00 (red dots). (c)–(d) Corresponding implied volatility smiles: market ask (red triangles-up), market bid (blue triangles-down), and SEDEx implied volatilities (orange circles). The bid–ask constraints are satis-fied up to a numerical tolerance of 10 −6 vol points. 37 Further Tests To keep the main text focused, we defer a representative 7DTE slice to Appendix B; see Figure 7. The results are again satisfactory and indicate that the same pipeline extends smoothly from ultra-short-dated to short-dated maturities. Taken together, these results show that working directly with arbitrage-free bid– ask quotes provides a flexible approach to risk-neutral density recovery and implied-volatility smile construction. 
+
+# 5 Summary and Conclusion 
+
+This paper develops a model-free approach to risk-neutral density extraction from short-dated option chains directly exploiting the bid–ask quotes. It introduces two procedures, ARIES and SEDEx. ARIES removes executable static arbitrages sub-ject to market-depth constraints. When several quotes can be removed, it removes the quote with the smallest available size. This rule is designed to preserve the most informative quotes. SEDEx recovers a density through a criterion leveraging smoothness and entropy under bid–ask constraints. The two procedures are conceptually independent. Together, they form a fast pipeline that keeps bid–ask intervals as the primitive market constraint. Synthetic Heston experiments validate the two components in a controlled setting. Applications to SPX option data show that the pipeline remains fast and stable across different short-dated settings, from a few hours to one week before expiry, including scheduled-event days. As an empirical application, the recovered densities are used to construct implied-volatility smiles. These smiles remain within the quoted bid–ask bounds. Extending the framework to the joint treatment of the option surface across maturities is left for future work. 38 References 
+
+Shreeram Shankar Abhyankar, V Abramov, A Adem, L Aizenberg, S Albeverio, Lu´ ıs J Al´ ıas, H Andr´ eka, BN Apanasov, I Assani, K Atanassov, et al. Encyclopaedia of mathematics, supplement III . Springer, 2002. Yacine A¨ ıt-Sahalia and Andrew W Lo. Nonparametric estimation of state-price densities implicit in financial asset prices. The journal of finance , 53(2):499–547, 1998. Yacine A¨ ıt-Sahalia and Andrew W Lo. Nonparametric risk management and implied risk aversion. Journal of econometrics , 94(1-2):9–51, 2000. Lykourgos Alexiou, Amit Goyal, Alexandros Kostakis, and Leonidas Rompolis. Pric-ing event risk: Evidence from concave implied volatility curves. Review of Finance ,29(4):963–1007, 2025. Torben G Andersen, Nicola Fusari, and Viktor Todorov. Short-term market risks implied by weekly options. The Journal of Finance , 72(3):1335–1386, 2017. Bhupinder Bahra. Implied risk-neutral probability density functions from option prices: theory and application. Working paper series , 1997. Federico M Bandi, Nicola Fusari, and Roberto Reno. 0dte option pricing. ESSEC Business School Research Paper , (2023-03):24–02, 2023. Alessandro Beber and Michael W Brandt. The effect of macroeconomic news on beliefs and preferences: Evidence from the options market. Journal of Monetary Economics , 53(8):1997–2039, 2006. Dimitri P Bertsekas. Nonlinear programming. Journal of the Operational Research Society , 48(3):334–334, 1997. Fischer Black and Myron Scholes. The pricing of options and corporate liabilities. 
+
+Journal of Political Economy , 81(3):637–654, 1973. Oleg Bondarenko. Estimation of risk-neutral densities using positive convolution approximation. Journal of Econometrics , 116(1-2):85–112, 2003. Douglas T. Breeden and Robert H. Litzenberger. Prices of state-contingent claims implicit in option prices. The Journal of Business , 51(4):621–651, 1978. 39 Peter W Buchen and Michael Kelly. The maximum entropy distribution of an asset inferred from option prices. Journal of Financial and Quantitative Analysis , 31 (1):143–159, 1996. Peter Carr and Dilip B Madan. A note on sufficient conditions for no arbitrage. 
+
+Finance Research Letters , 2(3):125–130, 2005. Samuel N Cohen, Christoph Reisinger, and Sheng Wang. Detecting and repairing arbitrage in traded option prices. Applied Mathematical Finance , 27(5):345–373, 2020. Laurent Cousot. Conditions on option prices for absence of arbitrage and exact calibration. Journal of Banking & Finance , 31(11):3377–3397, 2007. Mark HA Davis and David G Hobson. The range of traded option prices. Mathe-matical Finance , 17(1):1–14, 2007. William Diamond and Peter Van Tassel. Risk-free rates and convenience yields around the world. FRB of New York Staff Report , (1032), 2022. Fang Fang and Cornelis W Oosterlee. A novel pricing method for european options based on fourier-cosine series expansions. SIAM Journal on Scientific Computing ,31(2):826–848, 2009. Irene Fonseca and Giovanni Leoni. Modern Methods in the Calculus of Variations: Lp Spaces . Springer, 2007. Jim Gatheral and Antoine Jacquier. Arbitrage-free svi volatility surfaces. Quantita-tive Finance , 14(1):59–71, 2014. Paul Glasserman and Dan Pirjol. W-shaped implied volatility curves and the gaussian mixture model. Quantitative Finance , 23(4):557–577, 2023. Per Christian Hansen. Rank-deficient and discrete ill-posed problems: numerical aspects of linear inversion . SIAM, 1998. Steven L Heston. A closed-form solution for options with stochastic volatility with applications to bond and currency options. The review of financial studies , 6(2): 327–343, 1993. Alexander D Ioffe. On lower semicontinuity of integral functionals. i. SIAM Journal on Control and Optimization , 15(4):521–538, 1977. 40 Jens Carsten Jackwerth and Mark Rubinstein. Recovering probability distributions from option prices. The journal of Finance , 51(5):1611–1631, 1996. Robert Jarrow and Andrew Rudd. Approximate option valuation for arbitrary stochastic processes. Journal of financial Economics , 10(3):347–369, 1982. Theodore Samuel Motzkin. Beitr¨ age zur Theorie der linearen Ungleichungen .Inaugural-dissertation, University of Basel, Jerusalem, 1936. Printed by Azriel. English translation: Contributions to the theory of linear inequalities , RAND Corporation Translation 22, Santa Monica, CA, 1952. Reprinted in: Theodore S. Motzkin: Selected Papers , Birkh¨ auser, Boston, 1983, pp. 1–80. Louis Nirenberg. On elliptic partial differential equations. Annali della Scuola Nor-male Superiore di Pisa-Scienze Fisiche e Matematiche , 13(2):115–162, 1959. BT Poljak. Semicontinuity of integral functionals and existence theorems on extremal problems. Mathematics of the USSR-Sbornik , 7(1):59–77, 1969. Mark Rubinstein. Implied binomial trees. The journal of finance , 49(3):771–818, 1994. David Shimko. Bounds of probability. Risk , 6:33–37, 01 1993. Viktor Todorov and Yang Zhang. Intraday volatility patterns from short-dated op-tions. Journal of Econometrics , page 105732, 2024. Jules H Van Binsbergen, William F Diamond, and Marco Grotteria. Risk-free interest rates. Journal of Financial Economics , 143(1):1–29, 2022. 41 A Detailed proofs 
+
+## A.1 Lemmas 
+
+A.1.1 Equivalence of Discrete Admissible Sets 
+
+Proof of Lemma 27. The proof relies on the algebraic identity relating the payoff of a put option to that of a call option. Consider the fundamental identity: (K − x)+ = ( x − K)+ − (x − K), ∀x, K ∈ R. (84) Let p ∈ D M . We evaluate the theoretical price of a put option against the discrete distribution p and use the above identity: 
+
+P p(Kpj ) := e−rT MX
+
+> i=1
+
+(Kpj − si)+ pi
+
+= e−rT MX
+
+> i=1
+
+(si − Kpj )+ − (si − Kpj ) pi by (84) = e−rT MX
+
+> i=1
+
+(si − Kpj )+ pi − e−rT 
+
+> M
+
+X
+
+> i=1
+
+sipi − KpjMX
+
+> i=1
+
+pi
+
+!
+
+. (85) Using the simplex constraint PMi=1 pi = 1 and the forward constraint PMi=1 sipi = F T 
+
+> 0
+
+,this simplifies to the put–call parity relation: 
+
+P p(Kpj ) = Cp(Kpj ) − e−rT (F T 
+
+> 0
+
+− Kpj ). (86) Now, consider the constraints defining Acp M . A vector p satisfies the j-th put constraint if and only if 
+
+P bid  
+
+> j
+
+≤ P p(Kpj ) ≤ P ask  
+
+> j
+
+. (87) Substituting relation (86) into (87) yields 
+
+P bid  
+
+> j
+
+≤ Cp(Kpj ) − e−rT (F T 
+
+> 0
+
+− Kpj ) ≤ P ask  
+
+> j
+
+. (88) Rearranging terms to isolate Cp(Kpj ), we obtain 
+
+P bid  
+
+> j
+
++ e−rT (F T 
+
+> 0
+
+− Kpj ) ≤ Cp(Kpj ) ≤ P ask  
+
+> j
+
++ e−rT (F T 
+
+> 0
+
+− Kpj ). (89) By definition of the transformed bounds in (72), this is equivalent to 
+
+Cp(Kpj ) ∈ [ eCbid  
+
+> j
+
+, eCask  
+
+> j
+
+].
+
+42 This demonstrates that the condition for the j-th put in Acp M is equivalent to the condition for the j-th synthetic call in AcM . Since the constraints on the original calls ( i = 1 , . . . , N c) and the moment conditions defining DM are identical in both sets, we conclude that Acp M = AcM .
+
+## A.2 Propositions 
+
+A.2.1 Existence of a Solution to the Arbitrage Filtering Procedure 
+
+Proof of Proposition 15. The null portfolio ( qask , q bid , u, α ) = 0 satisfies all inequal-ities, hence C̸ = ∅. Moreover, note that C is a polyhedron as the intersection of finitely many half-spaces. We now show that C is bounded by verifying that each of its variables is bounded. First, the quantities qask and qbid are bounded due to the finite market sizes available, as specified in constraints (2). Second, by the definition of C, α is bounded from above since α ≤ 0. Next, from the constraints in (36), we have a lower bound for u:
+
+u ≥
+
+> N
+
+X
+
+> i=1
+
+(qbid  
+
+> i
+
+− qask  
+
+> i
+
+).
+
+Since qask and qbid are bounded, u is bounded from below. Furthermore, since ˜π0(qask , q bid , u, α ) ≤ 0, we can deduce an upper bound for u:
+
+uS 0e−qT ≤ α −
+
+> N
+
+X
+
+> i=1
+
+ qask  
+
+> i
+
+Cask  
+
+> i
+
+− qbid  
+
+> i
+
+Cbid 
+
+> i
+
+.
+
+Given that α is bounded from above (by 0) and the quantities q are bounded, u is also bounded from above. Finally, using the same inequality ˜ π0 ≤ 0, we obtain a lower bound for α:
+
+α ≥
+
+> N
+
+X
+
+> i=1
+
+ qask  
+
+> i
+
+Cask  
+
+> i
+
+− qbid  
+
+> i
+
+Cbid 
+
+> i
+
+ + uS 0e−qT .
+
+Since u is now shown to be bounded from below and the quantities q are bounded, 
+
+α is bounded from below. Since all variables are bounded, the polyhedron C is bounded and is therefore a polytope. Moreover, the objective function ˜ π0 is linear. Because a polytope is a compact set, Weierstrass’s theorem guarantees that the problem admits at least 43 one optimal solution. Finally, by the Fundamental Theorem of Linear Programming (Bertsekas, 1997, Proposition B.20(c)), an optimal solution is attained at least at a vertex of C. This completes the proof. 
+
+A.2.2 Characterization of Optimal Solutions to the Arbitrage Filtering Procedure 
+
+Proof of Proposition 16. We proceed in five steps. 
+
+Step 1 : Canonical map and interpretation. Given any feasible x = ( qask ,qbid , u, α ) ∈ C , define the induced net weights w by (17) and set the cash position 
+
+c := −α. (90) Then the terminal payoff including cash equals 
+
+VT (w)( s) + ce rT =
+
+> N
+
+X
+
+> i=1
+
+(qask  
+
+> i
+
+− qbid  
+
+> i
+
+)( s − Ki)+ + us − αe rT = ˜Π( qask , q bid , u, α, s ). (91) Moreover, the associated time–0 execution cost including cash is 
+
+π0(qask , q bid , u ) + c = π0(qask , q bid , u ) − α = ˜ π0(qask , q bid , u, α ). (92) Hence, feasibility of x is exactly the statement that the discounted payoff in (91) is nonnegative for all s ≥ 0, and the objective in (34) is precisely 
+
+−˜π0(x) = −(π0(qask , q bid , u ) + c),
+
+i.e. the maximization of the upfront cash inflow subject to nonnegative payoff for all 
+
+s ≥ 0. Finally, recall from Remark 4 that for a fixed net position w, any round-trip trade with qask  
+
+> i
+
+> 0 and qbid  
+
+> i
+
+> 0 at the same strike Ki strictly increases the cost by min( qask  
+
+> i
+
+, q bid  
+
+> i
+
+)( Cask  
+
+> i
+
+− Cbid  
+
+> i
+
+) ≥ 0 without changing the payoff. Therefore, any optimal solution can be chosen to be canonical in the sense that 
+
+∀i ∈ { 1, . . . , N } : qask  
+
+> i
+
+qbid  
+
+> i
+
+= 0 . (93) We henceforth work with such an optimal solution. 44 Step 2 : Homogeneity and maximal scaling. Fix any feasible x ∈ C and 
+
+λ ≥ 0. By the positive homogeneity of ˜Π and ˜ π0 (see Remark 14), ˜Π( λx, s ) = λ ˜Π( x, s ), ˜π0(λx ) = λ˜π0(x). (94) Hence all payoff constraints remain satisfied for λ ≥ 0. The only restriction on scaling comes from the upper size bounds, so the maximal admissible scaling factor is exactly the quantity ¯λ(x) defined in (37). For every λ ∈ [0 , ¯λ(x)], the point λx 
+
+belongs to C and the objective scales linearly: 
+
+−˜π0(λx ) = −λ˜π0(x). (95) 
+
+Step 3 : Strong-arbitrage case: ˜π∗ 
+
+> 0
+
+< 0. Assume ˜ π∗ 
+
+> 0
+
+< 0. Then the optimal objective value satisfies 
+
+−˜π∗ 
+
+> 0
+
+> 0.
+
+Suppose, for contradiction, that no upper size bound is saturated at x∗, i.e. qask ∗ 
+
+> i
+
+<Qask  
+
+> i
+
+and qbid ∗ 
+
+> i
+
+< Q bid  
+
+> i
+
+for all i. Then ¯λ(x∗) > 1, and by (95) we would have 
+
+−˜π0(¯λ(x∗)x∗) = −¯λ(x∗)˜ π∗ 
+
+> 0
+
+> −˜π∗ 
+
+> 0
+
+,
+
+contradicting optimality of x∗. Hence at least one depth constraint is saturated, as claimed. We now show that x∗ generates a strong arbitrage in the sense of Definition 6. Let w∗ be the net weights induced by x∗ via (17). Define the cash position using the market budget constraint as 
+
+c∗ := −π0(qask ∗, q bid ∗, u ∗), (96) so that V0(w∗) + c∗ = 0 (equivalently, (16) holds). Using (91)–(92), we can relate the corresponding terminal payoff to ˜Π∗:
+
+VT (w∗)( s) + c∗erT = ˜Π∗(s) +  α∗ − π0(qask ∗, q bid ∗, u ∗)erT (97) = ˜Π∗(s) − ˜π∗ 
+
+> 0
+
+erT .
+
+Since x∗ ∈ C , we have ˜Π∗(s) ≥ 0 for all s ≥ 0. Because ˜ π∗ 
+
+> 0
+
+< 0, the constant shift (−˜π∗ 
+
+> 0
+
+erT ) is strictly positive. Therefore, (97) implies 
+
+∀s ≥ 0 : VT (w∗)( s) + c∗erT > 0,
+
+which is exactly the definition of a strong arbitrage (13). 45 Step 4 : Weak-arbitrage case with ˜π∗ 
+
+> 0
+
+= 0 and ˜Π∗̸ ≡ 0. Assume ˜ π∗ 
+
+> 0
+
+= 0 and ˜Π∗ is not identically zero. Then, by homogeneity (94), for every λ ∈ [0 , ¯λ(x∗)], where ¯λ(x∗) is defined in (37), we have λx ∗ ∈ C and 
+
+−˜π0(λx ∗) = −λ˜π∗ 
+
+> 0
+
+= 0 ,
+
+so every λx ∗ attains the optimal objective value 0. Moreover, since ˜Π∗̸ ≡ 0, we have x∗̸ = 0 and hence ¯λ(x∗) > 0; the segment {λx ∗ : 0 ≤ λ ≤ ¯λ(x∗)} is therefore non-trivial. Finally, the extremal point ¯λ(x∗)x∗ lies on the boundary of C and thus saturates at least one depth constraint. To link x∗ to a weak arbitrage, implement the induced net weights w∗ and choose the cash position 
+
+c∗ := −π0(qask ∗, q bid ∗, u ∗). (98) Because ˜ π∗ 
+
+> 0
+
+= 0, we have α∗ = π0(qask ∗, q bid ∗, u ∗), hence α∗ − π0(·) = 0 and (97) simplifies to 
+
+VT (w∗)( s) + c∗erT = ˜Π∗(s) ≥ 0, ∀s ≥ 0. (99) Since ˜Π∗ is a continuous piecewise–linear function on R+ with breakpoints in {0,K1,. . . , K N } and ˜Π∗̸ ≡ 0, there exists a nonempty open interval I ⊂ R+ such that ˜Π∗(s) > 0 for all s ∈ I.Let P be any probability measure on R+ with a density (with respect to Lebesgue measure) that is strictly positive on I. Then we obtain 
+
+P VT (w∗) + c∗erT > 0 = P
+
+ ˜Π∗(ST ) > 0
+
+
+
+≥ P(ST ∈ I) > 0,
+
+which proves that ( w∗, c ∗) yields a weak arbitrage in the sense of Equation (12). 
+
+Step 5 : No-arbitrage case and uniqueness of the optimizer. First, assume that ˜Π∗(s) = 0 for all s ≥ 0. By (91), this means 
+
+> N
+
+X
+
+> i=1
+
+(qask ∗ 
+
+> i
+
+− qbid ∗ 
+
+> i
+
+)( s − Ki)+ + u∗s − α∗erT ≡ 0 on R+. (100) Since the functions {(s − Ki)+, s, 1} are linearly independent on R+, (100) yields 
+
+qask ∗ 
+
+> i
+
+− qbid ∗ 
+
+> i
+
+= 0 (i = 1 , . . . , N ), u∗ = 0 , α∗ = 0 .
+
+In particular, the induced net weights satisfy w∗ 
+
+> Ki
+
+= 0 for all i. Invoking the canon-ical optimality property (93), we further conclude that qask ∗ 
+
+> i
+
+= qbid ∗ 
+
+> i
+
+= 0 for all i,46 hence x∗ = 0. This proves uniqueness of the optimal solution under the canonical implementation convention. Conversely, assume that the market is arbitrage-free in the sense of Definition 6 (item 3). If there existed a feasible x ∈ C such that ˜ π0(x) = 0 and ˜Π( x, ·)̸ ≡ 0, then the construction in Step 4 would yield a weak arbitrage under any probability measure P whose law of ST charges every nonempty open interval, contradicting the arbitrage-free assumption. Likewise, if there existed a feasible x ∈ C with ˜ π0(x) <
+
+0, then Step 3 would yield a strong arbitrage, again a contradiction. Therefore, arbitrage-free assumption forces ˜Π∗ ≡ 0 at the optimizer. Finally, the three cases are mutually exclusive by definition: either ˜ π∗ 
+
+> 0
+
+< 0, or ˜π∗ 
+
+> 0
+
+= 0; in the latter case either ˜Π∗ ≡ 0 or not. This completes the proof. 
+
+A.2.3 Global Monotonicity, Convexity, Lower Bounds on Call Prices. From Local to Global Monotonicity Note that by Equation (39) it follows immediately that for all 0 ≤ i < j ≤ N − 1 we have Ci > C j , that is, the call price sequence is globally strictly decreasing. 
+
+From Local to Global Convexity For 0 ≤ i < j ≤ N , we denote the discrete slope between ( Ki, C i) and ( Kj , C j ) by ∆ij := Ci − Cj
+
+Kj − Ki
+
+. (101) In particular, the local slopes between consecutive strikes are ∆ i,i +1 , i = 0 , . . . , N −1. We will see now that conditions (39) and (40) imply global discrete convexity of the call prices that is, the slopes ∆ ij are decreasing in the strike. More precisely: 
+
+Proposition 28 (Global convexity) . Assume (39) and (40) hold; then: 
+
+∀i < j < k : Ci − Cj
+
+Kj − Ki
+
+− Cj − Ck
+
+Kk − Kj
+
+> 0, (102) 
+
+Proof. Assume that, for all i,∆i,i +1 > ∆i+1 ,i +2 > 0, i = 0 , . . . , N − 2, (103) 47 which encodes local discrete convexity and monotonicity. Fix i < j < k . Using a telescoping argument, we can write ∆ij =
+
+> j−1
+
+X
+
+> l=i
+
+ω(i,j ) 
+
+> l,l +1
+
+∆l,l +1 , (104) ∆jk =
+
+> k−1
+
+X
+
+> l=j
+
+ω(j,k ) 
+
+> l,l +1
+
+∆l,l +1 , (105) where the weight ω(i,j ) 
+
+> l,l +1
+
+is given by 
+
+ω(i,j ) 
+
+> l,l +1
+
+= Kl+1 − Kl
+
+Kj − Ki
+
+> 0,
+
+> j−1
+
+X
+
+> l=i
+
+ω(i,j ) 
+
+> l,l +1
+
+= 1 , (106) and similarly for ω(j,k )
+
+> l,l +1
+
+. In other words, both ∆ ij and ∆ jk are convex combinations of the local slopes ∆ l,l +1 over the respective intervals. By (103), we have, on the one hand, ∆l,l +1 > ∆j−1,j > ∆j,j +1 , l ∈ { i, . . . , j − 1}, (107) and, on the other hand, ∆l,l +1 < ∆j,j +1 , l ∈ { j, . . . , k − 1}. (108) Since convex combinations preserve these bounds, we obtain ∆ij > ∆j−1,j > ∆j,j +1 > ∆jk , (109) which is exactly (102). 
+
+Global Lower Bound on Call Prices We now derive global lower bounds for admissible call prices. 
+
+Proposition 29 (Global lower bounds) . Let C be an admissible call price vector in the sense of Definition 17. Then, for all i ∈ { 1, . . . , N },
+
+S0e−qT − Kie−rT < C i < S 0e−qT . (110) 48 Proof. The upper bound in (110) is immediate: by monotonicity (39) and (15), we have 
+
+Ci < C 0 = S0e−qT . (111) For the lower bound, fix i ∈ { 2, . . . , N }. Let 
+
+λ := K1
+
+Ki
+
+∈ (0 , 1) , K1 = λK i + (1 − λ)K0. (112) By convexity in the strike, 
+
+C1 = C(K1) < λC (Ki) + (1 − λ)C(K0), (113) that is, 
+
+C1 < K1
+
+Ki
+
+Ci + Ki − K1
+
+Ki
+
+C0. (114) Subtracting S0e−qT on both sides and using C0 = S0e−qT , we obtain 
+
+C1 − S0e−qT < K1
+
+Ki
+
+ Ci − S0e−qT . (115) Hence C1 − S0e−qT 
+
+K1
+
+< Ci − S0e−qT 
+
+Ki
+
+. (116) By the slope control on [ K0, K 1] stated in (41), 
+
+C1 − S0e−qT 
+
+K1
+
+> −e−rT . (117) Combining this with (116) yields 
+
+Ci − S0e−qT 
+
+Ki
+
+> −e−rT , (118) which is equivalent to 
+
+Ci > S 0e−qT − Kie−rT . (119) This also holds for i = 1 by a direct application of (41). The claim follows. 
+
+A.2.4 Existence of an Admissible Call-Price Vector 
+
+Proof of Proposition 20. The proof proceeds in six steps. 49 Step 1: Encoding the constraints as linear inequalities. We rewrite the conditions of Definition 17 in a linear inequality form suitable for Motzkin’s theorem. This yields a system of mixed strict and non-strict inequalities: 
+
+Amkt C ≤ bmkt , Astruct C < b struct , C > 0, (120) where Amkt and bmkt capture the market bid–ask bounds, and Astruct and bstruct 
+
+capture the structural shape constraints. 
+
+• Structural constraints. – Strict monotonicity. For each i = 0 , . . . , N − 1, Ci > C i+1 , equivalently 
+
+Ci+1 − Ci < 0. Recall that the difference matrix D(1) ∈ RN ×(N +1) (26) is given by (D(1) C)i := Ci+1 − Ci, i = 0 , . . . , N − 1, (121) so that D(1) C < 0 exactly encodes (39). 
+
+– Strict convexity. For each i = 0 , . . . , N − 2, 
+
+Ci − Ci+1 
+
+Ki+1 − Ki
+
+> Ci+1 − Ci+2 
+
+Ki+2 − Ki+1 
+
+,
+
+which rearranges to 
+
+−
+
+
+
+αi,i +1 (Ci − Ci+1 ) − αi+1 ,i +2 (Ci+1 − Ci+2 )
+
+
+
+< 0,
+
+using αa,b from Definition 5. Define D(2) ∈ R(N −1) ×(N +1) by (D(2) C)i := − αi−1,i Ci−1+( αi−1,i +αi,i +1 ) Ci−αi,i +1 Ci+1 , i = 1 , . . . , N −1,
+
+so that D(2) C < 0 exactly encodes (40). 
+
+– Slope constraint on [K0, K 1]. The lower bound (41) can be written ( C0 −
+
+C1) − K1e−rT < 0. Let s⊤ := (1 , −1, 0, . . . , 0) and bSP1 := K1e−rT . Then 
+
+s⊤C < b SP1 represents the slope constraint. Collecting these, set 
+
+Astruct := 
+
+
+
+D(1) 
+
+D(2) 
+
+s⊤
+
+ , bstruct := 
+
+
+
+00
+
+bSP1 
+
+ . (122) so that Astruct C < b struct compactly represents all strict inequalities (39)–(41). 50 • Market (bid–ask) constraints. Introduce vectors for the bid and ask quotes: 
+
+Cask := ( Cask 0 , . . . , C ask  
+
+> N
+
+)⊤, Cbid := ( Cbid 0 , . . . , C bid  
+
+> N
+
+)⊤,
+
+with Cask 0 = Cbid 0 = S0e−qT under assumption (Hyp-Spot). The bid–ask bounds (42) can be written as two systems of weak inequalities: C ≤ Cask and −C ≤−Cbid . Thus set 
+
+Amkt := 
+
+ IN +1 
+
+−IN +1 
+
+
+
+, bmkt := 
+
+ Cask 
+
+− Cbid 
+
+
+
+. (123) so that Amkt C ≤ bmkt corresponds exactly to the bid–ask constraints. 
+
+• Positivity. We aim to find C > 0 as in the setup of Corollary 19. In summary, the feasibility of an admissible call price vector C is equivalent to the linear system (120). 
+
+Step 2: Decomposing Motzkin certificate. Assume for contradiction that the system (120) admits no solution and apply Corollary 19 with 
+
+A := Amkt , b := bmkt , B := Astruct , c := bstruct .
+
+It guarantees the existence of nonnegative multipliers y ∈ R2( N +1) + and z ∈ R(2 N )+
+
+satisfying one of the three conditions listed in Corollary 19. Introduce the aggregated dual vector 
+
+w := A⊤
+
+> mkt
+
+y + A⊤
+
+> struct
+
+z ∈ RN +1 . (124) 
+
+Block decompositions. Decompose y according to the bid–ask block (123) as 
+
+y =  yask , y bid , yask , y bid ∈ RN +1 + ,
+
+so that, using (123), 
+
+A⊤
+
+> mkt
+
+y = yask − ybid =: wmkt ∈ RN +1 . (125) Likewise, decompose z according to the structural block (122) as 
+
+z =  zVS , z BF , z SP1 , zVS ∈ RN 
+
+> +
+
+, z BF ∈ RN −1+ , z SP1 ∈ R+,
+
+and define 
+
+wstruct := A⊤
+
+> struct
+
+z = ( D(1) )⊤zVS + ( D(2) )⊤zBF + s z SP1 . (126) 51 Combining (124)–(126) gives the key identity 
+
+w = wmkt + wstruct , or equivalently wmkt = w − wstruct . (127) In the remainder of the proof, (127) will be used in two complementary ways. First, the left-hand side identifies the executed net quantities in the underlying and the calls and thus pins down the time–0 trading cost before accounting for the cash component. The associated cash investment is zSP1 K1e−rT which delivers the cash flow zSP1 K1 at maturity. Note that wmkt may have mixed signs. Second, the right-hand side decomposes the same executed position into a componentwise nonnegative exposure w (long-only in the underlying and calls) and a structural term −wstruct 
+
+which will be shown in the next step to be a nonnegative combination of elementary spreads (vertical and butterfly spreads) and the synthetic-put at strike K1.
+
+Step 3: Computing the coordinates of wmkt . We now expand the key identity (127) componentwise. For each i = 0 , . . . , N , the Ki-coordinate of (127) is (wmkt )Ki = wKi − (wstruct )Ki . (128) On the other hand, by (125) we have (wmkt )Ki = yask  
+
+> Ki
+
+− ybid  
+
+> Ki
+
+. (129) For notational convenience, write zVS  
+
+> Ki−1,K i
+
+:= ( zVS )i for the quantity of VS i−1,i ,and zBF  
+
+> Ki−1,K i,K i+1
+
+:= ( zBF )i for the quantity of BF i−1,i,i +1 . Moreover, zSP1 is the quantity of the synthetic put 13 position at strike K1.
+
+Explicit coordinates. Using (126) together with the explicit forms of D(1) , D(2) 
+
+and s, we obtain the following identities for yask − ybid .
+
+(a) Strike K0. At the lower boundary, only the first vertical-spread, the first but-terfly, and the slope constraints contribute: (wmkt )K0 = wK0 − (wstruct )K0
+
+= wK0 + zVS  
+
+> K0,K 1
+
++ α0,1zBF  
+
+> K0,K 1,K 2
+
+− zSP1 = yask  
+
+> K0
+
+− ybid  
+
+> K0
+
+. (130) 
+
+> 13
+
+A synthetic put at strike K is the standard static replication obtained by combining one call at strike K with a short position in the underlying. Adding a cash position that pays K at maturity, its terminal payoff is ( K − ST )+.
+
+52 (b) Strike K1. At the first interior node, only adjacent vertical-spread, the first two butterflies, and the slope constraints contribute: (wmkt )K1 = wK1 − (wstruct )K1
+
+= wK1 −  zVS  
+
+> K0,K 1
+
+− zVS 
+
+> K1,K 2
+
+ −  (α0,1 + α1,2)zBF  
+
+> K0,K 1,K 2
+
+− α1,2zBF 
+
+> K1,K 2,K 3
+
+ + zSP1 
+
+= yask  
+
+> K1
+
+− ybid  
+
+> K1
+
+. (131) 
+
+(c) Strike Ki for 2 ≤ i ≤ N − 2. In the interior, only adjacent vertical-spread constraints and the three nearest butterfly constraints contribute: (wmkt )Ki = wKi − (wstruct )Ki
+
+= wKi −  zVS  
+
+> Ki−1,K i
+
+− zVS 
+
+> Ki,K i+1
+
+
+
+−
+
+
+
+− αi,i +1 zBF  
+
+> Ki,K i+1 ,K i+2
+
++ ( αi−1,i + αi,i +1 )zBF  
+
+> Ki−1,K i,K i+1
+
+− αi−1,i zBF 
+
+> Ki−2,K i−1,K i
+
+
+
+= yask  
+
+> Ki
+
+− ybid  
+
+> Ki
+
+. (132) 
+
+(d) Strike KN −1. Near the upper boundary, only adjacent vertical-spread con-straints and the last two butterfly constraints contribute: (wmkt )KN −1 = wKN −1 − (wstruct )KN −1
+
+= wKN −1 −  zVS    
+
+> KN−2,K N−1
+
+− zVS  
+
+> KN−1,K N
+
+
+
+−
+
+
+
+(αN −2,N −1 + αN −1,N ) zBF    
+
+> KN−2,K N−1,K N
+
+− αN −2,N −1 zBF    
+
+> KN−3,K N−2,K N−1
+
+
+
+= yask   
+
+> KN−1
+
+− ybid   
+
+> KN−1
+
+. (133) 
+
+(e) Strike KN . At the upper boundary, only the last vertical-spread constraint and the last butterfly constraint contribute: (wmkt )KN = wKN − (wstruct )KN
+
+= wKN − zVS   
+
+> KN−1,K N
+
++ αN −1,N zBF    
+
+> KN−2,K N−1,K N
+
+= yask  
+
+> KN
+
+− ybid  
+
+> KN
+
+. (134) 
+
+Step 4: Payoff analysis of the structural portfolio. We now make explicit the instrument decomposition of −wstruct and derive the corresponding payoff inequality. Let ( e0, . . . , e N ) denote the canonical basis of RN +1 .
+
+Elementary spreads. For each adjacent pair ( Ki−1, K i), recall the vertical spread exposure and corresponding payoff VS i−1,i = ei−1 − ei, VT (VS i−1,i ) = ( ST − Ki−1)+ − (ST − Ki)+ ≥ 0.
+
+53 For each triple ( Ki−1, K i, K i+1 ), recall the butterfly exposure BF i−1,i,i +1 = αi−1,i ei−1 − (αi−1,i + αi,i +1 )ei + αi,i +1 ei+1 ,
+
+with terminal payoff 
+
+VT (BF i−1,i,i +1 ) = αi−1,i (ST −Ki−1)+−(αi−1,i +αi,i +1 )( ST −Ki)++αi,i +1 (ST −Ki+1 )+ ≥ 0.
+
+Moreover, −s = e1 − e0 is the position in the call at K1 and the underlying used in the standard synthetic-put replication. Adding a cash amount K1 at maturity yields the put payoff : 
+
+VT (e1 − e0) + K1 = ( K1 − ST )+ ≥ 0.
+
+Identification with the structural matrices. By construction of D(1) , D(2) , and 
+
+s, we have the rowwise identities 
+
+− D(1) 
+
+> i−1,·
+
+⊤ = VS i−1,i , − D(2) 
+
+> i, ·
+
+⊤ = BF i−1,i,i +1 , −s = e1 − e0.
+
+Therefore, recalling (126), 
+
+−wstruct =
+
+> N
+
+X
+
+> i=1
+
+zVS  
+
+> Ki−1,K i
+
+VS i−1,i + 
+
+> N−1
+
+X
+
+> i=1
+
+zBF  
+
+> Ki−1,K i,K i+1
+
+BF i−1,i,i +1 + zSP1 (e1 − e0).
+
+(135) Since all coefficients zVS , z BF , z SP1 are nonnegative and each term on the right-hand side has a nonnegative payoff at time T (after adding the cash K1 to the last term), we obtain the pointwise inequality 
+
+VT (−wstruct ) + zSP1 K1 =
+
+> N
+
+X
+
+> i=1
+
+zVS  
+
+> Ki−1,K i
+
+VT (VS i−1,i ) +  
+
+> N−1
+
+X
+
+> i=1
+
+zBF  
+
+> Ki−1,K i,K i+1
+
+VT (BF i−1,i,i +1 )+ zSP1 (K1 − ST )+ ≥ 0, for all ST ≥ 0. (136) 
+
+Step 5: Combined payoff of the executed strategy. By Corollary 19, the aggregated vector w satisfies 
+
+w = A⊤
+
+> mkt
+
+y + A⊤
+
+> struct
+
+z ≥ 0 (componentwise) . (137) Recall that we interpret w = ( wK0 , . . . , w KN ) as a static portfolio holding wKi units of the call with strike Ki; its terminal payoff is 
+
+VT (w) = 
+
+> N
+
+X
+
+> i=0
+
+wKi (ST − Ki)+. (138) 54 Since w ≥ 0 and ( ST − Ki)+ ≥ 0 for all i, we have 
+
+VT (w) ≥ 0 for all ST ≥ 0. (139) Using (127) and the linearity of VT yields 
+
+VT (wmkt ) = VT (w − wstruct ) = VT (w) + VT (−wstruct ).
+
+Combining (136) with (139) finally gives 
+
+VT (wmkt ) + zSP1 K1 ≥ 0 for all ST ≥ 0. (140) 
+
+Step 6: Inception cost analysis and conclusion. We turn the Motzkin cer-tificate into an implementable static strategy and conclude by comparing its time–0 
+
+value V0(·) (cf. Definition 3) to its terminal payoff. 
+
+Step 6.1 (Scaling to satisfy depth constraints). Recall from Step 2 that we have a certificate ( y, z ) with y ≥ 0 and z ≥ 0. To enforce market depths at strikes 
+
+K1, . . . , K N , we need 0 ≤ yask  
+
+> i
+
+≤ Qask  
+
+> i
+
+, 0 ≤ ybid  
+
+> i
+
+≤ Qbid  
+
+> i
+
+, i = 1 , . . . , N. (141) By positive homogeneity of Corollary 19, for any λ > 0, the pair ( λy, λz ) is again a valid certificate. Choose 
+
+λ := min 
+
+
+
+1, min    
+
+> 1≤i≤N:yask
+> Ki>0
+
+Qask 
+
+> i
+
+yask 
+
+> Ki
+
+, min    
+
+> 1≤i≤N:ybid
+> Ki>0
+
+Qbid 
+
+> i
+
+ybid 
+
+> Ki
+
+
+
+∈ (0 , 1] , (142) and define the scaled certificate ˜y := λy, ˜z := λz. 
+
+Then ˜ y satisfies (141). 
+
+Step 6.2 (Executed trade at quotes, cash leg). Define the execution strategy (qask , q bid , u ) by 
+
+qask  
+
+> i
+
+:= ˜ yask  
+
+> Ki
+
+, qbid  
+
+> i
+
+:= ˜ ybid  
+
+> Ki
+
+, i = 1 , . . . , N, u := ˜ yask  
+
+> K0
+
+− ˜ybid  
+
+> K0
+
+. (143) Define the scaled market and structural portfolios by ˜wmkt := A⊤ 
+
+> mkt
+
+˜y = λw mkt , ˜wstruct := A⊤ 
+
+> struct
+
+˜z = λw struct . (144) 55 Moreover, define the scaled aggregated exposure ˜w := A⊤ 
+
+> mkt
+
+˜y + A⊤ 
+
+> struct
+
+˜z = λw. (145) With this notation, the key identity (127) becomes ˜ wmkt = ˜ w − ˜wstruct , and ˜ wmkt is the new induced net weights (Remark 2) : ˜wmkt = ˜ yask − ˜ybid . By Remark 4, for this net position we have 
+
+V0( ˜ wmkt ) ≤ π0(qask , q bid , u ) = b⊤ 
+
+> mkt
+
+˜y. (146) Furthermore, by construction of bstruct (122), its only nonzero entry corresponds to the slope constraint and equals K1e−rT . Hence 
+
+b⊤ 
+
+> struct
+
+˜z = ˜ zSP1 K1e−rT . (147) This term is the associated cash deposit at time 0, which accrues at the risk-free rate and delivers ˜ zSP1 K1 at maturity. Adding (147) to (146) finally yields 
+
+V0( ˜ wmkt ) + ˜ zSP1 K1e−rT ≤ b⊤ 
+
+> mkt
+
+˜y + b⊤ 
+
+> struct
+
+˜z. (148) 
+
+Step 6.3 (Terminal payoff ). Step 5 yields VT (wmkt ) + zSP1 K1 ≥ 0 (140). Scaling by λ and using linearity of VT gives 
+
+VT ( ˜ wmkt ) + ˜ zSP1 K1 = λ VT (wmkt ) + zSP1 K1
+
+ ≥ 0 for all ST ≥ 0. (149) 
+
+Step 6.4 (Conclusion : strong or weak arbitrage). Since the primal system (120) is infeasible, the Motzkin certificate satisfies b⊤
+
+> mkt
+
+y + b⊤
+
+> struct
+
+z ≤ 0, with strict inequality in the first alternative of item 2 in Corollary 19. Multiplying by λ > 0yields 
+
+b⊤ 
+
+> mkt
+
+˜y + b⊤ 
+
+> struct
+
+˜z ≤ 0. (150) Combining (148) and (150) gives 
+
+V0( ˜ wmkt ) + ˜ zSP1 K1e−rT ≤ 0. (151) 
+
+Case 1: b⊤ 
+
+> mkt
+
+˜y + b⊤ 
+
+> struct
+
+˜z < 0. Then (148) implies 
+
+V0( ˜ wmkt ) + ˜ zSP1 K1e−rT < 0.
+
+Define 
+
+c := −
+
+
+
+V0( ˜ wmkt ) + ˜ zSP1 K1e−rT 
+
+
+
+> 0. (152) 56 Consider the static strategy consisting of the option/underlying position ˜wmkt to-gether with the cash position ˜ c := c + ˜ zSP1 K1e−rT . By construction, its time–0 value is exactly zero. At maturity, combining (149) with (152) yields 
+
+VT ( ˜ wmkt ) + ˜ zSP1 K1 + ce rT ≥ ce rT > 0 for all ST ≥ 0.
+
+Hence ( ˜ wmkt , ˜c) is a strong arbitrage, precluding the no-arbitrage condition of Defi-nition 6. 
+
+Case 2: b⊤ 
+
+> mkt
+
+˜y + b⊤ 
+
+> struct
+
+˜z = 0 . Then (151) gives V0( ˜ wmkt ) ≤ 0. If V0( ˜ wmkt ) < 0, then we fall back to Case 1. Thus we may assume 
+
+V0( ˜ wmkt ) = 0 . (153) Plugging (153) into (151) yields ˜ zSP1 K1e−rT ≤ 0. Since ˜ zSP1 ≥ 0, this implies ˜zSP1 = 0 . Therefore (149) reduces to VT ( ˜ wmkt ) ≥ 0. We now prove that VT ( ˜ wmkt ) is not identically zero. By Corollary 19, the infea-sibility certificate cannot be trivial, i.e. (˜ z, ˜w)̸ = (0 , 0) , and in any case Step 5 yields ˜w ≥ 0. If ˜ w̸ = 0, then there exists j such that ˜ wKj > 0. Hence 
+
+VT ( ˜ w)( ST ) = 
+
+> N
+
+X
+
+> i=0
+
+˜wKi (ST − Ki)+ ≥ ˜wKj (ST − Kj )+,
+
+so VT ( ˜ w)( ST ) > 0 for all ST > K j . Using (144) and the linearity of VT ,
+
+VT (− ˜wstruct ) = λV T (−wstruct ) ≥ 0,
+
+where the inequality follows from (136). Thus, we conclude that VT ( ˜ wmkt ) = VT ( ˜ w)+ 
+
+VT (− ˜wstruct ) > 0 is strictly positive on the interval I := ( Kj , ∞). If instead ˜w = 0 but ˜ z̸ = 0, then ˜wmkt = − ˜wstruct . In addition, Step 4 (with ˜zSP1 = 0) yields the following decomposition 
+
+− ˜wstruct =
+
+> N
+
+X
+
+> i=1
+
+˜zVS  
+
+> Ki−1,K i
+
+VS i−1,i + 
+
+> N−1
+
+X
+
+> i=1
+
+˜zBF  
+
+> Ki−1,K i,K i+1
+
+BF i−1,i,i +1 . (154) where the coefficients are nonnegative and not all zero. For each elementary payoff 
+
+g ∈ { VT (VS i−1,i ), V T (BF i−1,i,i +1 )} we have g(ST ) ≥ 0 for all ST ≥ 0 and g̸ ≡ 0. More 57 precisely, pick an index with a strictly positive coefficient in (154). For a vertical spread VS i−1,i , we have VT (VS i−1,i )( ST ) = Ki − Ki−1 > 0 for all ST ≥ Ki. For a butterfly BF i−1,i,i +1 , we have VT (BF i−1,i,i +1 )( ST ) > 0 for all ST ∈ (Ki−1, K i+1 ). In either case, there exists a nonempty open interval I ⊂ R+ on which the corre-sponding payoff is strictly positive. Since all coefficients in (154) are nonnegative, it follows that 
+
+VT ( ˜ wmkt )( ST ) > 0 for all ST ∈ I. (155) So in both cases, Equation (155) holds with I a nonempty open interval of R+.Let P be any probability measure on R+ with a density (with respect to Lebesgue measure) that is strictly positive on I. Then we obtain 
+
+VT ( ˜ wmkt ) ≥ 0 P-a.s. , and P VT ( ˜ wmkt ) > 0 ≥ P(I) > 0.
+
+Together with (153), this shows that ( ˜ wmkt , 0) is a weak arbitrage with respect to such an absolutely continuous P, contradicting item 3. 
+
+Conclusion. Both cases contradict no-arbitrage. Hence (120) is feasible, and an admissible call price vector exists. 
+
+A.2.5 Replication of Call-Price Vector and Uniqueness Given the Sup-port 
+
+Proof of Proposition 23. The proof is carried out in four steps. 
+
+Step 1 (reproduction of call prices at K1, . . . , K N ). Fix i ∈ { 1, . . . , N }. Since 
+
+K′ < K 1 ≤ Ki, we have ( K′ − Ki)+ = ( K1 − Ki)+ = · · · = ( Ki − Ki)+ = 0, hence 
+
+Eν [( ST − Ki)+] =  
+
+> N+1
+
+X
+
+> j=i+1
+
+(Kj − Ki) q′ 
+
+> j
+
+. (156) Using (49) and q′  
+
+> N+1
+
+= QN , we obtain 
+
+Eν [( ST − Ki)+] = 
+
+> N
+
+X
+
+> j=i+1
+
+(Kj − Ki)( Qj−1 − Qj ) + ( KN +1 − Ki)QN
+
+=
+
+> N
+
+X
+
+> j=i+1
+
+(Kj − Ki)Qj−1 −
+
+> N
+
+X
+
+> j=i+1
+
+(Kj − Ki)Qj + ( KN +1 − Ki)QN .
+
+(157) 58 Re-indexing the first sum yields 
+
+Eν [( ST − Ki)+] =  
+
+> N−1
+
+X
+
+> j=i
+
+(Kj+1 − Ki)Qj −
+
+> N
+
+X
+
+> j=i+1
+
+(Kj − Ki)Qj + ( KN +1 − Ki)QN
+
+= ( Ki+1 − Ki)Qi + 
+
+> N−1
+
+X
+
+> j=i+1
+
+(Kj+1 − Kj )Qj + ( KN +1 − KN )QN . (158) By definition (48), for j = 0 , . . . , N − 1, ( Kj+1 − Kj )Qj = erT (Cj − Cj+1 ), and by (47), ( KN +1 − KN )QN = erT CN . Plugging these identities into (158) yields 
+
+Eν [( ST − Ki)+] = erT 
+
+h
+
+(Ci − Ci+1 ) +  
+
+> N−1
+
+X
+
+> j=i+1
+
+(Cj − Cj+1 ) + CN
+
+i
+
+= erT Ci,
+
+hence e−rT Eν [( ST − Ki)+] = Ci for all i = 1 , . . . , N .
+
+Step 2 (reproduction at K0). Recall that K0 = 0 and C0 = S0e−qT in Defini-tion 17. Then ( ST − K0)+ = ST , so 
+
+Eν [( ST − K0)+] = Eν [ST ] = q′
+
+> 0
+
+K′ + 
+
+> N+1
+
+X
+
+> j=1
+
+Kj q′ 
+
+> j
+
+. (159) By definition of ( q′
+
+> 0
+
+, q ′
+
+> 1
+
+) in (52), we have 
+
+q′ 
+
+> 0
+
++ q′ 
+
+> 1
+
+= m, q′
+
+> 0
+
+K′ + q′
+
+> 1
+
+K1 = m ¯K. (160) Moreover, multiplying (51) by m = 1 − Q1 yields the identity 
+
+m ¯K = (1 − Q0)K0 + ( Q0 − Q1)K1. (161) Combining (159)–(161) with (49) gives 
+
+Eν [ST ] = (1 − Q0)K0 +
+
+> N
+
+X
+
+> j=1
+
+Kj (Qj−1 − Qj ) + KN +1 QN . (162) A straightforward telescoping computation rewrites the right-hand side as (1 − Q0)K0 +
+
+> N
+
+X
+
+> j=1
+
+Kj (Qj−1 − Qj ) + KN +1 QN = K0 +
+
+> N
+
+X
+
+> i=0
+
+(Ki+1 − Ki)Qi. (163) 59 Finally, by (48) and CN +1 = 0, 
+
+> N
+
+X
+
+> i=0
+
+(Ki+1 − Ki)Qi = erT NX
+
+> i=0
+
+(Ci − Ci+1 ) = erT C0.
+
+Since K0 = 0, (163) implies Eν [ST ] = erT C0, i.e. e−rT Eν [( ST − K0)+] = C0, complet-ing (57). 
+
+Step 3 (probability condition). We first recall that Definition 17 implies 0 < Q N < · · · < Q 1 < Q 0 < 1. (164) 
+
+Positivity. For j = 2 , . . . , N , (164) gives Qj−1 > Q j , hence q′ 
+
+> j
+
+= Qj−1 − Qj > 0. Moreover, q′  
+
+> N+1
+
+= QN > 0. Next, since Q1 < 1, we have m = 1 − Q1 > 0, and since ¯K is a convex combination of K0 and K1, it follows that K1 − ¯K > 0. Thus, for any 
+
+K′ ∈ (K0, K 1), we therefore have 
+
+q′ 
+
+> 0
+
+= m K1 − ¯KK1 − K′ > 0.
+
+Finally, 
+
+q′ 
+
+> 1
+
+= m ¯K − K′
+
+K1 − K′ ≥ 0 ⇐⇒ K′ ≤ ¯K, 
+
+and the strict condition K′ < ¯K yields q′ 
+
+> 1
+
+> 0. 
+
+Unit mass. By telescoping,  
+
+> N+1
+
+X
+
+> j=2
+
+q′ 
+
+> j
+
+=
+
+> N
+
+X
+
+> j=2
+
+(Qj−1 − Qj ) + QN = Q1,
+
+and by construction q′ 
+
+> 0
+
++ q′ 
+
+> 1
+
+= m = 1 − Q1. Hence PN +1  
+
+> j=0
+
+q′ 
+
+> j
+
+= 1. 
+
+Step 4 (Uniqueness given the support). Fix K′ = {K′, K 1, . . . , K N +1 }. Con-sider the linear system in the unknown q′ ∈ RN +2 formed by: (i) the probability constraint PN +1  
+
+> j=0
+
+q′ 
+
+> j
+
+= 1; (ii) the N + 1 pricing constraints (57) for i = 0 , . . . , N . This yields a square system Aq ′ = b of dimension ( N + 2) × (N + 2). A direct computation shows that det( A) = ( K1 − K′)
+
+> N
+
+Y
+
+> i=1
+
+(Ki+1 − Ki)̸ = 0 , (165) since the strikes are distinct. Therefore the solution q′ is unique, and so is the corresponding probability measure ν supported on K′.60 A.3 Motzkin’s Theorem of the Alternative 
+
+Theorem 30 (Motzkin’s theorem of the alternative, Motzkin (1936); Abhyankar et al. (2002)) . Let A ∈ Rm×n, B ∈ Rℓ×n, b ∈ Rm, and c ∈ Rℓ. The following two statements are equivalent: 
+
+(P) The system Ax ≤ b and Bx < c admits a solution x ∈ Rn.
+
+(D) For all y ∈ Rm 
+
+> +
+
+and z ∈ Rℓ
+
+> +
+
+,
+
+A⊤y + B⊤z = 0 =⇒ b⊤y + c⊤z ≥ 0,
+
+and 
+
+A⊤y + B⊤z = 0 , z ̸ = 0 =⇒ b⊤y + c⊤z > 0.
+
+## A.4 Continuous Framework 
+
+A.4.1 Existence and Uniqueness of the Minimizer 
+
+The following result ensures that A is non-empty, even when the bid–ask spread is null. 
+
+Lemma 31 (Smooth H1 density matching the constraints) . Let ν be the discrete risk-neutral measure in (53) supported on K′ = {K′, K 1, . . . , K N +1 }, reproducing the call prices Ci for i = 1 , . . . , N and preserving the forward price F T 
+
+> 0
+
+. Then there exists a function f ∈ C∞ 
+
+> c
+
+(X ) ⊂ H1(X ) such that 
+
+f ≥ 0 ,
+
+Z
+
+> X
+
+f (s) ds = 1 ,
+
+Z
+
+> X
+
+s f (s) ds = F T 
+
+> 0
+
+,
+
+and 
+
+e−rT 
+
+Z
+
+> X
+
+(s − Ki)+ f (s) ds = Ci, i = 1 , . . . , N. 
+
+Proof. We establish the result through the following four steps. 
+
+Step 1: localized smooth atoms. Fix φ ∈ C∞ 
+
+> c
+
+(−1, 1) with φ ≥ 0 and R 
+
+> R
+
+φ = 1, and define φε(u) := ε−1φ(u/ε ). Let ( x0, . . . , x N +1 ) := ( K′, K 1, . . . , K N +1 ) and set 
+
+d := min 
+
+n
+
+x0, b − xN +1 , min  
+
+> 0≤j≤N
+
+(xj+1 − xj )
+
+o
+
+> 0, ¯ε := d
+
+4 .
+
+For ε ∈ (0 , ¯ε) and j = 0 , . . . , N + 1, define 
+
+gj,ε (s) := φε(s − xj ).
+
+Then gj,ε ∈ C∞ 
+
+> c
+
+(X ), gj,ε ≥ 0, R 
+
+> X
+
+gj,ε = 1, and the supports of ( gj,ε ) are pairwise disjoint and contained in X .61 Step 2: finite-dimensional parameterization. For a = (a0, . . . , a N +1 )⊤ ∈
+
+RN +2 , define 
+
+fε,a (s) :=  
+
+> N+1
+
+X
+
+> j=0
+
+aj gj,ε (s) ∈ C∞ 
+
+> c
+
+(X ).
+
+Clearly fε,a ≥ 0 a.e. whenever aj ≥ 0 for all j. Introduce the moments 
+
+L(ε) 
+
+> j
+
+:= 
+
+Z
+
+> X
+
+s g j,ε (s) ds, M (ε) 
+
+> i,j
+
+:= 
+
+Z
+
+> X
+
+(s − Ki)+ gj,ε (s) ds, 
+
+for j = 0 , . . . , N + 1 and i = 1 , . . . , N . The constraints 
+
+Z
+
+> X
+
+fε,a = 1 ,
+
+Z
+
+> X
+
+sf ε,a (s) ds = F T 
+
+> 0
+
+,
+
+Z
+
+> X
+
+(s−Ki)+fε,a (s) ds = erT Ci (i = 1 , . . . , N )are equivalent to the linear system 
+
+Aε a = b, 
+
+with 
+
+Aε =
+
+
+
+1 · · · 1
+
+L(ε)0 · · · L(ε) 
+
+> N+1
+
+M (ε)1,0 · · · M (ε)1,N +1 
+
+... ...
+
+M (ε) 
+
+> N, 0
+
+· · · M (ε) 
+
+> N,N +1
+
+
+
+, b = (1 , F T 
+
+> 0
+
+, e rT C1, . . . , e rT CN )⊤.
+
+Step 3: identification of the limit matrix and invertibility. Because gj,ε is a mollifier centered at xj , we have for each fixed ( i, j ), 
+
+L(ε) 
+
+> j
+
+→ xj , M (ε) 
+
+> i,j
+
+→ (xj − Ki)+.
+
+Hence Aε → A0 entrywise (thus also in any matrix norm), where 
+
+A0 := 
+
+
+
+1 1 1 · · · 1
+
+x0 x1 x2 · · · xN +1 
+
+0 0 x2 − K1 · · · xN +1 − K1
+
+0 0 0 . . . ...... ... ... . . . xN +1 − KN
+
+
+
+.
+
+62 The matrix A0 is block upper-triangular, with a 2 × 2 leading block ( 1 1  
+
+> x0x1
+
+) and an upper-triangular ( N × N ) trailing block whose diagonal entries are ( xi+1 − Ki)Ni=1 .A direct Laplace expansion yields det( A0) = 
+
+> N
+
+Y
+
+> j=0
+
+(xj+1 − xj ) > 0,
+
+since x0 < x 1 < · · · < x N +1 and xi = Ki for i = 1 , . . . , N + 1. Therefore A0 is invertible. By construction of ν, its weight vector q′ = ( q′
+
+> 0
+
+, . . . , q ′ 
+
+> N+1
+
+)⊤ satisfies the same constraints on K′, hence 
+
+A0q′ = b. 
+
+Step 4: stability of the inverse and positivity. Since Aε → A0 and det( A0)̸ =0, continuity of the determinant implies det( Aε)̸ = 0 for all ε small enough. Thus Aε
+
+is invertible and the unique solution is 
+
+a(ε) := A−1 
+
+> ε
+
+b. 
+
+Moreover, the inverse map is continuous on GL( N + 2 , R), so 
+
+a(ε) → A−10 b = q′.
+
+Since q′ 
+
+> j
+
+> 0 for all j, for ε small enough one has aj (ε) > 0 for all j.
+
+Conclusion. Take ε > 0 sufficiently small so that Aε is invertible and the unique solution aε := A−1 
+
+> ε
+
+b is strictly positive componentwise. Defining f := fε,a ε =
+
+PN +1  
+
+> j=0
+
+(aε)j gj,ε , we obtain a function f ∈ C∞ 
+
+> c
+
+(X ) ⊂ H1(X ) with f ≥ 0. Finally, since Aεaε = b encodes exactly the mass constraint, the forward constraint, and the 
+
+N call constraints, f satisfies all required equalities, which concludes the proof. We now show that H is well-posed on A and admits a unique minimizer. 
+
+Theorem 32. The functional H admits a unique minimizer f ∗ over A.Proof. We proceed in four steps. 63 Step 1: existence of a minimizing sequence and bounds in H1(X ). Let (fk)k≥1 be a minimizing sequence in A, i.e. 
+
+H(fk) −→ inf   
+
+> f∈A
+
+H(f ) as k → ∞ . (166) Since ( fk) is minimizing, there exists C > 0 such that 
+
+H(fk) ≤ C, ∀k ≥ 1. (167) We first derive a uniform upper bound on the entropy term S(fk). By construc-tion, each fk ∈ A is a probability density on X such that 
+
+Z
+
+> X
+
+xf k(x) dx = F T 
+
+> 0
+
+. (168) It is a classical result in information theory that the (Shannon) entropy of a prob-ability density on R+ with prescribed mean F T 
+
+> 0
+
+is maximized by the exponential density with parameter 1 /F T 
+
+> 0
+
+, and the maximal entropy is equal to 1 + ln( F T 
+
+> 0
+
+). Since our densities are supported in (0 , b ) ⊂ R+ and satisfy the same mean constraint, we obtain the uniform bound 
+
+S(fk) ≤ 1 + ln( F T 
+
+> 0
+
+), ∀k ≥ 1.14 
+
+From the definition (21) we have 
+
+H(fk) = λ1∥f ′
+
+> k
+
+∥2  
+
+> L2(X)
+
+− λ2S(fk), ∀k ≥ 1, (170) 
+
+> 14
+
+Recall that the Kullback–Leibler divergence is always non-negative : for any densities f and 
+
+g, R +∞ 
+
+> 0
+
+f (x) ln 
+
+ f (x)
+
+> g(x)
+
+
+
+dx ≥ 0. Choose g to be the density of an exponential distribution E(1 /F T 
+
+> 0
+
+), which implies S(fk) ≤ − R +∞ 
+
+> 0
+
+fk(x) ln g(x) dx . Now, on X we have 
+
+−
+
+Z b
+
+> 0
+
+fk(x) ln g(x) dx = −
+
+Z b
+
+> 0
+
+fk(x)
+
+
+
+− ln( F T 
+
+> 0
+
+) − xF T
+
+> 0
+
+
+
+dx 
+
+=
+
+Z b
+
+> 0
+
+fk(x) dx 
+
+!
+
+ln( F T 
+
+> 0
+
+) + 1
+
+F T
+
+> 0
+
+Z b
+
+> 0
+
+xf k(x) dx. 
+
+Since each fk is a probability density on X with expectation F T 
+
+> 0
+
+, we obtain 
+
+S(fk) ≤ 1 + ln( F T 
+
+> 0
+
+).
+
+64 so that 
+
+∥f ′
+
+> k
+
+∥2  
+
+> L2(X)
+
+= 1
+
+λ1
+
+ H(fk) + λ2S(fk) ≤ 1
+
+λ1
+
+ C + λ2(1 + ln( F T 
+
+> 0
+
+)) , (171) for all k ≥ 1, where we used (167) and (169). Hence ( f ′
+
+> k
+
+) is bounded in L2(X ). Next we use the Gagliardo–Nirenberg inequality in bounded domains (Nirenberg (1959)) to obtain an L2 bound for ( fk). In dimension 1, there exists a constant bC > 0such that for all u ∈ H1(X ), 
+
+∥u∥L2(X ) ≤ bC∥u′∥1/3 
+
+> L2(X)
+
+∥u∥2/3  
+
+> L1(X)
+
++ bC∥u∥L1(X ). (172) Applying (172) to u = fk and using that each fk is a probability density, i.e. 
+
+∥fk∥L1(X ) = 1, we obtain 
+
+∥fk∥L2(X ) ≤ bC
+
+r 1
+
+λ1
+
+ C + λ2(1 + ln( F T 
+
+> 0
+
+)) + 1 
+
+
+
+, (173) for all k ≥ 1, where we used the uniform bound (171). Thus ( fk) is bounded in 
+
+L2(X ). Combining (171) and (173), we deduce that ( fk) is bounded in H1(X ). We now show that ( fk) is equicontinuous and uniformly bounded. For any x, y ∈X and any k ≥ 1, the Cauchy–Schwarz inequality yields 
+
+|fk(x) − fk(y)| =
+
+Z yx
+
+f ′
+
+> k
+
+(s) ds ≤ ∥ f ′
+
+> k
+
+∥L2(X ) |x − y|1/2, (174) so ( fk) is equicontinuous on X , since ( f ′
+
+> k
+
+) is bounded in L2(X ). Moreover, for any x ∈ X and any k ≥ 1, 
+
+|fk(x)| = fk(x) − 1
+
+b
+
+Z b
+
+> 0
+
+fk(y) dy + 1
+
+b
+
+Z b
+
+> 0
+
+fk(y) dy 
+
+≤ 1
+
+b
+
+Z b
+
+> 0
+
+|fk(x) − fk(y)| dy + 1
+
+b
+
+≤ 1
+
+b ∥f ′
+
+> k
+
+∥L2(X )
+
+Z b
+
+> 0
+
+|x − y|1/2 dy + 1
+
+b
+
+≤ 23b1/2∥f ′
+
+> k
+
+∥L2(X ) + 1
+
+b , (175) where we used (174). Since ( f ′
+
+> k
+
+) is bounded in L2(X ), this shows that ( fk) is uniformly bounded in L∞(X ). 65 Step 2: compactness and admissibility of the limit. By the Banach–Alaoglu theorem (and reflexivity of H1(X )), the boundedness of ( fk) in H1(X ) implies the existence of a subsequence, still denoted by ( fk), and a function f ∗ ∈ H1(X ) such that 
+
+fk ⇀ f ∗ weakly in H1(X ), (176) and in particular 
+
+f ′ 
+
+> k
+
+⇀ (f ∗)′ weakly in L2(X ). (177) On the other hand, the uniform boundedness (175) and the equicontinuity (174) allow us to apply the Arzel` a–Ascoli theorem, which yields (up to extraction of a further subsequence) the uniform convergence of ( fk) towards f ∗ on X :
+
+fk −→ f ∗ uniformly on X . (178) In particular, 
+
+fk(x) −→ f ∗(x) for almost every x ∈ X , (179) and since X has finite measure, (178) implies 
+
+fk −→ f ∗ in Lp(X ), ∀ p ≥ 1. (180) We now verify that f ∗ ∈ A . First, (179) and the non-negativity of each fk yield 
+
+f ∗ ≥ 0 almost everywhere on X . Second, taking p = 1 in (180) and using that each 
+
+fk is a probability density, we obtain 
+
+Z
+
+> X
+
+f ∗(x) dx = lim 
+
+> k→∞
+
+Z
+
+> X
+
+fk(x) dx = 1 , (181) so f ∗ is a probability density on X .Moreover, for each strike Ki we know that the function x 7 → (x − Ki)+ belongs to L2(X ). Then, we obtain convergence of the corresponding expectations (and therefore the call prices) under fk towards those under f ∗. Finally, f ∗ satisfies all constraints defining A.
+
+Step 3: lower semicontinuity of the objective and existence of a minimizer. 
+
+We now show that H is weakly lower semicontinuous on A.First, the map f 7 → ∥ f ′∥2  
+
+> L2(X)
+
+is convex and continuous on H1(X ), hence weakly lower semicontinuous. Next, we address the entropy term. Since the function t 7 → t ln t is continuous on 
+
+R+ and reaches its minimum at t = e−1 with the value −e−1, the shifted function 
+
+t 7 −→ t ln t + e−1
+
+66 is non-negative and continuous on R+. Combining this with the pointwise conver-gence (179), we obtain 
+
+fk(x) ln fk(x) + e−1 −→ f ∗(x) ln f ∗(x) + e−1 for a.e. x ∈ X . (182) By Fatou’s lemma, 
+
+Z
+
+> X
+
+ f ∗ ln f ∗ + e−1 ≤ lim inf 
+
+> k→∞
+
+Z
+
+> X
+
+ fk ln fk + e−1, (183) which implies Z
+
+> X
+
+f ∗ ln f ∗ ≤ lim inf 
+
+> k→∞
+
+Z
+
+> X
+
+fk ln fk. (184) More general versions of this result can be found in Poljak (1969); Ioffe (1977); Fonseca and Leoni (2007, Theorem 5.14). Combining the weak lower semicontinuity of the quadratic term and (184), we obtain 
+
+H(f ∗) = λ1∥(f ∗)′∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+f ∗ ln f ∗
+
+≤ λ1 lim inf  
+
+> k→∞
+
+∥f ′
+
+> k
+
+∥2  
+
+> L2(X)
+
++ λ2 lim inf 
+
+> k→∞
+
+Z
+
+> X
+
+fk ln fk
+
+≤ lim inf 
+
+> k→∞
+
+
+
+λ1∥f ′
+
+> k
+
+∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+fk ln fk
+
+
+
+= lim inf  
+
+> k→∞
+
+H(fk) = inf   
+
+> f∈A
+
+H(f ), (185) where we used (166) in the last equality. Thus f ∗ is a minimizer of H over A.
+
+Step 4: strict convexity and uniqueness. We now prove that H is strictly convex on A, which yields uniqueness of the minimizer. First, recall that the map u 7 → ∥ u∥2  
+
+> L2(X)
+
+is strictly convex on L2(X ): for any 
+
+a, b ∈ R and θ ∈ (0 , 1), 
+
+|θa + (1 − θ)b|2 = θ|a|2 + (1 − θ)|b|2 − θ(1 − θ)|a − b|2. (186) Integrating (186) over X gives, for f, g ∈ L2(X ), 
+
+∥θf + (1 − θ)g∥2  
+
+> L2(X)
+
+= θ∥f ∥2  
+
+> L2(X)
+
++ (1 − θ)∥g∥2  
+
+> L2(X)
+
+− θ(1 − θ)∥f − g∥2 
+
+> L2(X)
+
+. (187) 67 In particular, if f̸ = g on a set of positive measure, then 
+
+∥θf + (1 − θ)g∥2  
+
+> L2(X)
+
+< θ ∥f ∥2  
+
+> L2(X)
+
++ (1 − θ)∥g∥2 
+
+> L2(X)
+
+. (188) However, in our functional H the quadratic term involves f ′ rather than f itself. In general, the map f 7 → ∥ f ′∥2  
+
+> L2(X)
+
+is not strictly convex on H1(X ), since two func-tions with the same derivative may differ by an additive constant. On the admissible set A, this is excluded: if f, g ∈ A and f ′ = g′, then f − g is constant, but both f
+
+and g integrate to 1 on X , so that 
+
+Z
+
+> X
+
+(f − g) = 0 ,
+
+which forces f = g. Thus, restricted to A, the map 
+
+f 7 −→ ∥ f ′∥2  
+
+> L2(X)
+
+(189) is strictly convex. On the other hand, the function t 7 → t ln t is strictly convex on R+, and the passage to the integral preserves strict convexity whenever the functions differ on a set of positive measure. Hence −S(f ) is strictly convex on A.Therefore H is a strictly convex functional on the convex set A, so it admits at most one minimizer. Combining the existence established in Step 3 with the uniqueness shown here, we conclude that H admits a unique minimizer f ∗, which completes the proof. The existence result above is established on a bounded state space. The exten-sion of this framework to an unbounded state space, which requires additional care regarding uniform integrability, is discussed in Section D.4. 
+
+A.4.2 Convergence of the SEDEx Discretization 
+
+Having established existence and uniqueness in both the continuous and discrete settings, we now prove that the discrete minimizer converges to its continuous coun-terpart as the mesh is refined. Throughout this section we set ϵM := b/M , which coincides with the mesh size ∆ s but makes the M -dependence explicit. The cell-average projection of an element of A shifts the moments by O(ϵM ), so we consider 68 the relaxed admissible set 
+
+AϵM 
+
+> M
+
+:= 
+
+
+
+p ∈ ΣM
+
+> M
+
+X
+
+> i=1
+
+sipi − F T 
+
+> 0
+
+≤ ϵM ,e−rT MX
+
+> i=1
+
+(si − Kj )+ pi ∈ Cbid  
+
+> j
+
+− ϵM , C ask  
+
+> j
+
++ ϵM
+
+ , j = 1 , . . . , N 
+
+
+
+.
+
+(190) The set AϵM 
+
+> M
+
+relaxes the admissible set AM of Definition 12 by a uniform tolerance 
+
+ϵM on the pricing constraints. This tolerance vanishes as M → ∞ and, at any practically relevant resolution, lies well below the precision of standard solvers. Since 
+
+AM ⊂ A ϵM 
+
+> M
+
+, Propositions 24 and 25 apply unchanged to AϵM 
+
+> M
+
+, and HM admits a unique minimizer over it, denoted p∗,M .To pass to the continuous limit we associate to any p ∈ (R+)M two reconstructions on X = [0 , b ]. Setting s0 := 0 and Ii := [ si−1, s i), define: 
+
+• the piecewise constant interpolation ˜fp(x) := pi/ϵ M for x ∈ Ii;
+
+• the piecewise affine interpolation ˆfp ∈ C(X ), affine on each [ si, s i+1 ] with ˆfp(si) = pi/ϵ M for i = 1 , . . . , M , and extended by p1/ϵ M on [0 , s 1]. A direct computation yields the identities 
+
+∥ ˆf ′
+
+> p
+
+∥2  
+
+> L2(X)
+
+= 1
+
+ϵ3
+
+> M
+
+∥D(1) p∥22,
+
+Z
+
+> X
+
+˜fp ln ˜fp dx =
+
+> M
+
+X
+
+> i=1
+
+pi ln pi − ln ϵM , (191) so that, plugging both into (28), 
+
+HM (p) = λ1 ∥ ˆf ′
+
+> p
+
+∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+˜fp ln ˜fp dx + λ2 ln ϵM . (192) The shift λ2 ln ϵM does not depend on p and is irrelevant to the minimization, but it must be tracked when comparing HM with H.
+
+Theorem 33 (Discrete-to-continuous convergence) . Let f ∗ ∈ A be the unique min-imizer of H over A (Theorem 32). We also consider a sequence of grids as in Definition 11; the ℓ-th grid has Mℓ points which form a strictly increasing sequence 
+
+Mgrids = {Mℓ, ℓ ≥ 1}. For a generic M ∈ M grids , let p∗,M be the unique minimizer of HM over AϵM 
+
+> M
+
+and ˆfM := ˆfp∗,M . Then for M ∈ M grids , M → ∞ ,
+
+ˆfM −→ f ∗ uniformly on X , ˆfM ⇀ f ∗ weakly in H1(X ). (193) 
+
+Proof. We proceed in three steps. 69 Step 1: Comparing the discrete and continuous objectives. Define the projection Π M : A → RM by (Π M f )i := R 
+
+> Ii
+
+f (x) dx . For any f ∈ A , non-negativity and R f = 1 give Π M f ∈ ΣM . The functions φ0(x) := x and φj (x) := ( x − Kj )+ are 1-Lipschitz on X , so |φℓ(si) − φℓ(x)| ≤ ϵM for every x ∈ Ii and every ℓ ∈ { 0, . . . , N }.Since R 
+
+> X
+
+f = 1, 
+
+> M
+
+X
+
+> i=1
+
+φℓ(si)(Π M f )i −
+
+Z
+
+> X
+
+φℓ(x) f (x) dx =
+
+> M
+
+X
+
+> i=1
+
+Z
+
+> Ii
+
+ φℓ(si) − φℓ(x)f (x) dx ≤ ϵM ,
+
+(194) for ℓ = 0 , 1, . . . , N . Together with e−rT ≤ 1 and the constraints defining A, this yields Π M f ∈ A ϵM 
+
+> M
+
+.Set ¯fi := (Π M f )i/ϵ M . A change of variable and Cauchy–Schwarz give ( ¯fi+1 − ¯fi)2 =
+
+ 1
+
+> ϵM
+
+Z
+
+> Ii
+
+Z ϵM
+
+> 0
+
+f ′(x + t) dt dx 
+
+2
+
+≤
+
+Z
+
+> Ii
+
+Z ϵM
+
+> 0
+
+|f ′(x + t)|2 dt dx, (195) and summing over i = 1 , . . . , M − 1 and applying Fubini,  
+
+> M−1
+
+X
+
+> i=1
+
+( ¯fi+1 − ¯fi)2 ≤
+
+Z ϵM
+
+> 0
+
+Z b−ϵM
+
+> 0
+
+|f ′(x + t)|2 dx dt ≤ ϵM ∥f ′∥2 
+
+> L2(X)
+
+. (196) Combined with the first identity in (191), this gives 
+
+∥ ˆf ′  
+
+> ΠMf
+
+∥2  
+
+> L2(X)
+
+= 1
+
+ϵMM −1X
+
+> i=1
+
+( ¯fi+1 − ¯fi)2 ≤ ∥ f ′∥2 
+
+> L2(X)
+
+. (197) For the entropy, Jensen’s inequality applied to t 7 → t ln t with the probability measure 
+
+dx/ϵ M on Ii gives ¯fi ln ¯fi ≤ 1
+
+> ϵM
+
+R 
+
+> Ii
+
+f ln f dx , which rewrites as (Π M f )i ln(Π M f )i −
+
+(Π M f )i ln ϵM ≤ R 
+
+> Ii
+
+f ln f dx . Summing over i and using P
+
+> i
+
+(Π M f )i = 1, 
+
+> M
+
+X
+
+> i=1
+
+(Π M f )i ln(Π M f )i ≤
+
+Z
+
+> X
+
+f ln f dx + ln ϵM . (198) Combining (197)–(198) with (28) gives 
+
+HM (Π M f ) ≤ H(f ) + λ2 ln ϵM . (199) Choosing f = f ∗ ∈ A and using the optimality of p∗,M over AϵM 
+
+> M
+
+∋ ΠM f ∗,
+
+HM (p∗,M ) ≤ H(f ∗) + λ2 ln ϵM . (200) Substituting (192) for p = p∗,M into (200) and cancelling λ2 ln ϵM yields the central inequality 
+
+λ1 ∥ ˆf ′ 
+
+> M
+
+∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+˜fM ln ˜fM dx ≤ H(f ∗). (201) 70 Step 2: Uniform H1 bound and compactness. The discrete entropy attains its maximum ln M on Σ M at the uniform distribution; hence −SM (p∗,M ) ≥ − ln M ,and the second identity in (191) combined with M ϵ M = b gives 
+
+Z
+
+> X
+
+˜fM ln ˜fM dx = −SM (p∗,M ) − ln ϵM ≥ − ln( M ϵ M ) = − ln b. (202) Plugging (202) into (201) produces the uniform H1-seminorm bound 
+
+∥ ˆf ′ 
+
+> M
+
+∥2  
+
+> L2(X)
+
+≤ C1 := 1
+
+λ1
+
+ H(f ∗) + λ2 ln b. (203) We first establish that ˆfM and ˜fM asymptotically coincide. Since ˆfM − ˜fM is affine on each [ si, s i+1 ] and vanishes at si+1 , its L∞ norm on that interval equals 
+
+|¯pMi+1 − ¯pMi |. The affine slope of ˆfM on [ si, s i+1 ] being (¯ pMi+1 − ¯pMi )/ϵ M , we have 
+
+PM −1 
+
+> i=1
+
+(¯ pMi+1 − ¯pMi )2/ϵ M = ∥ ˆf ′ 
+
+> M
+
+∥2 
+
+> L2(X)
+
+. Since each nonnegative term is bounded by the whole sum, using (203), 
+
+∥ ˆfM − ˜fM ∥L∞(X ) ≤ max   
+
+> 1≤i≤M−1
+
+|¯pMi+1 − ¯pMi | ≤ pϵM C1 −→ 0 as M → ∞ . (204) The triangle inequality, ∥ ˜fM ∥L1(X ) = 1 and (204) yield the uniform L1 bound 
+
+∥ ˆfM ∥L1(X ) ≤ ∥ ˜fM ∥L1(X ) + b ∥ ˆfM − ˜fM ∥L∞(X ) ≤ 1 + bpb C 1. (205) Applying the Gagliardo–Nirenberg inequality (172) to ˆfM in place of fk, together with (203) and (205), shows that ( ˆfM ) is uniformly bounded in H1(X ). The same substitution in (175), with ∥fk∥L1 = 1 replaced by the right-hand side of (205), yields the uniform L∞ bound 
+
+∥ ˆfM ∥L∞(X ) ≤ 1+ b√b C 1 
+
+> b
+
++ 23 b1/2pC1. (206) Similarly, applying the Cauchy–Schwarz estimate (174) to ˆfM in place of fk gives the uniform equicontinuity 
+
+| ˆfM (x) − ˆfM (y)| ≤ pC1 |x − y|1/2, x, y ∈ X , M ≥ 1. (207) By the Banach–Alaoglu theorem applied to H1(X ), there exist a subsequence (Mℓk )k≥1 ⊂ M grids (still indexed by M , not relabeled) and ¯f ∈ H1(X ) such that ˆfM ⇀ ¯f in H1(X ), and in particular ˆf ′ 
+
+> M
+
+⇀ ¯f ′ in L2(X ). By the Arzel` a–Ascoli theorem, the L∞ bound (206) and the equicontinuity (207) yield, upon further ex-traction, ˆfM → ¯f uniformly on X . Combined with (204), the triangle inequality gives ˜fM → ¯f uniformly on X as well. 71 Step 3: Admissibility of ¯f and identification with f ∗. Pointwise nonnegativity of ˜fM and uniform convergence give ¯f ≥ 0 on X . Since X has finite measure, uniform convergence yields L1-convergence, and R 
+
+> X
+
+¯f dx = lim M
+
+R 
+
+> X
+
+˜fM dx = 1. For the linear constraints, the Lipschitz estimate (194) applied to f = ˜fM (whose cell averages are ¯ pMi ) together with the uniform convergence ˜fM → ¯f yields, for every 
+
+ℓ ∈ { 0, . . . , N },
+
+> M
+
+X
+
+> i=1
+
+φℓ(si) p∗,M i −→ 
+
+Z
+
+> X
+
+φℓ(x) ¯f (x) dx as M → ∞ . (208) Combining (208) with the relaxed constraints defining (190) and ϵM → 0 gives R 
+
+> X
+
+x ¯f dx = F T 
+
+> 0
+
+and e−rT R 
+
+> X
+
+(x − Kj )+ ¯f dx ∈ [Cbid  
+
+> j
+
+, C ask  
+
+> j
+
+] for every j = 1 , . . . , N .Hence ¯f ∈ A .It remains to pass to the limit in (201). The weak lower semicontinuity of 
+
+u 7 → ∥ u∥2  
+
+> L2(X)
+
+and the Fatou-based lower semicontinuity of f 7 → R 
+
+> X
+
+f ln f dx under pointwise convergence, both invoked in Step 3 of the proof of Theorem 32 and ap-plied here to the weak convergence ˆf ′ 
+
+> M
+
+⇀ ¯f ′ and the pointwise convergence ˜fM → ¯f
+
+a.e. on X , give 
+
+∥ ¯f ′∥2  
+
+> L2(X)
+
+≤ lim inf   
+
+> M→∞
+
+∥ ˆf ′ 
+
+> M
+
+∥2 
+
+> L2(X)
+
+,
+
+Z
+
+> X
+
+¯f ln ¯f dx ≤ lim inf  
+
+> M→∞
+
+Z
+
+> X
+
+˜fM ln ˜fM dx. (209) Combining (209) with the central inequality (201), 
+
+H( ¯f ) = λ1∥ ¯f ′∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+¯f ln ¯f dx 
+
+≤ lim inf  
+
+> M→∞
+
+h
+
+λ1∥ ˆf ′ 
+
+> M
+
+∥2  
+
+> L2(X)
+
++ λ2
+
+Z
+
+> X
+
+˜fM ln ˜fM dx 
+
+i
+
+≤ H(f ∗).
+
+(210) Since ¯f ∈ A and f ∗ is the unique minimizer of H over A (Theorem 32), this forces ¯f =
+
+f ∗. The limit being independent of the extracted subsequence, the whole sequence ( ˆfMℓ )ℓ≥1 converges to f ∗ uniformly on X and weakly in H1(X ). 
+
+Remark 34 (Weak convergence of the discrete risk-neutral measure) . The argument used to establish (208) extends, by uniform continuity, to any φ ∈ C(X ) in place of φℓ. Consequently, the atomic discrete probability measure νM := PMi=1 p∗,M i δsi
+
+converges weakly, as M → ∞ , to the continuous probability measure μ∗(dx ) := 
+
+f ∗(x) dx . In particular, the discrete call prices e−rT PMi=1 (si − Kj )+p∗,M i converge to their continuous counterparts e−rT R 
+
+> X
+
+(x − Kj )+f ∗(x) dx for every j = 1 , . . . , N .72 B Additional numerical results 
+
+For completeness, this appendix reports a representative 7DTE slice observed on 2023-04-14. The chain contains 232 quoted strikes. As in the main text, the implied-volatility smile obtained from repriced options provides a satisfactory fit to market quotes.  
+
+> (a) (b)
+
+Figure 7: Representative 7DTE market slice on 2023-04-14. (a) Risk-neutral den-sity extracted by SEDEx (red dots). (b) Market ask (red triangles-up), market bid (blue triangles-down), and SEDEx implied volatilities (orange circles). The bid–ask constraints are satisfied up to a numerical tolerance of 10 −6 vol points. 
+
+# C Algorithms 
+
+## C.1 Arbitrage Removal Iterative Executable Strategy (ARIES) 
+
+Implementation Details In our numerical implementation, problem (34) is solved with the HiGHS optimization suite. HiGHS is an open-source solver for LP/MIP/QP models written in C++, with interfaces in C, R, and Python. We use its interior-point LP solver ( HiGHS-IPM ) together with the default crossover procedure. This configuration delivered the best practical performance in our experiments. While the IPM typically returns an optimal point on the optimal face (not necessarily a vertex of C), the crossover step computes an optimal basic feasible solution. 73 Algorithm 1 Iterative Filtering of Static Arbitrage 
+
+Require: Strikes ( Ki)Ni=1 , quotes ( Cask  
+
+> i
+
+, C bid  
+
+> i
+
+), depth bounds ( Qask  
+
+> i
+
+, Q bid  
+
+> i
+
+). 
+
+Ensure: An arbitrage-free subset of option indices I∗. 
+
+> 1:
+
+Initialize the active set I ← { 1, . . . , N }. 
+
+> 2:
+
+repeat  
+
+> 3:
+
+Solve the linear program (34) restricted to the active set i ∈ I . 
+
+> 4:
+
+Extract a vertex optimal solution x∗ = ( qask ∗, q bid ∗, u ∗, α ∗).  
+
+> 5:
+
+if x∗̸ = 0 then ▷ Equivalently, ˜Π∗ is not identically zero  
+
+> 6:
+
+if ˜π0(x∗) = 0 then ▷ Weak-arbitrage case  
+
+> 7:
+
+Compute ¯λ(x∗) via (37) and update x∗ ← ¯λ(x∗)x∗. 
+
+> 8:
+
+end if  
+
+> 9:
+
+Identify the set of binding depth constraints: 
+
+B ← 
+
+n
+
+i ∈ I : qask ∗ 
+
+> i
+
+= Qask  
+
+> i
+
+or qbid ∗ 
+
+> i
+
+= Qbid 
+
+> i
+
+o
+
+. 
+
+> 10:
+
+▷ By Proposition 16, B̸ = ∅. 
+
+> 11:
+
+if |B| > 1 then  
+
+> 12:
+
+For each i ∈ B , define the saturated depth: 
+
+Qbind  
+
+> i
+
+=
+
+(
+
+Qask  
+
+> i
+
+if qask ∗ 
+
+> i
+
+= Qask 
+
+> i
+
+Qbid  
+
+> i
+
+if qbid ∗ 
+
+> i
+
+= Qbid  
+
+> i
+> 13:
+
+Remove the option with the smallest saturated size: 
+
+i† ← arg min i∈B Qbind  
+
+> i
+
+. 
+
+> 14:
+
+else  
+
+> 15:
+
+Let i† be the unique element in B. 
+
+> 16:
+
+end if  
+
+> 17:
+
+Update the active set: I ← I \ { i†}. 
+
+> 18:
+
+end if  
+
+> 19:
+
+until x∗ = 0 ▷ No static arbitrage remains  
+
+> 20:
+
+return I∗ ← I .74 C.2 Smooth Entropic Density EXtraction (SEDEx) 
+
+Algorithm 2 Hybrid Risk-Neutral Density Extraction under Bid-Ask Constraints 
+
+Require: Arbitrage-free option subset I∗ (from Algorithm 1) with normalized strikes Ki/S 0 and quotes ( Cask  
+
+> i
+
+/S 0, C bid  
+
+> i
+
+/S 0). Time to expiry T . Rates r, q recov-ered via (239). 
+
+Ensure: The discrete risk-neutral density ( s, p ∗) minimizing HM on AM . 
+
+> 1:
+
+1. Grid Initialization  
+
+> 2:
+
+Set normalized spot S0 = 1 and forward F = e(r−q)T . 
+
+> 3:
+
+Extract strike bounds Kinf , K sup via (74).  
+
+> 4:
+
+Compute mesh size ∆ s ← σATM 
+
+√2πT δ with δ = 0 .5%. ▷ Section D.2  
+
+> 5:
+
+Compute upper bound b via (75) using κ1 = 1 .50 and κ2 = 10.  
+
+> 6:
+
+Determine the number of grid points M ← ⌈ b/ ∆s⌉. 
+
+> 7:
+
+Construct the uniform grid s = ( s1, . . . , s M )⊤ where sj = j∆s. ▷ Equation (22)  
+
+> 8:
+
+2. Matrix Construction  
+
+> 9:
+
+Initialize the payoff matrix M ∈ R|I ∗|× M with entries: 
+
+Mij ← (sj − Ki)+ 
+
+> 10:
+
+Form the combined inequality system for bid-ask constraints (25): 
+
+Mcomb ← e−rT 
+
+ M
+
+−M
+
+
+
+, Ccomb ←
+
+ (Cask  
+
+> i
+
+)i∈I ∗
+
+−(Cbid  
+
+> i
+
+)i∈I ∗
+
+ 
+
+> 11:
+
+3. Optimization Formulation  
+
+> 12:
+
+Define the decision variable p ∈ RM . ▷ Definition 11  
+
+> 13:
+
+Retrieve regularization weights λ1, λ 2 satisfying ratio (222). ▷ Section D.1  
+
+> 14:
+
+Define the discrete functional HM (p) via (28): 
+
+HM (p) ← λ1
+
+> (∆ s)3
+
+PM −1 
+
+> j=1
+
+(pj+1 − pj )2 + λ2
+
+PMj=1 pj ln( pj ) 
+
+> 15:
+
+4. Convex Programming  
+
+> 16:
+
+Solve the constrained minimization problem on the admissible set AM (Defini-tion 12): 
+
+p∗ ← arg min p≥0 HM (p)subject to: PMj=1 pj = 1 ▷ Simplex constraint (23) 
+
+PMj=1 sj pj = F ▷ Forward constraint (24) 
+
+Mcomb p ≤ Ccomb ▷ No-arbitrage call prices (25)  
+
+> 17:
+
+return The optimal grid-probability pair ( s, p ∗). 
+
+Implementation Details In our numerical implementation, the convex program defined in Algorithm 2 is solved with Clarabel , an open-source interior-point solver 75 for convex conic optimization. Among the solvers we tested, it delivered the best practical performance in our experiments. One of its main advantages is that it handles convex optimization problems with quadratic objectives directly. It also supports exponential-cone constraints, which makes it possible to represent the en-tropy component in (28) in a numerically stable conic form. 
+
+# D On the Selection of Parameters 
+
+The hybrid regularization procedure introduced in Section 2.3.2 involves two positive parameters, denoted by λ1 and λ2, that respectively control quadratic smoothness and an entropy-based regularization terms. In this section, we use a simple Black and Scholes (1973) toy model to obtain explicit orders of magnitude for these two contributions. This provides a guideline for the joint calibration of ( λ1, λ 2) in the short-maturity regime. 
+
+## D.1 Regularization Weights 
+
+We work under the risk-neutral measure, and assume that the underlying price pro-cess ( St)t∈[0 ,T ] follows the Black–Scholes dynamics. Without loss of generality we set 
+
+S0 = 1, and we denote by σ the (constant) volatility. Then 
+
+ST ∼ Lognormal  μ, ˜σ2, μ =  r − q − 12 σ2T, ˜σ2 = σ2T, 
+
+where ˜ σ2 is the total variance of log ST .The density gST of ST is given by 
+
+gST (y) = 1
+
+y˜σ√2π exp 
+
+
+
+−(ln y − μ)2
+
+2˜ σ2
+
+
+
+. (211) Differentiating (211) gives 
+
+g′ 
+
+> ST
+
+(y) = −gST (y)
+
+y
+
+
+
+1 + ln y − μ
+
+˜σ2
+
+
+
+, y > 0. (212) 
+
+Order of Magnitude of the Quadratic Term. We first compute the squared 
+
+L2-norm of g′ 
+
+> ST
+
+,
+
+∥g′ 
+
+> ST
+
+∥22 =
+
+Z +∞
+
+> 0
+
+ g′ 
+
+> ST
+
+(y)2 dy. 
+
+76 Proposition 35. Let ST be lognormally distributed as in (211) . Then the squared 
+
+L2-norm of its density derivative satisfies 
+
+g′ 
+
+> ST
+> 22
+
+= exp  −3μ + 94 ˜σ2
+
+8√π
+
+˜σ2 + 2 ˜σ3 . (213) 
+
+In particular, as ˜σ → 0,
+
+g′ 
+
+> ST
+> 22
+
+= 14√π ˜σ−3 + O(˜ σ−2). (214) 
+
+Proof. By (212) we have 
+
+g′ 
+
+> ST
+> 22
+
+=
+
+Z +∞
+
+> 0
+
+gST (y)2
+
+y2
+
+
+
+1 + ln y − μ
+
+˜σ2
+
+2
+
+dy. (215) Setting t = ln y, we get 
+
+g′ 
+
+> ST
+> 22
+
+=
+
+Z
+
+> R
+
+gST (et)2
+
+et
+
+
+
+1 + t − μ
+
+˜σ2
+
+2
+
+dt 
+
+= 12π˜σ2
+
+Z
+
+> R
+
+exp 
+
+
+
+−3t − (t − μ)2
+
+˜σ2
+
+  
+
+1 + t − μ
+
+˜σ2
+
+2
+
+dt. (216) Defining 
+
+m = μ − 32 ˜σ2,
+
+a direct computation shows that (t − μ)2
+
+˜σ2 + 3 t = (t − m)2
+
+˜σ2 + 3 μ − 94 ˜σ2, (217) so that (216) becomes 
+
+g′ 
+
+> ST
+> 22
+
+= exp 
+
+
+
+−3μ + 94 ˜σ2
+
+ 12π˜σ2
+
+Z
+
+> R
+
+exp 
+
+
+
+−(t − m)2
+
+˜σ2
+
+  
+
+1 + t − m − 32 ˜σ2
+
+˜σ2
+
+2
+
+dt. 
+
+(218) We now rewrite the integral in terms of a Gaussian variable X ∼ N 
+
+
+
+m, ˜σ2
+
+> 2
+
+
+
+. From (218), we deduce that 
+
+g′ 
+
+> ST
+> 22
+
+= exp 
+
+
+
+−3μ + 94 ˜σ2
+
+ 12˜ σ√π E
+
+"
+
+−12 + X − m
+
+˜σ2
+
+2#
+
+. (219) 77 Using the moments of a Gaussian distribution and simplifying the resulting expres-sion, one obtains 
+
+E
+
+"
+
+−12 + X − m
+
+˜σ2
+
+2#
+
+= ˜σ2 + 2 4˜ σ2 ,
+
+so that (213) follows from (219). The asymptotic behavior in (214) as ˜ σ → 0 follows directly. 
+
+Order of Magnitude of the Entropy Term. We use the differential entropy S(·)introduced in (21). For the lognormal density gST in (211), a standard computation yields 
+
+S gST
+
+ = 12 + 12 ln  2π˜σ2 + μ. (220) In the regime ˜ σ → 0 we therefore have 
+
+−S gST
+
+ ∼ − ln(˜ σ), ˜σ → 0. (221) 
+
+Remark 36 . The asymptotic regime ˜ σ → 0 should be interpreted as a regime of small total variance. This is consistent with the parameter range relevant for short-dated options: typical volatilities are in the range [15% , 40%] and maturities span from one day to one week, so that ˜ σ2 = σ2T is small. In this regime, the approximations (214) and (221) provide a reasonable description of the relative contributions of the quadratic and entropy terms. 
+
+Balancing the Quadratic and Entropy Contributions In order for the quadratic and entropy parts to contribute at the same order of magnitude in our hybrid pro-cedure, we require 
+
+λ1 g′ 
+
+> ST
+> 22
+
+≍ − λ2S gST
+
+ as ˜σ → 0.
+
+Combining (214) and (221), we obtain the asymptotic relation 
+
+λ1
+
+λ2
+
+∼ − 4√π ˜σ3 ln(˜ σ), ˜σ → 0. (222) This relation provides a practical guideline for choosing ( λ1, λ 2) when the total vari-ance ˜ σ2 is small. 78 D.2 Mesh Size 
+
+We now turn to the discretized version of the problem, as defined in (28). We recall that the continuous domain X is approximated by a uniform grid with mesh size ∆s = b/M . Within this toy model, we relate the choice of M to the distribution of 
+
+ST . Let FST denote the distribution function of ST and F −1 
+
+> ST
+
+its quantile function: 
+
+F −1 
+
+> ST
+
+(p) = exp  μ + ˜ σ Φ−1(p), p ∈ (0 , 1) , (223) where Φ −1 is the quantile function of a standard normal distribution. Fix a small probability increment δ ∈ (0 , 1), and define, for p ∈ ( δ 
+
+> 2
+
+, 1 − δ 
+
+> 2
+
+), the relative variation 
+
+R(p) = F −1
+
+> ST
+
+ p + δ
+
+> 2
+
+ − F −1
+
+> ST
+
+ p − δ
+
+> 2
+
+
+
+F −1
+
+> ST
+
+ p − δ
+
+> 2
+
+ . (224) This quantity corresponds to the relative change in the underlying level when the cumulative probability increases from p − δ/ 2 to p + δ/ 2. 
+
+Lemma 37. The function R defined in (224) admits a unique global minimizer at 
+
+p∗ = 12.
+
+In other words, the relative variation is minimal when the probability interval is centered at the median of the lognormal distribution. Proof. Using the expression (223), we may rewrite R(p) as 
+
+R(p) = exp  μ + ˜ σ Φ−1(p + δ 
+
+> 2
+
+) − exp  μ + ˜ σ Φ−1(p − δ 
+
+> 2
+
+)
+
+exp  μ + ˜ σ Φ−1(p − δ 
+
+> 2
+
+)
+
+= exp  ˜σΦ−1 p + δ
+
+> 2
+
+ − Φ−1 p − δ
+
+> 2
+
+ − 1. (225) Since the exponential function is strictly increasing and ˜ σ > 0, minimizing R(p) is equivalent to minimizing 
+
+r(p) = Φ −1 p + δ
+
+> 2
+
+ − Φ−1 p − δ
+
+> 2
+
+ , p ∈   δ 
+
+> 2
+
+, 1 − δ
+
+> 2
+
+. (226) The function r is differentiable on its domain. Using the identity 
+
+ Φ−1′(u) = 1
+
+φ Φ−1(u),
+
+79 where φ is the standard normal density, we obtain 
+
+r′(p) = 1
+
+φ Φ−1(p + δ 
+
+> 2
+
+) − 1
+
+φ Φ−1(p − δ 
+
+> 2
+
+). (227) The first-order optimality condition r′(p) = 0 is therefore equivalent to 
+
+φ Φ−1(p + δ 
+
+> 2
+
+) = φ Φ−1(p − δ 
+
+> 2
+
+). (228) Finally, the function r is strictly decreasing on ( δ 
+
+> 2
+
+, 1/2] and strictly increasing on [1 /2, 1 − δ 
+
+> 2
+
+), which shows that p∗ = 1 /2 is the unique global minimizer of r, and therefore of R.We now characterize the minimal relative variation in the regime where the in-crement δ is small. 
+
+Proposition 38. In the setting of Lemma 37, the minimal value of R satisfies 
+
+R(p∗) ∼ ˜σ √2π δ, δ → 0. (229) 
+
+Proof. From (225) and (226) we have 
+
+R(p∗) = exp  ˜σ r (p∗) − 1, p∗ = 12.
+
+By symmetry, 
+
+r(p∗) = Φ −1 12 + δ
+
+> 2
+
+ − Φ−1 12 − δ
+
+> 2
+
+ = 2 Φ −1 12 + δ
+
+> 2
+
+ .
+
+For δ small we may use a first-order Taylor expansion of the quantile function around 1/2: Φ−1 12 + δ
+
+> 2
+
+ ∼ δ
+
+2
+
+√2π, δ → 0.
+
+Hence 
+
+r(p∗) ∼ √2π δ, δ → 0.
+
+Substituting into R(p∗) = exp(˜ σr (p∗)) − 1 and using the expansion exp( x) − 1 ∼ x
+
+as x → 0 yields 
+
+R(p∗) ∼ ˜σ √2π δ, δ → 0,
+
+which is (229). 80 Remark 39 . As an illustration, consider δ = 0 .5%, σ = 15% and a one-day maturity 
+
+T = 1 /365. Then the total volatility is ˜σ = σ√T ≈ 0.0079 ,
+
+so that (229) yields a minimal relative variation of order 
+
+R(p∗) ≈ ˜σ √2π δ ≈ 10 −4.
+
+Choosing a uniform grid with step ∆ s = R(p∗) leads to a number of grid points 
+
+M of order 10 4 in (28). For the same parameter set, the scaling (222) implies that the ratio λ1/λ 2 is of order 10 −5. These orders of magnitude are consistent with the numerical experiments reported in Section 4. 
+
+## D.3 Detailed Estimation of the Risk-Free Rate and Dividend Yield 
+
+Put–Call parity as an affine restriction in strike. Consider European options with maturity T and spot price S0, the absence of arbitrage opportunities implies the standard put–call parity relation: 
+
+C(K) − P (K) = S0e−qT − Ke −rT , (230) where C(K) and P (K) denote the prices of call and put options with strike K. This relationship can be reformulated as an affine function of the strike price. Denoting 
+
+Y (K) = C(K) − P (K) the value of the synthetic forward position, we get 
+
+Y (K) = β0 + β1K, (231) where the coefficients β := ( β0, β 1) identify the financial parameters of interest: 
+
+β0 = S0e−qT and β1 = −e−rT . (232) 
+
+Bid–ask bounds for the synthetic forward. Denote by P bid  
+
+> i
+
+, P ask  
+
+> i
+
+the best bid and ask quotes for a European put option with maturity T and strike Ki. The no-arbitrage interval for the synthetic forward position is defined by the executable bounds: 
+
+Bi := Cbid  
+
+> i
+
+− P ask  
+
+> i
+
+, Ai := Cask  
+
+> i
+
+− P bid  
+
+> i
+
+. (233) Let Si := Ai − Bi ≥ 0 be the related spread and Y mid  
+
+> i
+
+its midpoint 
+
+Y mid  
+
+> i
+
+:= Ai + Bi
+
+2 = Cask  
+
+> i
+
++ Cbid 
+
+> i
+
+2 − P ask  
+
+> i
+
++ P bid 
+
+> i
+
+2 . (234) Theoretical consistency requires that the model value yi(β) := β0 + β1Ki lies within [Bi, A i] for all quoted strikes. 81 Weighted Least Squares Estimation. We estimate β by minimizing the dis-tance to the executable bounds. Consider the symmetric distance-to-bounds loss 
+
+ℓi(β) := ( yi(β) − Bi)2 + ( yi(β) − Ai)2. A direct computation yields the identity 
+
+ℓi(β) = 2  yi(β) − Y mid 
+
+> i
+
+2 + S2
+
+> i
+
+2 . (235) Since the spread term S2 
+
+> i
+
+/2 is independent of β, minimizing P 
+
+> i
+
+ωiℓi(β) is equivalent to minimizing the weighted squared error to the midpoints (β∗ 
+
+> 0
+
+, β ∗ 
+
+> 1
+
+) ∈ arg min 
+
+> β0,β 1
+
+X
+
+> i∈K T
+
+ωi
+
+ β0 + β1Ki − Y mid 
+
+> i
+
+2, (236) where KT is the set of strikes simultaneously available for call and put options and ωi
+
+are strike-specific weights. Setting ωi = 1 for all i ∈ K T yields the OLS case studied in Van Binsbergen et al. (2022). 
+
+Weighting Scheme. Put–call parity couples a call and a put at the same strike: thus, when the call at Ki is out-of-the-money (OTM), the corresponding put is in-the-money (ITM), and conversely. As a result, parity-based estimates are constrained by the liquidity of the ITM leg, which typically exhibits low open interest, small quoted sizes, and wide bid–ask spreads compared to at-the-money (ATM) and OTM options. For very short-dated options, this liquidity drops off sharply for ITM options, their mid-quotes are therefore noisy proxies for an equilibrium price. By contrast, ATM and near OTM options concentrate trading activity and price discovery. In turn, an unweighted parity regression would overreact to low-information observations and yield unstable rates. To anchor the regression on the most informative quotes while retaining sufficient strikes for estimating the parameters reliably, we use weights that combine (i) an inverse-spread component and (ii) an at-the-money proximity component: 
+
+ηspr ,i := 1
+
+Si
+
+, ηatm ,i := 1
+
+|Ki/S 0 − 1| + υ , (237) where υ > 0 is a small scale parameter chosen as the ratio between the lowest strike increment (typically 5 points for S&P 500) and the spot price. We then normalize each component and combine them through a convex combination: 
+
+ωi := (1 − α) ηspr ,i 
+
+max j∈K T ηspr ,j 
+
++ α ηatm ,i 
+
+max j∈K T ηatm ,j 
+
+, α ∈ [0 , 1] . (238) 82 This construction 15 yields the intended ranking: (i) deep ITM strikes are double-penalized (large |Ki − S0| and typically large Si), (ii) far OTM strikes are penalized primarily through moneyness, and (iii) near-the-money strikes receive the highest weight. 
+
+Parameter Recovery and Constraints. The optimization (236) is constrained by 0 < β 0 ≤ S0 and −1 ≤ β1 < 0 to guarantee non-negative interest rate and yield. The parameters are recovered as: 
+
+r∗ = − 1
+
+T ln( − ˆβ∗ 
+
+> 1
+
+) and q∗ = − 1
+
+T ln ˆβ∗
+
+> 0
+
+S0
+
+!
+
+. (239) Finally, we address the specific case of ultra-short-dated options. As the time to expiration approaches zero, the mapping (239) becomes ill-conditioned: a tiny estimation error in β1 can translate into a large annualized r due to the factor 1 /T 
+
+(and similarly for β0 and q). In this regime, discounting effects are negligible relative to bid–ask spreads. Therefore, for maturities shorter than one trading day, we set 
+
+r = q = 0 to preserve numerical stability. 
+
+## D.4 Discussion of the Unbounded State Space Case 
+
+For the sake of clarity, the existence result (Theorem 32) has been established on a bounded state space. In this setting, the weak convergence of densities implies the convergence of moments. On an unbounded state space, for instance X = R+, an additional control of the tails is required to conclude that the limiting density f ∗ is admissible : uniform integrability of the minimizing sequence ( fn) is necessary to pass to the limit in the forward and call price constraints. A convenient way to guarantee such uniform integrability is to impose a uniform (1+ α)-moment bound for some α > 0. This can be achieved in at least two equivalent ways in our framework: 1. Moment penalization in the objective. Modify the objective functional by adding a coercive term of the form 
+
+f 7 → λ
+
+Z ∞
+
+> 0
+
+x1+ αf (x) dx, λ > 0, α > 0.  
+
+> 15 In the numerical experiments, we set α= 0 .5.
+
+83 2. Moment constraint on the admissible set. Restrict the admissible set A by adding the moment condition 
+
+Z ∞
+
+> 0
+
+x1+ αf (x) dx ≤ C, 
+
+for some constant C > 0 independent of f .In both cases, the uniform (1 + α)-moment bound provides uniform integrability via a standard de la Vall´ ee-Poussin argument, ensuring that the limiting density f ∗
+
+still matches the constraints on R+.84

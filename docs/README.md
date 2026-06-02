@@ -6,77 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-01
-- 运行时间：2026-06-01 22:50:18 UTC
+- 最新运行日期：2026-06-02
+- 运行时间：2026-06-02 22:43:39 UTC
 - 运行状态：成功
-- 本次总论文数：19
-- 精读区：8
+- 本次总论文数：17
+- 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今天精读8篇量化金融前沿，聚焦分布优化与风险敏感决策。最值得关注：统一权重、收益与参数分布的DPO框架(10分)，以及带熵正则的贝尔曼做市策略(9分)。速读还覆盖了Lévy过程变分推断、已实现波动率贝叶斯建模和差分隐私下的尾风险学习，建议读者优先阅读DPO以掌握全分布优化新范式。
-- 详情：[/202606/01/README](/202606/01/README)
+今日精读了两篇9.0分论文：随机系数终端平均场控制的LQ理论与分位数回归的OOD泛化SVM方法，并速览了分布偏移下概率预测的前沿方案。  
+最值得关注的是随机最优控制中的平均场代价集成与重尾输入下分位数回归的鲁棒泛化突破。  
+下一步可尝试将扩散Copula与深度机制混合模型结合，用于应对真实场景多变量时序的分布偏移挑战。
+- 详情：[/202606/02/README](/202606/02/README)
 
 ### 精读区论文标签
-1. [Distributional Portfolio Optimization (DPO): A Unified Framework for Distributions over Weights, Returns, and Parameters](/202606/01/2605.30464v1-distributional-portfolio-optimization-dpo-a-unified-framework-for-distributions-over-weights-returns-and-parameters)  
-   标签：评分：10.0/10、query:qf
-   evidence：将贝叶斯、鲁棒和随机组合优化统一为分布框架，直接处理组合风险与稳健资产配置
-2. [Entropy-Regularized Certainty-Equivalent Bellman Policies for Risk-Sensitive Market Making](/202606/01/2605.24878v1-entropy-regularized-certainty-equivalent-bellman-policies-for-risk-sensitive-market-making)  
+1. [Stochastic LQ Optimal Control with Random Coefficients and a Terminal Mean-Field Cost](/202606/02/2605.26721v1-stochastic-lq-optimal-control-with-random-coefficients-and-a-terminal-mean-field-cost)  
    标签：评分：9.0/10、query:qf
-   evidence：风险敏感做市，使用指数效用和熵正则化贝尔曼算子，直接涉及市场微观结构与库存风险管理
-3. [DeepSeekMath Meets Order Book: Group-Aware Policy Optimization for High-Frequency Directional Trading](/202606/01/2605.25527v1-deepseekmath-meets-order-book-group-aware-policy-optimization-for-high-frequency-directional-trading)  
+   evidence：通过带终端平均场成本的随机LQ控制解决均值-方差投资组合优化问题
+2. [Out-of-Distribution generalization of quantile regression with heavy tailed inputs: an SVM approach](/202606/02/2606.00265v1-out-of-distribution-generalization-of-quantile-regression-with-heavy-tailed-inputs-an-svm-approach)  
    标签：评分：9.0/10、query:qf
-   evidence：将订单流状态与强化学习应用于限价订单簿高频交易，直接涉及金融市场微观结构与算法交易
-4. [Nonlinear and Heavy-Tailed Predictability in Transition-Energy Financial Markets](/202606/01/2605.26890v1-nonlinear-and-heavy-tailed-predictability-in-transition-energy-financial-markets)  
+   evidence：极端分位数回归处理重尾分布，可直接用于VaR和ES的尾部风险预测
+3. [Adversarially Robust Control of Conditional Value-at-Risk via Rockafellar-Uryasev Conformal Inference](/202606/02/2606.00320v1-adversarially-robust-control-of-conditional-value-at-risk-via-rockafellar-uryasev-conformal-inference)  
    标签：评分：9.0/10、query:qf
-   evidence：金融时间序列预测，采用重尾向量自回归与非线性递归残差学习
-5. [PortBench: A Correlation-Aware, Full-Pipeline Benchmark for LLM-Driven Portfolio Management](/202606/01/2605.27887v1-portbench-a-correlation-aware-full-pipeline-benchmark-for-llm-driven-portfolio-management)  
+   evidence：提供了一种在线、免分布的条件风险价值 (CVaR) 控制方法，CVaR即预期亏损
+4. [ProbRes: Volatility Learning for Probabilistic Time-Series Forecasting](/202606/02/2606.02117v1-probres-volatility-learning-for-probabilistic-time-series-forecasting)  
    标签：评分：9.0/10、query:qf
-   evidence：相关系数感知的投资组合管理基准，具有完整决策流程，填补了评估LLM驱动资产配置时考虑跨资产相关性的空白
-6. [Deep Learning Forecasting of the U.S. Aggregate Bond Index](/202606/01/2605.27977v1-deep-learning-forecasting-of-the-us-aggregate-bond-index)  
+   evidence：用于概率时序预测的后验波动率学习方法，适用于金融风险量化
+5. [VIX options in Bergomi models](/202606/02/2606.02336v1-vix-options-in-bergomi-models)  
    标签：评分：9.0/10、query:qf
-   evidence：利用深度学习预测美国债券指数收益，考虑波动率聚集和分数差分
-7. [Option Pricing under Stochastic Volatility and Jumps:A PIDE Framework with Empirical Evidence](/202606/01/2605.30562v1-option-pricing-under-stochastic-volatility-and-jumpsa-pide-framework-with-empirical-evidence)  
-   标签：评分：9.0/10、query:qf
-   evidence：随机波动率与跳跃下的期权定价，用标普500期权校准，直接关联波动率曲面与对冲
-8. [Inspectable Neural Markov Models for Non-Stationary Time Series](/202606/01/2605.30943v1-inspectable-neural-markov-models-for-non-stationary-time-series)  
-   标签：评分：9.0/10、query:qf
-   evidence：用神经网络参数化马尔可夫转移矩阵，基于已实现波动率进行金融市场建模
+   evidence：推导了Bergomi模型中VIX期权价格和隐含波动率的闭合渐近式，直接关联波动率曲面与对冲
+6. [Distribution-Aware Conformal Prediction: A Framework for generating efficient prediction intervals for time series](/202606/02/2605.26569v1-distribution-aware-conformal-prediction-a-framework-for-generating-efficient-prediction-intervals-for-time-series)  
+   标签：评分：8.0/10、query:qf
+   evidence：分布感知保形预测与分位数回归结合生成高效预测区间
 
 ### 速读区论文标签
-1. [Variational Inference for Lévy Process-Driven SDEs via Neural Tilting](/202606/01/2605.10934v1-variational-inference-for-lvy-process-driven-sdes-via-neural-tilting)  
+1. [DeRegiME: Deep Regime Mixtures for Probabilistic Forecasting under Distribution Shift](/202606/02/2605.19231v1-deregime-deep-regime-mixtures-for-probabilistic-forecasting-under-distribution-shift)  
    标签：评分：8.0/10、query:qf
-   evidence：针对Levy驱动SDE的神经变分推断，捕捉跳跃和重尾用于尾部风险
-2. [Bayesian Dynamic Modeling of Realized Volatility in Financial Asset Price Forecasting](/202606/01/2605.12099v1-bayesian-dynamic-modeling-of-realized-volatility-in-financial-asset-price-forecasting)  
+   evidence：基于深度机制混合的概率预测，适用于分布偏移
+2. [Probabilistic Multivariate Time Series Forecasting with Diffusion Copulas](/202606/02/2605.19685v1-probabilistic-multivariate-time-series-forecasting-with-diffusion-copulas)  
    标签：评分：8.0/10、query:qf
-   evidence：贝叶斯动态模型用于金融时间序列已实现波动率预测
-3. [The Privacy Price of Tail-Risk Learning: Effective Tail Sample Size in Differentially Private CVaR Optimization](/202606/01/2605.16219v1-the-privacy-price-of-tail-risk-learning-effective-tail-sample-size-in-differentially-private-cvar-optimization)  
+   evidence：扩散copula用于多元时间序列概率预测，处理波动率和尾部风险
+3. [From Arbitrage Removal to Density Extraction: A Model-Free Framework for Short-Dated Options](/202606/02/2605.22792v1-from-arbitrage-removal-to-density-extraction-a-model-free-framework-for-short-dated-options)  
    标签：评分：8.0/10、query:qf
-   evidence：隐私保护下的尾部风险学习与CVaR优化
-4. [A Hybrid Gaussian Process Regression Framework for Stable Volatility-Covariance Estimation: Evidence from Global Equity Indices](/202606/01/2605.17275v1-a-hybrid-gaussian-process-regression-framework-for-stable-volatility-covariance-estimation-evidence-from-global-equity-indices)  
+   evidence：短期期权的模型无关风险中性密度提取
+4. [Default Contagion, Matrix Approximation, and Control in Sparse Financial Networks](/202606/02/2605.24833v1-default-contagion-matrix-approximation-and-control-in-sparse-financial-networks)  
    标签：评分：8.0/10、query:qf
-   evidence：混合高斯过程回归-历史模拟框架用于波动率协方差估计与尾部风险
-5. [On Stability and Decomposition of Sample Quantiles under Heavy-Tailed Distributions](/202606/01/2605.18370v2-on-stability-and-decomposition-of-sample-quantiles-under-heavy-tailed-distributions)  
+   evidence：研究金融网络中的尾部风险和违约传染
+5. [DeepSeekMath Meets Order Book: Group-Aware Policy Optimization for High-Frequency Directional Trading](/202606/02/2605.25527v1-deepseekmath-meets-order-book-group-aware-policy-optimization-for-high-frequency-directional-trading)  
    标签：评分：8.0/10、query:qf
-   evidence：重尾分布下VaR分位数稳定性的理论分析
-6. [Recursive Multi-Agent Trading System: Iterative Optimized Portfolio Strategy Under Geopolitical Uncertainty](/202606/01/2605.25311v1-recursive-multi-agent-trading-system-iterative-optimized-portfolio-strategy-under-geopolitical-uncertainty)  
+   evidence：基于订单簿的高频交易策略优化，属于市场微观结构核心
+6. [End-to-End PDE-Based Quantum Algorithms for Multi-Asset Option Pricing under Local and Stochastic Volatility](/202606/02/2605.26610v1-end-to-end-pde-based-quantum-algorithms-for-multi-asset-option-pricing-under-local-and-stochastic-volatility)  
+   标签：评分：8.0/10、query:qf
+   evidence：局部与随机波动下多资产期权定价的量子算法
+7. [High-Quality Synthetic Financial Time-Series using a GAN-Diffusion Framework](/202606/02/2605.27113v1-high-quality-synthetic-financial-time-series-using-a-gan-diffusion-framework)  
    标签：评分：7.0/10、query:qf
-   evidence：利用多智能体系统进行不确定性下的组合优化，通过递归管理降低最大回撤，体现稳健资产配置
-7. [Quantile autoregressive moving average models for ratio-based bounded time series](/202606/01/2605.26052v1-quantile-autoregressive-moving-average-models-for-ratio-based-bounded-time-series)  
+   evidence：用GAN与扩散生成复现风格化事实的合成金融时间序列
+8. [Effects of analyst sentiment on volatility dynamics in financial market](/202606/02/2606.01077v1-effects-of-analyst-sentiment-on-volatility-dynamics-in-financial-market)  
    标签：评分：7.0/10、query:qf
-   evidence：提出对边界时间序列的分位数ARMA模型，可用于尾部风险预测（VaR/预期短缺）
-8. [Stochastic Volatility, Jumps, and Rates: A Unified Framework for Option Pricing and Term-Structure Simulation](/202606/01/2605.27945v1-stochastic-volatility-jumps-and-rates-a-unified-framework-for-option-pricing-and-term-structure-simulation)  
+   evidence：使用GARCH模型分析分析师情绪对波动率动态的驱动
+9. [Post Selection Estimation of Sharpe Ratios](/202606/02/2606.01650v1-post-selection-estimation-of-sharpe-ratios)  
    标签：评分：7.0/10、query:qf
-   evidence：综合随机波动率模型用于期权定价与隐含波动率校准
-9. [Valuation of Variable Annuities with Equity Protection Swaps under Jumps and Default Risks](/202606/01/2605.25450v1-valuation-of-variable-annuities-with-equity-protection-swaps-under-jumps-and-default-risks)  
+   evidence：选择偏差下的夏普比率估计，与组合风险和稳健优化相关
+10. [VLBM: Variational Latent Basis Modeling for OOD Robust Multivariate Time Series Forecasting](/202606/02/2606.02138v1-vlbm-variational-latent-basis-modeling-for-ood-robust-multivariate-time-series-forecasting)  
+   标签：评分：7.0/10、query:qf
+   evidence：用于分布外鲁棒多变量时间序列预测的变分潜基元模型，可迁移至金融波动率预测。
+11. [Macro-aware time series forecasting via hierarchical mixed-frequency attention models](/202606/02/2606.00624v1-macro-aware-time-series-forecasting-via-hierarchical-mixed-frequency-attention-models)  
    标签：评分：6.0/10、query:qf
-   evidence：在跳跃与违约风险下推导权益保护互换的期权定价与对冲，与期权对冲相关
-10. [Modeling dependence in sparse time series of Insurance Claims](/202606/01/2605.25559v1-modeling-dependence-in-sparse-time-series-of-insurance-claims)  
-   标签：评分：6.0/10、query:qf
-   evidence：新颖的Comb-Bernoulli copula模型用于稀疏保险索赔的相依性，可直接应用于多变量风险聚合与尾部相依建模
-11. [Stabilizing distribution-free probabilistic forecasts](/202606/01/2605.28531v1-stabilizing-distribution-free-probabilistic-forecasts)  
-   标签：评分：6.0/10、query:qf
-   evidence：稳定的条件分位数预测适用于在险价值和尾部风险管理
+   evidence：融合宏观背景和高频市场动态的金融时序预测模型
 
 
 <div class="dpr-home-promo-card">
