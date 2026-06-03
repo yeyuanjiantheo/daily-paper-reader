@@ -1,0 +1,679 @@
+Title: Implying Volatility: How Fast Can We Go?
+
+URL Source: https://arxiv.org/pdf/2605.29102v1
+
+Published Time: Fri, 29 May 2026 00:15:55 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+Article 
+
+# Implying Volatility: How Fast Can We Go? 
+
+Fabien Le Floc’h  and Jherek Healy 
+
+> Independent researcher; fabien@2ipi.com
+
+Abstract 
+
+FlashIV is a low-latency Black–Scholes implied-volatility solver for production use. It normalises each input to an out-of-the-money price and solves a tail-stable erfcx/log-price residual. The hot path combines a cheap Li/asymptotic seed with a fixed, branch-light Householder refinement and guarded boundary handling. Across regular and stressed benchmarks, FlashIV stays close to multiprecision Black reference prices while reducing latency in the reported benchmark. Detailed comparisons include recent implied-volatility solvers and Jäckel’s 
+
+Let’s Be Rational . An optional guarded Newton correction gives tighter agreement with a Jäckel-style reference price when applications need reference-price alignment. 
+
+Keywords: implied volatility; Black–Scholes; Householder iteration; Chebyshev method; erfcx; root-finding; computational finance 
+
+## 1. Introduction 
+
+Implied volatility inversion, recovering the Black–Scholes volatility 𝜎 from an observed option price, is among the most frequently executed numerical tasks in quantitative finance. A single calibration of a stochastic volatility surface may require 10 4–10 6 such inversions; real-time risk systems demand throughput of millions of inversions per second. The problem has received sustained attention. Jäckel [ 3 ] introduced a solver of remarkable robustness, using region-dependent asymptotic expansions, a complementary objective for the upper branch, and carefully crafted log-space iterations. Li [ 6] proposed a bivariate rational approximation as an initial guess, later refined by Stefanica and Radoičić [ 7 ] (hereafter SR) who gave a closed-form global approximation based on Pólya’s bound for the cumulative normal distribution, with uniform relative-error guarantees for the implied-volatility guess. Choi et al. [ 8 ] derived tighter implied volatility bounds from option-delta inequalities and used those bounds to prove monotone convergence of a Newton–Raphson root finder. Healy [ 14 ] combined the SR initial guess with Householder iteration on the log price, providing a practical implementation in his treatment of equity derivative pricing. The solver we present, FlashIV (Fast Li/asymptotic seeded Householder implied volatility), follows the standard two-stage structure, initial guess followed by iterative refinement, but applies a sequence of targeted optimisations to each stage. Our techniques target these bottlenecks: 
+
+• A hybrid initial guess that replaces the SR formula with an approximately 4.1 ns asymptotic approximation for out-of-the-money options, protected by near-ATM and high-price complementary guards (Section 3.3). 
+
+• A two-tier erfcx strategy with a cheap pre-step and a full-precision polish (Section 3.2). 
+
+• Elimination of the convergence loop in favour of a fixed iteration count with a conditional safety net (Section 3.4). 
+
+## 2. Problem Formulation 
+
+2.1. Normalization 
+
+All prices are first reduced to the same normalised OTM representation. Let 𝐶 and 𝑃 denote undiscounted call and put prices with forward 𝐹 , strike 𝐾 , and time to expiry 𝑇 . We call an option at the money (ATM) when 
+
+𝐹 = 𝐾 , and near ATM when | ln( 𝐹 ∕𝐾 )| is small. A call is out of the money (OTM) when 𝐹 < 𝐾 , while a put is 
+
+> 1
+> arXiv:2605.29102v1 [q-fin.CP] 27 May 2026
+
+OTM when 𝐹 > 𝐾 ; the opposite cases are in the money (ITM). Rather than carrying separate call, put, ITM, and OTM formulae through the solver, we order the forward–strike pair as 
+
+𝐹 ∗ = min( 𝐹, 𝐾 ), 𝐾 ∗ = max( 𝐹, 𝐾 ), 𝐹 ∗
+
+𝐾 ∗
+
+= min( 𝐹 ∕𝐾, 𝐾 ∕𝐹 ) ≤ 1.
+
+The corresponding OTM value is obtained by put–call parity, and by exchanging the forward and strike for OTM puts: 
+
+𝐶 OTM =
+
+⎧⎪⎪⎨⎪⎪⎩
+
+𝐶, call and 𝐹 ≤ 𝐾, 𝐶 − ( 𝐹 − 𝐾 ), call and 𝐹 > 𝐾, 𝑃, put and 𝐹 > 𝐾, 𝑃 − ( 𝐾 − 𝐹 ), put and 𝐹 < 𝐾. 
+
+Thus every admissible input is represented as an undiscounted OTM call on (𝐹 ∗, 𝐾 ∗). The variables passed to the scalar inversion are 
+
+𝑥 = ln ( 𝐹 ∗
+
+𝐾 ∗
+
+) ≤ 0, 𝑒 𝑥 = 𝐹 ∗
+
+𝐾 ∗
+
+, 𝑐 = 𝐶 OTM 
+
+𝐹 ∗
+
+, 𝑣 = 𝜎 √𝑇. (1) Here 𝑣 denotes total volatility. When comparing with Jäckel’s sqrt-forward normalisation, we also use 𝛽 =
+
+𝑐𝑒 𝑥 ∕2 = 𝐶 OTM ∕√𝐹 ∗𝐾 ∗.This normalisation removes intrinsic value before inversion. In particular, originally ITM options are priced through their OTM parity legs, avoiding the cancellation that would occur if one subtracted a large intrinsic component from the original option price. In these coordinates the Black formula for the normalised OTM call price is 
+
+𝑐 (𝑥, 𝑣 ) = Φ 
+
+( 𝑥 𝑣 + 𝑣 
+
+2
+
+)
+
+− 𝑒 −𝑥 Φ
+
+( 𝑥 𝑣 − 𝑣 
+
+2
+
+)
+
+, (2) where Φ denotes the standard normal cumulative distribution function. 
+
+2.2. Log-Price Objective and erfcx Decomposition 
+
+Following Jäckel [ 3 ] and Choi et al. [ 8 ], the iteration is performed in log-price space rather than on the raw price residual. For a target normalised price 𝑐 target , the objective is 
+
+𝑓 (𝑣 ) = ln( 𝑐 (𝑥, 𝑣 )) − ln (𝑐 target 
+
+). (3) 
+
+Proposition 1. For ℎ = 𝑥 ∕𝑣 and 𝑡 = 𝑣 ∕2 , the log-price admits the representation 
+
+ln( 𝑐 ) = − 12 (ℎ2 + 𝑡 2) − ln(2) − 𝑥  
+
+> 2
+
++ ln (𝑁 + − 𝑁 −), (4) 
+
+where 
+
+𝑁 + = erf cx 
+
+(
+
+−( ℎ + 𝑡 )∕ √2
+
+)
+
+, 𝑁 − = erf cx 
+
+(
+
+−( ℎ − 𝑡 )∕ √2
+
+)
+
+. (5) 
+
+Proof. Using (2) and Φ( 𝑧 ) = 12 erf c 
+
+(
+
+−𝑧 ∕√2
+
+)
+
+gives 
+
+𝑐 = 12
+
+[erf c 
+
+(
+
+−( ℎ + 𝑡 )∕ √2
+
+)
+
+− 𝑒 −𝑥 erf c 
+
+(
+
+−( ℎ − 𝑡 )∕ √2
+
+)] .
+
+Now write erf c( 𝑧 ) = 𝑒 −𝑧 2
+
+erf cx( 𝑧 ). Since ℎ𝑡 = 𝑥 ∕2 ,
+
+𝑒 −( ℎ+𝑡 )2∕2 = 𝑒 −( ℎ2+𝑡 2)∕2− 𝑥 ∕2 , 𝑒 −𝑥 𝑒 −( ℎ−𝑡 )2∕2 = 𝑒 −( ℎ2+𝑡 2)∕2− 𝑥 ∕2 .
+
+The two terms therefore share the common factor 𝑒 −( ℎ2+𝑡 2)∕2− 𝑥 ∕2 ∕2 . Factoring it out and taking logarithms gives (4). 
+
+> 2
+
+Remark 1. The scaled complementary error function erf cx( 𝑧 ) = 𝑒 𝑧 2
+
+erf c( 𝑧 ) is bounded and positive for all real 𝑧 .Consequently, the difference 𝑁 + − 𝑁 − remains computable even when the price itself would underflow to zero in double precision. This is the main reason for using the log-price formulation: the objective 𝑓 (𝑣 ) remains well defined and smoothly differentiable for arbitrarily deep OTM options. 
+
+## 3. Solver Design 
+
+3.1. Householder Refinement of Order 3 
+
+We use Householder’s method of order 3 (H3), which achieves quartic local convergence at a simple root [ 13 ]. For the log-price objective the admissible root is simple because 𝑓 ′(𝑣 ) = 𝜙 (𝑑 1)∕ 𝑐 (𝑥, 𝑣 ) > 0. We use this only as a local refinement property: once the seed is in the H3 basin, two exact H3 steps are more than enough for double precision in the tested regimes. For FlashIV, the fast pre-step moves the inexpensive Li/asymptotic seed into the local H3 basin. With 𝜂 𝑛 = − 𝑓 (𝑣 𝑛 )∕ 𝑓 ′(𝑣 𝑛 ) denoting the Newton displacement, the update is 
+
+𝑣 𝑛 +1 = 𝑣 𝑛 + 𝜂 𝑛 ⋅
+
+1 + 12 𝛿 2 𝜂 𝑛 
+
+1 + 𝛿 2 𝜂 𝑛 + 16 𝛿 3 𝜂 2
+
+> 𝑛
+
+, (6) where 𝛿 2 = 𝑓 ′′ ∕𝑓 ′ and 𝛿 3 = 𝑓 ′′′ ∕𝑓 ′ are the normalised second and third derivatives of the objective. 
+
+Proposition 2. Let 𝓁 (𝑣 ) = ln( 𝑐 (𝑥, 𝑣 )) . Since 𝑓 (𝑣 ) = 𝓁 (𝑣 ) − ln( 𝑐 target ), the derivative ratios used by H3 are those of 𝓁 . They admit the closed-form expressions 
+
+𝓁 ′(𝑣 ) = 2∕ √2𝜋 𝑁 + − 𝑁 − , (7) 
+
+𝓁 ′′ (𝑣 )
+
+𝓁 ′(𝑣 ) = (ℎ + 𝑡 )( ℎ − 𝑡 )
+
+𝑣 − 𝓁 ′(𝑣 ), (8) 
+
+𝓁 ′′′ (𝑣 )
+
+𝓁 ′(𝑣 ) = −3 ℎ2 − 𝑡 2 + ( ℎ2 − 𝑡 2)2
+
+𝑣 2 − 3 𝓁 ′(𝑣 ) 𝓁 ′′ (𝑣 )
+
+𝓁 ′(𝑣 ) − [𝓁 ′(𝑣 )]2. (9) 
+
+Proof. The vega of the normalised Black formula is 𝜕𝑐 ∕𝜕𝑣 = 𝜙 (𝑑 1), where 𝜙 is the standard normal density. Thus 𝓁 ′(𝑣 ) = 𝑐 −1 𝜙 (𝑑 1). Expressing 𝜙 (𝑑 1) = (2 𝜋 )−1∕2 𝑒 −𝑑 21 ∕2 and using the erfcx representation (5) , a direct computation gives (7) . The ratios (8) and (9) follow by differentiating 𝓁 ′(𝑣 ) with respect to 𝑣 and simplifying, using 𝑑ℎ ∕𝑑𝑣 = − ℎ∕𝑣 and 𝑑𝑡 ∕𝑑𝑣 = 1∕2 .
+
+Remark 2. Equations (8) –(9) involve only 𝓁 ′(𝑣 ), ℎ, 𝑡 , and 𝑣 , with no additional erfcx evaluations. Once 𝑁 + and 
+
+𝑁 − are known from the objective evaluation, all three derivatives follow from elementary arithmetic ( ∼25 mul-adds). This makes H3 only marginally more expensive than Halley (order 2, cubic convergence) while converging one order faster. 
+
+Remark 3 (Why not Newton?) . Newton’s method (order 1, quadratic convergence) requires ∼4 iterations from a typical initial guess, totalling 4 × 2 × 5 .5 ≈ 44 ns of erfcx evaluation alone. Halley (order 2, cubic) reduces this to 
+
+∼2.07 average iterations but occasionally needs a third ( ∼7% of cases). H3 at the same per-step erfcx cost achieves 
+
+∼2.01 average iterations with a maximum of 3 and, crucially, enables the fixed-iteration strategy of Section 3.4. 
+
+Remark 4 (Why not higher orders?) . Householder-4 (order 4, quintic convergence) would require 𝑓 (𝑖𝑣 ), adding 
+
+∼10 mul-adds per step, but saving at most 0.01 iterations on average. At ∼0.3 ns of extra arithmetic versus ∼0.3 ns of amortised erfcx savings, the tradeoff is a wash. 3.2. The Two-Tier erfcx Strategy 
+
+Each H3 step requires two erfcx evaluations (for 𝑁 + and 𝑁 −). A full-precision erfcx costs ∼6.2 ns per call (Boost rational approximation, as implemented in Apache Commons Numbers 1.2) and delivers 15+ 
+
+> 3
+
+significant digits. The first step of the solver, however, does not need 15 digits: its purpose is merely to promote an initial guess from ∼2–3 digits of accuracy to ∼6–8 digits, after which the exact polish takes over. 
+
+Definition 1 (Pre-step erfcx) . The pre-step erfcx is a composite of two classical approximations: 1. For 𝑧 ≥ 2.5: the asymptotic expansion erf cx( 𝑧 ) ≈ 1
+
+> √𝜋 𝑧
+
+(1 − 12𝑧 2 + 34𝑧 4 − 15 8𝑧 6
+
+).2. For 0 ≤ 𝑧 < 2.5: the Abramowitz & Stegun [ 11 ] rational polynomial (formula 7.1.26). In this form 
+
+erf c( 𝑧 ) ≈ 𝑝 (𝑡 )𝑒 −𝑧 2
+
+with 𝑡 = 1∕(1 + 0 .3275911 𝑧 ), so erf cx( 𝑧 ) is evaluated as the polynomial 𝑝 (𝑡 ) directly. 3. For 𝑧 < 0: the reflection identity erf cx( 𝑧 ) = 2 𝑒 𝑧 2
+
+− erf cx(− 𝑧 ).The total cost is ∼2.3 ns per call. 
+
+Remark 5. The worst-case relative error of the A&S approximation is 2.8 × 10 −3 at 𝑧 ≈ 2 .5, the junction between the rational and asymptotic pieces. Although this is only 2.5 significant digits, it is more than adequate for the pre-step: the purpose is to reduce the residual from 𝑂 (1) to 𝑂 (10 −6 ), not to achieve machine precision. 
+
+We also tested a degree-12 Chebyshev polynomial erfcx on [1 .5, 5.0] achieving ∼9 significant digits ( ∼3.8 ns per call). Despite reducing the average polish iteration count from 2.07 to 2.01, the ∼2 ns extra pre-step cost offsets the ∼2 ns saved from fewer polish iterations. The A&S approximation sits at the sweet spot of the accuracy–cost tradeoff. 
+
+3.3. The Initial Guess 
+
+The choice of initial guess has a large impact on total solver time, not through iteration count (which varies by at most 1 between all reasonable guesses) but through the direct cost of computing the guess itself .3.3.1. Li’s rational approximation (2006) A degree-(3 , 3) bivariate rational polynomial [6]: 
+
+𝑣 Li (𝑥, 𝑐 ) = 
+
+∑ 
+
+> 𝑖 +𝑗 ≤3
+
+𝑚 𝑖𝑗 𝑥 𝑖 𝑐 𝑗 
+
+∑ 
+
+> 𝑖 +𝑗 ≤3
+
+𝑛 𝑖𝑗 𝑥 𝑖 𝑐 𝑗 , (10) with 20 pre-fitted coefficients. Valid on the domain 𝒟 Li = {( 𝑥, 𝑐 ) ∶ |𝑥 | < 3, 0.0005 < 𝑐 < 0.9995} . Cost: 
+
+∼3.3 ns. 3.3.2. The asymptotic OTM guess For deep OTM options ( 𝑐 ≤ 0.5, outside 𝒟 Li ), we derive a simple closed-form initial guess from the tail asymptotics of the Black formula. 
+
+Proposition 3. For small 𝑐 , the normalised Black call price satisfies ln( 𝑐 ) ≈ − 12 𝑑 21 − 12 ln(2 𝜋 ) to leading order. Defining 𝐷 = √−2 ln( 𝑐 ) − ln(2 𝜋 ) as an approximation to |𝑑 1| and solving the quadratic 𝑑 1 = 𝑥 ∕𝑣 + 𝑣 ∕2 for 𝑣 in rationalised form yields 
+
+𝑣 0 = −2 𝑥 𝐷 + √𝐷 2 − 2 𝑥 . (11) 
+
+Proof. For small 𝑐 , the Black formula (2) is dominated by the first term: 𝑐 ≈ Φ( 𝑑 1) ≈ 𝜙 (𝑑 1)∕ |𝑑 1|. Taking logarithms, ln( 𝑐 ) ≈ − 12 𝑑 21 − 12 ln(2 𝜋 ) + ln(1∕ |𝑑 1|). Dropping the ln(1∕ |𝑑 1|) correction (which is 𝑂 (ln(ln(1∕ 𝑐 ))) 
+
+relative to the 𝑂 (ln(1∕ 𝑐 )) leading term) gives 𝑑 1 ≈ − 𝐷 . The quadratic 𝑣 2∕2+ 𝑑 1𝑣 +𝑥 = 0 (from 𝑑 1 = 𝑥 ∕𝑣 +𝑣 ∕2 )has the positive root 𝑣 = − 𝑑 1 +
+
+√
+
+𝑑 21 − 2 𝑥 . Substituting 𝑑 1 ≈ − 𝐷 and rationalising (multiplying numerator and denominator by 𝐷 − √𝐷 2 − 2 𝑥 ) yields (11), which avoids catastrophic cancellation when |𝑥 | ≪ 𝐷 2.
+
+> 4
+
+Remark 6. The cost of (11) is ∼3.4 ns: one subtraction, two square roots, and one division, with ln( 𝑐 ) already available from the log-space objective setup. The approximation is 2–3 digits accurate for moderate OTM and improves monotonically as 𝑐 → 0.
+
+Remark 7 (Validity guard) . The leading-order approximation degrades when 𝑐 is not small enough for the tail asymptotics to dominate. We impose the guard ln( 𝑐 ) < −2 (i.e., 𝑐 < 𝑒 −2 ≈ 0 .135 ) in addition to 𝑐 ≤ 0.5, preventing activation for high-volatility, long-maturity cases where 𝑐 ≈ 0 .5 despite deep OTM ( |𝑥 | > 3). 
+
+3.3.3. The hybrid Li+asymptotic dispatch The solver-side dispatch around the Li/asymptotic guess is as follows. In the floating-point implemen-tation the high-price trigger is 𝑐 𝑔 = nextDown(0 .99) , i.e., the representable double immediately below 0.99; analytically this is the same upper-polish guard, but it avoids sending a one-ulp-rounded boundary price back to the direct log-price region. (i) 𝑐 ≤ 10 −6 , |𝑥 | ≤ 10 −8 , and 𝑥 ≤ 0: Bachelier-limit branch. In the sqrt-forward normalisation 𝛽 = 𝑐𝑒 𝑥 ∕2 
+
+with log-moneyness gap 𝑚 = − 𝑥 , the Black price is expanded around the Bachelier integral. The deep tail (ln( 𝑚 ∕𝛽 ) > 20 and 𝑚 ∕𝑣 > 4) is handled by a scaled Mills-ratio solver in the normal model, returning the volatility directly. Otherwise, the Le Floc’h rational Bachelier approximation [ 15 ] provides a Bachelier-normal seed accurate to ∼ 10 −14 , polished by two Newton corrections on the local Black–Bachelier expansion. If both guarded paths decline, the branch returns the zero-volatility limit as a defensive terminal value; this path was not reached in the validation grids because the deep-tail solver covers ratios below the rational approximation’s finite domain. The guarded branch is tested before the general initial-guess dispatch. The full derivation of this shared microscopic branch is given in the ThiopheneIV paper [5, Appendix A.3]. (ii) |𝑥 | < 3 and 0.0005 < 𝑐 < 𝑐 𝑔 : Li rational ( ∼4 ns). (iii) 𝑐 ≤ 0.0005 and |𝑥 | < 0.01 : a near-ATM small-price seed 𝑣 0 = √𝑥 2 + 2 𝜋𝑐 2, which reduces to the first-order ATM relation 𝑐 ≈ 𝑣 ∕√2𝜋 .(iv) 𝑐 ≥ 𝑐 𝑔 : the current seed is lifted by an upper-price asymptotic seed based on 𝑞 = 1 − 𝑐 , followed by two Householder steps on the complementary ln( 𝑞 ) objective. (v) 𝑐 ≤ 0.5 and ln( 𝑐 ) < −2 : asymptotic OTM formula (11) ( ∼4.1 ns). (vi) Otherwise: put-side asymptotic or √2|𝑥 | fallback ( < 1 ns; rare). Table 1 reports the guess-domain distribution across all eight benchmark datasets for cases that reach the general initial-guess dispatch. The Bachelier-limit branch is part of the high-level dispatch, but it is a terminal microscopic-price branch rather than an initial-guess domain.  
+
+> Table 1. Guess-domain distribution by dataset.
+
+Dataset Cases Li (%) Asym (%) Fallback (%) 
+
+CLY-3D 51 ,321 58.5 41.5 0.0 CLY-20 1,600 76.0 24.0 0.0 CLY-80 1,600 84.1 15.9 0.0 Jäckel 5,182 72.8 27.2 0.0 Market 7,151 80.3 19.7 0.0 Corners 278 22.3 74.8 2.9 Stress 1,270 50.6 49.1 0.4 HighVol 149 0.0 49.7 50.3 On the CLY-3D benchmark, the Li rational guess covers 58.5% of cases and the asymptotic OTM guess covers 41.5%, with the √2|𝑥 | fallback never invoked. The measured average Li/asymptotic guess cost is ∼4.8 ns. Figure 1 shows the corresponding dispatch geometry in normalised OTM coordinates. The main panel uses a logit scale for 𝑐 , with tick labels shown as prices, so that the high-price guard at 𝑐 ≥ 0.99 is visible rather 
+
+> 5
+
+than compressed against the top edge. The microscopic Bachelier-limit guard remains too narrow to see at that scale, so it is resolved in the right-hand zoom panel. −4 .0 −3 .5 −3 .0 −2 .5 −2 .0 −1 .5 −1 .0 −0 .5 0.0           
+
+> Log-moneyness 𝑥 = ln( 𝐹 ∗∕𝐾 ∗)
+> 10 −8
+> 10 −6
+> 10 −4
+> 5×10 −4
+> 𝑒 −2
+> 0.5
+> 0.99
+> 0.9999
+> Normalised price  𝑐  (logit scale)
+> ð𝑥 ð = 3
+> ð𝑥 ð = 10 −2
+> 𝑐 = 0 .99
+> 𝑐 = 5 × 10 −4
+> asym guard
+> 𝑐 =𝑒 −2
+> Li rational
+> asymptotic OTM where Li does not apply near-ATM small price
+> ð𝑥 ð<10 −2
+> high-price log-gap
+> 𝑐 ≥0.99
+> put-side / sqrt fallback
+
+FlashIV branch geometry   
+
+> −1 .0−0 .50.0
+> 𝑥 ∕10 −8
+> −18 −16 −14 −12 −10 −8 −6 log 10 (𝑐 )
+> LFK seed Mills tail
+> Bachelier-limit zoom
+
+Figure 1. FlashIV branch geometry in normalised OTM coordinates. The vertical axis uses a logit scale for the normalised OTM price 𝑐 . Pale regions show the high-price complementary log-gap, Li rational, near-ATM small-price, and asymptotic OTM regimes; the pale gray remainder is the inexpensive put-side-asymptotic or √2|𝑥 | fallback region. The left gray zone is therefore not the Bachelier-limit branch. The |𝑥 | = 10 −2 line is the activation guard for the near-ATM small-price seed. The right panel resolves the microscopic Bachelier-limit box, where the Mills-ratio tail treatment covers the deepest prices and the rational Bachelier seed covers the transition region. The 𝑐 = 𝑒 −2 line is the validity guard for activating the asymptotic OTM seed outside the Li domain. 
+
+3.3.4. StrontiumIV: guarded Stefanica—Radoičić (SR) seeded companion Stefanica and Radoičić [ 7 ] derived a closed-form global approximation based on the Pólya bound for Φ. It handles all moneyness regimes via careful case analysis. Our implementation uses a compact guarded form of the SR approximation, with Taylor-limit branches at singular boundaries. StrontiumIV is an implied volatility solver based on the SR seed plus Householder iterations on the log-price, or ln( 𝑐 ), objective used by Healy [ 14 ], made robust by the same normalisation, microscopic Bachelier guard, and high-price complementary guard used here. It removes the Li/asymptotic dispatch and uses the SR approximation [ 7] as the universal non-Bachelier seed before the same fixed H3 refiner used by FlashIV. The trade-off is direct: the guarded SR seed costs 26.2 ns on the CLY-3D case mix, against the 4.8 ns average of the Li/asymptotic hybrid. In Table 4, StrontiumIV runs at 179 ns on CLY-3D versus 137 ns for FlashIV. 3.3.5. Accuracy of the raw initial guesses Before any iterative refinement, the three seeds have quite different accuracy profiles. Table 2 reports relative error in total volatility, |𝑣 0 − 𝑣 ref |∕𝑣 ref , over the union of the eight benchmark datasets. The benchmark uses the same dataset construction as Table 4. 
+
+Table 2. Pure initial-guess accuracy before any H3/cubic refinement. Errors are relative errors in total volatility over all 
+
+68 ,551 benchmark cases. The cost column is the CLY-3D micro-benchmark cost from Table 5. 
+
+Seed Cost (ns) Mean Median 95th pct. Max 
+
+FlashIV Li/asym 4.8 1.38×10 −1 1.25×10 −1 2.84×10 −1 3.05×10 1
+
+StrontiumIV SR 26.2 3.35×10 −2 3.52×10 −2 5.75×10 −2 1.21×10 −1 
+
+ThiopheneIV Choi L3 17.7 1.57×10 −1 1.60×10 −1 2.82×10 −1 3.57×10 −1 
+
+> 6
+
+The SR seed is therefore the most accurate raw approximation in this benchmark: even its worst relative total-volatility error is about 12%. FlashIV’s seed is deliberately cheaper and rougher: its large maximum comes from a handful of extreme Corners and Stress cases where the asymptotic seed is far from the true low total volatility. Those cases are precisely why the solver is assessed after the solver-specific log-price refinement rather than by seed accuracy alone. 
+
+3.4. Eliminating the Convergence Loop 
+
+Traditional Householder solvers iterate until a convergence criterion is met, checking residuals at every step. This introduces overhead from branch misprediction (the loop exit is data-dependent), the convergence check itself, and lost opportunities for compiler optimisation (the loop body cannot be fully unrolled or scheduled across iterations). We measured this overhead at ∼19 ns by comparing two otherwise matched prototype paths, one with a convergence loop after the fast pre-step (160 ns) and one with fixed iterations (141 ns), on the CLY-3D dataset. Instead of looping, we execute exactly two unconditional exact H3 steps. A conditional third step fires only when the log-price residual on entry to the second exact step is still large: if |𝑓 (𝑣 1)| ≥ 10 −4 ∶ execute 3rd H3 step after 𝑣 2. (12) 
+
+Proposition 4. On the CLY-3D benchmark ( 51 ,321 cases), the conditional step fires for 11 cases (0.02%), exclusively in the deepest OTM zones ( |𝑥 | > 2), adding < 0.01 ns in amortised cost. 
+
+Remark 8 (Why two steps suffice) . The pre-step (with the fast erfcx) promotes the initial guess from ∼2–3 digits to ∼6–8 digits. The first exact H3 step (quartic convergence) then yields ∼24–32 digits, well beyond double precision. The second exact step drives the residual to the limits of IEEE 754 arithmetic ( ∼ 10 −16 ). Only in pathological cases where the pre-step achieves fewer than 4 digits (very deep OTM with an imprecise asymptotic guess) is a third step needed. 
+
+Figure 2 visualises this fixed-count compression on fixed log-moneyness slices, in the style of Jäckel’s diagnostic plots. The raw seed errors are broad, the fast pre-step moves the slices into the local H3 basin, and the exact steps collapse the error to the double-precision floor. 
+
+3.5. Algorithm Summary 
+
+Algorithm 1 summarises the FlashIV hot path. The companion StrontiumIV and ThiopheneIV rows in the experiments share the same normalisation, microscopic-price guard, and high-price complementary guard; the shared guard derivations are in the ThiopheneIV paper [ 5 , Appendices A.3 and A.4], while the seed/refinement internals differ by solver.        
+
+> 710 −5 10 −4 10 −3 10 −2 10 −1 15
+> Reference total volatility 𝑣
+> 10 −18
+> 10 −15
+> 10 −12
+> 10 −9
+> 10 −6
+> 10 −3
+> 10 0
+> Relative total-volatility error
+
+𝑥 = −10 −8    
+
+> 10 −1 15
+> Reference total volatility 𝑣
+
+𝑥 = −0 .5   
+
+> 10 −1 15
+> Reference total volatility 𝑣
+> 10 −18
+> 10 −15
+> 10 −12
+> 10 −9
+> 10 −6
+> 10 −3
+> 10 0
+> Relative total-volatility error
+
+𝑥 = −2     
+
+> 0.5 125
+> Reference total volatility 𝑣
+
+𝑥 = −8    
+
+> Seed Fast H3 Exact H3 1 Exact H3 2
+
+Figure 2. Fixed-𝑥 convergence slices for the FlashIV H3 chain. Each panel fixes log-moneyness and varies the reference total volatility. The curves show relative total-volatility error after the seed, the fast H3 pre-step, and the first two exact H3 steps; values are floored at 10 −18 only for log-scale plotting. 
+
+Algorithm 1 FlashIV hot path. 
+
+Require: 𝑥 ≤ 0, 𝑒 𝑥 , normalised OTM price 0 < 𝑐 < 1, ln( 𝑐 ), maturity 𝑇  
+
+> 1:
+
+if 𝑐 ≤ 10 −6 and |𝑥 | ≤ 10 −8 then  
+
+> 2:
+
+return Bachelier-limit volatility (Mills-ratio tail, Bachelier rational seed + expansion polish, or defen-sive zero)  
+
+> 3:
+
+end if  
+
+> 4:
+
+𝑣 0 ← Li/asymptotic dispatch of Section 3.3  
+
+> 5:
+
+𝑣 0 ← max( 𝑣 0, 10 −10 ) 
+
+> 6:
+
+if 𝑐 ≥ 0.99 then  
+
+> 7:
+
+𝑣 0 ← max( 𝑣 0, upper-price asymptotic seed ) 
+
+> 8:
+
+return three Halley steps on the complementary ln(1 − 𝑐 ) objective  
+
+> 9:
+
+end if  
+
+> 10:
+
+𝑣 1 ← one H3 step using the fast A&S erfcx  
+
+> 11:
+
+𝑣 2 ← one exact H3 step using full-precision erfcx  
+
+> 12:
+
+𝑟 2 ← log-price residual at 𝑣 2 
+
+> 13:
+
+𝑣 3 ← one exact H3 step using full-precision erfcx  
+
+> 14:
+
+if |𝑟 2| ≥ 10 −4 then  
+
+> 15:
+
+𝑣 3 ← one additional exact H3 safety step  
+
+> 16:
+
+end if  
+
+> 17:
+
+return 𝑣 3∕√𝑇 
+
+3.6. Scalar Inlining of Derivative Evaluations 
+
+This subsection documents an implementation detail that we separate from the algorithmic contributions. The direct implementation of the Householder iteration computes the objective and its three derivatives in a helper function that returns them as a four-element container. Replacing that container return with scalar 
+
+> 8
+
+temporaries removes the representation overhead without changing the iteration. In the benchmark, this reduces per-case time from 210 ns to 171 ns ( −19 %). Since this is a representation choice rather than a solver design choice, the algorithmic comparisons below use the scalar-inlined baseline. 
+
+## 4. Experimental Setup 
+
+4.1. Reference Price Computation 
+
+The textbook Black–Scholes formula 𝑐 = Φ( 𝑑 1) − 𝑒 −𝑥 Φ( 𝑑 2) suffers from catastrophic cancellation for deep OTM options, and even the erfcx/log objective used by the unpolished solver can lose relative bits in nearly-ATM, very-low-volatility cases because it subtracts two close erfcx values [ 5 ]. The main accuracy table uses saved OTM-normalised prices generated from a multiprecision Black evaluator at the known reference volatility and then rounded to double precision. 
+
+4.2. Test Datasets 
+
+To ensure robustness, we benchmark on eight datasets spanning the full range of practically relevant option parameters (Table 3).  
+
+> Table 3. Test datasets.
+
+Dataset Cases Description 
+
+CLY-3D 51 ,321 Cui–Liu–Yao three-dimensional grid: 𝐾 ∈ [105 , 800] , 𝑇 ∈ [0 .01 , 2] , 𝜎 ∈ [0 .01 , 0.99] ,filtered at price 10 −20 
+
+CLY-20 1,600 Cui–Liu–Yao fixed-volatility surface: 𝜎 = 20% , 𝐾 ∈ [105 , 180] , 𝑇 ∈ [0 .1, 2] 
+
+CLY-80 1,600 Cui–Liu–Yao fixed-volatility surface: 𝜎 = 80% , 𝐾 ∈ [105 , 800] , 𝑇 ∈ [0 .1, 2] 
+
+Jäckel 5,182 Wide moneyness: 𝐾 ∕𝐹 ∈ [0 .5, 8] , 𝜎 up to 4.0 Market 7,151 Realistic: 𝐾 ∕𝐹 ∈ [0 .7, 1.5] , 𝑇 from 1/252 to 5 yr Corners 278 Edge cases: low-vol/short-mat, high-vol/deep-OTM, near-ATM small-price, and high-price near-bound cases Stress 1,270 Extremes: 𝐾 ∕𝐹 up to 100× , 𝑇 ∈ [0 .001 , 10] 
+
+HighVol 149 Fallback stress zone: |𝑥 | ≥ 3, 𝑐 ∈ (0 .05 , 0.95) , 𝜎 up to 2.5 The first three datasets reproduce the comparison grids from Cui–Liu–Yao [ 2]: the main three-dimensional grid and the two fixed-volatility surface grids used in their numerical comparison with previous literature. The HighVol dataset specifically targets the region |𝑥 | ≥ 3 with large option prices, where Li’s rational approximation is outside its fitted domain and the asymptotic OTM guard only accepts part of the set; cases are filtered to 𝑐 < 0.95 to reflect the practical use of put–call parity for deep ITM options. The accompanying source distribution gives the exact construction rules used by the benchmark generator. 
+
+4.3. Solvers Under Comparison 
+
+The main comparison uses only production-facing rows. FlashIV and FlashIV+ are the methods studied here; Jäckel is the reference solver; StrontiumIV, ThiopheneIV, and ThiopheneIV+ are compact comparison rows that contextualise alternative seed and polish choices. Intermediate development variants are not part of the main comparison because the anatomy section below already explains the performance components. All micro-benchmark timings use the same harness: minimum of 500 sweeps and 3 independent runs in the implementation. 
+
+• Jäckel’s Let’s Be Rational [3]. Region-dependent asymptotic expansions, log-space iteration, comple-mentary objective. The comparison uses the normalised API with 𝛽 = 𝑐 √𝑒 𝑥 and the original two-iteration default. 243 ns on CLY-3D. 
+
+• FlashIV (this paper). Li/asymptotic seed dispatch, one fast H3 pre-step, two exact H3 steps, and a rare conditional safety step. 137 ns on CLY-3D. 
+
+• FlashIV+. FlashIV with one final Jäckel–Newton correction against the expanded Jäckel reference price, except under the upper polish guard 𝑐 ≥ 0.99 , where the complementary gap branch is retained. 181 ns on CLY-3D. 
+
+> 9
+
+• StrontiumIV. Guarded SR approximation [ 7] for all non-Bachelier inputs, with no Li coefficients and no Li/asymptotic guess-domain switching, followed by Healy’s SR–Householder-on-log-price idea with the same robust guard layer and fixed H3 polish as FlashIV. 179 ns on CLY-3D. 
+
+• ThiopheneIV. Choi–Huh–Su L3 lower-bound seed [ 8 ] for all non-Bachelier inputs, followed by lower-tail Euler–Chebyshev or upper-tail Halley steps and the same production guards. 166 ns on CLY-3D. 
+
+• ThiopheneIV+. ThiopheneIV with one final Jäckel–Newton correction against the expanded Jäckel reference price on the lower-price half 𝑐 ≤ 1∕2 . 214 ns on CLY-3D. 
+
+## 5. Results 
+
+5.1. Accuracy and Timing 
+
+Table 4 reports the main accuracy and latency comparison on the eight benchmark datasets. Input prices for the accuracy block are generated from a multiprecision Black price at the known total volatility 𝑣 ref ,rounded to double precision, and then passed to the solvers as OTM-normalised prices. Errors are measured in ulps of the reference total volatility: for a solver output ̂ 𝑣 =̂ 𝜎 √𝑇 , the per-case error is 
+
+|̂ 𝑣 − 𝑣 ref |
+
+nextUp( 𝑣 ref ) − 𝑣 ref 
+
+.
+
+Thus one ulp is the local double-precision spacing at 𝑣 ref ; at 𝑣 ref = 0 .20 , a 7-ulp error is about 1.94 × 10 −16 
+
+in total volatility. The table is best read through the FlashIV, FlashIV+, and Jäckel rows: FlashIV is the low-latency row, FlashIV+ adds one Newton step below the upper polish guard 𝑐 < 0.99 , and Jäckel is the reference solver. StrontiumIV, ThiopheneIV, and ThiopheneIV+ provide compact context for alternative seed/refinement choices. 
+
+Table 4. Accuracy against rounded multiprecision Black reference prices and latency by dataset.                                                                                                                
+
+> CLY-3D CLY-20 CLY-80 Jäckel Market Corners Stress HighVol Accuracy – max error (ulp of reference total volatility)
+> Jäckel 23 5425 29 240 33 2FlashIV 130 13 493 304 329 208 7FlashIV+ 23 5513 29 41 33 3StrontiumIV 116 19 4106 117 329 321 9ThiopheneIV 133 62 789 177 329 138 2ThiopheneIV+ 24 5513 29 41 33 2
+> FlashIV+ accuracy – max absolute total-volatility error
+> FlashIV+ 6.7×10 −16 1.1×10 −16 6.7×10 −16 1.2×10 −14 1.8×10 −15 2.7×10 −15 8.9×10 −16 2.7×10 −15
+> Latency (ns/call)
+> Jäckel 243 225 225 224 204 261 232 203 FlashIV 137 137 136 144 145 148 147 142 FlashIV+ 181 181 184 199 194 202 199 200 StrontiumIV 179 175 174 181 183 178 179 186 ThiopheneIV 166 164 161 171 171 173 175 169 ThiopheneIV+ 209 209 211 209 216 222 224 207
+
+The optional final Newton correction changes the trade-off rather than the solver architecture. On the CLY-3D grid, FlashIV moves from 130 to 23 total-volatility ulps while remaining faster than Jäckel’s unpolished comparison path. On the Jäckel grid, the high-price guard is decisive: FlashIV+ reports 13 ulps because cases with 𝑐 ≥ 0.99 use the complementary ln(1 − 𝑐 ) objective instead of a direct beta-price Newton polish. The same guard reduces the base FlashIV and StrontiumIV Jäckel maxima to 93 and 106 ulps, respectively. The Corners dataset is the most demanding because it includes cancellation-sensitive near-ATM small-price cases and high-price near-bound cases; the FlashIV+ absolute-error row shows that the 41-ulp maximum there corresponds to a 2.7 × 10 −15 total-volatility error. ThiopheneIV implementation details and the analogous lower-Chebyshev / upper-Halley comparison are given in [5, Sections 3 and 5]. Figure 3 gives a fixed-log-moneyness slice check. Prices below 10 −300 are excluded, matching the benchmark-generation floor used in the test sets. The larger FlashIV error in the top-left panel ( 𝑥 = −10 −8 , 𝑣 ≲ 10 −3 ) is a pricing-formula limit, not an H3 convergence failure. The input prices are generated by Jäckel’s expanded reference price, whose small-volatility        
+
+> 10 10 −5 10 −4 10 −3 10 −2 10 −1 15
+> Reference total volatility 𝑣
+> 10 −18
+> 10 −17
+> 10 −16
+> 10 −15
+> 10 −14
+> 10 −13
+> 10 −12
+> 10 −11
+> Relative total-volatility error
+
+𝑥 = −10 −8    
+
+> 10 −1 15
+> Reference total volatility 𝑣
+
+𝑥 = −0 .5   
+
+> 10 −1 15
+> Reference total volatility 𝑣
+> 10 −18
+> 10 −17
+> 10 −16
+> 10 −15
+> 10 −14
+> 10 −13
+> 10 −12
+> 10 −11
+> Relative total-volatility error
+
+𝑥 = −2     
+
+> 0.5 125
+> Reference total volatility 𝑣
+
+𝑥 = −8   
+
+> FlashIV FlashIV+ Jaeckel
+
+Figure 3. Fixed-𝑥 comparison of FlashIV, FlashIV+, and Jäckel’s normalised solver using expanded Jäckel reference prices. Each panel varies the reference total volatility at fixed log-moneyness and reports relative total-volatility error against the known 𝑣 ref . FlashIV+ collapses most of the remaining discrepancy against the expanded Jäckel reference price while preserving the fixed-count FlashIV path plus a guarded final Newton correction. 
+
+branch uses a Taylor-expanded evaluation to avoid cancellation. Unpolished FlashIV solves the erfcx/log objective instead; in this near-ATM, very-small-total-variance corner the two erfcx terms are nearly equal, so the erfcx formula loses enough relative bits that its root is slightly displaced from the expanded Jäckel reference root. FlashIV+ removes this discrepancy by applying one final Newton step on the expanded Jäckel reference price, which is why it returns to the double-precision floor in that panel. Figure 4 combines the selected latency rows of Table 4 with the multiprecision-reference accuracy recomputation. The small pale points show the non-CLY datasets, while CLY-3D, CLY-20, and CLY-80 are highlighted. The solid black step line is the nondominated frontier over each solver’s worst CLY observation; in this benchmark the worst CLY error for every solver occurs on CLY-3D, so the frontier lies on a subset of the CLY-3D markers. Solver labels abbreviate each solver’s optional guarded expanded Jäckel price polish by a trailing ‘+’. Table 4 compares final solver configurations. On CLY-3D, FlashIV runs at 137 ns, about 44% lower latency than Jäckel’s solver (243 ns). The Anatomy section explains where that latency is spent. The FlashIV+ row in Table 4 uses the optional expanded Jäckel price polish only below the upper polish guard 𝑐 ≥ 0.99 ; in the guarded high-price region it keeps the complementary gap output. 
+
+5.2. Anatomy of FlashIV’s 137 Nanoseconds 
+
+Table 5 breaks down the cost of individual operations. The optional Jäckel–Newton row is a composite incremental cost, not a primitive operation: it includes one expanded Jäckel price evaluation, the analytic normalised vega, and the Newton correction arithmetic. It is therefore excluded from the default FlashIV cost model below, but it explains the opt-in timings reported in Table 4.        
+
+> 11 120 140 160 180 200 220 240 260
+> Latency (ns/call)
+> 10 −15
+> 10 −14
+> 10 −13
+> Relative volatility error vs multiprecision Black
+
+Latency/accuracy Pareto frontier (CLY worst case)         
+
+> FlashIV ThiopheneIV StrontiumIV FlashIV+ ThiopheneIV+ Jaeckel
+> CLY-3D CLY-20 CLY-80 Jaeckel Market Corners Stress HighVol
+
+Figure 4. Latency/accuracy Pareto frontier across the eight benchmark datasets with the three CLY datasets highlighted. The accuracy coordinate is recomputed from prices generated with the multiprecision Black reference. The solid step frontier is computed from each solver’s worst error over CLY-3D, CLY-20, and CLY-80; here those worst CLY points are all CLY-3D observations. The ‘+’ suffix denotes each solver’s optional guarded expanded Jäckel price polish. FlashIV anchors the low-latency end of the CLY frontier, while the polished rows mark the near-machine-precision region. 
+
+Table 5. Micro-benchmarked operation costs in the implementation. 
+
+Operation Cost (ns) 
+
+Li rational guess 3.3 Asymptotic OTM guess 3.4 Li/asym guess combined (average) 4.8 SR guess 26.2 Thiophene L3 guess 17.7 1 fast erfcx (A&S 7.1.26) 2.3 1 exact erfcx (Boost/Commons) 5.2 1 fast H3 step 21.8 1 exact H3 step 31.6 Natural logarithm 4.7 Exponential 3.6 Square root 0.7 Optional Jäckel–Newton polish (incremental) about 45–55 The total cost assembles as: 
+
+4.8
+
+⏟⏟⏟ 
+
+> guess
+
++ 21 .8
+
+⏟⏟⏟ 
+
+> fast H3
+
++ 2 × 31 .6
+
+⏟⎴⏟⎴⏟ 
+
+> exact H3
+
++ 47 
+
+⏟⏟⏟ 
+
+> overhead
+
+≈ 137 ns , (13) where the roughly 47 ns overhead comprises ln( 𝑐 obs ) computation ( ∼4.7 ns), input normalisation, three loga-rithms inside the H3 steps ( ∼14 ns), and loop, branch, and function-call overhead. Equation (13) gives the empirical decomposition behind the 137 ns CLY-3D timing. The largest implementation-level contributor is scalar inlining, which removes the container-return overhead of the original derivative interface. The algorithmic contributors are the fast pre-step, the fixed-count H3 path, and 
+
+12 the Li/asymptotic seed dispatch, which together make the common path predictable and keep the expensive guarded SR seed off most OTM cases. 
+
+## 6. Discussion 
+
+The experiments show that FlashIV’s latency gain is architectural rather than a single formula substitution. The common path uses a 4.8 ns average Li/asymptotic seed, a 21.8 ns fast-erfcx H3 pre-step, and two exact H3 steps with no adaptive convergence loop. The result is mostly straight-line scalar arithmetic, with boundary branches moved out of the common path. Jäckel’s Let’s Be Rational [ 3] remains the appropriate reference point. It is widely used, carefully engineered, and designed for the full implied-volatility domain. In the normalised comparison used here, Jäckel takes 243 ns on CLY-3D. FlashIV is not presented as a more accurate solver than Jäckel; it reaches the same practical accuracy class with lower latency in this benchmark. StrontiumIV shows that the guarded SR seed is a strong universal seed, but the 26.2 ns seed cost raises latency. ThiopheneIV explores a different design point: it starts from the Choi–Huh–Su L3 lower-bound seed and applies lower-tail Euler–Chebyshev and upper-tail Halley steps, which support monotone-convergence arguments but cost more than FlashIV’s cheaper Li/asymptotic dispatch. Its construction and proof are described in the ThiopheneIV paper [ 5, Section 3 and Appendix D]. In the present benchmark it is faster than Jäckel but slower than FlashIV because it spends more on the seed/refinement stage. The guards are as important as the iteration. Normalised OTM pricing avoids intrinsic-value cancellation; the erfcx/log objective keeps deep tails well-scaled; the microscopic Bachelier branch handles prices for which the Black tail difference is no longer a useful floating-point object; and the complementary upper-price branch handles high prices near the upper bound. These branches are narrow, but removing them would make the fast path less robust. The ThiopheneIV paper [ 5, Appendices A.3 and A.4] gives the fuller corner-case derivation; FlashIV reuses the same production guard layer around its Li/asymptotic seed and H3 refiner. The absolute nanosecond values depend on the runtime, the erfcx implementation, and single-scalar execution. Faster special functions or vectorised batches would change the totals. The more portable conclusion is that cheap distribution-aware seeds, fixed high-order refinement, and carefully isolated guard branches can reduce latency without leaving the Jäckel accuracy class. 
+
+## 7. Conclusions 
+
+This paper presented FlashIV, a fixed-count solver for Black–Scholes implied volatility based on normalised OTM prices, an erfcx/log-price objective, a cheap distribution-aware initial guess, one fast H3 pre-step, and two exact H3 refinement steps. On 68 ,551 benchmark cases it reaches near-machine-precision accuracy, with maximum relative volatility error below 7.3 × 10 −14 , and runs in 137 ns per call on the CLY-3D dataset in the reported benchmark. FlashIV is the fastest solver reported here: 137 ns on CLY-3D versus 166 ns for ThiopheneIV, 179 ns for StrontiumIV, and 243 ns for the Jäckel Let’s Be Rational reference implementation. The speedup is cumulative: scalar derivative inlining removes a container-return overhead, while the algorithmic gains come from the fast erfcx pre-step, fixed iteration count, and cheap seed selection. The optional guarded Jäckel–Newton polish changes the trade-off rather than the main conclusion. It reduces discrepancies against the expanded Jäckel reference price, but raises FlashIV latency to 181 ns on CLY-3D and about 193 ns on average across the eight datasets. Whether that last correction is worthwhile depends on whether an application needs agreement with this reference price to the last few ulps. Ideally, production systems would use the same high-accuracy Jäckel-style Black price for pricing, calibration, and inversion. In practice, the straightforward Black–Scholes formula built from a library normal CDF is extremely common; in such systems the pricing formula itself is usually less accurate than the expanded Jäckel reference price, so the polishing step may provide no practical benefit. StrontiumIV and ThiopheneIV support the same architectural conclusion from two other seed choices. StrontiumIV makes Healy’s SR–Householder-on-log-price approach robust and accurate over the full bench-mark domain, but it is slower than ThiopheneIV because the guarded SR seed and its case handling are 
+
+> 13
+
+more expensive than the Choi L3 seed used by ThiopheneIV before the shared guard/refinement layers. ThiopheneIV’s strong advantage is a proof-backed convergence while FlashIV is the low-latency member of the family, using the cheaper distribution-aware seed while retaining the guard structure needed for robust production use. 
+
+Author Contributions: F.L.F. conceived the algorithm. J.H. implemented the code and ran the experiments. F.L.F. wrote the paper. 
+
+Funding: This research received no external funding. 
+
+Data Availability Statement: The source code used to generate the benchmark tables, including the solver variants, benchmark harnesses, and dataset builders, is available in the accompanying source distribution, including the exact dataset grids used for the tables. 
+
+Acknowledgments: The author thanks Gary Kennedy for a thorough review and excellent feedback. 
+
+Conflicts of Interest: The author declares no conflicts of interest. 
+
+## References 
+
+1. Black, F. The Pricing of Commodity Contracts. J. Financ. Econ. 1976 , 3, 167–179. https://doi.org/10.1016/0304-405X(76)90024-6. 2. Cui, Z.; Liu, Y.; Yao, Y. Tighter Bounds for Implied Volatility With the Dirac Delta Family Method. J. Futures Markets 
+
+2025 , 45 , e70024. https://doi.org/10.1002/fut.70024. 3. Jäckel, P. Let’s Be Rational. Wilmott 2017 , 2015 , 40–53. https://doi.org/10.1002/wilm.10395. 4. Le Floc’h, F. Monotonicity of the Black–Scholes Option Prices in Practice. Available online: https://chasethedevil. github.io/post/vol_monotonicity_in_practice/ (accessed on 19 May 2026). 5. Le Floc’h, F. Faster Monotone Implied Volatility Solver. Available online: https://arxiv.org/abs/2605.22427 (2026). 6. Li, M. You Don’t Have to Bother Newton for Implied Volatility. Available online: https://ssrn.com/abstract=952727 (accessed on 1 May 2026). 7. Stefanica, D.; Radoičić, R. An Explicit Implied Volatility Formula. Int. J. Theor. Appl. Finance 2017 , 20 , 1750048. https://doi.org/10.1142/S0219024917500480. 8. Choi, J.; Huh, J.; Su, N. Tighter ‘Uniform Bounds for Black–Scholes Implied Volatility’ and the Applications to Root-Finding. Oper. Res. Lett. 2024 , 57 , 107189. https://doi.org/10.1016/j.orl.2024.107189. 9. Birnbaum, Z.W. An Inequality for Mill’s Ratio. Ann. Math. Statist. 1942 , 13 , 245–246. https://doi.org/10.1214/aoms/ 1177731611. 10. Sampford, M.R. Some Inequalities on Mill’s Ratio and Related Functions. Ann. Math. Statist. 1953 , 24 , 130–132. https://doi.org/10.1214/aoms/1177729093. 11. Abramowitz, M.; Stegun, I.A. Handbook of Mathematical Functions ; National Bureau of Standards, Applied Mathe-matics Series 55: Washington, DC, USA, 1964. 12. Traub, J.F. Iterative Methods for the Solution of Equations ; Chelsea Publishing Company: New York, NY, USA, 1982. 13. Householder, A.S. The Numerical Treatment of a Single Nonlinear Equation ; McGraw-Hill: New York, NY, USA, 1970. 14. Healy, J. Applied Quantitative Finance for Equity Derivatives , 4th ed.; self-published, 2024. 15. Le Floc’h, F. Fast and Accurate Analytic Basis Point Volatility. Available online: https://ssrn.com/abstract=2420757 (accessed on 16 May 2026).

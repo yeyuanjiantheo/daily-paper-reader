@@ -6,73 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-02
-- 运行时间：2026-06-02 22:43:39 UTC
+- 最新运行日期：2026-06-03
+- 运行时间：2026-06-03 23:08:52 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日精读了两篇9.0分论文：随机系数终端平均场控制的LQ理论与分位数回归的OOD泛化SVM方法，并速览了分布偏移下概率预测的前沿方案。  
-最值得关注的是随机最优控制中的平均场代价集成与重尾输入下分位数回归的鲁棒泛化突破。  
-下一步可尝试将扩散Copula与深度机制混合模型结合，用于应对真实场景多变量时序的分布偏移挑战。
-- 详情：[/202606/02/README](/202606/02/README)
+精读2篇高分论文：隐马尔可夫+强化学习做市场状态配置，以及高速隐含波动率估计；速读覆盖金融决策的LLM监督、育种鲁棒性、NLP与市场动态表征。
+最值得跟踪的方向：市场机制建模（HMM+RL）和尾部风险定价（高速度波动率推断）正快速升级量化工具底层能力。
+若你关注投资策略升级，可直接阅读《Regime-Based Portfolio Allocation》与《Implying Volatility》两篇，快速把握从状态识别到风险定价的新方法落点。
+- 详情：[/202606/03/README](/202606/03/README)
 
 ### 精读区论文标签
-1. [Stochastic LQ Optimal Control with Random Coefficients and a Terminal Mean-Field Cost](/202606/02/2605.26721v1-stochastic-lq-optimal-control-with-random-coefficients-and-a-terminal-mean-field-cost)  
+1. [Regime-Based Portfolio Allocation Using Hidden Markov Models and Reinforcement Learning](/202606/03/2605.27848v1-regime-based-portfolio-allocation-using-hidden-markov-models-and-reinforcement-learning)  
    标签：评分：9.0/10、query:qf
-   evidence：通过带终端平均场成本的随机LQ控制解决均值-方差投资组合优化问题
-2. [Out-of-Distribution generalization of quantile regression with heavy tailed inputs: an SVM approach](/202606/02/2606.00265v1-out-of-distribution-generalization-of-quantile-regression-with-heavy-tailed-inputs-an-svm-approach)  
+   evidence：整合隐马尔可夫模型识别波动率区制与强化学习进行ETF动态配置的组合管理方法
+2. [Implying Volatility: How Fast Can We Go?](/202606/03/2605.29102v1-implying-volatility-how-fast-can-we-go)  
    标签：评分：9.0/10、query:qf
-   evidence：极端分位数回归处理重尾分布，可直接用于VaR和ES的尾部风险预测
-3. [Adversarially Robust Control of Conditional Value-at-Risk via Rockafellar-Uryasev Conformal Inference](/202606/02/2606.00320v1-adversarially-robust-control-of-conditional-value-at-risk-via-rockafellar-uryasev-conformal-inference)  
-   标签：评分：9.0/10、query:qf
-   evidence：提供了一种在线、免分布的条件风险价值 (CVaR) 控制方法，CVaR即预期亏损
-4. [ProbRes: Volatility Learning for Probabilistic Time-Series Forecasting](/202606/02/2606.02117v1-probres-volatility-learning-for-probabilistic-time-series-forecasting)  
-   标签：评分：9.0/10、query:qf
-   evidence：用于概率时序预测的后验波动率学习方法，适用于金融风险量化
-5. [VIX options in Bergomi models](/202606/02/2606.02336v1-vix-options-in-bergomi-models)  
-   标签：评分：9.0/10、query:qf
-   evidence：推导了Bergomi模型中VIX期权价格和隐含波动率的闭合渐近式，直接关联波动率曲面与对冲
-6. [Distribution-Aware Conformal Prediction: A Framework for generating efficient prediction intervals for time series](/202606/02/2605.26569v1-distribution-aware-conformal-prediction-a-framework-for-generating-efficient-prediction-intervals-for-time-series)  
+   evidence：FlashIV，用于生产环境的低延迟Black-Scholes隐含波动率求解器
+3. [Stop Suppressing the Tail: Causal Inference for Extreme Events](/202606/03/2605.27474v2-stop-suppressing-the-tail-causal-inference-for-extreme-events)  
    标签：评分：8.0/10、query:qf
-   evidence：分布感知保形预测与分位数回归结合生成高效预测区间
+   evidence：关注因果推断中的重尾和极端事件，以金融收益为例
+4. [GS-FUSE: Granger-Supervised Gated Fusion and Multi-Granularity Alignment for Event-Driven Financial Forecasting](/202606/03/2605.28520v1-gs-fuse-granger-supervised-gated-fusion-and-multi-granularity-alignment-for-event-driven-financial-forecasting)  
+   标签：评分：8.0/10、query:qf
+   evidence：面向事件驱动金融预测的格兰杰监督门控融合多模态时间序列框架
+5. [CrossAlpha: An Annual-Report Benchmark for Cross-Market Factor Research](/202606/03/2605.29286v1-crossalpha-an-annual-report-benchmark-for-cross-market-factor-research)  
+   标签：评分：8.0/10、query:qf
+   evidence：跨市场因子研究基准，用于收益预测
+6. [Structural Change Detection in High-Dimensional Transformed Factor Models via Canonical Correlation Analysis](/202606/03/2606.01553v1-structural-change-detection-in-high-dimensional-transformed-factor-models-via-canonical-correlation-analysis)  
+   标签：评分：8.0/10、query:qf
+   evidence：基于典型相关分析的高维变换因子模型结构变化检测方法
 
 ### 速读区论文标签
-1. [DeRegiME: Deep Regime Mixtures for Probabilistic Forecasting under Distribution Shift](/202606/02/2605.19231v1-deregime-deep-regime-mixtures-for-probabilistic-forecasting-under-distribution-shift)  
+1. [Dynamic Objective Selection with Safeguards and LLM Oversight for Financial Decision-Making](/202606/03/2606.03704v1-dynamic-objective-selection-with-safeguards-and-llm-oversight-for-financial-decision-making)  
    标签：评分：8.0/10、query:qf
-   evidence：基于深度机制混合的概率预测，适用于分布偏移
-2. [Probabilistic Multivariate Time Series Forecasting with Diffusion Copulas](/202606/02/2605.19685v1-probabilistic-multivariate-time-series-forecasting-with-diffusion-copulas)  
+   evidence：通过学习选择优化目标直接解决动态投资组合配置问题，是稳健组合管理的核心。
+2. [Uncertainty-aware breeding decisions: MCMC-based optimum contribution selection increases breeding decision robustness](/202606/03/biorxiv-10-64898-2026-03-15-711440-v2-uncertainty-aware-breeding-decisions-mcmc-based-optimum-contribution-selection-increases-breeding-decision-robustness)  
    标签：评分：8.0/10、query:qf
-   evidence：扩散copula用于多元时间序列概率预测，处理波动率和尾部风险
-3. [From Arbitrage Removal to Density Extraction: A Model-Free Framework for Short-Dated Options](/202606/02/2605.22792v1-from-arbitrage-removal-to-density-extraction-a-model-free-framework-for-short-dated-options)  
-   标签：评分：8.0/10、query:qf
-   evidence：短期期权的模型无关风险中性密度提取
-4. [Default Contagion, Matrix Approximation, and Control in Sparse Financial Networks](/202606/02/2605.24833v1-default-contagion-matrix-approximation-and-control-in-sparse-financial-networks)  
-   标签：评分：8.0/10、query:qf
-   evidence：研究金融网络中的尾部风险和违约传染
-5. [DeepSeekMath Meets Order Book: Group-Aware Policy Optimization for High-Frequency Directional Trading](/202606/02/2605.25527v1-deepseekmath-meets-order-book-group-aware-policy-optimization-for-high-frequency-directional-trading)  
-   标签：评分：8.0/10、query:qf
-   evidence：基于订单簿的高频交易策略优化，属于市场微观结构核心
-6. [End-to-End PDE-Based Quantum Algorithms for Multi-Asset Option Pricing under Local and Stochastic Volatility](/202606/02/2605.26610v1-end-to-end-pde-based-quantum-algorithms-for-multi-asset-option-pricing-under-local-and-stochastic-volatility)  
-   标签：评分：8.0/10、query:qf
-   evidence：局部与随机波动下多资产期权定价的量子算法
-7. [High-Quality Synthetic Financial Time-Series using a GAN-Diffusion Framework](/202606/02/2605.27113v1-high-quality-synthetic-financial-time-series-using-a-gan-diffusion-framework)  
+   evidence：运用金融组合理论中的条件风险价值(CVaR)管理育种决策中的尾部风险
+3. [Bridging the Gap Between Natural Language and Market Dynamics via High-Dimensional Representation Learning](/202606/03/2605.30652v1-bridging-the-gap-between-natural-language-and-market-dynamics-via-high-dimensional-representation-learning)  
    标签：评分：7.0/10、query:qf
-   evidence：用GAN与扩散生成复现风格化事实的合成金融时间序列
-8. [Effects of analyst sentiment on volatility dynamics in financial market](/202606/02/2606.01077v1-effects-of-analyst-sentiment-on-volatility-dynamics-in-financial-market)  
+   evidence：使用FinBERT嵌入和Transformer提升金融预测
+4. [Learning Whom to Trust: Market-Feedback Adaptive Retrieval for Frozen LLMs in Event-Driven Financial RAG](/202606/03/2605.31201v1-learning-whom-to-trust-market-feedback-adaptive-retrieval-for-frozen-llms-in-event-driven-financial-rag)  
    标签：评分：7.0/10、query:qf
-   evidence：使用GARCH模型分析分析师情绪对波动率动态的驱动
-9. [Post Selection Estimation of Sharpe Ratios](/202606/02/2606.01650v1-post-selection-estimation-of-sharpe-ratios)  
+   evidence：提出基于市场反馈的自适应检索方法，用于利用LLM进行横截面收益预测
+5. [Regime-Adaptive Continual Learning for Portfolio Management](/202606/03/2606.00143v1-regime-adaptive-continual-learning-for-portfolio-management)  
    标签：评分：7.0/10、query:qf
-   evidence：选择偏差下的夏普比率估计，与组合风险和稳健优化相关
-10. [VLBM: Variational Latent Basis Modeling for OOD Robust Multivariate Time Series Forecasting](/202606/02/2606.02138v1-vlbm-variational-latent-basis-modeling-for-ood-robust-multivariate-time-series-forecasting)  
+   evidence：提出用于处理机制转换的自适应投资组合管理的持续学习方法
+6. [Regime-Arrival Uncertainty in Generalization Bounds under Distribution Shift](/202606/03/2606.02657v1-regime-arrival-uncertainty-in-generalization-bounds-under-distribution-shift)  
    标签：评分：7.0/10、query:qf
-   evidence：用于分布外鲁棒多变量时间序列预测的变分潜基元模型，可迁移至金融波动率预测。
-11. [Macro-aware time series forecasting via hierarchical mixed-frequency attention models](/202606/02/2606.00624v1-macro-aware-time-series-forecasting-via-hierarchical-mixed-frequency-attention-models)  
+   evidence：量化Markov区制转换环境下区制组成不匹配导致的额外风险，应用于25年全球股指数据
+7. [Infinite Horizon Optimal Consumption: Intertemporal Hedging under Epstein-Zin Preferences](/202606/03/2606.02945v1-infinite-horizon-optimal-consumption-intertemporal-hedging-under-epstein-zin-preferences)  
+   标签：评分：7.0/10、query:qf
+   evidence：研究随机机会下的最优消费投资问题，是组合优化与对冲的基础问题。
+8. [FinStressTS: A Parametric Synthetic Benchmark for Time-Series Forecasting in Finance](/202606/03/2606.03184v1-finstressts-a-parametric-synthetic-benchmark-for-time-series-forecasting-in-finance)  
+   标签：评分：7.0/10、query:qf
+   evidence：用于诊断在波动率聚集和尾部风险下金融预测模型的合成基准
+9. [QuITE: Query-Based Irregular Time Series Embedding](/202606/03/2605.28166v1-quite-query-based-irregular-time-series-embedding)  
    标签：评分：6.0/10、query:qf
-   evidence：融合宏观背景和高频市场动态的金融时序预测模型
+   evidence：提出通用的即插即用不规则时间序列嵌入，可应用于金融时间序列预测模型。
+10. [Evolutionary Rule Extraction from Corporate Default Prediction Models](/202606/03/2605.29478v1-evolutionary-rule-extraction-from-corporate-default-prediction-models)  
+   标签：评分：6.0/10、query:qf
+   evidence：使用机器学习和可解释人工智能处理企业违约预测这个信用尾部风险任务。
+11. [Change-point estimation for Weibull time series with copula-based Markov models](/202606/03/2605.29541v1-change-point-estimation-for-weibull-time-series-with-copula-based-markov-models)  
+   标签：评分：6.0/10、query:qf
+   evidence：适用于波动率测度的Copula马尔可夫模型与Weibull时间序列变点检测
 
 
 <div class="dpr-home-promo-card">
