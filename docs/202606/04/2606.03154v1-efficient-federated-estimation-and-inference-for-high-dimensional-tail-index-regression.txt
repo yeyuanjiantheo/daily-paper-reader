@@ -1,0 +1,2064 @@
+Title: Efficient Federated Estimation and Inference for High-Dimensional Tail Index Regression
+
+URL Source: https://arxiv.org/pdf/2606.03154v1
+
+Published Time: Wed, 03 Jun 2026 00:35:53 GMT
+
+Number of Pages: 35
+
+Markdown Content:
+# Efficient Federated Estimation and Inference for High-Dimensional Tail Index Regression 
+
+## Haoyu Geng 1, Liuhua Peng 2, Changliang Zou 1 and Xiaolong Cui 3∗
+
+1School of Statistics and Data Science, Nankai University, China 
+
+2School of Mathematics and Statistics, The University of Melbourne, Australia 
+
+3School of Statistics and Data Science, Shanghai University of Finance and Economics, China 
+
+Abstract 
+
+Tail index regression studies how covariates affect tail heaviness in heavy-tailed data. In many applications, data are distributed across heterogeneous sources, where direct pooling is infeasible due to privacy or regulatory constraints. Existing methods mainly focus on single-dataset analysis and do not address heterogeneous federated set-tings. We develop a personalized federated framework for high-dimensional tail index regression that accommodates client heterogeneity while exploiting latent similarities across clients. The proposed estimator combines sparsity regularization with noncon-cave fusion penalties to perform coefficient estimation, variable selection, and group recovery. We establish non-asymptotic convergence rates and show that the estimator enjoys an oracle property by consistently recovering the underlying grouping structure. For computation, we develop an ADMM-based federated algorithm with adaptive gra-dient updates and establish its convergence guarantees. We further propose a debiased federated inference procedure based on adaptive weighted aggregation across related clients, yielding valid confidence intervals and hypothesis tests with improved efficiency over target-only inference. Simulation studies and real-data analysis demonstrate the effectiveness of the proposed methods. 
+
+Keywords : Heterogeneous data; fusion penalty; sparse estimation; ADMM algorithm; de-biased inference. 
+
+> ∗
+
+Corresponding author: nk.xlcui@gmail.com. All authors equally contributed to this work. 
+
+1
+
+> arXiv:2606.03154v1 [stat.ME] 2 Jun 2026
+
+# 1 Introduction 
+
+Heavy-tailed data arise frequently in finance, insurance, environmental studies, and other domains where rare but severe events are of primary concern (Resnick, 2007). A central quantity in the analysis is the tail index, or extreme value index (de Haan and Ferreira, 2006), which governs the decay rate of tail probabilities and hence the frequency and sever-ity of extreme outcomes. Classical estimators, such as the Hill and Pickands estimators (Pickands III, 1975; Hill, 1975), focus on the marginal tail behavior of a response variable. In modern applications, observations are often accompanied by a large amount of covariates, such as policyholder characteristics in insurance or firm- and market-level attributes in fi-nance, that may systematically affect tail behavior. This shifts the focus from estimating a marginal tail index to understanding how covariates affect conditional tail heaviness. Tail index regression (Beirlant and Goegebeur, 2003; Wang and Tsai, 2009) addresses this problem by modeling the tail index of a response y as a function of covariates x ∈ Rp. A common specification assumes a Pareto-type conditional tail model with α(x) = exp( x⊤θ∗), where θ∗ = ( θ∗ 
+
+> 1
+
+, . . . , θ ∗
+
+> p
+
+)⊤ is the regression coefficient. Under this model, θ∗ 
+
+> j
+
+quantifies the effect of the j-th covariate on the tail index, and hence on the heaviness of the conditional tail. Estimation and inference for these coefficients are therefore essential for identifying covariates that drive extreme risks and quantifying the uncertainty of their effects. Despite its importance, inference for tail index regression remains challenging. Tail-based estimation and inference use only observations exceeding a high threshold, so the effective sample size can be much smaller than the nominal sample size, a fundamental bottleneck in extreme value theory (de Haan and Ferreira, 2006). The problem is further amplified in high-dimensional settings, where the number of covariates may be comparable to or larger than the number of tail observations. Although recent work has developed regularized estimation and debiased inference for high-dimensional tail index regression (Sasaki et al., 2026), inference based on a single dataset often suffers from low statistical efficiency, producing highly variable estimates and wide confidence intervals with limited inferential value. In many applications, the target dataset is accompanied by related datasets from other 2sources, such as loss records from different insurers or extreme-event data from different financial institutions. Although these data cannot usually be directly pooled because of pri-vacy, ownership, or regulatory constraints, they may contain useful tail information. This motivates federated learning, which enables information sharing without transferring raw observations (Kairouz and McMahan, 2021). However, federated tail index regression can-not rely on naive aggregation. Auxiliary clients may differ from the target client in their covariate distributions and in their covariate effects on tail behavior. Borrowing information from incompatible clients may therefore introduce bias, while ignoring related clients loses efficiency. The key challenge is to borrow strength selectively from informative clients while protecting target-specific inference from heterogeneity-induced bias. In this paper, we develop a personalized federated framework (Tan et al., 2022; Liu et al., 2025) for high-dimensional tail index regression, with the goal of estimating and making infer-ence on covariate effects on the tail index under heterogeneous federated data. For each client 
+
+k ∈ [K], we assume a Pareto-type conditional tail model with tail index αk(x) = exp( x⊤θ∗
+
+> k
+
+), where θ∗ 
+
+> k
+
+= ( θ∗
+
+> k1
+
+, . . . , θ ∗
+
+> kp
+
+)⊤ is sparse and client-specific. To capture latent similarities across clients, we allow each coefficient θ∗ 
+
+> kj
+
+to vary across clients but assume that, for each covariate 
+
+j, the corresponding coefficients may form unknown groups. This coefficient-level grouping structure enables personalized information sharing: clients with similar effects for a given covariate can be fused, while heterogeneous effects remain separated. Such targeted collabo-ration is particularly important for extreme value analysis, where the limited number of tail observations makes auxiliary information valuable. The contributions of this paper are as follows. First, we propose a personalized feder-ated tail index regression framework for heterogeneous heavy-tailed data. Unlike existing distributed tail inference methods that ignore covariates or impose a common tail structure, our framework allows client-specific coefficients while exploiting latent similarity through clustered heterogeneity. Combining sparsity regularization with nonconcave fusion penalties, the method performs variable selection, coefficient estimation, and group recovery simulta-neously. We establish non-asymptotic convergence rates and show that the estimator enjoys an oracle property, asymptotically recovering the true grouping structure and achieving effi-3ciency gains over target-only estimators. A key theoretical novelty is that the analysis must handle the Pareto-type tail approximation error inherited from extreme value theory, which makes the problem fundamentally different from standard high-dimensional M-estimation. In particular, we employ advanced concentration inequalities and tools from empirical process theory, including the symmetrization theorem, contraction theorem and peeling argument, to characterize the second-order curvature of the likelihood function, which is crucial for establishing non-asymptotic convergence and oracle properties. Such theoretical techniques may be of independent interest for high-dimensional extreme value inference. Second, we develop an Alternating Direction Method of Multipliers (ADMM)-based al-gorithm implemented in a federated client-server framework for computing the proposed estimator. To handle nonconcave penalties and loss functions with non-Lipschitz gradients, for which existing convergence theory does not apply, we integrate adaptive gradient up-dates (Berahas et al., 2024) within the ADMM iterations. The resulting method admits efficient federated implementation that preserves privacy and communication efficiency. By exploiting the local curvature of the loss function, we establish theoretical guarantees for the convergence of the proposed algorithm. Third, we develop a federated inference procedure for regression parameters under the personalized framework. The proposed approach combines debiasing with adaptive aggrega-tion across related datasets, leading to valid confidence intervals and hypothesis tests. We show that the proposed inferential procedure is more efficient than inference based on the target dataset alone. In particular, it achieves smaller asymptotic variance and produces tighter confidence intervals, demonstrating that personalized information sharing improves both estimation and inference efficiency in high-dimensional tail index regression. 
+
+## 1.1 Related works 
+
+Tail index regression was introduced by Beirlant and Goegebeur (2003); Wang and Tsai (2009), who proposed a parametric regression model for the tail index using a log-link spec-ification. Subsequent works mainly focused on fixed-dimensional settings, including semi-4parametric models (Li et al., 2022), varying-coefficient models (Momoki and Yoshida, 2024), single-index models (Yoshida, 2025), and time-series tail index regression (Nicolau et al., 2023). Recently, Sasaki et al. (2026) studied regularized estimation and debiased inference for high-dimensional tail index regression. However, their framework considers a single dataset and does not address federated learning or heterogeneous information sharing across clients. Under the distributed setting, Chen et al. (2022) studied inference for a common extreme value index without covariates, showing that decentralized aggregation can improve efficiency. However, the common-tail-index assumption can be restrictive when auxiliary datasets differ from the target. More recently, Chen and Zhou (2024) developed high-dimensional proce-dures for testing equality of extreme value indices in multivariate extremes. These works advance distributed tail inference, but they do not address covariate-dependent tail index regression, target-specific coefficient heterogeneity, or selective information sharing across clients. In contrast, we develop a personalized federated framework for high-dimensional tail index regression that accommodates heterogeneous client structures and provides both federated estimation and valid debiased inference for covariate effects. Personalized federated learning constructs client-specific models and is particularly suit-able when local data distributions are heterogeneous. Existing approaches include fine-tuning (Fallah et al., 2020), multi-task learning (Smith et al., 2017; Huang et al., 2021), clustered fed-erated learning (Ghosh et al., 2020; Sattler et al., 2021), parameter decoupling (Arivazhagan et al., 2019), and knowledge distillation (Li and Wang, 2019). Recently, fusion-penalty meth-ods have been developed to capture structured heterogeneity in high-dimensional federated models. For example, Liu et al. (2025) studied robust personalized federated regression with sparse fused regularization; Li et al. (2025) incorporated sparse orthogonal factor learning and fusion penalization for large-scale association networks; and Zhou et al. (2026) proposed a sparse row-wise fusion regularizer for multivariate personalized federated learning. However, personalized federated methods for high-dimensional tail index regression remain unexplored. The rest of the paper is organised as follows. Section 2 introduces the personalized federated tail index regression framework, including the model formulation and penalized estimation procedure, Section 3 presents the theoretical properties, and the proposed fed-5erated ADMM algorithm with adaptive gradient updates. Section 4 develops personalized federated inference procedures based on weighted debiasing and establishes the asymptotic properties of the proposed estimators. Section 5 evaluates the finite-sample performance of the proposed methods through extensive simulation studies. Section 6 presents a real-data application. Technical proofs, auxiliary lemmas, and additional numerical results are collected in the supplementary material. 
+
+Notations. For an integer n, let [ n] = {1, 2, . . . , n }. For a set A, |A| denotes its cardinality. For any two real numbers a and b, we denote a ∨ b = max( a, b ) and a ∧ b =min( a, b ). For a vector x = ( x1, . . . , x p)⊤ ∈ Rp, we define its ℓ0, ℓ1, ℓ2, and ℓ∞ norms as 
+
+∥x∥0 = Ppj=1 1{xj̸ = 0 }, ∥x∥1 = Ppj=1 |xj |, ∥x∥2 =
+
+qPpj=1 x2 
+
+> j
+
+, and ∥x∥∞ = max 1≤j≤p |xj |,respectively. Let Sp−1 = {x ∈ Rp : ∥x∥2 = 1 } denote the unit sphere in Rp. Let ej,p denote the j-th canonical basis vector in Rp. For a matrix A = ( aij ), its elementwise ℓ∞ norm is defined as ∥A∥∞ = max i,j |aij |. If A is a square matrix, we denote its largest and smallest eigenvalues by λmax (A) and λmin (A), respectively. Let Ip×p denote the p × p identity matrix. 
+
+# 2 Model and personalized federated estimation 
+
+We consider a personalized federated learning framework with K clients. For each client 
+
+k ∈ [K], let Dk = {(x(k) 
+
+> i
+
+, y (k) 
+
+> i
+
+)}Nk 
+
+> i=1
+
+denote the local dataset, where x(k) 
+
+> i
+
+=  x(k) 
+
+> i1
+
+, x (k) 
+
+> i2
+
+, . . . , x (k)
+
+> ip
+
+⊤
+
+is the p-dimensional covariate vector and y(k) 
+
+> i
+
+is a heavy-tailed response. We assume that all data points are independent both within each client and across clients, while allowing the covariate distributions x(k) to differ across clients. For client k, we assume that the conditional tail of y(k) given x(k) follows the Pareto-type model 
+
+P(y(k) > t | x(k)) = t−αk (x(k))Lk(t; x(k)), (2.1) where αk(x(k)) = exp  x(k)⊤θ∗
+
+> k
+
+ is the client-specific conditional tail index, which is assumed to be bounded throughout the article, i.e., α ≥ αk(x(k)) ≥ α > 0. In addition, L(t; x)is a covariate-dependent slowly varying function satisfying Lk(th ; x(k))/Lk(t; x(k)) → 1, for any h > 0 as t → ∞ . The parameter θ∗ 
+
+> k
+
+= ( θ∗
+
+> k1
+
+, θ ∗
+
+> k2
+
+, . . . , θ ∗
+
+> kp
+
+)⊤ represents the p-dimensional 6true sparse regression coefficient vector so that only a small subset of the covariates x(k)
+
+affects the tail behavior of y(k). Moreover, θ∗
+
+> k
+
+’s are allowed to differ across clients, reflecting heterogeneity in tail behaviour. Adapting the approach of Hall (1982), we consider the Hall class of heavy-tailed distri-butions, under which Lk(t; x(k)) satisfies 
+
+Lk(t; x(k)) = c0k(x(k)) + c1k(x(k))t−βk (x(k)) + rk(t, x(k)) as t → ∞ , (2.2) for some functions βk(x(k)) ≥ β > 0, c0k(x(k)) ≥ c0 > 0, |c1k(x(k))| ≤ c1, and a remainder term rk(t, x(k)) such that sup k sup x(k) |rk(t, x(k))tβk (x(k))| → 0 as t → ∞ .Under model (2.1), estimation of θ∗ 
+
+> k
+
+and the tail index αk(x(k)) is based on exceedances over a high threshold, since the Pareto-type approximation is valid only in the tail region. For client k, let wk be a high threshold and define the effective tail sample size nk = PNk 
+
+> i=1
+
+1{y(k) 
+
+> i
+
+>wk}. Conditioning on {y(k) 
+
+> i
+
+> w k} and x(k) 
+
+> i
+
+, {y(k) 
+
+> i
+
+: y(k) 
+
+> i
+
+> w k} are independent and the conditional distribution fy(k)   
+
+> i|y(k)
+> i>w k,x(k)
+> i
+
+(t) ≈ αk(x(k) 
+
+> i
+
+)( t/w k)−αk (x(k) 
+
+> i)
+
+t−1 for large wk. Without loss of generality, we can order the data such that y(k) 
+
+> i
+
+> w k for i = 1 , . . . , n k.Locally on each client, θ∗ 
+
+> k
+
+can be estimated by minimizing the following approximate negative log-likelihood function (Wang and Tsai, 2009; Nicolau et al., 2023): 
+
+bθlocal  
+
+> k
+
+= arg min  
+
+> θk∈Rp
+
+1
+
+nknkX
+
+> i=1
+
+ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θk
+
+, (2.3) where ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θk
+
+ = exp ( x(k)⊤ 
+
+> i
+
+θk) log( y(k) 
+
+> i
+
+/w k) − x(k)⊤ 
+
+> i
+
+θk. In high-dimensional settings, Sasaki et al. (2026) developed regularized estimation by adding an ℓ1 penalty on (2.3). A key challenge is that only observations exceeding the threshold contribute to estimation. Consequently, even when the original sample size Nk is large, the effective sample size nk may remain relatively small. This issue becomes substantially more severe in high-dimensional settings, where reliable estimation and inference require sufficient tail observations relative to the number of covariates. As a result, local estimation based on a single client may suffer from high variability and low inferential efficiency, often producing unstable estimates and wide confidence intervals. In practice, the coefficient vectors θ∗ 
+
+> k
+
+often share structural similarities across clients. 7Some client-specific coefficients may share common values for certain covariates, such as 
+
+θ∗ 
+
+> kj
+
+= θ∗ 
+
+> k′j
+
+, which means that the j-th covariate has the same effect for clients k and k′. Such latent similarities provide an opportunity for personalized information sharing: each client retains its own regression model while borrowing strength from similar clients in selected components. This motivates the following coordinate-wise grouping structure. 
+
+Assumption 2.1. For each j ∈ [p], the K coefficients (θ∗ 
+
+> 1j
+
+, θ ∗ 
+
+> 2j
+
+, . . . , θ ∗ 
+
+> Kj
+
+) are grouped into 
+
+Mj groups Gj 
+
+> 1
+
+, Gj 
+
+> 2
+
+, . . . GjMj such that Gji ∩ G ji′ = ∅ for i̸ = i′ and SMj 
+
+> i=1
+
+Gji = [ K]. Moreover, coefficients are identical within each group: for any i ∈ [Mj ] and any k, k ′ ∈ G ji , θ∗ 
+
+> kj
+
+= θ∗ 
+
+> k′j
+
+.
+
+To leverage these shared patterns while accommodating client-specific heterogeneity, we adopt a personalized federated learning framework (Liu et al., 2025). For notational conve-nience, we vectorize the K coefficients as θ∗ = ( θ∗⊤  
+
+> 1
+
+, θ∗⊤  
+
+> 2
+
+, . . . , θ∗⊤  
+
+> K
+
+)⊤ ∈ RpK . The proposed the personalized federated estimator (PFE) bθ = ( bθ⊤ 
+
+> 1
+
+, bθ⊤ 
+
+> 2
+
+, . . . , bθ⊤ 
+
+> K
+
+)⊤ ∈ RpK is 
+
+bθ = arg min 
+
+> θ∈RpK
+
+1
+
+n
+
+> K
+
+X
+
+> k=1
+> nk
+
+X
+
+> i=1
+
+ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θk
+
+ + 1
+
+K
+
+> p
+
+X
+
+> j=1
+> K
+
+X
+
+> k=1
+
+pλ1 (|θkj |) + 1
+
+K
+
+> p
+
+X
+
+> j=1
+
+X
+
+> k≤k′
+
+pλ2 (|θkj − θk′j |),
+
+(2.4) where θ = ( θ⊤ 
+
+> 1
+
+, . . . , θ⊤ 
+
+> K
+
+)⊤, n = PKk=1 nk denotes the total effective sample size, and pλ(·) is a penalty function with a tuning parameter λ ≥ 0. The penalization in (2.4) addresses both high dimensionality and cross-client heterogeneity. The first term induces sparsity in each client-specific coefficient vector, while the second fuses similar covariate effects across clients. The tuning parameter λ2 controls the degree of personalized information sharing. We focus on penalty functions satisfying the following conditions. 
+
+Assumption 2.2. (i) The function pλ(z) satisfies pλ(0) = 0 and is symmetric around zero; (ii) For z > 0, the function pλ(z) is nondecreasing, and pλ(z)/z is nonincreasing in z;(iii) The function pλ(z) is differentiable for all z̸ = 0 and subdifferentiable at z = 0 , with 
+
+lim z→0+ p′
+
+> λ
+
+(z) = λ; (iv) There exists v > 0 such that pλ,v (z) := pλ(z) + vz 2/2 is convex; (v) There is some scalar a ∈ (0 , ∞) such that p′
+
+> λ
+
+(z) = 0 and pλ(z) ≥ g(a, λ ) > 0, for all z ≥ aλ 
+
+and some nondecreasing function g(a, λ ).
+
+Assumption 2.2 is satisfied by many commonly used penalty functions (Loh and Wain-wright, 2015). Two important nonconcave examples are SCAD (Fan and Li, 2001) and 8MCP (Zhang, 2010), both of which are shown to outperform ℓ1 penalty in recovering sparse structures and reducing estimation bias. The SCAD and MCP penalties are defined as 
+
+pSCAD  
+
+> λ
+
+(z) = 
+
+
+
+λ|z| if |z| ≤ λ,  
+
+> 2aλ |z|− λ2−z2
+> 2( a−1)
+
+if λ < |z| ≤ aλ,  
+
+> (a+1) λ2
+> 2
+
+if |z| > aλ, pMCP  
+
+> λ
+
+(z) = 
+
+
+
+λ|z| − z2 
+
+> 2a
+
+if |z| ≤ aλ,  
+
+> aλ 2
+> 2
+
+if |z| > aλ. 
+
+For SCAD, a > 2 and the conditions in Assumption 2.2 hold with v = 1 /(a − 1) and 
+
+g(a, λ ) = ( a + 1) λ2/2. For MCP, a > 1 and the conditions in Assumption 2.2 hold with 
+
+v = 1 /a and g(a, λ ) = aλ 2/2. Compared with Sasaki et al. (2026), which studies high-dimensional tail-index regres-sion using an ℓ1 penalty under an exact Pareto tail model, we consider a more general and challenging personalized federated framework with latent coordinate-wise grouping struc-tures under the more general Pareto-type tail model (2.1). The additional slowly varying component introduces substantially more challenging theoretical analysis. 
+
+# 3 Theoretical properties and federated algorithm 
+
+## 3.1 Theoretical properties 
+
+In this section, we study the theoretical properties of the proposed PFE estimator in (2.4). Since the true grouping structure plays a central role in the analysis, we first introduce an oracle reparametrization that represents the distinct coefficient values after grouping. For each j ∈ [p], let βj∗ 
+
+> i
+
+denote the common value in group Gji , namely, θ∗ 
+
+> kj
+
+= βj∗ 
+
+> i
+
+for all k ∈ G ji and i ∈ [Mj ]. Denote βj∗ = ( βj∗ 
+
+> 1
+
+, . . . , β j∗ 
+
+> Mj
+
+)⊤ as the vector of distinct coefficient values for the j-th covariate, and stack these vectors as β∗ = ( β1∗⊤ , . . . , βp∗⊤ )⊤ ∈ RM , where 
+
+M = Ppj=1 Mj . Thus, β∗ collects all distinct coefficients implied by the latent grouping structure. For convenience, we also write β∗ ≜ (β∗ 
+
+> 1
+
+, . . . , β ∗ 
+
+> M
+
+)⊤ ∈ RM .To link the oracle parameter β∗ with the original parameter θ∗ = ( θ∗⊤  
+
+> 1
+
+, . . . , θ∗⊤  
+
+> K
+
+)⊤ ∈ RpK ,define the membership matrix U ∈ RpK ×M . Let Ui = ( Ui1, . . . , U iM ) be the i-th row of U. If 9the i-th component of θ∗ corresponds to the j-th component of β∗, then Uij = 1 and Uik = 0 for all k̸ = j. Thus, each row of U contains a single nonzero entry, and θ∗ = Uβ∗. Let 
+
+Uk ∈ Rp×M be the submatrix of U corresponding to client k, so that θ∗ 
+
+> k
+
+= Ukβ∗.For notational convenience, we relabel the groups {G ji : i ∈ [Mj ], j ∈ [p]} as {G ℓ}Mℓ=1 , with 
+
+Gℓ = Gji when ℓ = Pj−1 
+
+> t=1
+
+Mt + i. Let Gmax = max ℓ∈[M ] |G ℓ| and Gmin = min ℓ∈[M ] |G ℓ| denote the largest and smallest group sizes, respectively. We also define nji = P
+
+> k∈G ji
+
+nk as the effective sample size for group Gji , ngroup min = min i,j nji as the minimal group-wise effective size, and 
+
+nclient min = min k nk, nclient max = max k nk as the minimal and maximal client-wise effective sizes. If the group structures {G ℓ}Mℓ=1 are known, the oracle estimator is defined as 
+
+bβ = arg min 
+
+> β∈RM
+
+1
+
+n
+
+> K
+
+X
+
+> k=1
+> nk
+
+X
+
+> i=1
+
+ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, Ukβ + 1
+
+K
+
+> M
+
+X
+
+> ℓ=1
+
+|G ℓ|pλ1 (|βℓ|). (3.5) This oracle estimator serves as a benchmark for the proposed PFE estimator bθ in (2.4). Let S = {y(k) 
+
+> i
+
+> w k : i ∈ [Nk], k ∈ [K]} denote the tail sample selection event. The full-sample analysis of Wang and Tsai (2009) involves additional complications due to the random ratios nk/N k. Following Nicolau et al. (2023), we instead conduct the theoretical analysis conditional on S, which avoids these complications while focusing directly on the effective tail samples. We next introduce assumptions on the model parameters and covariates. 
+
+Assumption 3.1. (i) The parameter β∗ is sparse with s∗ = ∥β∗∥0 nonzero elements and satisfies ∥β∗∥1 ≤ Cβ∗ for some constant Cβ∗ > 0; (ii) For all k ∈ [K] and i ∈ [nk], the covariates x(k) 
+
+> i
+
+are uniformly bounded with ∥x(k) 
+
+> i
+
+∥∞ ≤ Cx, and satisfy sup δ∈Sp−1 E|δ⊤x(k) 
+
+> i
+
+|4 |
+
+y(k) 
+
+> i
+
+> w k ≤ Cx for some constant Cx > 0; (iii) Let Σ(k) 
+
+> wk
+
+= Ex(k) 
+
+> i
+
+x(k)⊤ 
+
+> i
+
+| y(k) 
+
+> i
+
+> w k .Assume that its eigenvalues satisfy C−1 
+
+> Σ
+
+≤ λmin (Σ(k) 
+
+> wk
+
+) ≤ λmax (Σ(k) 
+
+> wk
+
+) ≤ CΣ for some constant 
+
+CΣ > 0 and all k ∈ [k]; (iv) The minimal group-wise effective sample size satisfies ngroup min /n ≥
+
+Cnmin for some constant Cnmin > 0; (v) Let wmin = min k∈[K] wk. Conditional on S, assume that wmin → ∞ as n = PKk=1 
+
+PNk 
+
+> i=1
+
+1(y(k) 
+
+> i
+
+> w k) → ∞ , and w−β 
+
+> min
+
+≤ Cw
+
+p(log M )/n for some constant Cw > 0.
+
+Assumption 3.1 is standard in the high-dimensional regression and extreme value litera-ture. Assumption 3.1(i) imposes sparsity on the oracle parameter. Assumptions 3.1(ii) and 10 3.1(iii) impose regularity conditions on the covariates to ensure bounded moments and a well-conditioned covariance matrix under tail sampling (Sasaki et al., 2026), while allowing heterogeneous covariate distributions across clients. Assumption 3.1(iv) prevents any group from having too few effective tail observations. Assumption 3.1(v) is a standard threshold condition under the Hall class, ensuring that the bias of the tail approximation is asymptot-ically negligible relative to the estimation error. Let dmin = min j:|Mj |≥ 2 min i̸=i′ |βj∗ 
+
+> i
+
+− βj∗ 
+
+> i′
+
+| denotes the smallest difference between any two distinct group-specific coefficients across all covariates. Denote 
+
+ϱn =
+
+rnclient max 
+
+n
+
+rlog( pK )
+
+n ∨
+
+rlog Mn ∨ nclient max 
+
+n
+
+G2max 
+
+G2min 
+
+rs2 
+
+> ∗
+
+log Mn .
+
+The following theorem establishes the oracle property of the proposed PFE estimator. 
+
+Theorem 3.1 (Oracle property of estimator bθ). Suppose that Assumption 2.1, Assumption 2.2, and Assumption 3.1 hold. Let λ2 = λ1 + c(K/ Gmin )ϱn and λ1 = c(K/ Gmin )p(log M )/n 
+
+for some conatant c > 0. Assume that dmin > aλ 2 + 4 C(Gmax /Gmin )p(s∗ log M )/n and 
+
+n ≫ (G4max /G4min )s2 
+
+> ∗
+
+log M for some conatant C > 0. Then conditional on event S, there exists a local minimizer bθ of the proposed objective function (2.4) such that bθ = Ubβ with probability approaching one as n → ∞ .
+
+Theorem 3.1 shows that the proposed PFE estimator bθ coincides with the oracle estimator 
+
+bβ with high probability. The condition on dmin ensures that the minimum separation between distinct group-specific coefficients dominates the estimation error. The additional term ϱn
+
+in the choice of λ2 captures the error induced by the unknown group structure and client heterogeneity. The following theorem establishes the convergence rate and group structure consistency of the proposed PFE estimator. 
+
+Theorem 3.2 (Convergence rate and group structure consistency of bθ). Suppose that the assumptions of Theorem 3.1 hold. (1) There exists a local minimizer bθ of the proposed objective function (2.4) such that 
+
+max  
+
+> k∈[K]
+
+∥bθk − θ∗
+
+> k
+
+∥2 ≤ C Gmax 
+
+Gmin 
+
+rs∗ log Mn and max  
+
+> k∈[K]
+
+∥bθk − θ∗
+
+> k
+
+∥1 ≤ C G2max 
+
+G2min 
+
+rs2 
+
+> ∗
+
+log Mn
+
+11 for some constant C > 0, with probability approaching one as n → ∞ .(2) Denote { bGji : i ∈ [ cMj ], j ∈ [p]} as the group structure induced by bθ. Up to a permutation of group labels in  bGji : i ∈ [ cMj ]; j ∈ [p] , we have 
+
+cMj = Mj , bGji = Gji , for i ∈ [ cMj ]; j ∈ [p],
+
+with probability approaching one as n → ∞ .
+
+Theorem 3.2(1) implies that the estimation error depends on Gmax /Gmin , reflecting imbal-ance in group-wise effective sizes. When the group sizes are balanced, so that Gmax ≈ G min ,the convergence rate reduces to the standard high-dimensional rate. Compared with the single-client estimator, whose ℓ2-error is Op
+
+ p sk log p/n k
+
+ with sk denoting the sparsity of θ∗ 
+
+> k
+
+(Sasaki et al., 2026), the proposed PFE estimator improves accuracy when n/n k >
+
+(Gmax /Gmin )2(s∗/s k) ignoring logarithmic factors, namely when the effective sample-size gain from federation exceeds the relative sparsity increase, after accounting for ( Gmax /Gmin )2.Since the likelihood is based on a Pareto-type tail approximation rather than an exact parametric model, its stochastic and approximation errors must be controlled jointly. To this end, we use concentration inequalities and empirical process techniques to characterize the first- and second-order behavior of the tail-index regression loss, thereby controlling the approximation error. The development of such theoretical tools is of independent interest in extreme value theory. The following corollary illustrates the special homogeneous case, where this improvement can be quantified explicitly. 
+
+Corollary 3.1 (Convergence rate and group structure consistency of bθ under homogeneous model) . Suppose that the assumptions of Theorem 3.1 hold. If all clients share the same regression coefficients, i.e., θ∗ 
+
+> 1
+
+= θ∗ 
+
+> 2
+
+= · · · = θ∗ 
+
+> K
+
+, then there exists a local minimizer bθ of the proposed objective function (2.4) such that bθ1 = bθ2 = · · · = bθK ,
+
+max  
+
+> k
+
+∥bθk − θ∗
+
+> k
+
+∥2 ≤ C
+
+rs1 log pn and max  
+
+> k
+
+∥bθk − θ∗
+
+> k
+
+∥1 ≤ C
+
+rs21 log pn
+
+with probability approaching one as n → ∞ .
+
+Corollary 3.1 shows that the proposed PFE estimator converges faster than the single-client estimator, with ℓ2-error improving from Op
+
+ p s1 log p/n k
+
+ to Op
+
+ p s1 log p/n . This 12 gain stems from aggregating information across all clients, reflecting the maximal improve-ment under homogeneous conditions. 
+
+## 3.2 Federated estimation algorithm 
+
+Solving (2.4) is challenging because of the nonconcave sparsity and fusion penalties, while the empirical loss Ln(θ) = (1 /n ) PKk=1 
+
+Pnk 
+
+> i=1
+
+ℓ(y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θk) has a non-globally Lipschitz gradient due to its exponential terms. Although the linearized ADMM algorithm of Liu et al. (2025) is closely related and can handle nonconcave fusion penalties, its convergence theory requires the loss function to have a globally Lipschitz gradient or, equivalently for twice-differentiable functions, a bounded Hessian (Nishihara et al., 2015; Liu et al., 2019; Wang et al., 2019; Barber and Sidky, 2024), which fails in our setting. To address this issue, we develop an ADMM-based algorithm with adaptive gradient descent (Berahas et al., 2024). The adaptive gradient step stabilizes the updates without global Lipschitz continuity, while the ADMM framework decomposes the optimization prob-lem (2.4) into tractable subproblems that can be solved distributively, making the method well suited for federated settings. We next describe the variable splitting scheme, iterative updates, federated implementation, and convergence guarantees of the proposed algorithm. 
+
+ADMM algorithm. To facilitate the ADMM formulation, let E = ( ei,K − ej,K , i < j )⊤ ∈
+
+RK(K−1) /2×K and define Ω0 = E ⊗ Ip×p ∈ RpK (K−1) /2×pK , where ⊗ denotes the Kronecker product. Let Ω1 = ( IpK ×pK , Ω⊤ 
+
+> 0
+
+)⊤ ∈ R(pK +pK (K−1) /2) ×pK . Introducing the auxiliary variable 
+
+∆ = Ω1θ, we rewrite (2.4) as min  
+
+> θ,∆
+
+Ln(θ) + hλ(∆) subject to Ω1θ = ∆,
+
+where hλ(∆) = (1 /K ) PpK j=1 pλ1 (|∆j |) + (1 /K ) PpK +pK (K−1) /2 
+
+> j=pK +1
+
+pλ2 (|∆j |), and ∆ j is the j-th component of ∆. The augmented Lagrangian is 
+
+Qρ(θ, ∆, ζ) = Ln(θ) + hλ(∆) + ⟨ζ, Ω1θ − ∆⟩ + ρ
+
+2 ∥Ω1θ − ∆∥22, (3.6) where ζ is the Lagrange multiplier and ρ is the penalty parameter. At iteration t, we update 13 θ, ∆, and ζ sequentially by 
+
+θ(t+1) = arg min 
+
+> θ
+
+Qρ(t) (θ, ∆(t), ζ(t)),
+
+∆(t+1) = arg min 
+
+> ∆
+
+Qρ(t) (θ(t+1) , ∆, ζ(t)),
+
+ζ(t+1) = ζ(t) + ρ(t) Ω1θ(t+1) − ∆(t+1) , ρ (t+1) = σρ (t), σ > 1. (3.7) 
+
+Update for θ(t+1) . The θ(t+1) update minimizes a smooth loss with a quadratic penalty term and does not admit a closed-form solution. Moreover, since the gradient of the loss function is not globally Lipschitz continuous, standard descent arguments do not apply (Hong et al., 2016; You et al., 2019; Liu et al., 2025). We therefore use gradient descent with an adaptive stepsize based on a local curvature bound (Berahas et al., 2024). Denote ft(θ) = Qρ(t) (θ, ∆(t), ζ(t)) and Σk = (1 /n k) Pnk 
+
+> i=1
+
+log( y(k) 
+
+> i
+
+/w k)x(k) 
+
+> i
+
+x(k)⊤ 
+
+> i
+
+. Let θ(t) =(θ(t)⊤ 
+
+> 1
+
+, θ(t)⊤ 
+
+> 2
+
+, . . . , θ(t)⊤ 
+
+> K
+
+)⊤ ∈ RpK , where θ(t) 
+
+> k
+
+denotes the estimated regression coefficients for the 
+
+k-th client at iteration t. For any θ(t) and radius R > 0, define 
+
+μ(θ(t), R ) = max 
+
+> k∈[K]
+
+(nk/n ) exp( ϖk(θ(t) 
+
+> k
+
+, R )) λmax (Σk) + ρ(t)(K + 1) , (3.8) where ϖk(θ(t) 
+
+> k
+
+, R ) = max i∈[nk ]
+
+x(k)⊤ 
+
+> i
+
+θ(t) 
+
+> k
+
++ R∥x(k) 
+
+> i
+
+∥2 . Then μ(θ(t), R ) upper bounds the largest eigenvalue of ∇2ft(θ) over ∥θ − θ(t)∥2 ≤ R. Using this local curvature bound, for step size factor η > 0 and radius Rt > 0, we update θ(t+1) by 
+
+θ(t+1) = θ(t) − ημ(θ(t), eRt)∇ft(θ(t)), (3.9) where the gradient function ∇ft(θ(t)) and radius eRt are given by 
+
+∇ft(θ(t)) = ∇L n(θ(t)) + Ω⊤ 
+
+> 1
+
+ζ(t) + ρ(t)Ω⊤ 
+
+> 1
+
+(Ω1θ(t) − ∆(t)), (3.10) 
+
+eRt = max Rt, η ∥∇ ft(θ(t))∥2/μ (θ(t), R t) . (3.11) The adaptive stepsize is constructed from a local Hessian bound and ensures stable descent without requiring global Lipschitz continuity of the gradient. Under suitable conditions, it guarantees ft(θ(t+1) ) < f t(θ(t)), which is key to convergence of the proposed algorithm. 14 Update for ∆ (t+1) . The ∆(t+1) update corresponds to a proximal mapping associated with the nonconcave penalty: 
+
+∆(t+1) = arg min 
+
+> ∆
+
+hλ(∆) + ⟨ζ(t), Ω1θ(t+1) − ∆⟩ + ( ρ(t)/2) ∥Ω1θ(t+1) − ∆∥22
+
+= arg min 
+
+> ∆
+
+(ρ(t)/2) ∥Ω1θ(t+1) + ζ(t)/ρ (t) − ∆∥22 + hλ(∆).
+
+This optimization is separable across coordinates and admits closed-form thresholding up-dates. Let Sλ(z) = sgn( z)( |z| − λ)1(|z| − λ > 0) denote the soft-thresholding operator, and define Tλ,ρ (x) = arg min 
+
+> z∈R
+
+pλ(z) + ( ρ/ 2)( z − x)2 . For the SCAD penalty, T SCAD  
+
+> λ,ρ
+
+(x) equals 
+
+Sλ/ρ (x) when |x| ≤ λ+λ/ρ , equals ( aρ −ρ)Saλ/ (aρ −ρ)(x)/(aρ −ρ−1) when λ+λ/ρ < |x| ≤ aλ ,and equals x when |x| > aλ . For the MCP penalty, T MCP  
+
+> λ,ρ
+
+(x) is {aρ/ (aρ − 1) }Sλ/ρ (x) when 
+
+|x| ≤ aλ , and equals x when |x| > aλ . Thus, the update is given componentwise by ∆(t+1)  
+
+> j
+
+= Tλ,Kρ (t)
+
+h Ω1θ(t+1) + ζ(t)/ρ (t)
+
+> j
+
+i
+
+, for j ∈ [K(K − 1) p/ 2 + pK ], (3.12) where  Ω1θ(t+1) + ζ(t)/ρ (t) 
+
+> j
+
+is the j-th component of Ω1θ(t+1) + ζ(t)/ρ (t), with λ = λ1 for j ∈
+
+[pK ] and λ = λ2 otherwise. The closed-form update makes the ∆(t+1) step computationally efficient despite the nonconcave penalties. 
+
+Federated implementation. Initially, each client sends nk and λmax (Σk) to the server. The update of θ(t+1) requires the gradient ∇L n(θ(t)), which depends on local client data. At itera-tion t, client k receives θ(t) 
+
+> k
+
+, computes the local gradient ∇L n,k (θ(t) 
+
+> k
+
+) = Pnk 
+
+> i=1
+
+∇ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θ(t)
+
+> k
+
+
+
+together with x(k)⊤ 
+
+> i
+
+θ(t)   
+
+> ki∈[nk]
+
+and {∥ x(k) 
+
+> i
+
+∥2}i∈[nk ], and uploads these quantities to the server. The server aggregates the local gradients to form ∇L n(θ(t)), computes ∇ft(θ(t)), μ(θ(t), R t), 
+
+eRt, and μ(θ(t), eRt), and updates θ(t+1) . The updates of ∆(t+1) and ζ(t+1) do not involve raw client data and are computed entirely on the server. The procedure is iterated until conver-gence. Algorithm 1 summarizes the proposed federated algorithm. The method preserves data privacy by exchanging only gradients and summary statistics. Let {θ(t), ∆(t), ζ(t)}∞ 
+
+> t=1
+
+be the sequence generated by Algorithm 1, with θ(0) = ∆(0) =
+
+ζ(0) = 0. We have the following convergence result of the proposed algorithm. 
+
+Proposition 3.1 (Algorithm convergence) . Suppose that Assumption 2.2 hold. If η ∈ (0 , 2) ,
+
+{Rt}∞ 
+
+> t=1
+
+is bounded, ρ(0) > 2v/K , and g a, min {λ1, λ 2}/K > Ln(0) − min θ Ln(θ) + cλσ(σ +15 Algorithm 1: Personalized federated estimation (PFE) algorithm 
+
+Input: Observations Dk = x(k) 
+
+> i
+
+, y (k)
+
+> i
+> Nk
+> i=1
+
+, k = 1 , . . . , K ; Parameters λ1, λ 2, a, ρ(0) ,
+
+σ, η, {Rt}∞ 
+
+> t=1
+
+and number of iterations T . 
+
+> 1
+
+Initialization: Set θ(0) = ∆(0) = ζ(0) = 0. Each client sends nk and λmax (Σk) to the server;  
+
+> 2
+
+for t = 0 , 1, . . . , T − 1 do  
+
+> 3
+
+Clients k ∈ [K] do in parallel:  
+
+> 4
+
+Download θ(t) 
+
+> k
+
+from server, compute ∇L n,k (θ(t) 
+
+> k
+
+) = Pnk 
+
+> i=1
+
+∇ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θ(t)
+
+> k
+
+; 
+
+> 5
+
+Calculate x(k)⊤ 
+
+> i
+
+θ(t)   
+
+> ki∈[nk]
+
+and {∥ x(k) 
+
+> i
+
+∥2}i∈[nk ]; 
+
+> 6
+
+Upload ∇L n,k (θ(t) 
+
+> k
+
+), x(k)⊤ 
+
+> i
+
+θ(t)   
+
+> ki∈[nk]
+
+and {∥ x(k) 
+
+> i
+
+∥2}i∈[nk ] to server;  
+
+> 7
+
+Server:  
+
+> 8
+
+Calculate ∇ft(θ(t)) by (3.10), μ(θ(t), R t) by (3.8);  
+
+> 9
+
+Calculate eRt by (3.11), and μ(θ(t), eRt) by (3.8);  
+
+> 10
+
+Update θ(t+1) by (3.9);  
+
+> 11
+
+Update ∆(t+1) by (3.12) and ζ(t+1) by (3.7);  
+
+> 12
+
+end for Output: Client k ∈ [K] return bθk = θ(T ) 
+
+> k
+
+and server return bθ = θ(T ).1) /2ρ(0) (σ − 1) , where cλ > 0 is a constant depending on λ1 and λ2. Then, the sequence 
+
+θ(t), ∆(t), ζ(t) ∞ 
+
+> t=1
+
+is bounded and lim T →∞ 
+
+PTt=0 ∥θ(t+1) − θ(t)∥22 < ∞. Moreover, there exists a subsequence θ(tk ), ∆(tk ), ζ(tk ) ∞  
+
+> tk=1
+
+that converges to a stationary point satisfying the KKT condition of the augmented Lagrangian (3.6) .
+
+Proposition 3.1 shows that the proposed ADMM algorithm with adaptive gradient up-dates generates a bounded sequence with vanishing successive differences and converges to a stationary point. The result establishes convergence despite the non-Lipschitz gradient of the loss function and the nonconcave penalty. 16 4 Personalized federated inference 
+
+## 4.1 Methods and theoretical properties 
+
+In this section, we develop personalized federated inference (PFI) procedures for the PFE es-timator bθ. Existing debiased methods are typically constructed from a single dataset (Sasaki et al., 2026), and therefore cannot exploit structural similarities across clients. A natural alternative is to perform inference based on the oracle property of sparse estimators, where one first identifies the support set of the regression coefficients β∗, and then conducts classical low-dimensional inference for bβ as if the true support were known in advance. Theorem 3.1 guarantees that the resulting estimator bθ is asymptotically equivalent to the oracle estimator 
+
+Ubβ, thereby allowing low-dimensional inferential results to be transferred to the original high-dimensional problem. However, such oracle-property-based inference usually relies on consistent variable selection, and hence requires beta-min conditions on all nonzero coeffi-cients (Yang et al., 2019). Moreover, when the related clients have heterogeneous covariate distributions or different effective sample sizes, treating the combined as a pooled sample may be statistically inefficient (Gu and Chen, 2023). To address this issue, we adopt a weighted debiasing strategy (Gu and Chen, 2023). The key idea is to first construct local debiased estimators on individual clients and then aggregate only those estimators corresponding to clients that share the same coefficient. This preserves the client-specific interpretation of the target parameter while allowing the aggregation weights to adapt to client-level heterogeneity. We first consider the case where the group structures {G ji : i ∈ [Mj ], j ∈ [p]} are known; when they are unknown, we use the estimated groups from Section 2. For the j-th coefficient 
+
+θ∗ 
+
+> ℓj
+
+on client ℓ, suppose that ℓ ∈ G ji . Since θ∗ 
+
+> ℓj
+
+is common to all clients in Gji , we construct its debiased estimator bθde ℓj by aggregating the local debiased estimators from the related clients 
+
+{D k : k ∈ G ji } rather than only Dℓ. Specifically, 
+
+bθde ℓj = X
+
+> k∈G ji
+
+vk eθde kj , for ℓ ∈ G ji , (4.13) where eθde kj is the local debiased estimator computed on client k, and {vk : k ∈ G ji } are 17 aggregation weights with P
+
+> k∈G ji
+
+vk = 1 and vk > 0. These weights will be chosen later to minimize the asymptotic variance of bθde ℓj , so that the resulting estimator exploits the shared coefficient structure while accounting for heterogeneity in local sample sizes and covariate distributions. Define the local debiased estimator eθde kj for the j-th coefficient on client k as 
+
+eθde kj = bθkj − bu(k)⊤
+
+> j
+
+1
+
+nknkX
+
+> i=1
+
+{exp ( x(k)⊤ 
+
+> i
+
+bθk) log( y(k) 
+
+> i
+
+/w k) − 1}x(k) 
+
+> i
+
+, (4.14) where bθk = ( bθk1, . . . , bθkp )⊤ is the client-specific PFE estimator obtained from Algorithm 1. Let bΣk = n−1
+
+> k
+
+Pnk 
+
+> i=1
+
+x(k) 
+
+> i
+
+x(k)⊤ 
+
+> i
+
+. The projection direction bu(k) 
+
+> j
+
+is obtained by solving the quadratic programming problem 
+
+bu(k) 
+
+> j
+
+= arg min 
+
+> ∥u∥1≤C
+
+u⊤ bΣku
+
+s.t. bΣku − ej,p ∞ ≤ μk, and max   
+
+> i∈[nk]
+
+|x(k)⊤ 
+
+> i
+
+u| ≤ γk,
+
+(4.15) where C is a large positive constant, ej,p denotes the j-th canonical basis of the Euclidean space Rp, μk = C′p(log p)/n k and γk = C′′ √log nk for some constants C′, C ′′ > 0. The following theorem establishes the asymptotic normality of the local debiased estimator. 
+
+Theorem 4.1. (Local debiased estimator) Suppose that the assumptions of Theorem 3.1 hold. Assume further that max j∈[p] ∥(Σ(k) 
+
+> wk
+
+)−1ej,p ∥1 ≤ C for some constant C > 0, and √nkw−βk → 0
+
+as nk → ∞ . If n ≫ (G4max /G4min )s2
+
+> ∗
+
+(log M )√nk, then 
+
+eV −1/2
+
+> kj
+
+ eθde kj − θ∗
+
+> kj
+
+ d
+
+→ N (0 , 1) 
+
+as (nk, p ) → ∞ , where eVkj = bu(k)⊤ 
+
+> j
+
+bΣk bu(k) 
+
+> j
+
+/n k is the asymptotic variance estimator of eθde kj .
+
+Theorem 4.1 shows that each local debiased estimator is asymptotically normal with variance eVkj . Unlike the debiased procedure in Sasaki et al. (2026), which relies on sample splitting and cross-fitting, the proposed construction uses all local tail observations in the debiasing step and avoids the additional randomness introduced by data splitting. Leveraging the asymptotic normality of the local debiased estimators in Theorem 4.1, the asymptotic variance of the aggregated estimator bθde ℓj is bVℓj = P
+
+> k∈G ji
+
+v2 
+
+> k
+
+eVkj . To achieve the 18 highest efficiency, we choose the aggregation weights by minimizing bVℓj subject to P
+
+> k∈G ji
+
+vk =1 and vk > 0, leading to the convex optimization problem arg min   
+
+> {vk:k∈G ji}
+
+X
+
+> k∈G ji
+
+v2 
+
+> k
+
+eVkj , subject to X
+
+> k∈G ji
+
+vk = 1 , v k > 0.
+
+The optimal weights are vk = eV −1 
+
+> kj
+
+/ P
+
+> k∈G ji
+
+eV −1 
+
+> kj
+
+, which assigns larger weight to clients with smaller local variance. The following theorem establishes the asymptotic normality of the weighted debiased estimator. 
+
+Theorem 4.2 (Weighted debiased estimator with known group structure) . Suppose that the assumptions of Theorem 3.1 hold. Assume further that max j∈[p] ∥(Σ(k) 
+
+> wk
+
+)−1ej,p ∥1 ≤ C and 
+
+max i∈[Mj ],j ∈[p] |G ji | ≤ C for some constant C > 0, and pnclient max w−β 
+
+> min
+
+→ 0 as nclient min → ∞ . If 
+
+n ≫ (G4max /G4min )s2
+
+> ∗
+
+(log M )pnclient max and vk = eV −1 
+
+> kj
+
+/ P
+
+> k∈G ji
+
+eV −1 
+
+> kj
+
+, then for any i ∈ [Mj ], j ∈ [p],and any ℓ ∈ G ji , we have 
+
+bV −1/2
+
+> ℓj
+
+ bθde ℓj − θ∗
+
+> ℓj
+
+ d
+
+→ N (0 , 1) ,
+
+as (nclient min , p ) → ∞ , where bVℓj = 1 / P
+
+> k∈G ji
+
+eV −1 
+
+> kj
+
+is the asymptotic variance estimator of bθde ℓj 
+
+with optimal weights vk.
+
+Let zα denotes the upper α quantile of N (0 , 1). The asymptotic 1 − α confidence interval of θ∗ 
+
+> ℓj
+
+based on the weighted debiased estimator is given by CI 1−α(θ∗ 
+
+> ℓj
+
+) = 
+
+h bθde ℓj − zα/ 2 bV 1/2 
+
+> ℓj
+
+, bθde ℓj + zα/ 2 bV 1/2
+
+> ℓj
+
+i
+
+.
+
+Theorem 4.2 ensures that the weighted debiased estimator remains asymptotically nor-mal and achieves a variance that is strictly smaller than any individual local estimator when |G ji | ≥ 2, i.e., bVℓj < eVkj for any ℓ, k ∈ G ji . Specifically, denote the maximal lo-cal variance V ji, max = max k∈G ji
+
+eVkj and the minimal local variance V ji, min = min k∈G ji
+
+eVkj ,then V ji, min /|G ji | ≤ bVℓj ≤ V ji, max /|G ji |. If the local variances are approximately equal, i.e., 
+
+V ji, max ≈ V ji, min , the asymptotic variance is reduced roughly by a factor of 1 /|G ji |, and corre-spondingly, the confidence interval is shorter than that of any local debiased estimator by a factor of approximately 1 /
+
+q
+
+|G ji |. Importantly, this efficiency gain does not require the local datasets to follow identical distributions, allowing for heterogeneity across data sources. Building on Theorem 4.2, we extend the results to the case of unknown group structures. 19 Algorithm 2: Personalized federated inference (PFI) algorithm 
+
+Input: Observations Dk = x(k) 
+
+> i
+
+, y (k)
+
+> i
+> Nk
+> i=1
+
+, k ∈ [K]; Estimator bθk k∈[K] from Algorithm 1 and  bGji i∈[ cMj ],j ∈[p]; Parameters μk and γk. 
+
+> 1
+
+Clients k ∈ [K] do in parallel:  
+
+> 2
+
+Calculate bu(k) 
+
+> j
+
+by (4.15), eθde kj by (4.14), and eVkj = bu(k)⊤ 
+
+> j
+
+bΣk bu(k) 
+
+> j
+
+/n k for j ∈ [p];  
+
+> 3
+
+Upload   eθde kj , eVkj 
+
+ 
+
+> j∈[p]
+
+to server;  
+
+> 4
+
+Server:  
+
+> 5
+
+For ℓ ∈ bGji , j ∈ [p], calculate vk = eV −1 
+
+> kj
+
+/  P  
+
+> k∈bGji
+
+eV −1
+
+> kj
+
+ and bVℓj = P 
+
+> k∈bGji
+
+v2 
+
+> k
+
+eVkj ; 
+
+> 6
+
+Compute bθde ℓj by (4.13) with Gji replaced by bGji ;
+
+Output: Server return  bθde ℓj , bVℓj 
+
+ for ℓ ∈ bGji , j ∈ [p]
+
+Corollary 4.1 (Weighted debiased estimator with unknown group structure) . Suppose that the assumptions of Theorem 4.2 hold. If the estimated groups { bGji : i ∈ [ cMj ], j ∈ [p]} from Theorem 3.2(2) are used in the definitions of bθde ℓj and bVℓj , then the conclusion of Theorem 4.2 continues to hold. 
+
+## 4.2 Federated inference algorithm 
+
+The proposed PFI procedure can be implemented with two rounds of communication. In the first round, each client computes its local debiased estimators and variance estimators, 
+
+{(eθde kj , eVkj )}k∈[K],j ∈[p], and sends them to the server. In the second round, the server aggregates the received estimators within each estimated group using the inverse-variance weights, and returns the resulting weighted debiased estimators bθde ℓj and variance estimators bVℓj to the corresponding clients. The overall PFI procedure is summarized in Algorithm 2. 
+
+# 5 Simulation studies 
+
+We evaluate the finite-sample performance of the proposed methods through simulation stud-ies. All results are based on 500 replications. We consider both heterogeneous and homoge-20 neous coefficient structures: (i) Heterogeneous: the clients are divided into two equally sized groups, with θ∗ 
+
+> k
+
+= (2 , −2, −2, −2, 0⊤
+
+> p−4
+
+)⊤ for k ∈ { 1, . . . , K/ 2}, and θ∗ 
+
+> k
+
+= ( −2, 2, 2, −2, 0⊤
+
+> p−4
+
+)⊤
+
+for k ∈ { K/ 2 + 1 , . . . , K }; (ii) Homogeneous: all clients share the same coefficient θ∗ 
+
+> k
+
+=(2 , −2, −2, −2, 0⊤
+
+> p−4
+
+)⊤, k ∈ { 1, . . . , K }. In all settings, the clients have equal sample sizes, that is N1 = · · · = NK , and the data {(y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+)} are generated independently according to the models below, and the conditional tail index is αk(x(k)) = exp {x(k)⊤θ∗
+
+> k
+
+}.
+
+Data generating process of covariates x(k):(XI) (Uniform design): x(k) 
+
+> ij
+
+= √12 {Φ ( zij ) − 1/2} for j = 1 , . . . , p , where zij is a standard normal random variable with pairwise covariance Cov ( zij 1 , z ij 2 ) = 0 .5|j1−j2| for 1 ≤ j1, j 2 ≤ p.The marginal distributions of x(k) 
+
+> ij
+
+are Uniform [ −√3, √3]; 
+
+(XII) (Gaussian design): x(k) 
+
+> i
+
+∼ N (0, Σ), where Σ = (0 .5|j1−j2|)p×p.
+
+Data generating process of response y(k):(YI) : The conditional tail distribution is P(y(k) > t | x(k)) = {(1 + m)t−αk (x(k))}/{1 + 
+
+mt −αk (x(k))}, where m = 0 .3; 
+
+(YII) : The distribution of y(k) conditional on x(k) is a t-distribution with degrees of freedom 
+
+αk(x(k)); 
+
+(YIII) : The distribution of y(k) conditional on x(k) is a Burr Type XII distribution with scale parameter 1, and shape parameters 2 and αk(x(k))/2. The tail conditional distribution is given by P(y(k) > t | x(k)) = (1 + t2)−αk (x(k))/2 .
+
+(YIV) : The distribution of y(k) conditional on x(k) is a Fr´ echet distribution with location parameter 0, scale parameter m, and shape parameter αk(x(k)). The tail conditional distri-bution is given by P(y(k) > t | x(k)) = 1 − exp  − mα(x(k))t−αk (x(k)) , where m = 1. 
+
+## 5.1 Personalized federated estimation 
+
+In this subsection, we evaluate the proposed personalized federated estimator (PFE) for estimating tail index regression coefficients. We compare PFE with three benchmarks: (i) Oracle estimator (Oracle): The estimator obtained by (3.5), where the group structures are known. (ii) Individual estimator (Indv) (Sasaki et al., 2026): The regularized estimator 21 obtained locally on each client k by 
+
+bθIndv  
+
+> k
+
+(wk, λ ) = arg min  
+
+> θk∈Rp
+
+1
+
+nknkX
+
+> i=1
+
+ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, θk
+
+ +
+
+> p
+
+X
+
+> j=1
+
+pλ(|θkj |). (5.16) (iii) Federated Learning Averaged Estimator (FDAV): The estimator obtained by simply averaging the individual estimators from (5.16) across all clients. 
+
+5.1.1 Tuning parameter selection 
+
+In the proposed personalized federated framework, the local thresholds wk determine the effective tail samples on each client, whereas the global regularization parameters λ1 and λ2
+
+control sparsity and fusion in the federated estimator. We use a two-step tuning procedure: each client first selects wk by the discrepancy measure of Wang and Tsai (2009); given the selected thresholds, the server selects ( λ1, λ 2) by Bayesian information criterion (BIC) (Ma and Huang, 2017; Tang and Song, 2016; Liu et al., 2025). 
+
+Selection of wk. The choice of wk involves the usual bias–variance trade-off in extreme value theory: a lower threshold yields more exceedances but may violate the Pareto-type approx-imation, whereas a higher threshold improves tail approximation but reduces the effective sample size. We use the discrepancy measure of Wang and Tsai (2009), which is based on the probability integral transform implied by the fitted tail model. Under the Pareto-type approximation, P y(k) > t | y(k) > w k, x(k) ≈ exp {− αk(x(k)) log( t/w k)} for t > w k.Hence, if the model is well fitted above wk, U (k) 
+
+> i
+
+= exp {− αk(x(k) 
+
+> i
+
+) log( y(k) 
+
+> i
+
+/w k)} should be approximately uniform on [0 , 1]. Replacing αk(x(k) 
+
+> i
+
+) by exp {x(k)⊤ 
+
+> i
+
+bθk(wk, λ )} gives 
+
+bU (k) 
+
+> i
+
+= exp 
+
+n
+
+− exp  x(k)⊤ 
+
+> i
+
+bθk(wk, λ ) log( y(k) 
+
+> i
+
+/w k)
+
+o
+
+,
+
+where bθk(wk, λ ) is the local estimator in (5.16). Thus, a good threshold should make the empirical distribution of { bU (k) 
+
+> i
+
+: y(k) 
+
+> i
+
+> w k} close to the uniform distribution. Let bFnk be the empirical distribution function of { bU (k) 
+
+> i
+
+: y(k) 
+
+> i
+
+> w k}. We measure the departure from uniformity by bD (wk, λ ) = n−1
+
+> k
+
+Pnk
+
+> i=1
+
+ bU (k) 
+
+> i
+
+− bFnk ( bU (k) 
+
+> i
+
+) 2. We then select 
+
+w∗ 
+
+> k
+
+= argmin wk ,λ bD (wk, λ ) .
+
+22 In practice, we search 100 values for λ over 0.5plog p/n k, , 5plog p/n k
+
+, and a grid of 100 values for wk corresponding to sample fractions (i.e., nk/N k) evenly spaced in (0 .1, 1). 
+
+Selection of λ1 and λ2. Given the selected thresholds wk, we choose ( λ1, λ 2) by BIC (Ma and Huang, 2017; Tang and Song, 2016; Liu et al., 2025). In federated setting, each client k
+
+transmits its local loss Ln,k (bθk) = Pnk 
+
+> i=1
+
+ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, bθk
+
+ to the server, which computes BIC as BIC ( λ1, λ 2) = log 
+
+(
+
+1
+
+n
+
+> K
+
+X
+
+> k=1
+> nk
+
+X
+
+> i=1
+
+ℓ y(k) 
+
+> i
+
+, x(k) 
+
+> i
+
+, bθk
+
+)
+
++ log nn ·
+
+> p
+
+X
+
+> j=1
+
+bKj (λ1, λ 2) ,
+
+where bKj (λ1, λ 2) denotes the number of distinct coefficients for variable j in the estimated 
+
+bθ. In practice, we consider a grid of 100 values for each of λ1 and λ2 over the interval 
+
+0.5plog( pK )/n, 5plog( pK )/n  and select the pair ( λ∗
+
+> 1
+
+, λ ∗
+
+> 2
+
+) that minimizes the BIC value. These tuning steps preserve the federated learning requirements, since only local computa-tions and aggregated information are exchanged, keeping raw data private. In Algorithm 1, we choose the parameters η = 0 .5, ρ(0) = 0 .2, σ = 1 .1, Rt = 0 .2, and 
+
+a = 5 for both the SCAD and MCP penalties. 
+
+5.1.2 Evaluation metrics and results 
+
+We evaluate estimation performance using three metrics: (a) Averaged mean squared error: AMSE = ∥bθ − θ∗∥22/K ; (b) F1-score = 2  Recall −1 + Precision −1−1, where Recall = #{j ∈ [pK ], bθj̸ = 0 , θ ∗
+
+> j
+
+̸ = 0 }
+
+#{j ∈ [pK ], θ ∗
+
+> j
+
+̸ = 0 } , Precision = #{j ∈ [pK ], bθj̸ = 0 , θ ∗
+
+> j
+
+̸ = 0 }
+
+#{j ∈ [pK ], bθj̸ = 0 } ;(c) Recovery = Ppj=1 cMj / Ppj=1 Mj , where Mj is the true number of distinct coefficients for covariate j in assumption 2.1, and cMj is the estimate. This metric measures the recovery of the latent personalization structure. Table 1 reports the results with the SCAD penalty, while the MCP results are given in Table S.1 of the supplementary material. Across both heterogeneous and homogeneous sce-narios, PFE achieves AMSE close to the oracle estimator and substantially smaller than the individual estimator, showing the benefit of borrowing information across related clients. The comparison with FDAV further highlights the role of personalization: under heterogeneity, 23 Table 1: Simulation results for Model XI with ( K, p ) = (10 , 50) under heterogeneous and homogeneous scenarios. Heterogeneous Homogeneous Model Method AMSE F1-score Recovery AMSE F1-score Recovery Model YI 
+
+Nk = 400, n/N = 0 .625 PFE 0.114 0.999 1.083 0.079 0.999 1.028 Oracle 0.085 1.000 1.000 0.074 1.000 1.000 Indv 0.228 0.999 1.623 0.236 1.000 1.721 FDAV 12.028 0.998 0.943 0.078 1.000 1.000 Model YII 
+
+Nk = 1600, n/N = 0 .144 PFE 0.055 1.000 1.004 0.042 1.000 1.004 Oracle 0.050 1.000 1.000 0.040 1.000 1.000 Indv 0.219 0.999 1.623 0.219 1.000 1.721 FDAV 12.021 0.998 0.943 0.065 1.000 1.000 Model YIII 
+
+Nk = 800, n/N = 0 .344 PFE 0.055 0.999 1.028 0.018 1.000 1.001 Oracle 0.034 0.999 1.000 0.017 1.000 1.000 Indv 0.177 1.000 1.623 0.175 0.999 1.720 FDAV 12.017 0.997 0.943 0.021 1.000 1.000 Model YIV 
+
+Nk = 1600, n/N = 0 .165 PFE 0.152 1.000 1.021 0.178 0.998 1.000 Oracle 0.151 1.000 1.000 0.140 1.000 1.000 Indv 0.281 1.000 1.623 0.283 1.000 1.721 FDAV 12.045 1.000 0.943 0.191 0.998 1.000 FDAV suffers from large AMSE because simple averaging ignores client-specific coefficient dif-ferences, whereas PFE maintains low AMSE and Recovery values close to one. This indicates that PFE can effectively exploit shared structure while preserving client-level heterogeneity. Figure 1 further examines how AMSE changes with the local sample size Nk and the number of clients K under heterogeneous scenarios. For visualization, the FDAV curve is displayed at the upper boundary of each panel because its AMSE is much larger than those of the other methods. As Nk increases, all methods improve, but PFE consistently tracks the oracle estimator and outperforms the individual estimator. As K increases, the gain of PFE becomes more pronounced, since more related clients contribute to the estimation of the shared latent structure. In contrast, the individual estimator cannot benefit from additional clients, and FDAV remains affected by aggregation bias. These results confirm that PFE 24 0.00 0.15 0.30   
+
+> 300 500 700
+
+Sample size N k
+
+> AMSE
+
+(i) Model YI   
+
+> 0.00 0.15 0.30
+> 510 15
+
+Number of clients K   
+
+> 0.0 0.4 0.6
+> 1000 1400 1800
+
+Sample size N k
+
+(ii) Model YII   
+
+> 0.0 0.4 0.6
+> 510 15
+
+Number of clients K   
+
+> 0.00 0.25 0.50
+> 400 800 1200
+
+Sample size N k
+
+> AMSE
+
+(iii) Model YIII   
+
+> 0.00 0.25 0.50
+> 510 15
+
+Number of clients K   
+
+> 0.0 0.3 0.6
+> 800 1200 1600
+
+Sample size N k
+
+(iv) Model YIV   
+
+> 0.0 0.3 0.6
+> 510 15
+
+Number of clients K 
+
+Method PFE Indv Oracle FDAV Figure 1: Simulation results of AMSE varying sample size Nk and the number of clients K
+
+under heterogeneous scenarios. improves estimation efficiency through personalized federated information sharing. 
+
+## 5.2 Personalized federated inference 
+
+In this subsection, we evaluate the personalized federated inference (PFI) procedure for tail index regression coefficients. We compare PFI with individual inference (Indv) (Sasaki et al., 2026), which constructs confidence intervals using only local samples from each client. In contrast, PFI aggregates information from clients with similar tail index regression coefficients under the estimated personalized structure. We assess performance by the average confidence interval length (AL) and empirical coverage over 500 replications, with nominal level α = 0 .1. Tables 2 and 3 report the results under homogeneous and heterogeneous covariate dis-tributions, respectively, with Nk = 2000. In both cases, we consider the heterogeneous coefficient scenario and focus on the coefficient of the first covariate for the first client. Un-der homogeneous covariates, all clients follow Model XI; under heterogeneous covariates, K/ 225 Table 2: Simulation results for personalized inference under homogeneous covariate distribu-tions. 
+
+K = 4 K = 8 K = 12 Model Method AL Coverage AL Coverage AL Coverage Model YI PFI 0.790 0.956 0.552 0.946 0.435 0.914 Indv 0.968 0.964 0.968 0.970 0.968 0.966 Model YII PFI 0.907 0.952 0.765 0.930 0.681 0.926 Indv 1.174 0.960 1.174 0.958 1.174 0.962 Model YIII PFI 0.684 0.962 0.559 0.940 0.486 0.916 Indv 0.899 0.964 0.898 0.966 0.898 0.968 Model YIV PFI 1.054 0.968 0.847 0.940 0.715 0.928 Indv 1.423 0.978 1.423 0.982 1.423 0.982 Table 3: Simulation results for personalized inference under heterogeneous covariate distri-butions. 
+
+K = 4 K = 8 K = 12 Model Method AL Coverage AL Coverage AL Coverage Model YI PFI 0.597 0.948 0.449 0.918 0.371 0.900 Indv 0.755 0.966 0.757 0.962 0.757 0.964 Model YII PFI 0.679 0.958 0.518 0.938 0.471 0.918 Indv 0.860 0.974 0.862 0.976 0.860 0.976 Model YIII PFI 0.515 0.964 0.409 0.938 0.384 0.908 Indv 0.693 0.962 0.694 0.966 0.694 0.966 Model YIV PFI 1.054 0.968 0.842 0.938 0.706 0.922 Indv 1.421 0.978 1.419 0.980 1.419 0.980 clients follow Model XI and the remaining K/ 2 clients follow Model XII. The response models are Model YI–Model YIV. The threshold wk is selected according to the procedure described in Section 5.1.1. Across all settings, PFI produces substantially shorter confidence intervals than Indv while maintaining empirical coverage at or above the nominal level. As K increases, the average length of PFI intervals decreases steadily, reflecting the efficiency gain from aggre-26 −4 −2 024            
+
+> 010 20 30 40 50
+> Index
+> Confidence Interval
+> K=4
+> −4 −2 024
+> 010 20 30 40 50
+> Index
+> Confidence Interval
+> K=10
+> Method PFI Indv
+
+Figure 2: Comparison of confidence intervals produced by PFI and Indv under Model XI YI. gating information across related clients. By contrast, the interval length of Indv remains largely unchanged because it relies only on local samples. Figure 2 gives a visual compar-ison: PFI intervals are shorter and more concentrated around the true parameter value, whereas Indv intervals are wider. These results show that PFI improves inferential efficiency while preserving valid uncertainty quantification under both homogeneous and heterogeneous covariate distributions. 
+
+# 6 Real-data analysis 
+
+We apply the proposed method to firm-level financial data from the Center for China Eco-nomic Research (CCER) Database (Wang and Tsai, 2009). The data consist of annual reports from eight industries: Healthcare, Pharmaceuticals, Electronic Equipment, Semicon-ductors, Machinery Manufacturing (General Equipment), Machinery Manufacturing (Special-ized Equipment), Construction and Engineering, and Real Estate. Each industry is treated 27 050 100            
+
+> −8 −4 0
+> log(y)
+> Frequency
+> −9 −8 −7 −6 −5 −4 −3
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Effective sample fraction
+> log (D^ )
+> 0.00 0.25 0.50 0.75 1.00
+> 0.00 0.25 0.50 0.75 1.00
+> The uniform quantiles
+> The quantile of U ^ i
+> (k)
+
+Figure 3: Diagnostic plots for the real-data analysis. Left: histogram of log( y), showing heavy-tailedness of ROE. Middle: log( bD) as a function of the sample fraction nk/N k. Right: QQ plot of bU (k) 
+
+> i
+
+against the uniform distribution for the first client under the selected wk.as one client, so K = 8. The response y(k) is the absolute return on equity (ROE), and the covariates x(k) are firm-level financial indicators. Our goal is to study how these indicators affect the tail behavior of ROE within each industry. Since firms from different industries may share common risk factors while retaining industry-specific characteristics, a personal-ized federated approach is natural: it borrows information across related industries while preserving cross-industry heterogeneity. We begin with 41 financial indicators as candidate covariates. To reduce multicollinearity among accounting variables, we remove highly collinear variables and retain 21 indicators for analysis. Since financial indicators may themselves be heavy-tailed, we apply a rank trans-formation before fitting the tail index regression model. Specifically, for the j-th covariate on client k, we set x(k) 
+
+> ij
+
+= √12 
+
+
+
+R(k) 
+
+> ij
+
+/N k − 12
+
+
+
+, where R(k) 
+
+> ij
+
+is the rank of the i-th observation among all observations of the j-th covariate on client k. This transformation reduces the in-fluence of extreme covariate values and places different financial indicators on a comparable scale. Thus, the estimated coefficients should be interpreted as effects of rank-based financial predictors on ROE tail behavior, rather than marginal effects on the original measurement scale. For each client, the threshold wk and hence the effective sample size nk are selected using the procedure in Section 5.1.1. Figure 3 summarizes the diagnostic procedure, and Table 4 reports the original sample size Nk and the effective sample size nk for each industry. 28 Table 4: Sample size Nk and effective sample size nk on each client Heal Phar Elec Semi Mach-ge Mach-sp Arch Real 
+
+Nk 657 1754 2168 495 1217 1319 681 772 
+
+nk 289 350 130 148 267 184 286 108 0.00 0.25 0.50 0.75 1.00    
+
+> Heal Phar Elec Semi Mech−ge Mech−sp Arch Real
+> Prediction Error
+> Method PFE Indv FDAV
+
+Figure 4: Prediction errors of PFE, Indv, and FDAV on the test set across the eight clients. To evaluate estimation performance, we randomly split the observations in each client into training and test sets, using two-thirds for training and one-third for testing. The coefficients bθk are estimated on the training set, and prediction errors are computed on the test set as Prediction Error = 1
+
+ntest 
+
+> K
+
+X
+
+> k=1
+> n(k)test
+
+X
+
+> i=1
+
+ exp ( x(k)⊤ 
+
+> i
+
+bθk) − log( y(k) 
+
+> i
+
+/w k) 2,
+
+where n(k)test denotes the effective sample size in the test set for client k, and ntest = PKk=1 n(k)test 
+
+is the total test sample size. Using the SCAD penalty, we compare PFE with the individual estimator (Indv) and the federated averaged estimator (FDAV) described in Section 5. Figure 4 reports the prediction errors across clients. PFE achieves the smallest prediction error in all industries, indicating that adaptive information sharing across related industries improves prediction performance. In contrast, Indv relies only on local industry-specific samples, while FDAV ignores industry heterogeneity and may suffer from aggregation bias. 29 Table 5: Significant variables ( p < 0.05) and their CI lengths. Variables abbreviations: INT = Intercept, LEV = Leverage, FEX = Financial Expense, PUC = Paid-up Capital, STB = Short-term Borrowing.                                                             
+
+> Client Method Variable p-value CI length Heal PFI INT, LEV, FEX, PUC 0.000, 0.000, 0.047, 0.022 0.228, 0.400, 0.232, 0.572 Indv INT 0.000 0.519 Phar PFI INT, LEV, FEX 0.000, 0.000, 0.047 0.228, 0.400, 0.232 Indv INT, LEV, STB 0.000, 0.001, 0.039 0.501, 0.899, 0.569 Elec PFI INT, LEV, FEX 0.000, 0.000, 0.047 0.228, 0.400, 0.232 Indv INT 0.000 1.485 Semi PFI INT, LEV, FEX 0.000, 0.000, 0.047 0.228, 0.400, 0.232 Indv INT 0.000 0.779 Mach-ge PFI INT, LEV, FEX, PUC 0.000, 0.000, 0.047, 0.022 0.228, 0.400, 0.232, 0.572 Indv INT 0.000 0.582 Mach-sp PFI INT, LEV, FEX, PUC 0.000, 0.000, 0.047, 0.022 0.228, 0.400, 0.232, 0.572 Indv INT 0.000 1.178 Arch PFI INT, LEV, FEX 0.000, 0.000, 0.047 0.228, 0.400, 0.232 Indv INT, LEV 0.000, 0.024 0.362, 0.727 Real PFI INT, LEV, FEX 0.000, 0.000, 0.047 0.228, 0.400, 0.232 Indv ---
+
+Table 5 reports the significant variables selected by personalized federated inference (PFI) and individual inference (Indv), together with their p-values and confidence interval lengths. Across industries, PFI consistently identifies leverage (LEV) and financial expense (FEX) as important, suggesting that debt burden and financing cost play central roles in ROE tail behavior. Economically, high leverage increases financial risk exposure, and large financial expenses reduce net profitability, both of which may amplify extreme ROE outcomes. In ad-dition, PFI captures industry-specific effects. For example, paid-up capital (PUC) is selected for Healthcare and Machinery Manufacturing (both general and specialized equipment). In these sectors, higher paid-in capital may indicate greater financial flexibility and investment capacity, which can shape extreme ROE outcomes under profitable opportunities or adverse shocks. This suggests that PUC affects ROE tail behavior in a sector-specific manner, re-flecting heterogeneity in capital structure and investment intensity across industries. 30 −2 02        
+
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Heal         
+
+> −1.0 −0.5 0.0 0.5 1.0
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Phar         
+
+> −2 −1 012
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Elec         
+
+> −1 01
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Semi         
+
+> −1.0 −0.5 0.0 0.5 1.0
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Mach−ge         
+
+> −2 −1 012
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Mach−sp         
+
+> −1 012
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Arch         
+
+> −2 −1 012
+> 123456789 10 11 12 13 14 15 16 17 18 19 20 21
+
+Predictive variable 
+
+> CI
+
+Real 
+
+Method PFI Indv Figure 5: Confidence intervals obtained by PFI and Indv on each client. Compared with Indv, PFI produces more stable and interpretable results. It yields shorter confidence intervals and more consistent variable selection patterns across clients, whereas Indv often selects only the intercept or produces wider intervals due to limited tail observations. Figure 5 further shows that PFI intervals are generally shorter and more con-centrated around the estimated coefficients, highlighting its improved inference efficiency and its ability to identify both shared and industry-specific predictors of extreme ROE outcomes. 31 7 Conclusion and discussion 
+
+In this paper, we developed a personalized federated framework for high-dimensional tail index regression under heterogeneous client structures. The proposed method combines sparsity regularization with nonconcave fusion penalties to perform coefficient estimation, variable selection, and latent group recovery while preserving client-specific tail behavior. We established non-asymptotic convergence rates and showed that the estimator enjoys an oracle property by consistently recovering the underlying grouping structure. We further developed a debiased federated inference procedure based on adaptive weighted aggregation across related clients, leading to valid confidence intervals and hypothesis tests. Theoreti-cal and empirical results demonstrate that the proposed method improves estimation and inference efficiency over target-only analysis. Several extensions are worth pursuing. First, the current framework focuses on sparse linear tail index regression with a log-link specification; extending it to semiparametric, nonlinear, or varying-coefficient tail index models would broaden its applicability. Second, more complex cross-client structures, such as low-rank, network, or hierarchical relationships, could be incorporated beyond coefficient-level grouping. Finally, the framework may be extended to other extreme-value problems, including multivariate extremes and conditional risk measures. 
+
+## Data availability statement 
+
+The Center for China Economic Research (CCER) dataset analyzed in this study is available at https://www.ccerdata.cn/ .
+
+## Supplementary material 
+
+The supplementary material contains the proofs of the theorems and propositions, as well as some additional numerical results. 32 References 
+
+Arivazhagan, M. G., Aggarwal, V., Singh, A. K., and Choudhary, S. (2019), “Federated learning with personalization layers,” arXiv preprint arXiv:1912.00818 .Barber, R. F. and Sidky, E. Y. (2024), “Convergence for nonconvex ADMM, with applications to CT imaging,” Journal of Machine Learning Research , 25, 1–46. Beirlant, J. and Goegebeur, Y. (2003), “Regression with response distributions of Pareto-type,” 
+
+Computational Statistics & Data Analysis , 42, 595–619. Berahas, A. S., Roberts, L., and Roosta, F. (2024), “Non-uniform smoothness for gradient descent,” 
+
+Transactions on Machine Learning Research , 2024. Chen, L., Li, D., and Zhou, C. (2022), “Distributed inference for the extreme value index,” 
+
+Biometrika , 109, 257–264. Chen, L. and Zhou, C. (2024), “High dimensional inference for extreme value indices,” arXiv preprint arXiv:2407.20491 .de Haan, L. and Ferreira, A. (2006), Extreme value theory: an introduction , Springer. Fallah, A., Mokhtari, A., and Ozdaglar, A. (2020), “Personalized federated learning with theo-retical guarantees: A model-agnostic meta-learning approach,” Advances in Neural Information Processing Systems , 33, 3557–3568. Fan, J. and Li, R. (2001), “Variable selection via nonconcave penalized likelihood and its oracle properties,” Journal of the American statistical Association , 96, 1348–1360. Ghosh, A., Chung, J., Yin, D., and Ramchandran, K. (2020), “An efficient framework for clustered federated learning,” Advances in Neural Information Processing Systems , 33, 19586–19597. Gu, J. and Chen, S. X. (2023), “Distributed statistical inference under heterogeneity,” Journal of Machine Learning Research , 24, 1–57. Hall, P. (1982), “On some simple estimates of an exponent of regular variation,” Journal of the Royal Statistical Society: Series B (Methodological) , 44, 37–42. Hill, B. M. (1975), “A simple general approach to inference about the tail of a distribution,” The Annals of Statistics , 1163–1174. Hong, M., Luo, Z.-Q., and Razaviyayn, M. (2016), “Convergence analysis of alternating direction method of multipliers for a family of nonconvex problems,” SIAM Journal on Optimization , 26, 337–364. Huang, Y., Chu, L., Zhou, Z., Wang, L., Liu, J., Pei, J., and Zhang, Y. (2021), “Personalized cross-silo federated learning on non-iid data,” Proceedings of the AAAI Conference on Artificial Intelligence , 35, 7865–7873. Kairouz, P. and McMahan, H. B. (2021), “Advances and open problems in federated learning,” 
+
+Foundations and Trends in Machine Learning , 14, 1–210. Li, D. and Wang, J. (2019), “Fedmd: Heterogenous federated learning via model distillation,” arXiv preprint arXiv:1910.03581 .Li, L., Zhou, R., and Zheng, Z. (2025), “Personalized federated learning on large-scale association networks,” Statistics and Computing , 35, 149. 
+
+33 Li, R., Leng, C., and You, J. (2022), “Semiparametric tail index regression,” Journal of Business & Economic Statistics , 40, 82–95. Liu, Q., Shen, X., and Gu, Y. (2019), “Linearized ADMM for nonconvex nonsmooth optimization with convergence analysis,” IEEE Access , 7, 76131–76144. Liu, W., Mao, X., Zhang, X., and Zhang, X. (2025), “Robust personalized federated learning with sparse penalization,” Journal of the American Statistical Association , 120, 266–277. Loh, P.-L. and Wainwright, M. J. (2015), “Regularized M-estimators with nonconvexity: Statistical and algorithmic theory for local optima,” Journal of Machine Learning Research , 16, 559–616. Ma, S. and Huang, J. (2017), “A concave pairwise fusion approach to subgroup analysis,” Journal of the American Statistical Association , 112, 410–423. Momoki, K. and Yoshida, T. (2024), “Hypothesis testing for varying coefficient models in tail index regression,” Statistical Papers , 65, 3821–3852. Nicolau, J., Rodrigues, P. M., and Stoykov, M. Z. (2023), “Tail index estimation in the presence of covariates: Stock returns’ tail risk dynamics,” Journal of Econometrics , 235, 2266–2284. Nishihara, R., Lessard, L., Recht, B., Packard, A., and Jordan, M. (2015), “A general analysis of the convergence of ADMM,” International Conference on Machine Learning , 343–352. Pickands III, J. (1975), “Statistical inference using extreme order statistics,” The Annals of Statis-tics , 119–131. Resnick, S. I. (2007), Heavy-tail phenomena: probabilistic and statistical modeling , Springer. Sasaki, Y., Tao, J., and Wang, Y. (2026), “High-dimensional tail index regression,” arXiv preprint arXiv:2403.01318v3 .Sattler, F., M¨ uller, K.-R., and Samek, W. (2021), “Clustered federated learning: model-agnostic distributed multitask optimization under privacy constraints,” IEEE Transactions on Neural Networks and Learning Systems , 32, 3710–3722. Smith, V., Chiang, C.-K., Sanjabi, M., and Talwalkar, A. S. (2017), “Federated multi-task learning,” 
+
+Advances in Neural Information Processing Systems , 30, 4427–4437. Tan, A. Z., Yu, H., Cui, L., and Yang, Q. (2022), “Towards personalized federated learning,” IEEE Transactions on Neural Networks and Learning Systems , 34, 9587–9603. Tang, L. and Song, P. X. (2016), “Fused lasso approach in regression coefficients clustering–learning parameter heterogeneity in data integration,” Journal of Machine Learning Research , 17, 1–23. Wang, H. and Tsai, C.-L. (2009), “Tail index regression,” Journal of the American Statistical Association , 104, 1233–1240. Wang, Y., Yin, W., and Zeng, J. (2019), “Global convergence of ADMM in nonconvex nonsmooth optimization,” Journal of Scientific Computing , 78, 29–63. Yang, X., Yan, X., and Huang, J. (2019), “High-dimensional integrative analysis with homogeneity and sparsity recovery,” Journal of Multivariate Analysis , 174, 104529. Yoshida, T. (2025), “Single-index models for extreme value index regression,” Statistica Neerlandica ,79, e70015. You, J., Jiao, Y., Lu, X., and Zeng, T. (2019), “A nonconvex model with minimax concave penalty for image restoration,” Journal of Scientific Computing , 78, 1063–1086. 
+
+34 Zhang, C.-H. (2010), “Nearly unbiased variable selection under minimax concave penalty,” The Annals of Statistics , 38, 894. Zhou, R., Li, L., and Zheng, Z. (2026), “Row-wise fusion regularization: an interpretable personal-ized federated learning framework in large-scale scenarios,” Stat , 15, e70147. 
+
+35
