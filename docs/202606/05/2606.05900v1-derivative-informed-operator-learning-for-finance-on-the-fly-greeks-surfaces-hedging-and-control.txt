@@ -1,0 +1,1359 @@
+Title: Derivative-Informed Operator Learning for Finance: On-the-Fly Greeks, Surfaces, Hedging, and Control
+
+URL Source: https://arxiv.org/pdf/2606.05900v1
+
+Published Time: Fri, 05 Jun 2026 00:54:07 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# Derivative-Informed Operator Learning for Finance: On-the-Fly Greeks, Surfaces, Hedging, and Control 
+
+Miquel Noguer i Alonso Artificial Intelligence Finance Institute June 2026 
+
+Abstract 
+
+Modern financial decision systems increasingly require fast surrogate models for pricing, calibration, hedging, stress testing, XVA, and portfolio optimization. Standard neural surrogates are commonly trained to reproduce prices or risk quantities, but downstream financial tasks depend at least as much on derivatives: deltas, vegas, curve sensitivities, credit spread sensitivities, exposure gradients, and gradients of optimization objectives. This paper formulates a derivative-informed operator-learning framework for finance in which the learned map—whether a neural operator, a random-feature operator, or a finite-dimensional surrogate—is trained not only to match a high-fidelity pricing or risk operator, but also to match directional Fr´ echet derivatives generated on the fly during training. The proposed framework combines operator learning, adjoint algorithmic differentiation, tangent sensitivity equations, random sketching of Jacobian actions, and finance-specific no-arbitrage constraints. We derive error bounds showing that derivative accuracy controls local stress errors, hedging error, and optimizer instability, and that discrete-time hedging error is additionally governed by second-order (gamma) accuracy. Three reproducible experiments separate mechanism from deployment claims. A trained Black–Scholes network, repeated over eight seeds, shows that a tuned derivative weight reduces vega error by roughly 40% and delta error by roughly 15% while modestly improving price accuracy, but does not reliably improve an unsupervised second-order Greek. Heston and Bates random-feature experiments reduce stochastic-volatility and jump-parameter sensitivity errors by 60–76%. Finally, a stylized operator-level curve-to-surface benchmark, implemented as a random-feature DeepONet/Galerkin neural operator, maps instantaneous-volatility curves to dense price surfaces and reduces out-of-sample directional JVP error by 44% and price RMSE by 23% over eight seeds. The same operator experiment also shows that derivative consistency does not by itself remove no-arbitrage violations, so economic constraints must be imposed explicitly. The framework provides a disciplined route from value-only surrogates to derivative-aware financial engines whose outputs are useful not only as prices, but as differentiable instruments for hedging, risk, and control. 
+
+Keywords: neural operators; derivative-informed training; Greeks; adjoint algorithmic differen-tiation; financial engineering; XVA; hedging; portfolio optimization; risk sensitivities; Fourier neural operators. 
+
+# 1 Introduction 
+
+Financial engineering is an operator-learning discipline in disguise. A pricing engine maps an input market state to a surface of prices. A calibration engine maps quotes to model parameters or implied volatility surfaces. An XVA engine maps curves, credit spreads, collateral conventions, netting sets, and exposure profiles to valuation adjustments. A portfolio optimizer maps forecasts, covariances, constraints, transaction costs, and liquidity states to allocations. In each case the object of interest is not merely a finite-dimensional regression function, but a structured map between functions, surfaces, measures, or stochastic processes. 1
+
+> arXiv:2606.05900v1 [q-fin.MF] 4 Jun 2026
+
+Neural operators were introduced to learn maps between infinite-dimensional function spaces rather than fixed finite-dimensional vectors. DeepONet learns nonlinear operators through a branch-trunk architecture, while the Fourier neural operator (FNO) parameterizes integral kernels in Fourier space and has become a canonical architecture for parametric PDE solution operators [Lu et al., 2021, Li et al., 2021, Kovachki et al., 2023]. These ideas are naturally aligned with financial models, where the input may be an entire yield curve, volatility surface, local-volatility field, forward curve, credit-intensity curve, or cross-asset correlation structure, and the output may be an option price surface, exposure profile, or risk-measure field. However, a price-only surrogate is not sufficient for finance. A desk rarely needs only the level of a price. It needs deltas, gammas, vegas, cross-gammas, curve PV01s, credit spread sensitivities, scenario gradients, calibration Jacobians, and sometimes Hessian-vector products. Derivative-based quantities are not secondary diagnostics; they are the objects used to hedge, allocate capital, calibrate models, and optimize portfolios. This is precisely where derivative-informed neural operators become important. The DINO framework of O’Leary-Roseberry et al. [2024] trains neural operators to approximate both a high-fidelity operator and its derivatives, formalizing derivative supervision as Sobolev training [Czarnecki et al., 2017] lifted to operators. Recent derivative-informed FNO theory establishes simultaneous approximation of an operator and its Fr´ echet derivative, and shows that accurate surrogate-driven PDE-constrained optimization requires accurate derivatives, not only accurate state values [Yao et al., 2025, Luo et al., 2025]. Because precomputing and storing a full derivative dataset is generally infeasible—one cannot tabulate all Greeks for all scenarios, instruments, curves, and model states—we adopt an on-the-fly variant in which derivative actions are generated inside each mini-batch and discarded after the update, a streaming counterpart to the offline derivative datasets analyzed in that literature. This terminology follows recent scientific-computing discussions of on-the-fly derivative-informed neural-operator training, including the 2026 IPAM presentation of Mou [2026]. In quantitative finance the same idea already has a precedent: differential machine learning trains pricing networks on values together with pathwise differentials produced by adjoint algorithmic differentiation [Huge and Savine, 2020]. This paper translates that idea into financial engineering, while deliberately distinguishing operator-level claims from controlled finite-dimensional surrogate experiments. The central proposal is simple: Train financial neural operators on values and on sensitivities generated on the fly by adjoint algorithmic differentiation, tangent equations, automatic differentiation, pathwise Monte Carlo, likelihood-ratio estimators, or implicit differentiation of calibration and optimization problems. The resulting model is not merely a fast price interpolator. It is a differentiable financial engine whose local geometry is trained to agree with the local geometry of the high-fidelity system. In the experiments below, two benchmarks are finite-dimensional surrogate slices and one benchmark is a stylized function-to-function operator; the paper therefore establishes mechanism and validation discipline, not a final claim of market-scale deployment. 
+
+1.1 Contributions 
+
+The paper makes seven contributions. 1. It formulates a finance-specific derivative-informed neural-operator problem in which the input is a market field and the output is a price, volatility, exposure, risk, or allocation field. 2. It introduces an on-the-fly training objective that combines value matching, Jacobian-vector products, vector-Jacobian products, instrument Greeks, factor sensitivities, and explicit economic-admissibility constraints. 23. It gives implementable algorithms for generating derivative information during training using tangent PDEs, adjoint PDEs, AAD, pathwise Monte Carlo, and implicit differentiation. 4. It proves error bounds connecting derivative error to stress stability, hedging error—in both continuous and discrete rebalancing, the latter governed at leading order by gamma—and optimizer stability, with an explicit mean–variance specialization. It further characterizes the value-plus-derivative objective as Sobolev (i.e. H1) training of an operator and gives the variance and sample complexity of its random-sketch estimator in terms of the stable rank of the Jacobian error. 5. It reports a reproducible, multi-seed Black–Scholes experiment with a trained network showing that a moderate derivative penalty improves the supervised Greeks (vega strongly, delta modestly) and value accuracy simultaneously, while the unsupervised second-order Greek is not reliably improved—a concrete motivation for supervising the order of sensitivity one actually needs. 6. It extends the experiment to Heston and Bates models with a linear random-feature surrogate, where derivative supervision is exactly a linear least-squares augmentation, and reports multi-seed reductions of 60–76% in stochastic-volatility and jump-parameter sensitivities together with consistent improvement of unsupervised Greeks. The contrast with the trained network—unsupervised transfer in the linear regime, but not in the nonlinear one—is explained and tied back to the second-order hedging bound. 7. It adds a stylized but genuine function-to-function benchmark: a random-feature Deep-ONet/Galerkin operator maps an instantaneous-volatility curve to a dense option-price surface. Directional derivative rows reduce out-of-sample curve-shock JVP error by 44% and price RMSE by 23%, while no-arbitrage violations remain essentially unchanged, demonstrat-ing both the value and the limits of derivative supervision. The experiments are deliberately described as controlled benchmarks rather than as a final market-scale FNO/GNO study on live sparse quotes. 
+
+1.2 Guiding principle 
+
+Let a ∈ A denote the market state and let G(a) ∈ U denote a high-fidelity financial operator. A standard neural operator minimizes 
+
+Lvalue (θ) = Ea
+
+bGθ(a) − G (a) 2
+
+> U
+
+
+
+. (1) A derivative-informed model instead minimizes 
+
+LDIF (θ) = Lvalue (θ) + λJ Ea,v 
+
+
+
+D bGθ(a)[ v] − DG(a)[ v] 2
+
+> U
+
+
+
++ λA Parb (θ), (2) where v is a random market perturbation direction and Parb penalizes economically invalid outputs. Equation (2) is the paper’s core object. It says that a financial neural operator should learn the local tangent map of the market, not only the price level. 
+
+# 2 Related Literature 
+
+Classical pricing and sensitivities. The mathematical foundations of option pricing begin with the Black–Scholes–Merton framework [Black and Scholes, 1973, Merton, 1973], with stochastic-volatility extensions such as Heston [1993] and local-volatility inversion through Dupire [1994]. In production financial systems, derivatives of prices with respect to risk factors 3are computed through finite differences, tangent methods, pathwise estimators, likelihood-ratio methods, or adjoint methods [Glasserman, 2004]. The adjoint approach, popularized in finance by Giles and Glasserman [2006], has become central to efficient risk computation; see Homescu [2011] and the review of Capriotti and Giles [2024]. 
+
+Deep learning for pricing and hedging. Neural networks have been used for option pricing, implied-volatility interpolation, calibration, and hedging. Deep hedging reframes hedging as a data-driven optimization problem under transaction costs and risk preferences [B¨ uhler et al., 2019]. Closest in spirit to the present work, differential machine learning trains pricing networks on values together with pathwise differential labels produced by adjoint algorithmic differentiation, yielding markedly more accurate and data-efficient pricing and risk approximations [Huge and Savine, 2020]; the present paper lifts this idea from pointwise pricing functions to operators over market fields and equips it with finance-specific error bounds and no-arbitrage structure. Deep volatility learning has been used to accelerate pricing and calibration under rough and stochastic volatility models [Horvath et al., 2021]. Physics-informed and deep-Galerkin methods also solve financial PDEs directly by penalizing residuals [Raissi et al., 2019, Sirignano and Spiliopoulos, 2018]. These methods are valuable, but many are still pointwise maps rather than operators over market fields. 
+
+Neural operators. DeepONets and Fourier neural operators generalize neural networks to mappings between functions [Lu et al., 2021, Li et al., 2021, Kovachki et al., 2023]. In finance, neural-operator ideas are beginning to appear in implied-volatility smoothing, where the goal is to map sparse, dynamically located option quotes to a smooth volatility surface subject to no-arbitrage constraints [Gonon et al., 2024]. This paper argues that the next step is not only operator-valued pricing, but derivative-consistent operator-valued pricing. 
+
+Derivative-informed operator learning. The DINO framework trains neural operators with derivative information and uses low-rank, reduced-basis derivative representations to make derivative learning feasible in high-dimensional settings [O’Leary-Roseberry et al., 2024]; this is an instance of Sobolev training [Czarnecki et al., 2017] lifted to operators. Derivative-informed FNOs add universal-approximation theory and PDE-constrained-optimization motivation [Yao et al., 2025], and a companion analysis quantifies the approximation error of reduced-basis derivative-informed learning under an H1-type norm [Luo et al., 2025]. The on-the-fly formulation we adopt is especially relevant to finance because precomputing all Greeks for all scenarios, instruments, curves, and model states is generally infeasible; it is also consistent with the emerging on-the-fly DINO agenda articulated in Mou [2026]. Instead, a desk can generate only the derivative directions required by the current training batch and discard them afterward. 
+
+# 3 Financial Operators 
+
+3.1 Market states as functions 
+
+Let the market state be an element of a Banach or Hilbert space 
+
+a =  r(τ ), q (τ ), σ (k, τ ), λ c(τ ), ρ (x, y ), ℓ (x), m  ∈ A . (3) Here r is a discount curve, q a dividend or repo curve, σ a volatility surface, λc a credit intensity curve, ρ a correlation kernel, ℓ a liquidity or market-impact field, and m a finite-dimensional vector of model conventions. Not every application uses every component. The point is that a is not naturally a scalar vector; it is a collection of financial functions. 4Let ξ ∈ Ξ denote instrument coordinates, such as strike, maturity, tenor, collateral convention, counterparty, portfolio identifier, or scenario coordinate. A financial operator maps 
+
+G : A −→ U , [G(a)]( ξ) = y(a; ξ), (4) where y may represent price, implied volatility, exposure, XVA, risk contribution, or optimal allocation. 
+
+Definition 1 (Financial neural operator) . A financial neural operator is a parameterized map 
+
+bGθ : A → U trained to approximate a high-fidelity financial operator G. In discretized form, a
+
+is observed on input grids or graphs, while bGθ(a) is evaluated on output grids, point clouds, or instrument coordinates. 
+
+3.2 Pricing operators 
+
+Under a risk-neutral measure Qa determined by the market state a, a derivative with payoff Φ ξ
+
+has value 
+
+V (a; ξ) = EQa
+
+
+
+exp 
+
+
+
+−
+
+Z T
+
+> 0
+
+ra(s) ds 
+
+
+
+Φξ(XaT )
+
+
+
+. (5) For Markovian models, the same object solves a pricing PDE 
+
+∂tV (t, x ; a) + LaV (t, x ; a) − ra(t)V (t, x ; a) = 0 , V (T, x ; a) = Φ ξ(x), (6) where La is the model generator. Thus the pricing map a 7 → V (a; ·) is an operator from market fields to price fields. Examples include: 
+
+Gopt (a)( K, T ) = C(a; K, T ), (7) 
+
+Giv (a)( K, T ) = σimp (a; K, T ), (8) 
+
+Gxva (a)( t, c ) = EE( a; t, c ), PFE( a; t, c ), CVA( a; c), (9) 
+
+Grisk (a)( s) = VaR α(a; s), ES α(a; s). (10) 
+
+3.3 Derivative operators 
+
+For a market perturbation h ∈ A , the Fr´ echet derivative of the financial operator is 
+
+DG(a)[ h] = lim 
+
+> ε→0
+
+G(a + εh ) − G (a)
+
+ε . (11) This derivative includes familiar financial quantities as special cases: 
+
+• a spot perturbation gives delta; 
+
+• a volatility perturbation gives vega or volga-like factor sensitivities; 
+
+• a yield-curve perturbation gives PV01, DV01, key-rate duration, or curve gamma; 
+
+• a credit-intensity perturbation gives credit spread sensitivity; 
+
+• a correlation-kernel perturbation gives correlation risk; 
+
+• a liquidity-field perturbation gives transaction-cost or market-impact sensitivity. In a discretized implementation, DG(a) is a matrix with potentially millions or billions of entries. The central computational problem is therefore not to store the full Jacobian, but to learn its action on economically meaningful directions. 54 On-the-Fly Derivative-Informed Training 
+
+4.1 Value and derivative loss 
+
+Let ai be sampled market states and let vij be sampled perturbation directions. The derivative-informed objective is 
+
+L(θ) = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+bGθ(ai) − G (ai) 2 
+
+> U
+
+(12) + λJVP 
+
+N M 
+
+> N
+
+X
+
+> i=1
+> M
+
+X
+
+> j=1
+
+D bGθ(ai)[ vij ] − DG(ai)[ vij ] 2 
+
+> U
+
+(13) + λVJP 
+
+N L 
+
+> N
+
+X
+
+> i=1
+> L
+
+X
+
+> ℓ=1
+
+D bGθ(ai)∗[wiℓ ] − DG(ai)∗[wiℓ ] 2 
+
+> A∗
+
+(14) + λarb Parb (θ) + λreg ∥θ∥2 . (15) The second term matches Jacobian-vector products (JVPs). The third term matches vector-Jacobian products (VJPs). In finance, JVPs are useful for scenario shocks and factor moves; VJPs are useful for adjoint risk aggregation and scalar objective gradients. 
+
+4.2 On-the-fly generation 
+
+The difference between offline and on-the-fly derivative-informed training is operational. An offline method first builds a derivative dataset 
+
+Doffline = {ai, G(ai), v ij , D G(ai)[ vij ]}i,j , (16) which can be prohibitively large. The on-the-fly method instead generates derivative actions inside the mini-batch: 
+
+ai ∼ μ, vij ∼ ν(· | ai), zij = DG(ai)[ vij ], (17) and immediately uses zij to update θ. Nothing forces the same derivative direction to be stored or reused. 
+
+Algorithm: on-the-fly derivative-informed training. 
+
+1. Sample a mini-batch of market states ai.2. Evaluate the high-fidelity engine to obtain yi = G(ai). 3. Sample economically meaningful directions vij : parallel curve shifts, key-rate bumps, volatility smile modes, skew shocks, correlation modes, credit spread shifts, liquidity shocks, or randomized PCA directions. 4. Generate derivative targets zij = DG(ai)[ vij ] using tangent equations, AAD, pathwise Monte Carlo, likelihood-ratio estimators, or implicit differentiation. 5. Compute neural predictions byi = bGθ(ai). 6. Compute neural JVPs bzij = D bGθ(ai)[ vij ] by automatic differentiation. 7. Update θ using (15). The training loop therefore treats derivative information as a streaming resource, not as a static dataset. 64.3 Tangent equations 
+
+Suppose the high-fidelity pricing system is defined implicitly by 
+
+F (u, a ) = 0 , u = G(a). (18) For a perturbation v ∈ A , the derivative state z = DG(a)[ v] satisfies the linearized equation 
+
+Fu(u, a )z + Fa(u, a )v = 0 , (19) so that 
+
+z = −Fu(u, a )−1Fa(u, a )v. (20) In a PDE pricing engine, (19) is a tangent PDE. In a calibration engine, it is a linearized calibration system. In a portfolio optimizer, it is an implicit differentiation of the KKT system. 
+
+4.4 Adjoint equations 
+
+When the output is high-dimensional and the target is a scalar functional ⟨w, G(a)⟩U , reverse-mode adjoints are more efficient. Let p solve 
+
+Fu(u, a )∗p = w. (21) Then 
+
+DG(a)∗[w] = −Fa(u, a )∗p. (22) Equation (22) is the abstract version of adjoint risk. It is the mathematical reason AAD is valuable: one reverse sweep can produce many first-order sensitivities of a scalar portfolio value. 
+
+4.5 Pathwise Monte Carlo derivatives 
+
+For a Monte Carlo engine with state dynamics 
+
+dX at = b(Xat , a, t ) dt + Σ( Xat , a, t ) dW t, (23) pathwise sensitivity with respect to a direction v follows the tangent SDE 
+
+dZ t = [ bx(Xat , a, t )Zt + ba(Xat , a, t )v] dt + [Σ x(Xat , a, t )Zt + Σ a(Xat , a, t )v] dW t. (24) For a discounted payoff DaT Φ( XaT ), the derivative is schematically 
+
+DG(a)[ v] = EQa h
+
+DaDaT [v] Φ( XaT ) + DaT ∇Φ( XaT )⊤ZT
+
+i
+
+, (25) with additional likelihood-ratio terms if the measure itself depends on a in a way not captured by the pathwise construction. In practice, AAD implements this derivative efficiently through the simulation tape. 
+
+4.6 Random sketching of derivative information 
+
+Full Jacobians are too large. The training objective therefore uses random projections. Let 
+
+J(a) = DG(a) and bJ(a) = D bGθ(a). If v is a zero-mean direction with covariance Cv, then 
+
+Ev ( bJ(a) − J(a)) v 2 
+
+> U
+
+= Tr 
+
+
+
+( bJ(a) − J(a)) Cv( bJ(a) − J(a)) ∗
+
+. (26) If Cv is approximately the identity on a relevant factor subspace, the random-direction loss estimates the squared derivative error on that subspace. Choosing Cv from historical PCA factors or stress modes therefore targets the sensitivities that matter economically. 7Proposition 1 (Unbiased derivative sketch) . Let J, bJ ∈ Rm×n and let v ∈ Rn satisfy E[vv ⊤] = In.Then 
+
+Ev ( bJ − J)v 22 = bJ − J 2 
+
+> F
+
+. (27) 
+
+If E[vv ⊤] = P is an orthogonal projector, the same expression equals the squared Frobenius error restricted to the factor subspace Range( P ).Proof. Using cyclicity of trace, 
+
+E ( bJ − J)v 22 = E Tr 
+
+
+
+( bJ − J)vv ⊤( bJ − J)⊤
+
+= Tr 
+
+
+
+( bJ − J) E[vv ⊤]( bJ − J)⊤
+
+. (28) The result follows by substituting In or P .
+
+Sobolev interpretation. Averaging Proposition 1 over states, the population JVP loss with isotropic directions equals the mean squared Hilbert–Schmidt (Frobenius) norm of the Jacobian error, 
+
+Ea Ev∼N (0 ,I ) ( bJ(a) − J(a)) v 2 
+
+> U
+
+= Ea bJ(a) − J(a) 2 
+
+> F
+
+, (29) which is the squared H1-seminorm of bGθ − G in the input measure. Value-plus-derivative training is therefore Sobolev training of an operator [Czarnecki et al., 2017, Luo et al., 2025]: it controls a strictly stronger norm than value-only ( L2) training—precisely the norm on which the stress, hedging, and optimizer bounds of Section 6 depend. 
+
+How many directions? The estimator in the on-the-fly loss uses a finite number M of directions per state. Its statistical quality is governed not by the ambient dimension but by the 
+
+stable rank of the Jacobian error .
+
+Proposition 2 (Variance and concentration of the sketch) . Let E = bJ − J ∈ Rm×n have singular values σ1 ≥ · · · ≥ 0, and let v1, . . . , v M iid 
+
+∼ N (0 , I n). The estimator XM = 1
+
+> M
+
+PMj=1 ∥Ev j ∥22
+
+satisfies E XM = ∥E∥2 
+
+> F
+
+= P 
+
+> i
+
+σ2 
+
+> i
+
+and 
+
+Var XM = 2
+
+M
+
+X
+
+> i
+
+σ4 
+
+> i
+
+= 2
+
+M E⊤E 2 
+
+> F
+
+,
+
+√Var XM
+
+E XM
+
+=
+
+s
+
+2
+
+M sr( E) , (30) 
+
+where sr (E) :=   P  
+
+> i
+
+σ2
+
+> i
+
+2 P  
+
+> i
+
+σ4 
+
+> i
+
+∈ [1 , rank (E)] is the stable rank of E. Moreover, by the Hanson–Wright inequality [Vershynin, 2018] there is a universal constant c > 0 with 
+
+Pr  |XM − ∥ E∥2 
+
+> F
+
+| ≥ t ≤ 2 exp 
+
+
+
+− c M min 
+
+n t2 
+
+> σ21∥E∥2
+> F
+
+, tσ21
+
+o 
+
+. (31) 
+
+Proof. Write A = E⊤E ⪰ 0 with eigenvalues σ2 
+
+> i
+
+. For v ∼ N (0 , I n), ∥Ev ∥22 = v⊤Av has mean Tr A = P 
+
+> i
+
+σ2 
+
+> i
+
+and variance 2 Tr (A2) = 2 P 
+
+> i
+
+σ4 
+
+> i
+
+; averaging M independent copies divides the variance by M . The relative-deviation identity is algebra. The tail is the Hanson–Wright bound for the quadratic form 1
+
+> M
+
+P 
+
+> j
+
+v⊤ 
+
+> j
+
+Av j , using ∥A∥2 
+
+> F
+
+= P 
+
+> i
+
+σ4 
+
+> i
+
+≤ σ21 ∥E∥2 
+
+> F
+
+and ∥A∥op = σ21 .
+
+Remark 1 (Practical reading) . To estimate a per-state derivative error to relative standard deviation ε requires M ≳ 2/(ε2 sr (E)) random isotropic shocks. The dependence is on the stable rank of the error , not of the Jacobian: when the surrogate misprices only a few factor directions ( sr (E) small), isotropic shocks are inefficient and one should instead probe those specific directions—an estimation-theoretic justification for the economically structured, PCA-and-stress direction sampler of (15) and Section 10. 
+
+85 No-Arbitrage and Economic Structure 
+
+A financial surrogate must be fast, differentiable, and economically valid. For option surfaces, no-arbitrage structure imposes monotonicity, convexity, and calendar restrictions. For a call price surface C(K, T ) under simple assumptions, static arbitrage constraints include 
+
+∂K C(K, T ) ≤ 0, ∂KK C(K, T ) ≥ 0, (32) with calendar restrictions imposed on appropriately discounted or forward-normalized prices. A soft penalty can be written as 
+
+Parb (θ) = EK,T 
+
+
+
+∂K bCθ(K, T )
+
+2+ +
+
+
+
+−∂KK bCθ(K, T )
+
+2+
+
+
+
+(33) + EK,T 
+
+
+
+−∂T bCθ(K, T )
+
+2+
+
+
+
++ Pboundary (θ), (34) where ( x)+ = max (x, 0) and Pboundary enforces asymptotic and intrinsic-value bounds. Soft penalties are convenient because they can be appended to any differentiable architecture, but they are not the only or strongest route to admissibility. In implied-volatility form, one may instead impose total-variance conditions or arbitrage-free SVI/eSSVI-style restrictions [Gatheral and Jacquier, 2014]; in price space, one may use convex-in-strike bases, integrated positive risk-neutral densities, monotone layers, positive calendar-total-variance parameterizations, or arbitrage-free spline layers. These hard or semi-hard parameterizations are preferable whenever the desk requires structural guarantees rather than ex-post diagnostics. Derivative-informed training and no-arbitrage constraints are complementary. The derivative loss trains the local financial geometry; the economic constraint forces that geometry to live in the admissible cone. The distinction is essential: matching tangent directions does not by itself imply monotonicity, convexity, calendar consistency, or boundary validity. 
+
+# 6 Theory: Why Derivative Accuracy Matters 
+
+This section gives several elementary results. They are not meant to replace full approximation theory for neural operators. Their purpose is to clarify why derivative-informed training is financially meaningful: each result ties a downstream financial error (stress, hedging, optimization) to a derivative error of the surrogate. 
+
+Status of claims. To be precise about what is and is not established here, we tier the paper’s claims. Proved (under stated assumptions): the local stress bound (Theorem 1), the continuous- and discrete-time hedging bounds (Theorems 2–3), the optimizer-stability bound and its mean–variance specialization (Theorem 4, Corollary 1), and the sketching identity and variance/concentration of the random-direction estimator (Proposition 1, Proposition 2). 
+
+Empirical and conditional : derivative supervision improves the sensitivities it supervises in all controlled experiments reported here, but transfer to unsupervised orders is model-class-dependent: it is unreliable for gamma in the trained Black–Scholes network, reliable in the linear random-feature slices, and not a substitute for explicit no-arbitrage constraints in the operator-level surface experiment. Conjectural / out of scope : quantitative generalization rates for derivative-informed operators in the function-space limit, for which we defer to the approximation-error analysis of Luo et al. [2025]. 96.1 Stress stability 
+
+Assumption 1 (Local smoothness) . Let G, bGθ : A → U be twice Fr´ echet differentiable on a ball 
+
+B(a0, r ) in a Hilbert space. Assume 
+
+D2G(a) op ≤ M, D2 bGθ(a) op ≤ cM (35) 
+
+for all a ∈ B(a0, r ). Assume also that 
+
+bGθ(a0) − G (a0) U ≤ ε0, D bGθ(a0) − DG(a0) op ≤ ε1. (36) 
+
+Theorem 1 (Local stress-error bound) . For every perturbation h with ∥h∥A ≤ r,
+
+bGθ(a0 + h) − G (a0 + h) U ≤ ε0 + ε1 ∥h∥A + M + cM
+
+2 ∥h∥2 
+
+> A
+
+. (37) 
+
+Proof. By Taylor’s theorem with integral remainder, 
+
+G(a0 + h) = G(a0) + DG(a0)[ h] + R(h), (38) 
+
+bGθ(a0 + h) = bGθ(a0) + D bGθ(a0)[ h] + bR(h), (39) with ∥R(h)∥ ≤ M ∥h∥2 /2 and bR(h) ≤ cM ∥h∥2 /2. Subtracting the expansions and applying the triangle inequality gives (37). 
+
+Remark 2. Price-only training controls ε0 but not ε1. Stress testing, scenario analysis, and cal-ibration are local perturbation problems; their first-order error is therefore governed by derivative error. 
+
+6.2 Hedging error 
+
+Consider a one-dimensional discounted underlying eSt under a risk-neutral measure, 
+
+d eSt = eStσt dW t. (40) Let eVt be the discounted no-arbitrage price of a payoff Φ( ST ) and let ∆ t = ∂S V (t, S t) be the exact delta. A surrogate hedge uses b∆t = ∂S bV (t, S t). 
+
+Theorem 2 (Continuous-time delta-hedging error bound) . Assume square integrability of all stochastic integrals. If the hedging portfolio starts from bV0 and uses b∆t, then 
+
+
+
+EQ
+
+eVT − fWT
+
+> 2
+
+ 1/2
+
+≤ | eV0 − ebV 0| +
+
+
+
+EQ
+
+Z T
+
+> 0
+
+eS2 
+
+> t
+
+σ2 
+
+> t
+
+|∆t − b∆t|2 dt 
+
+1/2
+
+. (41) 
+
+Proof. The discounted exact replicating value satisfies 
+
+eVT = eV0 +
+
+Z T
+
+> 0
+
+∆t d eSt. (42) The surrogate hedging wealth is 
+
+fWT = ebV 0 +
+
+Z T
+
+> 0
+
+b∆t d eSt. (43) Subtract and use the triangle inequality in L2, followed by the Itˆ o isometry. 
+
+Remark 3. The theorem shows directly why price RMSE is not the right metric for a hedging engine. The hedge is controlled by the derivative error ∆ − b∆. This is the financial analogue of the PDE-constrained-optimization observation that an accurate surrogate must have accurate derivatives. 
+
+10 Discrete rebalancing and the role of gamma. Continuous rebalancing is an idealization. In practice the surrogate delta is held constant between rebalancing times on a grid π : 0 = t0 <
+
+· · · < t n = T with mesh |π| = max k(tk+1 − tk). Write η(t) = tk for t ∈ [tk, t k+1 ), and assume the surrogate value bV (t, S ) is C1,2 with delta b∆ = ∂S bV and gamma bΓ = ∂SS bV . The discretely rebalanced surrogate wealth is fW πT = bV0 + R T 
+
+> 0
+
+b∆( η(t), S η(t)) d eSt.
+
+Theorem 3 (Discrete-rebalancing surrogate hedging error) . Under the square-integrability assumptions of Theorem 2, 
+
+eVT − fW πT L2(Q) ≤ | eV0 − bV0| + T2 + T3(π), (44) 
+
+T2 := 
+
+
+
+EQ
+
+Z T
+
+> 0
+
+eS2 
+
+> t
+
+σ2 
+
+> t
+
+|∆t − b∆t|2 dt 
+
+1/2
+
+, (45) 
+
+T3(π) := 
+
+
+
+EQ
+
+Z T
+
+> 0
+
+eS2 
+
+> t
+
+σ2 
+
+> t
+
+b∆( t, S t) − b∆( η(t), S η(t)) 2 dt 
+
+1/2
+
+. (46) 
+
+Here T2 is the first-order delta error and T3(π) is the discretization error induced by holding the surrogate hedge fixed between rebalancing dates. Proof. Exact continuous replication gives eVT = eV0 +R T 
+
+> 0
+
+∆t d eSt, so eVT −fW πT = ( eV0 − bV0)+ R T
+
+> 0
+
+∆t −
+
+b∆ (η(t), S η(t)) d eSt. Split the integrand as [∆ t − b∆ (t, S t)] + [ b∆ (t, S t) − b∆ (η(t), S η(t))], take L2(Q)norms, apply the triangle inequality, and use the Itˆ o isometry with d⟨ eS⟩t = eS2 
+
+> t
+
+σ2 
+
+> t
+
+dt .
+
+Proposition 3 (Gamma controls the discretization term) . Suppose, in addition, that bΓ and 
+
+∂t b∆ are bounded on the trading domain and that sup t EQ[ eS4 
+
+> t
+
+σ4 
+
+> t
+
+] < ∞. Then there is a constant 
+
+C, depending on T and on moment bounds of ( eS, σ ) and growing linearly in the uniform bounds 
+
+∥bΓ∥∞ and ∥∂t b∆∥∞, such that T3(π) ≤ C |π|1/2.Proof sketch. Fix t and apply Itˆ o’s formula to s 7 → b∆ (s, S s) on [ η(t), t ]: b∆(t, S t)− b∆ (η(t), S η(t)) = 
+
+R tη(t)
+
+ ∂s b∆ + 12 bΓ S2 
+
+> s
+
+σ2
+
+> s
+
+ds + R tη(t) bΓ dS s. The martingale term dominates: by the Itˆ o isometry its second moment is E R tη(t) bΓ2S2 
+
+> s
+
+σ2 
+
+> s
+
+ds = O (t − η(t)) ∥bΓ∥2
+
+> ∞
+
+, while the drift term contributes 
+
+O (t − η(t)) 2. Hence E | b∆ (t, S t) − b∆ (η(t), S η(t))|2 = O(|π| ∥ bΓ∥2
+
+> ∞
+
+) uniformly in t. Substituting into T3(π)2 = E R T 
+
+> 0
+
+eS2 
+
+> t
+
+σ2 
+
+> t
+
+| · · · | 2dt and using Cauchy–Schwarz with the fourth-moment bound yields T3(π)2 ≤ C2|π|.
+
+Remark 4 (Why gamma must be supervised) . Equation (44) separates two failure modes. The delta error term vanishes only if the surrogate’s first derivative is accurate; the discretization term T3 is, by Proposition 3, governed at leading order by the surrogate’s gamma. The classical “gamma P&L” of discrete hedging has the same structure, with magnitude set by the true gamma Γ;for a surrogate hedge to reproduce the true discrete-hedging risk (not merely the continuous-limit hedge), bΓ must track Γ. First-order (delta, vega) supervision alone does not constrain bΓ—a point confirmed empirically in Section 9, where the held-out gamma is not reliably improved—which is the precise motivation for the second-order objective of Section 11.1. 
+
+6.3 Optimizer stability 
+
+Many financial workflows solve an outer optimization problem using surrogate outputs. Examples include calibration, portfolio allocation, collateral optimization, and execution scheduling. Let 
+
+x∗(a) = arg min x∈C J(x, a ), bx∗(a) = arg min x∈C bJ(x, a ), (47) where J depends on G(a) and bJ depends on bGθ(a). 11 Theorem 4 (Strongly convex optimizer perturbation) . Suppose J(·, a ) is μ-strongly convex and differentiable on a convex set C, and bJ(·, a ) is convex and differentiable. If 
+
+sup 
+
+> x∈C
+
+∇x bJ(x, a ) − ∇ xJ(x, a ) 2 ≤ η, (48) 
+
+then 
+
+∥bx∗(a) − x∗(a)∥2 ≤ ημ . (49) 
+
+Proof. The first-order optimality conditions on the closed convex set C are the variational inequalities 
+
+⟨∇ J(x∗), x − x∗⟩ ≥ 0, ⟨∇ bJ(bx∗), x − bx∗⟩ ≥ 0, x ∈ C . (50) Taking x = bx∗ in the first inequality and x = x∗ in the second, adding, and rearranging gives 
+
+⟨∇ J(bx∗) − ∇ J(x∗), bx∗ − x∗⟩ ≤ ⟨∇ J(bx∗) − ∇ bJ(bx∗), bx∗ − x∗⟩. (51) Strong convexity implies the left-hand side is at least μ ∥bx∗ − x∗∥22, while the right-hand side is at most η ∥bx∗ − x∗∥2. Dividing by ∥bx∗ − x∗∥2 gives (49) ; the zero-distance case is trivial. This is the standard monotone-operator proof of stability for strongly convex programs [Nocedal and Wright, 2006]. If the optimization gradient ∇xJ depends on DG(a), then derivative-informed training reduces η directly. This is why derivative learning matters for calibration, hedging, and portfolio control. 
+
+Corollary 1 (Mean–variance weights) . Let the allocation solve w∗(a) = arg min w∈C { 12 w⊤Σ( a)w−
+
+μ(a)⊤w} over a convex set C, with Σ( a) ≻ 0, and let bw∗(a) be the same problem with the surrogate covariance bΣ( a) and mean bμ(a). Then 
+
+∥ bw∗(a) − w∗(a)∥2 ≤
+
+bΣ( a) − Σ( a) op ∥w∗(a)∥2 + ∥bμ(a) − μ(a)∥2
+
+λmin 
+
+ Σ( a) . (52) 
+
+Proof. The objective J(·, a ) is λmin (Σ( a))-strongly convex. Its gradient is ∇wJ(w, a ) = Σ( a)w −
+
+μ(a), so at w∗, ∇w bJ(w∗, a ) − ∇ wJ(w∗, a ) 2 = (bΣ − Σ) w∗ − (bμ − μ) 2 ≤ bΣ − Σ op ∥w∗∥2 +
+
+∥bμ − μ∥2 =: η. Apply Theorem 4 with μ = λmin (Σ( a)). 
+
+Remark 5. Since Σ( a) and μ(a) are themselves outputs (and directional derivatives) of the market-state operator, the numerator of (52) is exactly the kind of value/derivative error that derivative-informed training reduces. The denominator λmin (Σ( a)) is the familiar source of mean– variance instability: when the covariance surrogate has a small smallest eigenvalue, surrogate errors are amplified into large weight swings. A derivative-stable covariance operator therefore directly buys allocation stability. 
+
+Theorem 5 (Local calibration-map sensitivity) . Let q ∈ Rm denote market quotes and let ν∗(q)
+
+solve the regularized calibration problem 
+
+ν∗(q) = arg min ν∈Rp
+
+12 ∥P (ν) − q∥2 
+
+> W
+
++ R(ν), (53) 
+
+where P is a model-pricing map, W ≻ 0, and R is twice differentiable. Suppose that at (ν∗, q )
+
+the calibration Hessian 
+
+Hq = DP (ν∗)⊤W DP (ν∗) + 
+
+> m
+
+X
+
+> i=1
+
+(Pi(ν∗) − qi)∇2Pi(ν∗) + ∇2R(ν∗) (54) 12 is nonsingular with H−1  
+
+> qop
+
+≤ κH . Then, locally around (q, u ∗), the quote sensitivity of the calibrated parameter is 
+
+Dν ∗(q)[ h] = H−1 
+
+> q
+
+DP (ν∗)⊤W h. (55) 
+
+Consequently, in the same local neighborhood, if a surrogate pricing map bP induces errors 
+
+δH = bHq − Hq op and δJ = D bP (bν∗) − DP (ν∗) op , and κH δH < 1, then the corresponding calibration-sensitivity error is bounded to first order by 
+
+∥Dbν∗(q) − Dν ∗(q)∥op ≲ κH
+
+1 − κH δH
+
+
+
+∥W ∥ δJ + κH DP ⊤W δH
+
+
+
+, (56) 
+
+up to evaluation-point terms proportional to ∥bν∗ − ν∗∥.Proof. Differentiate the first-order condition DP (ν)⊤W (P (ν) − q) + ∇R(ν) = 0 with respect to q
+
+to obtain (55) . The perturbation bound follows from the resolvent identity ( H + ∆ H)−1 − H−1 =
+
+−(H + ∆ H)−1∆HH −1 and the Neumann bound (H + ∆ H)−1 ≤ κH /(1 − κH ∥∆H∥). 
+
+Remark 6. Calibration is where price-only surrogates often fail silently. A model may interpolate quoted prices while producing an unstable calibration Jacobian, which then contaminates smile shocks, bucket vegas, and hedging re-calibrations. Theorem 5 makes the dependency explicit in the local regular regime: stability of the calibration map depends on the pricing Jacobian and Hessian, not only on price levels. It should not be read as a global statement across multiple calibration minima, parameter-bound hits, or regime switches. 
+
+# 7 Financial Architectures 
+
+7.1 FNO-style market-field encoder 
+
+When input and output live on regular grids, an FNO-style model is natural. A volatility-surface pricing operator can be represented as 
+
+σ(k, T ) 7 −→ C(K, T ), (57) where both input and output are functions on two-dimensional grids. A Fourier layer has the form 
+
+hℓ+1 (x) = σact 
+
+ Wℓhℓ(x) + F−1 (Rℓ · F hℓ) ( x) , (58) where Rℓ acts on a truncated set of Fourier modes. The derivative-informed loss is applied to the output surface and to its JVPs with respect to market-field perturbations. 
+
+7.2 DeepONet-style instrument evaluation 
+
+When the output is queried at arbitrary instrument coordinates, a DeepONet-style representation is convenient: 
+
+bGθ(a)( ξ) = 
+
+> p
+
+X
+
+> r=1
+
+br(a)tr(ξ), (59) where the branch network encodes the market state and the trunk network encodes instrument coordinates. This is appropriate for irregular option chains, OTC portfolios, and XVA netting sets. 
+
+7.3 Graph neural operators for sparse quotes 
+
+Market data are often irregular: option quotes exist at changing strikes and maturities, bonds have issue-specific maturities, and CDS curves have missing tenors. Graph neural operators or attention-based set operators can encode the observed quote cloud and output a smooth field. This is particularly relevant to implied-volatility nowcasting and smoothing, where the input quote configuration changes intraday [Gonon et al., 2024]. 13 8 Applications 
+
+8.1 Option surface pricing and Greeks 
+
+Let 
+
+a = ( r(τ ), q (τ ), σ loc (S, t ), ν ) (60) encode rates, dividends, local volatility, and finite-dimensional model parameters. The operator is 
+
+G(a)( K, T ) = C(a; K, T ). (61) A derivative-informed operator learns 
+
+C, ∂S C, ∂SS C, DrC[hr], DσC[hσ], Dν C[hν ]. (62) The directions hσ can be smile level, skew, curvature, term-structure, or PCA factors. The directions hr can be parallel, slope, curvature, and key-rate shifts. 
+
+8.2 Calibration as inverse operator learning 
+
+Calibration solves 
+
+ν∗(q) = arg min νMX
+
+> m=1
+
+ωm (Cmodel (ν; ξm) − qm)2 + Ω( ν), (63) where qm are market quotes. A calibration operator maps q 7 → ν∗(q) or q 7 → σimp (·). Differenti-ating the first-order condition gives 
+
+∇2 
+
+> νν
+
+J(ν∗, q ) Dν ∗(q)[ h] = −∇ 2
+
+> νq
+
+J(ν∗, q )[ h]. (64) This implicit derivative can be generated on the fly and used to train a calibration neural operator whose responses to quote perturbations are stable. 
+
+8.3 XVA and exposure operators 
+
+An XVA engine maps curves, spreads, netting sets, collateral conventions, wrong-way-risk parameters, and portfolio states to exposure profiles and valuation adjustments: 
+
+Gxva (a) = (EE( t), ENE( t), PFE α(t), CVA , DVA , FVA) . (65) Derivative-informed training targets curve PV01s, spread CS01s, wrong-way-risk sensitivities, collateral sensitivities, and exposure-gradient directions. Since XVA is often computed by nested Monte Carlo or regression Monte Carlo, on-the-fly AAD and random-direction derivatives are attractive because full derivative tensors are too expensive to store. 
+
+8.4 Portfolio and risk-control operators 
+
+Let a portfolio operator be 
+
+Gport (a) = w∗(a), (66) where 
+
+w∗(a) = arg min w∈C 
+
+ 12 w⊤Σ( a)w − μ(a)⊤w + Ψ( w; a)
+
+
+
+. (67) Here a may include return forecasts, covariance surfaces, transaction costs, liquidity fields, drawdown states, or factor exposures. The derivative Dw ∗(a)[ h] is obtained by differentiating the KKT conditions. Training the operator on these derivatives improves stability under forecast revisions and stress scenarios. 14 9 Numerical Illustration: Trained and Linear Surrogates 
+
+This section reports three controlled experiments. Their role is not to claim a production market benchmark, but to demonstrate the derivative-supervision mechanism—and its limits—in transparent pricing settings, to isolate the effect of the surrogate’s model class, and to include one genuine function-to-function operator benchmark. A final market benchmark should still map live sparse quote clouds, curves, or surfaces to dense arbitrage-controlled outputs, as in graph/operator smoothing; Section 10 gives the validation checklist such a benchmark must satisfy. Part A (Sections 9.1–9.1) trains a nonlinear network on a Black–Scholes slice. Part B (Section 9.2) uses a linear random-feature surrogate on Black–Scholes, Heston, and Bates, where derivative supervision reduces exactly to augmenting a least-squares system. Part C (Section 9.3) uses a random-feature DeepONet/Galerkin operator to learn a map from an instantaneous-volatility curve to an entire option-price surface. All numbers are produced by the reproducible scripts accompanying this paper. In Part A, network Greeks use automatic differentiation and analytic Black–Scholes labels; in Part B, Heston and Bates derivative labels use central differences of the same Carr–Madan quadrature engine; in Part C, operator JVP labels are analytic curve-shock derivatives of the integrated-variance pricing operator. The code includes finite-difference consistency checks, quadrature sanity checks, and no-arbitrage diagnostics. 
+
+9.1 Part A: a trained network on Black–Scholes 
+
+Setup 
+
+We generated European call prices from the Black–Scholes formula using independent uniform samples 
+
+S ∈ [60 , 140] , K ∈ [60 , 140] , T ∈ [0 .05 , 2] , r ∈ [0 , 0.05] , σ ∈ [0 .10 , 0.60] . (68) The output is the call price; the derivative targets are analytic delta ∂S C and vega ∂σC. For each of eight random seeds we draw 1 ,200 training states and train two networks that are identical in architecture (three hidden layers, 64 tanh units), initialization, optimizer (Adam, 4 ,000 steps, learning rate 2 × 10 −3), and standardized inputs; they differ only in the loss. The price-only model minimizes standardized price MSE. The derivative-informed model adds standardized delta and vega losses—the network Greeks obtained by automatic differentiation, rescaled to raw units—with a single derivative weight λ:
+
+LDIF =
+
+bC − C 2
+
+s2
+
+> C
+
++ λ
+
+b∆ − ∆ 2
+
+s2∆
+
++ ∥bν − ν∥2
+
+s2
+
+> ν
+
+ , (69) with robust scales sg as in Section 10. Both models are evaluated on a single fixed held-out set of 2 ,000 states (identical across all seeds). Crucially, the second-order Greek gamma ∂SS C is 
+
+never supervised; we report it as a held-out test of whether first-order supervision propagates to curvature. We use λ = 3 × 10 −3, selected on the basis of the sensitivity analysis in Table 2; this value is reported, not hidden, as it is a genuine hyperparameter of (15). 
+
+Implementation note. The derivative-informed network uses a moderate derivative weight and reports mean ± standard deviation across eight seeds. This design avoids allowing the derivative terms to dominate the objective once the price residual becomes small, while still testing whether first-order Greek supervision improves the learned local geometry. 15 Table 1: Black–Scholes slice, trained network , mean ± standard deviation over eight seeds. Price is in currency units; delta is dimensionless; vega is ∂σC in absolute units; gamma is ∂SS C. The final column is never supervised. “Reduction” is the mean per-seed RMSE reduction of the derivative-informed (DIF, λ = 3 × 10 −3) model relative to price-only (PO); positive is better. Model Price RMSE Rel. RMSE (%) Delta RMSE Vega RMSE Gamma RMSE †                                          
+
+> Price-only (PO) 0.358 ±0.062 1.26 ±0.22 0.0750 ±0.0065 2.83 ±0.28 0.0197 ±0.0044 Derivative-informed (DIF) 0.301 ±0.051 1.06 ±0.18 0.0638 ±0.0098 1.66 ±0.17 0.0179 ±0.0049 Mean reduction +15% —+15% +41% +5% Seeds improved 7/8—8/88/86/8
+> †Gamma is held out (never supervised). Its per-seed reduction ranges from −73% to +48%.
+
+Table 2: Sensitivity to the derivative weight λ (seed 42; price-only baseline shown for reference). Vega accuracy improves robustly across λ, but the benefit to delta erodes and the unsupervised 
+
+gamma degrades sharply as λ grows—the signature of overfitting the supervised orders. Configuration Delta RMSE Vega RMSE Gamma RMSE Price RMSE Price-only 0.0798 3.016 0.0208 0.4086 DIF, λ = 0 .003 0.0686 1.677 0.0152 0.3250 DIF, λ = 0 .007 0.0717 1.702 0.0333 0.3414 DIF, λ = 0 .01 0.0748 1.761 0.0350 0.3525 DIF, λ = 0 .05 0.0859 1.951 0.0648 0.4075 
+
+Results 
+
+At the tuned weight, derivative supervision reduces vega RMSE by 41% and delta RMSE by 15% on every seed, and—rather than trading off against price—also reduces price RMSE by 15% on seven of eight seeds. At this gentle weight the derivative loss behaves as a smoothness regularizer: the supervised slopes are accurate everywhere, not only at training points. The asymmetry between vega and delta is informative: value-only training already pins down delta reasonably well (delta is the dominant first-order term in the price’s own sensitivity), so the marginal value of supervising delta is modest, whereas vega—an orthogonal direction that value-only training leaves comparatively under-determined—benefits much more. Table 2 shows the trade-off is weight-dependent: increasing λ keeps the vega gain but erodes the delta gain and sharply degrades the unsupervised gamma. 
+
+Interpretation 
+
+Two lessons carry over to high-dimensional financial operators. First, derivative supervision changes the learned local geometry, not just the level: a price-only surrogate can interpolate prices while learning systematically wrong sensitivities, and a modest derivative penalty corrects this while improving, not harming, value accuracy. This effect compounds in production, where downstream calculations propagate derivative errors across scenarios, instruments, and optimization loops. Second, and equally important, the held-out gamma is not reliably improved by first-order supervision (mean +5%, but six of eight seeds and a wide range), and it degrades as the first-order weight grows. One obtains accuracy in the order of sensitivity one supervises and little guarantee beyond it. For a hedging desk operating at finite rebalancing frequency— where, by Theorem 3 and Proposition 3, gamma controls the discretization error—this means second-order supervision (Section 11.1) is not optional polish but a requirement. 16 9.2 Part B: stochastic-volatility and jump models with a linear surrogate 
+
+To test the mechanism beyond Black–Scholes, and to isolate the role of the surrogate’s model class, we repeat the comparison on three pricing maps—Black–Scholes, Heston [Heston, 1993], and Bates [Bates, 1996]—using a deliberately simple surrogate: a one-hidden-layer tanh random-feature model [Rahimi and Recht, 2008], 
+
+bCβ (x) = β0 + β⊤ 
+
+> x
+
+x +
+
+> M
+
+X
+
+> m=1
+
+βm tanh( w⊤
+
+> m
+
+x + bm), (70) in which the hidden weights ( wm, b m) are drawn once and fixed , and only the readout β is fitted. Because (70) is linear in β, both the price-only and derivative-informed fits are a single ridge solve and derivative supervision is exactly the augmentation of the least-squares system with extra (derivative) rows: min 
+
+> β
+
+X
+
+> i
+
+bCβ (xi) − Ci 2 + X
+
+> j∈J
+
+λj
+
+X   
+
+> i
+> DjbCβ(xi)−DjCi
+> sj
+> 2
+
++ η ∥β∥2 . (71) This removes optimizer noise and makes the effect of the derivative rows transparent; it is not a substitute for a trained FNO or DeepONet, but a controlled finite-dimensional slice. Heston and Bates prices are computed by Carr–Madan quadrature [Carr and Madan, 1999] with 96 Gauss–Legendre nodes on [0 , 160] and damping α = 1 .5; the derivative targets are obtained by central differences of the same quadrature engine. This is the finite-dimensional, reproducible analogue of differentiating a high-fidelity pricing engine by adjoint or automatic-differentiation methods in production. The characteristic functions are recorded in Appendix B; as parameter-free checks, the Heston price collapses to Black–Scholes as the vol-of-vol vanishes, and the Bates price collapses to Heston as the jump intensity vanishes, both to quadrature precision. Each configuration is run over eight seeds, reseeding both the data sample and the random-feature draw ,and we report mean ± standard deviation. Per-model derivative weights are disclosed in Table 3. As in Part A, we additionally evaluate quantities that are never supervised : the second-order Greek gamma ∂SS C in all three models, and, for Heston and Bates, an unsupervised parameter sensitivity ( ∂ρC and ∂σJ C respectively). The Heston parameter box is not restricted to the Feller region 2 κθ ≥ ξ2; this is intentional, because market calibrations often cross the boundary, but all prices are generated by the same characteristic-function engine and the experiment should therefore be read as a surrogate-consistency test rather than as a claim about boundary classification. Table 3: Design of the random-feature experiments. Prices for Heston and Bates use Carr–Madan quadrature; derivative targets use central differences of the same quadrature pricer. Gamma and the parenthesized parameter sensitivities are held out (never supervised). Model Input dim. Train Test Features Supervised targets Weights λj                              
+
+> Black–Scholes 51,600 1,000 512 ∂SC, ∂ σC0.01 ,0.01 Heston 92,500 1,200 1,536 ∂SC, ∂ v0C, ∂ θC0.02 ,0.001 ,0.001 Bates 12 3,200 1,200 1,792 ∂SC, ∂ v0C, ∂ λC, ∂ μJC0.05 ,0.001 ,0.001 ,0.001
+
+17 Table 4: Random-feature surrogate, mean ± standard deviation over eight seeds; “red.” is the mean per-seed RMSE reduction (positive is better) and “ k/ 8” the number of seeds improved. Columns marked † are never supervised. Sensitivities ∂v0 , ∂ θ, ∂ λ, ∂ μJ , ∂ ρ, ∂ σJ are reported in raw units. Model Quantity Price-only Derivative-informed red. ( k/ 8) Black–Scholes Price RMSE 0.507 ± 0.047 0.541 ± 0.038 −7% (1 /8) Delta RMSE 0.0538 ± 0.0046 0.0444 ± 0.0029 +17% (8 /8) Vega RMSE 6.13 ± 0.71 3.46 ± 0.25 +43% (8 /8) Gamma RMSE † 0.0065 ± 0.0010 0.0055 ± 0.0007 +15% (7 /8) Heston Price RMSE 0.835 ± 0.054 0.693 ± 0.053 +17% (8 /8) Delta RMSE 0.0666 ± 0.0046 0.0509 ± 0.0020 +23% (8 /8) 
+
+∂v0 C RMSE 26 .76 ± 1.67 8.13 ± 0.42 +70% (8 /8) 
+
+∂θC RMSE 26 .34 ± 2.35 9.98 ± 0.49 +62% (8 /8) Gamma RMSE † 0.0071 ± 0.0006 0.0059 ± 0.0004 +17% (8 /8) 
+
+∂ρC RMSE † 3.45 ± 0.25 2.73 ± 0.27 +21% (8 /8) Bates Price RMSE 1.027 ± 0.024 1.053 ± 0.038 −3% (0 /8) Delta RMSE 0.0723 ± 0.0042 0.0639 ± 0.0038 +12% (8 /8) 
+
+∂v0 C RMSE 23 .53 ± 1.26 8.74 ± 0.45 +63% (8 /8) 
+
+∂λC RMSE 2.91 ± 0.20 0.98 ± 0.05 +66% (8 /8) 
+
+∂μJ C RMSE 11 .23 ± 0.64 2.67 ± 0.19 +76% (8 /8) Gamma RMSE † 0.0066 ± 0.0004 0.0061 ± 0.0004 +7% (8 /8) 
+
+∂σJ C RMSE † 9.07 ± 0.55 7.42 ± 0.45 +18% (8 /8) Three readings of Table 4. First, the supervised sensitivities improve substantially and consistently, and the gains are largest exactly where they should be: the stochastic-volatility and jump parameters ( v0, θ, λ, μ J ), which barely move price levels but strongly shape the local response, improve by 60–76% on every seed, whereas delta—already well-identified by price levels—improves more modestly. This is the high-dimensional analogue of the vega-versus-delta asymmetry seen in Part A. Second, price accuracy is genuinely model-dependent: it improves by 17% for Heston but worsens slightly for Black–Scholes ( −7%) and Bates ( −3%). There is no universal “free regularization” of the price level; whether derivative rows help or mildly hurt the value fit depends on the operator. Third, and most informative for the rest of the paper, 
+
+every unsupervised quantity also improves —gamma by 7–17% and the unsupervised parameter sensitivities by 18–21%, on essentially every seed. In this linear surrogate, supervising some derivatives helps the others. 
+
+9.3 Part C: curve-to-surface operator benchmark 
+
+The previous experiments are pricing-map slices. To test the operator claim directly, we add a stylized function-to-function benchmark. The input is an instantaneous-volatility curve 
+
+a(t) sampled at 24 maturities, and the output is a dense European-call price surface on 21 log-moneyness points and 24 maturities. The high-fidelity operator is 
+
+a(t) 7 −→ σeff (T ) = 
+
+ 1
+
+T
+
+Z T
+
+> 0
+
+a(s)2 ds 
+
+1/2
+
+7−→ CBS (K, T ; σeff (T )) , (72) 18 with fixed spot S0 = 100 and rate r = 2%. The derivative direction is a low-frequency curve shock h(t). Differentiating (72) gives the exact directional target 
+
+DG(a)[ h]( K, T ) = Vega BS (K, T ; σeff (T )) 
+
+R T 
+
+> 0
+
+a(s)h(s) ds T σ eff (T ) . (73) This is a genuine operator-level sensitivity: a perturbation of the input curve changes an entire output surface through a maturity-dependent integral. The surrogate is a fixed-random-feature DeepONet/Galerkin neural operator. With branch features bm(a) = tanh (w⊤
+
+> m
+
+a + cm) and trunk features tm(K, T ) = tanh (v⊤
+
+> m
+
+q(K, T ) + dm), the fitted operator is 
+
+bGβ (a)( K, T ) = 
+
+> M
+
+X
+
+> m=1
+
+βmbm(a)tm(K, T ), M = 512 . (74) The derivative-informed version augments the value least-squares system by one randomly sampled JVP row per training curve: min 
+
+> β
+
+X
+
+> i
+
+bGβ (ai) − G (ai) 22 + λ X
+
+> i
+
+D bGβ (ai)[ hi] − DG(ai)[ hi] 22 + η ∥β∥22 , (75) with λ = 0 .1, 800 training curves, 300 test curves, and eight independent seeds. Because (74) is linear in β, the experiment is again an exactly reproducible ridge solve, but now on a map between discretized functions rather than a finite-dimensional scalar price map. Table 5: Operator-level curve-to-surface benchmark, mean ± standard deviation over eight seeds. PO is value-only; DIF adds one on-the-fly curve-shock JVP per training curve. Positive reduction is better. The no-arbitrage diagnostics report the percentage of grid locations violating strike monotonicity, strike convexity, or calendar monotonicity. Metric Price-only Derivative-informed Mean reduction Seeds improved Price RMSE 0.322 ± 0.125 0.229 ± 0.020 +23 .2% 8/8Relative price RMSE 1.68 ± 0.65% 1.20 ± 0.10% +23 .2% 8/8Curve-shock JVP RMSE 1.080 ± 0.240 0.586 ± 0.081 +44 .1% 8/8Relative JVP RMSE 68 .6 ± 15 .2% 37 .2 ± 4.7% +44 .1% 8/8Strike-monotonicity violations 2.85 ± 0.13% 3.07 ± 0.12% −7.9% 0/8Strike-convexity violations 20 .13 ± 1.28% 20 .88 ± 1.74% −3.7% 2/8Calendar violations 2.11 ± 0.21% 2.11 ± 0.21% −0.3% 5/8Table 5 is the paper’s main operator-level empirical result. The derivative-informed operator reduces out-of-sample directional curve-shock error by 44 .1% on every seed and also improves the price surface fit by 23 .2%. This is the cleanest demonstration of the paper’s operator claim: derivative rows can improve the learned local geometry of a map from input curves to output surfaces. At the same time, the no-arbitrage diagnostics are deliberately sobering. Derivative supervision does not materially reduce strike-monotonicity, strike-convexity, or calendar violations; in two strike diagnostics it even moves slightly in the wrong direction. This is not a failure of the derivative idea. It shows that sensitivity consistency and economic admissibility are different constraints. A production volatility or price-surface operator should combine derivative-informed training with the no-arbitrage penalties of Section 5 or, preferably when guarantees matter, with an arbitrage-free output parameterization such as a convex-in-strike price basis, an integrated positive density, an SVI/eSSVI layer, or a monotone/convex spline construction. 19 9.4 Synthesis: trained versus linear surrogates 
+
+The three experiments agree on the central point: when a derivative quantity is supervised, derivative-informed training improves it. They also separate three issues that should not be conflated. First, nonlinear training does not guarantee transfer to unsupervised higher-order Greeks. Second, linear random-feature augmentation can smooth unsupervised derivatives through the shared readout. Third, operator-level JVP accuracy is not the same thing as no-arbitrage. The first two regimes disagree on exactly one thing—the unsupervised second-order Greek. In the linear random-feature surrogate, gamma improves reliably (Table 4, every model, 7–8 of 8 seeds); in the trained network, it does not (Part A: mean +5%, 6 /8 seeds, per-seed range 
+
+−73% to +48%). The same held-out quantity, the same pricing model, opposite robustness. The explanation is the parameterization, and it matters for how one should read derivative-informed results in general. When the model is linear in its parameters, as in (70) , the derivative rows in (71) are a Tikhonov-type penalty in function space: they constrain the same coefficients 
+
+β that determine the value fit, so smoothing the supervised slopes necessarily smooths the whole fitted function and lifts all of its derivatives, supervised or not. A nonlinearly trained network has the capacity to do something the linear model cannot: satisfy the supervised derivative constraints at the training points while leaving unsupervised orders—curvature, in particular—comparatively free. Transfer to unsupervised sensitivities is therefore a property of the linear regime, not a guarantee one inherits when moving to a trained operator. The practical consequence is the same lesson reached from the theory in Section 6: for the order of sensitivity one actually needs at deployment—gamma, for a desk hedging at finite frequency, by Theorem 3—it is safest to supervise that order directly rather than to assume it is inherited from lower-order supervision. 
+
+# 10 Implementation Details 
+
+10.1 Choice of derivative directions 
+
+Derivative directions should not be sampled blindly. In finance, economically meaningful directions include: 
+
+• parallel, slope, curvature, and key-rate moves for curves; 
+
+• volatility level, skew, convexity, and term-structure shocks; 
+
+• PCA factors from historical curve or surface changes; 
+
+• correlation eigenmode perturbations; 
+
+• credit-spread parallel and sector-specific shifts; 
+
+• liquidity, funding, collateral, and margin shocks; 
+
+• adversarial directions found by maximizing local surrogate error. A practical distribution is a mixture 
+
+ν = αν PCA + (1 − α)νstress , (76) where νPCA captures frequent historical moves and νstress captures regulatory or desk-defined scenarios. 20 10.2 Loss scaling 
+
+Prices, deltas, vegas, and curve sensitivities have different units. Without normalization, the largest unit dominates the loss. A robust implementation uses standardized losses 
+
+Lderiv = X
+
+> g∈S
+
+λg E
+
+"
+
+∥bg − g∥2
+
+s2 
+
+> g
+
++ ϵ
+
+#
+
+, (77) where g ranges over Greeks or derivative actions and sg is a robust scale such as median absolute deviation or an exponentially weighted standard deviation. 
+
+10.3 Derivative generation budget 
+
+Let c0 be the cost of one high-fidelity value solve and cJ the cost of one derivative action. If M
+
+derivative directions are used per state, the per-batch cost is approximately 
+
+Cbatch ≈ Bc 0 + BM c J . (78) The on-the-fly method is attractive when M is small and targeted. In AAD settings, the marginal cost of many first-order derivatives of one scalar portfolio value can be a small multiple of the primal valuation cost; in forward tangent settings, the cost scales more directly with the number of directions. Thus the correct implementation depends on whether the desk needs many input sensitivities of a scalar portfolio value or output sensitivities across many instruments. 
+
+10.4 Validation protocol 
+
+A derivative-informed financial operator should be validated on at least four dimensions: 1. value error: price, implied volatility, exposure, XVA, or risk-measure RMSE; 2. derivative error: delta, vega, PV01, CS01, correlation sensitivity, and JVP/VJP errors; 3. economic error: no-arbitrage violations, monotonicity violations, convexity violations, and boundary violations; 4. downstream error: hedge P&L variance, calibration convergence, optimizer regret, and stress-test stability. A model with low value error but high derivative error should not be accepted for hedging or optimization. For option-surface applications the following diagnostic table is minimal rather than optional:               
+
+> Diagnostic Failure measured %{∂KbC > 0}call monotonicity violation %{∂KK bC < 0}butterfly arbitrage / convexity violation %{∂TbC < 0}calendar arbitrage on forward-normalized prices FD versus AD/analytic Greeks implementation error in derivative labels 96-node versus 192-node quadrature pricing-engine discretization error One-step hedge P&L variance downstream hedge instability Stress-JVP RMSE along PCA/stress modes local scenario instability
+
+The present experiments report the first step—value and sensitivity accuracy—and the scripts include finite-difference checks. A production benchmark should add the full table above, especially no-arbitrage and downstream hedge diagnostics. 21 11 Extensions 
+
+11.1 Second-order derivative-informed training 
+
+Some applications require gamma, cross-gamma, Hessian-vector products, or Gauss–Newton information. A second-order extension adds 
+
+λH Ea,v,u 
+
+
+
+D2 bGθ(a)[ v, u ] − D2G(a)[ v, u ] 2
+
+> U
+
+
+
+. (79) Second-order information is more expensive but valuable for convexity constraints, stress curvature, and second-order hedging. Theorem 3 and Proposition 3 make the case sharp for hedging desks: the discretization component of hedging error is controlled at leading order by the surrogate’s gamma, so a surrogate intended for finite-frequency rebalancing must match second-order sensitivities, not only first-order ones. The Black–Scholes experiment of Section 9 confirms that first-order supervision does not reliably propagate to the unsupervised gamma; when curvature is needed, it must be supervised. Like the first-order objective, the second-order term admits an on-the-fly random-sketch form, Ev,u Tr  ( bH − H)[ v, u ] · · ·  with v, u drawn from economically meaningful pairs (e.g. spot ×spot for gamma, spot ×vol for vanna, vol ×vol for volga), avoiding storage of the full Hessian tensor. 
+
+11.2 Distributionally robust derivative learning 
+
+Financial markets are nonstationary. A derivative-informed operator should be robust not only under the training distribution but also under stressed perturbations. One can replace (15) by sup  
+
+> eμ:W(eμ,μ )≤ρ
+
+Ea∼eμ [ℓvalue (a; θ) + ℓderiv (a; θ)] , (80) where W is a Wasserstein distance. This would emphasize stability under plausible but rare market regimes. 
+
+11.3 Active derivative sampling 
+
+Derivative directions can be chosen adaptively. Let 
+
+eJ (a, v ) = D bGθ(a)[ v] − DG(a)[ v] 2 
+
+> U
+
+. (81) An active sampler selects directions with large estimated derivative error, subject to economic constraints: 
+
+v∗(a) = arg max v∈V , ∥v∥≤ 1 eJ (a, v ). (82) This turns derivative-informed training into a local adversarial stress-testing procedure. 
+
+# 12 Limitations 
+
+Derivative-informed neural operators are not a free lunch. First, derivative labels can be noisy, especially under discontinuous payoffs, early exercise, barriers, callable structures, and Monte Carlo estimators with pathwise discontinuities. Second, derivative supervision can trade off against price accuracy unless losses are carefully scaled. Third, no-arbitrage constraints are model- and asset-class-specific; imposing the wrong constraint can create false comfort. Fourth, a neural operator trained on a historical market-state distribution may fail under structural regime changes. Fifth, the Heston and Bates experiments are intentionally finite-dimensional and the curve-to-surface benchmark is stylized; together they demonstrate mechanism and operator geometry, but they do not replace a market-scale graph/Fourier neural-operator benchmark on live 22 sparse quotes, liquidity-filtered instruments, microstructure noise, and changing strike/maturity grids. Sixth, Table 5 shows a useful negative result: derivative consistency alone does not enforce no-arbitrage, so economic constraints must be explicit rather than assumed. Finally, validation must be desk-specific: an equity-volatility surface, an XVA netting set, and a rates portfolio require different derivative directions, metrics, and governance. 
+
+# 13 Conclusion 
+
+Financial surrogates should be judged not only by whether they reproduce prices, but by whether they reproduce the local geometry of the pricing and risk system. On-the-fly derivative-informed neural operators offer a principled way to do this. They combine neural operator architectures with the derivative machinery already used in quantitative finance: adjoints, tangent equations, AAD, pathwise sensitivities, and implicit differentiation. The resulting models are designed for the tasks finance actually performs: hedging, stress testing, calibration, XVA, capital allocation, and control. The paper’s central message is that financial operator learning should move from value learning to value-plus-derivative learning. Prices are the surface. Greeks and risk sensitivities are the geometry. A surrogate that learns both is more likely to be useful in production than a surrogate that learns only the surface level. Three qualifications sharpen this message. First, at a moderate weight the derivative penalty is not necessarily a tax on value accuracy; in the trained Black–Scholes and operator-level curve-to-surface experiments it improves the value fit as well. Second, accuracy is obtained most reliably in the order of sensitivity that is supervised and is not guaranteed beyond it: a desk that hedges at finite frequency, or imposes convexity, must supervise second-order sensitivities as well. Third, derivative consistency is not economic admissibility: no-arbitrage constraints, monotonicity, convexity, and calendar structure must be enforced separately. The discipline that makes this practical—on-the-fly generation, random sketching along economically meaningful directions, robust loss scaling, and no-arbitrage penalties—is exactly the discipline quantitative finance already possesses. 
+
+# A Compact Derivation of Black–Scholes Derivative Targets 
+
+For a European call with spot S, strike K, maturity T , rate r, and volatility σ,
+
+d1 = log( S/K ) + ( r + σ2/2) Tσ√T , d2 = d1 − σ√T , (83) 
+
+C = SΦ( d1) − Ke −rT Φ( d2), (84) where Φ is the standard normal cdf. The analytic derivative targets used in Table 1 are ∆ = ∂S C = Φ( d1), Vega = ∂σC = S√T ϕ (d1), (85) where ϕ is the standard normal pdf. The held-out second-order check is the gamma Γ = ∂SS C = ϕ(d1)
+
+Sσ √T , (86) which is computed for evaluation only and never enters the training loss. 
+
+# B Characteristic Functions for the Heston and Bates Experi-ments 
+
+The random-feature experiments of Section 9.2 price Heston and Bates calls by Carr–Madan quadrature [Carr and Madan, 1999]. For damping α > 0 and log-strike k = log K, the call price 23 is 
+
+C(K) = e−αk 
+
+π
+
+Z ∞
+
+> 0
+
+ℜ
+
+h
+
+e−iuk ψT (u)
+
+i
+
+du, (87) 
+
+ψT (u) := e−rT ϕT
+
+ u − (α + 1) i
+
+α2 + α − u2 + i(2 α + 1) u . (88) evaluated with 96 Gauss–Legendre nodes on [0 , 160] and α = 1 .5. The Heston characteristic function of log ST , in the numerically stable (“little trap”) form, is 
+
+d(u) = p(ρξiu − κ)2 + ξ2(iu + u2), (89) 
+
+g(u) = κ − ρξiu − d(u)
+
+κ − ρξiu + d(u) , (90) 
+
+C(T, u ) = iu (log S0 + rT ) + κθ ξ2
+
+"
+
+(κ − ρξiu − d(u)) T − 2 log 1 − g(u)e−d(u)T
+
+1 − g(u)
+
+#
+
+, (91) 
+
+D(T, u ) = κ − ρξiu − d(u)
+
+ξ2
+
+1 − e−d(u)T
+
+1 − g(u)e−d(u)T , (92) 
+
+ϕH 
+
+> T
+
+(u) = exp {C(T, u ) + D(T, u )v0}. (93) The Bates model multiplies ϕH 
+
+> T
+
+by a compensated lognormal-jump factor with intensity λ, mean log-jump μJ , and jump volatility σJ ,
+
+ϕB 
+
+> T
+
+(u) = ϕH 
+
+> T
+
+(u) exp 
+
+
+
+λT  eiuμ J − 12 σ2 
+
+> Ju2
+
+− 1 − iu κ J
+
+
+
+, (94) 
+
+κJ = eμJ +σ2  
+
+> J/2
+
+− 1. (95) where the −iuκ J term is the risk-neutral drift compensator, so that the discounted price is a martingale. Setting ξ → 0 with v0 = θ = σ2 reduces ϕH 
+
+> T
+
+to the Black–Scholes characteristic function, and setting λ → 0 reduces ϕB 
+
+> T
+
+to ϕH 
+
+> T
+
+; both identities hold numerically to quadrature precision and are used as correctness checks. The released script obtains derivative targets by central differences of (87) ; an adjoint or automatic-differentiation implementation would produce the same objects without the finite-difference cost. 
+
+# C Curve-to-Surface Operator Benchmark 
+
+For completeness, this appendix records the exact construction used in Section 9.3. The input curve a = ( a1, . . . , a d) is observed on maturities 0 < T 1 < · · · < T d with increments ∆Tj = Tj − Tj−1 and T0 = 0. The discrete integrated variance and effective volatility are 
+
+Vj (a) = X
+
+> ℓ≤j
+
+a2 
+
+> ℓ
+
+∆Tℓ, σj (a) = 
+
+s
+
+Vj (a)
+
+Tj
+
+. (96) For a direction h = ( h1, . . . , h d), 
+
+DV j (a)[ h] = 2 X
+
+> ℓ≤j
+
+aℓhℓ∆Tℓ, Dσ j (a)[ h] = DV j (a)[ h]2Tj σj (a) . (97) At strike Ki and maturity Tj , the price and directional derivative are 
+
+Cij (a) = CBS (S0, K i, T j , r, σ j (a)) , DC ij (a)[ h] = Vega BS (S0, K i, T j , r, σ j (a)) Dσ j (a)[ h]. (98) 24 The low-frequency directions used in the experiment are random draws from the span of 1, T − ¯T , sin( πT / 2) , cos( πT / 2) , sin(2 πT / 2) , cos(2 πT / 2) , (99) scaled to a realistic volatility-shock magnitude. The no-arbitrage diagnostics in Table 5 are the empirical fractions of grid points satisfying 
+
+C(Ki+1 , T j ) − C(Ki, T j ) > 10 −4, (100) 
+
+C(Ki+1 , T j ) − 2C(Ki, T j ) + C(Ki−1, T j ) < −10 −4, (101) 
+
+C(Ki, T j+1 ) − C(Ki, T j ) < −10 −4. (102) 
+
+# D Operator-Level Pseudocode 
+
+Derivative-informed pricing operator. 
+
+1. Input: market-state sampler μ, high-fidelity engine G, direction sampler ν, neural operator 
+
+bGθ.2. For each mini-batch b = 1 , . . . , B :(a) sample market states ai ∼ μ;(b) compute high-fidelity values yi = G(ai); (c) sample directions vij ∼ ν(· | ai); (d) compute zij = DG(ai)[ vij ] by tangent, adjoint, AAD, or pathwise Monte Carlo; (e) compute byi = bGθ(ai) and bzij = D bGθ(ai)[ vij ]; (f) update θ using value, derivative, arbitrage, and regularization losses. 3. Output: derivative-consistent neural operator bGθ.
+
+Recommended reporting table. Every empirical study should report value and derivative errors simultaneously:             
+
+> Model Price Delta Gamma Vega PV01 Hedge P&L High-fidelity engine ––––––Price-only neural operator Derivative-informed neural operator No-arbitrage derivative-informed operator
+
+# References 
+
+David S. Bates. Jumps and stochastic volatility: Exchange rate processes implicit in deutsche mark options. The Review of Financial Studies , 9(1):69–107, 1996. Fischer Black and Myron Scholes. The pricing of options and corporate liabilities. Journal of Political Economy , 81(3):637–654, 1973. Hans B¨ uhler, Lukas Gonon, Josef Teichmann, and Ben Wood. Deep hedging. Quantitative Finance , 19(8):1271–1291, 2019. Luca Capriotti and Mike Giles. 15 years of adjoint algorithmic differentiation (AAD) in finance. 
+
+Quantitative Finance , 24(9):1353–1379, 2024. 25 Peter Carr and Dilip B. Madan. Option valuation using the fast fourier transform. Journal of Computational Finance , 2(4):61–73, 1999. Wojciech M. Czarnecki, Simon Osindero, Max Jaderberg, Grzegorz ´Swirszcz, and Razvan Pascanu. Sobolev training for neural networks. In Advances in Neural Information Processing Systems (NeurIPS) , volume 30, 2017. Bruno Dupire. Pricing with a smile. Risk , 7(1):18–20, 1994. Jim Gatheral and Antoine Jacquier. Arbitrage-free SVI volatility surfaces. Quantitative Finance ,14(1):59–71, 2014. Mike Giles and Paul Glasserman. Smoking adjoints: fast Monte Carlo Greeks. Risk , 19(1):88–92, 2006. Paul Glasserman. Monte Carlo Methods in Financial Engineering . Springer, 2004. Lukas Gonon, Antoine Jacquier, and Ruben Wiedemann. Operator deep smoothing for implied volatility. arXiv preprint arXiv:2406.11520 , 2024. Published in International Conference on Learning Representations (ICLR) 2025. Steven L. Heston. A closed-form solution for options with stochastic volatility with applications to bond and currency options. The Review of Financial Studies , 6(2):327–343, 1993. Cristian Homescu. Adjoints and automatic (algorithmic) differentiation in computational finance. 
+
+SSRN Electronic Journal , 2011. arXiv:1107.1831. Blanka Horvath, Aitor Muguruza, and Mehdi Tomas. Deep learning volatility: a deep neural network perspective on pricing and calibration in (rough) volatility models. Quantitative Finance , 21(1):11–27, 2021. Brian Huge and Antoine Savine. Differential machine learning. arXiv preprint arXiv:2005.02347 ,2020. Nikola Kovachki, Zongyi Li, Burigede Liu, Kamyar Azizzadenesheli, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Neural operator: Learning maps between function spaces with applications to PDEs. Journal of Machine Learning Research , 24(89):1–97, 2023. Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar. Fourier neural operator for parametric partial differential equations. In International Conference on Learning Representations (ICLR) , 2021. Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis. Learning nonlinear operators via DeepONet based on the universal approximation theorem of operators. 
+
+Nature Machine Intelligence , 3(3):218–229, 2021. Dingcheng Luo, Thomas O’Leary-Roseberry, Peng Chen, and Omar Ghattas. Dimension reduction for derivative-informed operator learning: An analysis of approximation errors. 
+
+arXiv preprint arXiv:2504.08730 , 2025. Robert C. Merton. Theory of rational option pricing. The Bell Journal of Economics and Management Science , 4(1):141–183, 1973. Shancong Mou. Derivative-informed training of neural operators on the fly. Talk at IPAM Workshop IV: Multi-Fidelity Methods to Enable Robust Optimization and Real-Time Control of Fusion Processes, May 2026. Institute for Pure and Applied Mathematics, UCLA, May 22, 2026. 26 Jorge Nocedal and Stephen J. Wright. Numerical Optimization . Springer, 2nd edition, 2006. Thomas O’Leary-Roseberry, Peng Chen, Umberto Villa, and Omar Ghattas. Derivative-informed neural operator: An efficient framework for high-dimensional parametric derivative learn-ing. Journal of Computational Physics , 496:112555, 2024. doi: 10.1016/j.jcp.2023.112555. arXiv:2206.10745. Ali Rahimi and Benjamin Recht. Random features for large-scale kernel machines. In Advances in Neural Information Processing Systems (NeurIPS) , volume 20, 2008. Maziar Raissi, Paris Perdikaris, and George E. Karniadakis. Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations. Journal of Computational Physics , 378:686–707, 2019. Justin Sirignano and Konstantinos Spiliopoulos. DGM: A deep learning algorithm for solving partial differential equations. Journal of Computational Physics , 375:1339–1364, 2018. Roman Vershynin. High-Dimensional Probability: An Introduction with Applications in Data Science . Cambridge University Press, 2018. Boyuan Yao, Dingcheng Luo, Lianghao Cao, Nikola Kovachki, Thomas O’Leary-Roseberry, and Omar Ghattas. Derivative-informed Fourier neural operator: Universal approximation and applications to PDE-constrained optimization. arXiv preprint arXiv:2512.14086 , 2025. 27

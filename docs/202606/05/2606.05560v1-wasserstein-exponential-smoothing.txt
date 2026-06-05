@@ -1,0 +1,4450 @@
+Title: Wasserstein Exponential Smoothing
+
+URL Source: https://arxiv.org/pdf/2606.05560v1
+
+Published Time: Fri, 05 Jun 2026 00:33:48 GMT
+
+Number of Pages: 35
+
+Markdown Content:
+# Wasserstein Exponential Smoothing 
+
+Takuo Matsubara Peiwen Jiang Minh-Ngoc Tran Wilson Ye Chen 
+
+The University of Sydney Business School, Australia 
+
+Abstract 
+
+Exponential smoothing (ES) often outperforms other techniques in time series forecasting across a wide range of data-generating processes. While ES has traditionally been applied to time series in R, this paper extends the methodology to distributional time series, where each observation is a probability distribution on R. The primary contribution of this work is twofold. First, we propose a principled and intuitive generalization of ES within the Wasserstein space, which retains the exceptional parsimony of classical ES. Second, we theoretically and empirically demonstrate that the smoothing parameter can be consistently estimated by minimizing a Wasserstein distance. Ap-plications to distributional time series of high-frequency financial returns and household electricity demands confirm the practical effectiveness of our Wasserstein ES model. 
+
+# 1 Introduction 
+
+Data objects that are naturally represented as probability distributions are arising in a broad spectrum of modern statistical applications (Zhang et al., 2022; Ghodrati and Panaretos, 2022; Chen et al., 2023; Zhu and Müller, 2023). Such distributional observations occur when heterogeneous measurements are aggregated within a unit of analysis, or when the quantity of interest is itself intrinsically a probability distribution. Prominent examples include voxel correlations in functional magnetic resonance imaging signals (Petersen and Müller, 2016), demographic body mass indices (Zhou and Müller, 2024), and biosensor glucose profiles (Matabuena et al., 2021). When observed sequentially, these objects form a 
+
+distributional time series , that is, a stochastic process whose state is a probability distribution at each time index. The analysis of distributional time series presents challenges distinct from those encountered in classical scalar-valued settings. The state space is infinite-dimensional and lacks the vector-space structure upon which most standard time series methodologies rely. Consequently, standard opera-tions such as addition and scalar multiplication cannot be directly applied to describe the temporal dynamics of probability distributions. These structural limitations have motivated the use of opti-mal transport under Wasserstein geometry as a natural framework for distributional data analysis. Recent methodological developments have focused primarily on adapting autoregressive frameworks to this distributional setting. For example, Zhang et al. (2022) introduced a class of autoregressive models for distributional time series, while Zhu and Müller (2023) developed analogous methodologies within the space of optimal transport maps. These works demonstrate that temporal dependence can be effectively modeled in a manner that respects the intrinsic geometry of the space of probability distributions. However, the methodological toolkit for distributional time series remains substantially underde-veloped compared to its scalar-valued counterpart. A particularly notable omission is an analogue of exponential smoothing (ES; Gardner, 1985). In the classical setting, ES is among the most widely used forecasting procedures because of its simplicity, robustness, and strong empirical performance across a broad range of data-generating mechanisms (Gardner, 2006). Its appeal lies in a recursive update that combines the current observation with the previous smoothed state via a single smoothing parameter. This parsimonious construction often yields accurate one-step-ahead forecasts compared to more sophisticated specifications of the dynamics. Establishing a corresponding methodology for dis-tributional time series would therefore provide a compelling alternative to autoregressive formulations, particularly in applications where adaptivity and simplicity are paramount. 1
+
+> arXiv:2606.05560v1 [stat.ME] 4 Jun 2026
+
+This paper develops an extension of ES for probability distributions on R, which we term Wasser-stein exponential smoothing (WES). Our starting point is the defining recursion of classical ES, viewed as an iterative interpolation between the current observation and the previous smoothed state. We lift this recursion from Euclidean space to Wasserstein space by replacing ordinary linear interpola-tion with geometric interpolation under the Wasserstein distance. The resulting procedure generates a sequence of smoothed probability distributions that evolves according to the intrinsic geometry of the Wasserstein space. The focus on distributions on R is crucial, as the one-dimensional Wasserstein geometry admits a highly tractable representation in terms of quantile functions. This property renders both the smoothing recursion and the loss-based estimation procedure analytically and computation-ally feasible. Crucially, the proposed method preserves the essential parsimony of classical ES, as the dynamics remain governed by a single scalar smoothing parameter. Our contributions are summarized as follows. First, we formulate an exponential smoothing pro-cedure for distributional time series in the Wasserstein space. Second, we propose estimating the smoothing parameter by minimizing a Wasserstein loss based on the observed series. Third, we es-tablish the theoretical properties of the framework, namely extended notions of mean stationarity and autocovariance decay for the smoothing dynamics, and estimation consistency. Fourth, we em-pirically validate the method using high-frequency financial return data and electricity consumption data, demonstrating that WES outperforms established distributional autoregressive benchmarks in predictive accuracy. The remainder of the paper is organized as follows. Section 2 reviews classical ES, basic concepts in distributional data analysis, and existing work on distributional time series. Section 3 formally introduces WES, and develops an estimation procedure via the minimization of Wasserstein distance. Section 4 presents theoretical results, including the sample-path properties and consistency. Section 6 reports our empirical findings. Finally, Section 7 concludes with a discussion of possible extensions. 
+
+# 2 Background 
+
+This section reviews the necessary background for our analysis. 
+
+2.1 Exponential Smoothing 
+
+Exponential smoothing (ES) is one of the most influential and widely used methods in time series forecasting. Originally, ES was proposed as a simple recursive forecasting device (Brown, 1959; Holt, 1957; Winters, 1960). Since its introduction, ES has developed into a rich statistical framework, deeply interconnected with state-space models, ARIMA models, and optimal forecasting under specific data-generating mechanisms (Gardner, 1985, 2006; Muth, 1960; Harvey, 1984; Hyndman et al., 2002, 2008). Its practical success has been remarkably persistent: despite its simplicity, ES and its variants continue to perform strongly in large-scale forecasting studies, often serving as benchmark methods against which more elaborate procedures are compared (Makridakis et al., 2018a, 2020, 2018b). In this paper, we focus on simple exponential smoothing (the level-only form of ES) as our primary goal is one-step-ahead forecasting, where trend and seasonal extensions are left to future work. Let {yt}Tt=1 denote a real-valued time series. Let xt denote the latent predictors at each t, designed to forecast the next observation yt+1 . Simple ES can be expressed in component form as 
+
+yt = xt−1 + et, (1) 
+
+xt = (1 − θ)xt−1 + θy t, (2) where θ ∈ [0 , 1] is the smoothing parameter and {et}Tt=1 is an innovation sequence, typically assumed to satisfy E[et] = 0 for all t. The predictor xt is obtained by taking a convex combination of the previous predictor xt−1 and the current observation yt. Small values of θ yield smoother predictor trajectories, while values closer to one make the method more adaptive to recent observations. The term ‘exponential smoothing’ arises because, by solving the recursion in (1)–(2), the one-step-ahead forecast xt can expand into an exponentially weighted average of past observations. Because 2simple ES contains only a level component, its multi-step-ahead forecasts remain constant. Thus, simple ES is naturally suited for series without pronounced trends or seasonality. Since the introduction of ES, several equivalent formulations fundamental to its statistical inter-pretation have been developed. In particular, ES can be rewritten in error-correction form as 
+
+yt = xt−1 + et, (3) 
+
+xt = xt−1 + θe t, (4) where et = yt − xt−1 serves as the one-step-ahead forecast error. This representation shows that the predictor is updated by correcting the previous estimate in the direction of the latest innovation. It establishes the fundamental link between ES and innovation state-space models. Furthermore, simple ES connects to an ARIMA (0 , 1, 1) model in the additive case via the backshift operator (Gardner, 2006; Hyndman et al., 2008). From a state-space perspective, simple ES corresponds to the local-level model in steady state, and is optimal under the random-walk-plus-noise framework studied by Muth (1960). These equivalences help explain why ES often performs well in one-step-ahead forecasting, even when the underlying true dynamics are not fully specified. 
+
+2.2 Wasserstein Space, Displacement Interpolation, and Random Measure 
+
+The Wasserstein distance and associated tools from optimal transport theory (Villani, 2009) provide the foundation for WES. Let P2(R) denote the space of probability distributions on R with a finite second moment. The 2-Wasserstein distance between two distributions μ, ν ∈ P 2(R) is defined as 
+
+W 22 (μ, ν ) = inf 
+
+> π∈Π( μ,ν )
+
+Z
+
+> R⊗R
+
+∥x − y∥2π(dx × dy ), (5) where Π( μ, ν ) is the set of probability measures on R ⊗ R with marginals μ and ν. Under appropriate regularity, the infimum in (5) is uniquely attained by a distribution π supported on {(x, T μ→ν (x)) | x ∈
+
+R} for a monotonic map Tμ→ν , called the optimal transport map . The optimal transport map yields a pushforward relation ν = ( Tμ→ν )#μ, that is, ν(A) = μ(T −1 
+
+> μ→ν
+
+(A)) for every measurable set A ⊂ R.The Wasserstein space W2(R) is defined as the space P2(R) equipped with the Wasserstein distance. For the specific case of the one-dimensional domain R, the Wasserstein distance and the optimal transport map admit accessible closed-form expressions. Let U and V denote the quantile functions of μ and ν, respectively. It is well established (see, e.g., Panaretos and Zemel, 2020) that 
+
+W 22 (μ, ν ) = 
+
+Z 10
+
+(U (q) − V (q)) 2dq and Tμ→ν (x) = V ◦ U −1(x).
+
+Crucially, the optimal transport map Tμ→ν defines a geodesic in the Wasserstein space W2(R).Intuitively, a geodesic is the shortest path connecting two points, traced continuously by a scalar parameter θ ∈ [0 , 1] . In Euclidean space, the geodesic between points a and b is given by their convex combination 
+
+cθ = (1 − θ)a + θb, θ ∈ [0 , 1] .
+
+In Wasserstein space, the geodesic between μ and ν is given by the pushforward distribution 
+
+μθ =  (1 − θ)Id + θT μ→ν
+
+
+
+> #
+
+μ, θ ∈ [0 , 1] .
+
+Via the Benamou-Brenier formula (Ambrosio et al., 2024), this distributional path, known as displace-ment interpolation , is formally proven to be the shortest path connecting μ and ν in W2(R).A fundamental premise of distributional data analysis is that each random observation takes values in the space of probability distributions. This premise relies on the concepts of random measures 
+
+and random maps (Panaretos and Zemel, 2020). A random measure is a random element taking values in W2(R). Like standard random variables in R, formally it is defined as a measurable map from a probability space to the Wasserstein space W2(R) endowed with its Borel σ-algebra. Because 3W2(R) is a Polish space, random measures are well-defined (Panaretos and Zemel, 2020). Similarly, a random map is a random element taking values in L2(R). Random maps are useful for modeling observation noise in distributional data: the pushforward of a fixed measure under a random map naturally generates a random measure. One can define a random optimal transport map between a fixed and a random measure, with its measurability guaranteed via (Villani, 2009, Corollary 5.22). 
+
+2.3 Related Work 
+
+Recent work on distributional time series has focused primarily on autoregressive and regression-type constructions in Wasserstein space. A first important contribution is the Wasserstein autoregressive model (WAR) of Zhang et al. (2022), which develops AR-type models for density time series by lifting distributions to a tangent space at the Wasserstein mean and imposing autoregressive structure there. This yields a flexible geometric analogue of classical autoregression and provides a well-developed framework for estimation, order selection, and forecasting. However, the resulting model is still fun-damentally autoregressive in nature, with the dynamics represented through tangent-space regression operators. A conceptually different intrinsic approach is the autoregressive transport map model (ATM) of Zhu and Müller (2023). Rather than working with distributions directly or through a tangent-space em-bedding, ATM models temporal dependence by regressing optimal transport maps on one another. In particular, the predictors and responses are transport maps, for example transports from a barycenter to individual distributions or between successive time points, and the corresponding model links them through geodesic structure in Wasserstein space. ATM therefore avoids tangent-space linearization, but it remains a regression-based autoregressive formulation in a space of transport maps. The distribution-on-distribution regression model (DoDRM) of Ghodrati and Panaretos (2022) provides another important point of reference. This model is formulated for independent predictor-response pairs of distributions rather than for time series, and it links the conditional Fréchet mean of the response to the predictor through a single optimal transport map. In this sense, DoDRM is a regression model between distributions, rather than a dynamic model for sequentially observed distri-butions. Nonetheless, it is closely related to subsequent transport-based autoregressive developments and provides a useful conceptual precursor. Building on this line of work, Ghodrati and Panaretos (2024) study distributional autoregression models (DAM) through the perspective of iterated transportation. Their framework treats an order-1
+
+distributional autoregression as a Markov chain in which the one-step conditional Fréchet mean is specified through regression with respect to a natural probability metric, and they analyze several models based on iterated random function systems of optimal transport maps. This perspective unifies and extends a number of existing transport-based autoregressive constructions, including links to regression formulations such as DoDRM. 
+
+# 3 Methodology 
+
+This section presents the WES framework, a novel extension of ES to distributional time series. Our aim and construction are distinct from existing approaches. Rather than working on autoregressive tangent vectors or transport maps, we develop a recursive geodesic update of distributions, designed specifically for one-step-ahead forecasting. Notably, WES retains the high parsimony of classical ES: the dynamics are governed by a single scalar parameter, bypassing the estimation of autoregressive operators or transport-regression maps. Thus, WES stands as a complement to the existing autoregressive literature on distributional time series, rather than a variant. Building upon the setup in Section 3.1, Section 3.2 establishes a distribution-valued stochastic process governed by the WES structure. Section 3.3 demonstrates that this process admits a quantile representation corresponding to the error-correction form of classical ES. Section 3.4 then details both the smoothing and one-step-ahead forecasting procedures for observed distributional time series, providing a consistent estimator for the smoothing parameter. 43.1 Setup 
+
+In standard time series analysis, we observe a sequence of scalars y1, . . . , y T indexed by time t =1, . . . , T . In distributional time series analysis, we observe a sequence of probability distributions 
+
+ν1, . . . , ν T indexed by time t = 1 , . . . , T . Crucially, our framework imposes no parametric assumption or density requirement on the distribution νt. In our applications, each νt is represented by an empirical distribution based on a set of finite samples. Formally, we model each observable distribution νt as a random measure, i.e., a random element taking values in the Wasserstein space W2(R). To distinguish the random measure from its realization, we refer to νt as a random observable when emphasizing its randomness. Consequently, the random-observable sequence ν1, . . . , ν T defines a discrete-time stochastic process on W2(R).Our aim is to construct another sequence of distributions μ1, . . . , μ T , termed random predictors ,where the predictor μt is used to forecast the next observable distribution νt+1 . We model each predictor distribution μt as a random measure in W2(R). An underlying assumption in our modeling is that, at each time t, the random observable νt+1 is generated from the random predictor μt subject to observation noise; details are provided in the next section. The WES structure defines the temporal evolution of the observables νt and the predictors μt. For conceptual clarity, we use the terms WES process and WES filter to distinguish between (i) the un-derlying data-generating stochastic process and (ii) the resulting smoothed-state estimator conditional on observations. Precisely, the latter refers to the estimator of optimal predictor states that yields a smoothed representation of the observed distributional sequence. 
+
+3.2 WES Process: A Non-Stationary Distribution-Valued Stochastic Process 
+
+The WES process is a state-space model operating on the Wasserstein space W2(R). Analogous to the standard ES process, the random observable νt+1 is assumed to be generated from the latent predictor μt subject to observation noise. In distributional data analysis, observation noise is typically formulated via random pushforward maps between distributions (Panaretos and Zemel, 2020). 
+
+Definition 1 (Random Pushforward Map) . A random pushforward map E is a random element in 
+
+L2(R), whose realizations are almost surely non-decreasing. That is, for any x ∈ R, E(x) is a real-valued random variable, and P  R  
+
+> R
+
+E(x)2dx < ∞ and E(x) ↗ in x = 1 .
+
+By its almost sure monotonicity, every realization of the random pushforward map E constitutes an optimal transport map (Villani, 2009). The WES process defines each observable νt as the pushforward of μt−1 under this noisy transport map: 
+
+νt = ( Et)# μt−1,
+
+where Et denotes an independent random transport map at each time t. Importantly, the random transport map Et need not be explicitly modeled or inferred. As demonstrated later, parameter esti-mation and forecasting within the WES filter depend solely on the observed distributional time series. Nevertheless, it is instructive to examine sample paths of the WES process simulated under specific random pushforward maps; see Section 5. The concept of geodesics plays a key role in extending ES to distributional settings. In standard ES, the latent predictor xt in (2) corresponds to an intermediate point on the Euclidean geodesic connecting the previous predictor xt−1 and observable yt. Drawing on this geometric interpretation, we define the predictor distribution μt as an intermediate point on the Wasserstein geodesic connecting the previous predictor distribution μt−1 and observable distribution νt.
+
+Definition 2 (WES Process) . Given a parameter θ∗ ∈ (0 , 1) and a fixed initial distribution μ0, a random observable νt and a random predictor μt are defined recursively from t = 1 to T by 
+
+νt = ( Et)# μt−1, (6) 
+
+μt =  (1 − θ∗) · Id + θ∗ · Tμt−1→νt
+
+ 
+
+> #
+
+μt−1. (7) 
+
+The sequence of random observables {νt}Tt=1 is called the WES process. 
+
+5μt−1
+
+νt
+
+μt
+
+νt+1 
+
+μt+1 
+
+νt+2 
+
+1 − θ∗ 1 − θ∗
+
+θ∗ θ∗Et Et+1 Et+2 
+
+Figure 1: The state-space representation of the WES process. For simplicity of exposition, we assume the initial condition μ0 is deterministic. Nonetheless, this choice entails no loss of generality, as all results extend readily to settings with a random μ0.Figure 1 illustrates the structure of the WES process. As demonstrated by the theoretical analysis in Section 4 and the simulations in Section 5, the WES process induces a novel class of complex, non-stationary dynamics over probability distributions. Remarkably, despite this complex behavior, the entire evolution of the WES process is governed by a single scalar parameter θ∗ ∈ (0 , 1) .
+
+3.3 Error-Correction Form of WES Process 
+
+We recall that the standard ES model can be expressed in error-correction form, as detailed in Section 2. The WES process inherits this property, admitting a corresponding error correction form via its quantile representation. Because νt and μt are random measures in W2(R), their quantile functions, denoted 
+
+Vt and Ut, inherently constitute random elements in L2((0 , 1)) . Under the pushforward relation (6) in the WES process, these random quantile functions satisfy the following identity 
+
+Vt(q) = Et
+
+ Ut−1(q) at each q ∈ (0 , 1) .
+
+Central to our theoretical analysis is the concept of the quantile residual defined below. 
+
+Definition 3 (Quantile Residual) . At each time t ≥ 1, we define the quantile residual Ft by 
+
+Ft(q) := Vt(q) − Ut−1(q) = Et
+
+ Ut−1(q) − Ut−1(q) for each q ∈ (0 , 1) ,
+
+which is a random element in L2((0 , 1)) .
+
+The WES process admits an alternative representation in terms of these random quantile functions and quantile residuals. The proof is provided in Section C.1. 
+
+Proposition 1 (Error Correction Form of WES) . The WES process in Definition 2 is equivalent to the sequence of random quantile functions Vt and Ut defined recursively from t = 1 to T by 
+
+Vt(q) = Ut−1(q) + Ft(q), (8) 
+
+Ut(q) = Ut−1(q) + θ∗Ft(q), (9) 
+
+where U0 is the deterministic quantile function of the fixed initial condition μ0.
+
+This result elucidates the direct connection between WES and classical ES. The recursive update in (6)-(7) serves as a counterpart to the component form in (1)-(2), while the quantile representation in (8)-(9) corresponds to the error-correction form in (3)-(4). As demonstrated in Section A, the quantile residuals Ft exhibit desirable properties under appropriate regularity conditions. For example, they are centered, i.e., E[Ft+1 (q)] = 0 , being consistent with a key requirement for residuals in ES. 63.4 WES Filter: Smoothing and Forecasting from Data 
+
+The WES framework is designed to perform smoothing and one-step-ahead forecasting for distributional time series. While forecasting is straightforward, the notion of distributional smoothing may appear less intuitive: it involves filtering the inherent noise within the observed data {νt}Tt=1 to recover signal. The goal is to reconstruct the underlying predictor sequence {μθt }Tt=1 given a smoothing parameter 
+
+θ ∈ (0 , 1) . The WES filter arises by conditioning the WES process on the data. 
+
+Definition 4 (WES Filter) . Given a parameter θ ∈ (0 , 1) , a fixed initial distribution μ0, and a data sequence {νt}Tt=1 , the predictor μθt is defined recursively from t = 1 to T by 
+
+μθt =
+
+
+
+(1 − θ) · Id + θ · Tμθt−1→νt
+
+ 
+
+> #
+
+μθt−1.
+
+The resulting sequence of predictors {μθt }Tt=0 is called the WES filter of the data sequence {νt}Tt=1 .
+
+Crucially, the WES filter requires no knowledge of the random pushforward maps Et generating the WES process. Instead, it relies solely on the observed data sequence {νt}Tt=1 and the smoothing parameter θ ∈ (0 , 1) . The parameter θ balances the smoothness of the predictor trajectory against its adaptivity to the data. Specifically, a small θ reduces the variation between successive predictors μθt
+
+and μθt−1, while a large θ causes the predictor μθt to track the observation νt more closely. Our aim is to estimate the optimal smoothing parameter θ that minimizes the forecasting error of the WES filter. At each time t, the predictor μθt serves as a one-step-ahead forecast for the next observation νt+1 . The in-sample predictive performance of the WES filter can be assessed by evaluating the squared Wasserstein error W 22 (μθt , ν t+1 ). We estimate the parameter θ by minimizing the squared Wasserstein prediction error averaged across the sample. 
+
+Definition 5 (Minimum Wasserstein Estimator) . Let {μθt }Tt=0 denote the WES filter of a given data sequence {νt}Tt=1 for each smoothing parameter θ ∈ (0 , 1) . The estimator θT , defined as 
+
+θT := arg min 
+
+> θ∈(0 ,1)
+
+LT (θ) where LT (θ) := 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+W 22
+
+ μθt , ν t+1 
+
+,
+
+is termed the minimum Wasserstein estimator of the WES smoothing parameter. 
+
+The Wasserstein error at each time t can be computed efficiently, owing to the tractable nature of optimal transport in the one-dimensional setting. Specifically, the Wasserstein error between μθt and 
+
+νt+1 reduces to the L2 distance between their quantile functions, denoted by U θt and Vt+1 :
+
+W 22
+
+ μθt , ν t+1 
+
+ =
+
+Z
+
+> (0 ,1)
+
+
+
+U θt (q) − Vt+1 (q)
+
+2
+
+dq. 
+
+This integral over the unit interval (0 , 1) can be accurately evaluated using standard numerical quadra-ture methods. Once the optimal parameter θT is determined, the corresponding final predictor μθt given 
+
+θ = θT serves as the one-step-ahead forecast for the subsequent observation νT +1 .
+
+# 4 Theoretical Analysis 
+
+This section establishes the theoretical foundations for the WES framework. Developing this theory poses fundamental challenges, as the WES process operates in the infinite-dimensional, non-linear space of probability distributions. Section 4.1 investigates the regularity of the WES sample paths. Building on these results, Section 4.2 analyzes the properties of the predictive error LT (θ) and establishes the consistency of the minimum Wasserstein estimator. Throughout this section, {νt}Tt=1 denotes the data sequence following the WES process with a fixed parameter θ∗ ∈ (0 , 1) . Let {μθt }Tt=1 denote the WES filter conditional on the data sequence {νt}Tt=1 for a given parameter θ ∈ (0 , 1) . To streamline the analysis, we impose the following moment conditions on the random pushforward maps {E t}Tt=1 associated with the underlying WES process. 7Standing Assumption: The random pushforward maps {E t}Tt=1 are mutually independent. For each time t ≥ 1, there exist constants σt and κt such that, for all x ∈ R, the random pushforward map 
+
+Et satisfies: (i) E[( Et(x) − x)] = 0 ; (ii) E[( Et(x) − x)2] = σ2 
+
+> t
+
+; (iii) E[( Et(x) − x)4] ≤ κt. Furthermore, the constants σt and κt admit time-independent bounds σt ≤ σ and κt ≤ κ for all t.
+
+4.1 Regularity of WES Sample Paths 
+
+The WES process defines a non-stationary stochastic process on the space of probability distributions. Despite this complexity, its sample paths satisfy desirable properties regarding their mean and variance. Because the state space of the WES process is not a vector space, conventional definitions of mean and variance do not apply. It is therefore natural to adopt the Fréchet mean and variance (Fréchet, 1948), whose existence is well established in the Wasserstein space (Panaretos and Zemel, 2020). 
+
+Definition 6 (Fréchet Mean and Variance) . For a random measure μ in W2(R), its Fréchet mean and variance are, respectively, a distribution E(μ) ∈ W2(R) and a scalar V (μ) ∈ R, defined by 
+
+E(μ) := arg min 
+
+> ρ∈W2(R)
+
+EW 22 (ρ, μ ) and V (μ) := EW 22 (E(μ), μ ).
+
+A real-valued time series is said to be mean stationary if its expected value remains constant across time. The following result shows that the Fréchet mean of the WES process remains constant across time. Thus, the WES process is said to be Fréchet-mean stationary . Furthermore, the Fréchet-mean stationarity guarantees the uniform boundedness of the Fréchet variance. 
+
+Proposition 2 (Fréchet-Mean Stationarity) . The WES process {νt}Tt=1 satisfies E(νt) = μ0 for all 
+
+t ≥ 1, where μ0 is the fixed initial distribution. Furthermore, V (νt) < ∞ for all t ≥ 1.
+
+The proof is provided in Section C.2. This stationarity implies that the random observable νt does not arbitrarily drift from the initial distribution μ0, since 
+
+E[W 22 (μ0, ν t)] = E[W 22 (E(νt), ν t)] = V (νt) < ∞, ∀t. 
+
+Hence, in expectation, the observables νt are localized around μ0 in the sense of the Wasserstein metric. We now analyze an extended notion of the residual between the filter predictor μθt and the data observable νt+1 . Let U θt : (0 , 1) → R denote the quantile function of μθt , and recall that Vt : (0 , 1) → R
+
+denotes the quantile function of νt. The predictive error between the predictor μθt and the observable 
+
+νt+1 can be conveniently expressed via their quantile functions: 
+
+W 22 (μθt , ν t+1 ) = 
+
+Z
+
+> (0 ,1)
+
+ U θt (q) − Vt+1 (q)2dq. (10) We refer to the difference U θt − Vt+1 as the model-quantile residual . This model-quantile residual serves as a functional proxy for assessing the bias in the distributional filtering process. We examine the autocovariance of the model-quantile residuals, defined via the L2((0 , 1)) inner product between the residuals at different time steps. While these residuals are not i.i.d. across time, their autocovariance exhibits exponential decay over time. In the below, ∥ · ∥ and ⟨· , ·⟩ denote the norm and inner product of L2((0 , 1)) , respectively. 
+
+Proposition 3 (Residual Autocovariance) . For any θ ∈ (0 , 1) and time t > s ≥ 0, we have 
+
+E
+
+h
+
+U θt − Vt+1 , U θs − Vs+1 
+
+i
+
+= (1 − θ)t+s∥∆0∥2 + ( θ − θ∗)2(1 − θ)t−smθs + θ − θ∗
+
+1 − θ (1 − θ)t−sσ2
+
+> s+1
+
+,
+
+where we ∆0 := U θ 
+
+> 0
+
+− U0 and mθs := Psi=1 (1 − θ)2( s−i)σ2 
+
+> i
+
+.
+
+The proof is provided in Section C.3. Observe that the autocovariance of the model-quantile residuals is not strictly translation-invariant, meaning it is not solely a function of the time lag t − s.This indicates that the model-quantile residual exhibits more complex dynamics than a standard weakly stationary process. Nonetheless, the rapid decay of its autocovariance is a crucial property, which allows us to establish the convergence of the Wasserstein error in the subsequent subsection. 84.2 Consistency of the Minimum Wasserstein Estimator 
+
+This section establishes the consistency of the minimum Wasserstein estimator θT . Recall the definition 
+
+θT := arg min 
+
+> θ∈(0 ,1)
+
+LT (θ) where LT (θ) := 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+W 22 (μθt , ν t+1 ). (11) Here, note that LT is a stochastic function whose randomness arises from the data sequence {νt}Tt=1 .By virtue of the quantile representation (10), the error LT can be interpreted as the time average of the squared L2 norms of the model-quantile residuals. We first establish that the error LT concentrates around a deterministic limit function as the sample size increases. Despite the data being neither i.i.d. nor vector-valued, we establish a result corresponding to the pointwise and uniform law of large numbers for the stochastic function LT .
+
+Theorem 1 (Pointwise Convergence) . For each θ ∈ (0 , 1) , we have the pointwise convergence: 
+
+LT (θ) p
+
+→ A∞(θ)( θ − θ∗)2 + C∞,
+
+where A∞(θ) is a strictly positive deterministic function and C∞ is a non-negative constant. 
+
+Proposition 4 (Uniform Convergence) . The convergence in probability established in Theorem 1 is uniform over any compact subset of (0 , 1) .
+
+The proofs of Theorem 1 and Proposition 4 are provided in Sections C.4 and C.5, respectively. Recall that the data sequence {νt}Tt=1 follows the WES process with true parameter θ∗. As T → ∞ ,the minimum Wasserstein estimator θT recovers θ∗. We now establish this consistency. 
+
+Theorem 2 (Consistency) . Assume there exists a compact set Ω ⊂ (0 , 1) that contains θ∗ and θT for all sufficiently large T . The estimator θT is consistent, that is, θTp
+
+→ θ∗.
+
+The proof is provided in Section C.6. The assumption regarding the compact set Ω containing the estimator θT is a standard regularity condition for establishing consistency in asymptotic statistics (see e.g., Vaart, 1998). Because the compact set Ω can be chosen arbitrarily, this assumption is not restrictive; in practice, one can specify a sufficiently large compact set Ω ⊂ (0 , 1) and perform the minimization in (11) directly over Ω.
+
+# 5 Simulation Studies 
+
+We next examine the finite-sample behavior of the minimum Wasserstein estimator through a simula-tion study. Our goals are twofold: first, to illustrate that the WES process can generate qualitatively different distributional dynamics; second, to assess the finite-sample performance of the estimator θT
+
+across a range of smoothing parameters and sample sizes. 
+
+Figure 2: Illustrative sample paths from the WES process, both simulated with θ = 0 .8, under the random shift map EShift  
+
+> t
+
+(left) and the random sine map ESine  
+
+> t
+
+(right). 9(a) Shift, θ = 0 .2 (b) Shift, θ = 0 .5 (c) Shift, θ = 0 .8        
+
+> (d) Sine, θ= 0 .2(e) Sine, θ= 0 .5(f) Sine, θ= 0 .8
+
+Figure 3: Boxplots of the estimated smoothing parameters θT over 500 replications. The six panels correspond to the three values θ ∈ { 0.2, 0.5, 0.8} and the two random map specifications EShift  
+
+> t
+
+and 
+
+ESine  
+
+> t
+
+. Within each panel, the three boxplots correspond to sample sizes T = 100 , T = 500 and 
+
+T = 1000 . The dashed horizontal line indicates the true value of θ.We consider two specifications of the random pushforward map. The first is a random shift map, 
+
+EShift  
+
+> t
+
+(x) = x + Bt, Bt ∼ Normal(0 , 1) ,
+
+which produces purely translational perturbations of the latent predictor distribution. The resulting observable distributions retain the same overall shape as the predictor, but their locations fluctuate randomly over time. The second is a random sine map, 
+
+ESine  
+
+> t
+
+(x) = 
+
+> 3
+
+X
+
+> j=1
+
+Wt,j 
+
+(
+
+x − a sin  π(x − Ct,j )
+
+π
+
+)
+
+,
+
+where a = 0 .3, the random centers Ct, 1, C t, 2, C t, 3 are independent Uniform( −1, 1) variables, and the weights Wt, 1, W t, 2, W t, 3 are random positive weights normalized to sum to one. Unlike the shift speci-fication, this map introduces local nonlinear deformations while preserving monotonicity, thereby gen-erating richer changes in shape across time. Both maps satisfy the standing assumptions introduced in Section 4; verification of these properties is provided in Section D.1. Figure 2 provides representative sample paths under the two map specifications. While these ex-amples are intended only as illustrations, they show that the WES process can accommodate markedly different forms of distributional dynamics. Under the shift map, the evolution is driven mainly by random location changes, whereas under the sine map the observable distributions may also undergo more irregular shape deformations. This distinction is useful for our simulation study, since it allows us to probe the estimator under both relatively simple and more complex perturbations. To assess the performance of the estimator, we consider combinations of smoothing parameter 
+
+θ ∈ { 0.2, 0.5, 0.8}, random map Et ∈ {E Shift  
+
+> t
+
+, ESine  
+
+> t
+
+}, and sample size T ∈ { 100 , 500 , 1000 }. This yields 10 3 × 2 × 3 = 18 simulation settings in total. For each setting, we obtain the estimator θT by fitting the WES filter to the simulated sample path and minimizing the empirical loss over θ ∈ (0 , 1) . The default initial predictor is set to the standard normal distribution throughout. We repeat the same procedure 
+
+500 times, generating independent sample paths from the WES process. Figure 3 summarizes the empirical sampling distributions of θT obtained from the repeated ex-periment in each setting. Several features are apparent. As T increases from 100 to 1000, sampling variability consistently decreases, as indicated by the tighter interquartile ranges and whiskers. Across all cases, the estimates are well centered around the true smoothing parameter θ, exhibiting no sub-stantial finite-sample bias even under the nonlinear sine map. These patterns provide strong empirical support for the theoretical consistency established in Section 4, demonstrating that the minimum Wasserstein estimator is reliably accurate and practically stable in finite samples. 
+
+# 6 Applications 
+
+This section evaluates the one-step-ahead forecasting performance of WES in two empirical applica-tions. The first involves daily distributions of high-frequency equity-index returns, and the second, household electricity-demand residuals. These complementary applications capture distinct dynamics: the former builds distributions from intraday trading observations, while the latter uses within-day con-sumption residuals. Thus, both datasets provide genuine distributional time series, while representing distinct empirical domains and different sources of distributional variation. We compare WES with the four benchmark methods reviewed in Section 2.3: WAR (Zhang et al., 2022), ATM (Zhu and Müller, 2023), ODAM (Ghodrati and Panaretos, 2024), and DoDRM (Ghodrati and Panaretos, 2022). The aim is to assess whether the parsimonious recursive structure of WES deliv-ers competitive one-step-ahead forecasts against existing autoregressive and regression-based methods. In what follows, ⌊x⌋ denotes the floor of a scalar x (i.e., the largest integer less than or equal to x). 
+
+6.1 Forecasting Design and Evaluation 
+
+For both applications, we use the following expanding-window forecasting design. Let ν1, . . . , ν T denote the observed distributional time series of length T . The first 70% of the time series is reserved for the initial in-sample window, where we set T0 := ⌊0.7 × T ⌋ and Tout := {T0 + 1 , . . . , T }. For each out-of-sample time t ∈ T out , each competing method, denoted m, constructs a one-step-ahead forecast distribution νm,t |t−1 using only information available up to time t − 1. We then observe the realized distribution at time t and record the forecast loss. At each forecast origin, we evaluate the squared Wasserstein loss: 
+
+ℓ2 
+
+> m,t
+
+:= W 22
+
+ νm,t |t−1, ν t
+
+ , t ∈ T out .
+
+Averaging the squared Wasserstein loss ℓ2 
+
+> m,t
+
+over the out-of-sample window yields the mean squared Wasserstein prediction error, aligned with the WES estimation criterion. This serves as a distributional analogue of the mean squared prediction error for standard time series. For better readability, however, the empirical tables rather report the mean Wasserstein prediction error (MWPE) of each method m:
+
+MWPE m := 1
+
+|T out |
+
+X
+
+> t∈T out
+
+ℓm,t .
+
+This restores the error magnitudes to the original units of the data, and ensures a fair empirical comparison by evaluating the methods on a metric distinct from the WES estimation criterion. To assess whether differences in out-of-sample performance are statistically meaningful, we sup-plement the reported MWPE values with pairwise Diebold–Mariano (DM) test and the model confi-dence set (MCS) procedure. Both of them are computed from the squared Wasserstein loss sequence 
+
+{ℓ2
+
+> m,t
+
+}Tt=T0 . The DM test compares each benchmark against WES using their squared-loss differential, with the null hypothesis of equal expected prediction loss. We use the two-sided test, since the com-parison is intended to detect predictive differences in either direction. Serial dependence in the loss differential is accounted for using a Newey–West long-run variance estimator with lag ⌊4( n/ 100) 2/9⌋,11 Table 1: The out-of-sample MWPEs with the DM tests and MCS for the equity-index application. Bold entries were included in the 90% MCS. Significance markers ∗∗ and ∗ on each benchmark entry indicate rejection of the DM test against WES at the 1% and 5% levels, respectively.                                                                    
+
+> WAR ATM ODAM DoDRM WES N225 0.0317 ∗∗ 0.0278 0.0397 ∗∗ 0.0298 ∗∗ 0.0257
+> HSI 0.0336 ∗∗ 0.0323 ∗∗ 0.0399 ∗∗ 0.0348 ∗∗ 0.0291
+> TWII 0.0318 ∗∗ 0.0269 ∗∗ 0.0413 ∗∗ 0.0294 ∗∗ 0.0241
+> KS11 0.0284 ∗∗ 0.0254 ∗∗ 0.0380 ∗∗ 0.0276 ∗∗ 0.0232
+> AORD 0.0227 ∗0.0228 0.0258 ∗0.0236 ∗∗ 0.0205
+> DJI 0.0267 ∗0.0255 0.0353 ∗∗ 0.0269 ∗0.0243
+> FTSE 0.0190 ∗∗ 0.0178 ∗0.0244 ∗∗ 0.0189 ∗∗ 0.0165
+> GDAXI 0.0249 ∗∗ 0.0228 ∗0.0347 ∗∗ 0.0246 ∗∗ 0.0213
+> JTOPI 0.0230 ∗∗ 0.0232 ∗∗ 0.0258 ∗0.0247 ∗∗ 0.0210
+> TASI 0.0232 ∗∗ 0.0233 ∗∗ 0.0259 ∗∗ 0.0240 ∗∗ 0.0210
+> Summary across 10 indices
+> In 90% MCS 1/10 2/10 1/10 0/10 10 /10 DM rejects vs. WES at 5% 10 /10 7/10 10 /10 10 /10 —
+
+where n := |T out |. The MCS of Hansen et al. (2011) is applied to the full matrix of squared Wasserstein losses across all competing methods. We use the 90% MCS, computed from 10 ,000 stationary-bootstrap replications with mean block length ⌊√n⌋. Since both the DM and MCS procedures are applied to realized scalar loss sequences, they can be used directly in this distributional forecasting setting. The smoothing parameter θ of WES is estimated over the current in-sample period by minimizing the average squared Wasserstein one-step-ahead prediction loss. The same expanding-window principle is applied to the benchmark methods using their corresponding estimation procedures. The Python implementation used for the simulations and empirical applications is described in Section E. 
+
+6.2 High-Frequency Equity Index Returns 
+
+The first application concerns the forecasting of daily return distributions for major equity indices. This provides a natural setting for distributional time-series methods: intraday high-frequency returns form daily empirical distributions whose evolution captures changes in volatility, skewness, and tail behavior. The dataset consists of 5-minute log returns spanning approximately 30 years for 10 major global indices: Nikkei 225, Hang Seng Index, TAIEX Index, KOSPI Composite, All Ordinaries, Dow Jones Industrial Average, FTSE 100, DAX Performance Index, FTSE/JSE Top 40 and Tadawul All Share Index. The indices cover Asia Pacific, North America, Europe, Africa and the Middle East, providing a geographically diverse financial application. The number of intraday observations varies across trading days. This variation is driven by struc-tural changes in trading hours, scheduled half-day sessions around public holidays, and occasional missing intervals due to data-feed interruptions. To construct comparable daily distributions, we re-tain only trading days whose number of 5-minute returns is at least 50% of the modal daily count for that index. This rule filters out shortened or non-comparable trading sessions while retaining or-dinary full-session days. For computational efficiency, model parameters are re-estimated every 20 
+
+out-of-sample forecast origins on the expanding in-sample period; refitting at every origin produced quantitatively indistinguishable results. We verified that varying the MCS block length over the range 
+
+[n1/3, 2√n] did not change the retained MCS for any index. Table 1 reports the out-of-sample forecasting results. WES attains the smallest MWPE for all 10 indices, remaining in the 90% MCS in every case and serving as the unique MCS member in 8 cases. The DM tests reject equal predictive accuracy in favor of WES at the 5% level for WAR in all 10 indices, ATM in 7, ODAM in 10, and DoDRM in 10. These results demonstrate that WES is not only competitive with, but often statistically more accurate than, the autoregressive distributional benchmarks in this high-frequency financial application. Figure 4 illustrates the forecast WES path for the All Ordinaries index over the period from 2020–02–24 to 2020–05–05, where densities are esti-12 Figure 4: Observed (top) and WES-forecast (bottom) daily distributions of 5-minute log returns for the All Ordinaries index over a period containing the early COVID-19 market disruption. mated using a kernel density estimator (KDE) with a common bandwidth for better visualization. The observed distributions capture the early phase of the COVID-19 market disruption: the return distri-butions widen sharply from around day 12 and remain dispersed before gradually returning towards their pre-crisis shape. The forecast WES path follows this volatility burst and subsequent recovery, with estimated final smoothing parameter θT = 0 .140 .
+
+6.3 Smart Meter Electricity Demand 
+
+The second application concerns household electricity consumption from the Low Carbon London smart-meter trial, accessed through the Kaggle release 1. This dataset offers a non-financial distribu-tional forecasting problem, wherein each day comprises repeated within-household observations. The distributional object is the daily distribution of residual electricity demand within a household, after removing regular intraday and weekly consumption patterns. The trial recorded household electricity consumption in kilowatt-hours every half hour between late 2011 and early 2014, yielding 48 readings per household per day. A random sample of 10 households was drawn from those exhibiting at least 500 days of complete half-hourly readings. The resulting sample sizes range from T = 524 to T = 816 days. Raw electricity consumption contains strong intraday and weekly periodicity. To focus the forecasting exercise on residual distributional dynamics rather than deterministic usage cycles, we remove a simple in-sample seasonal baseline. For each household, we estimate the mean consumption for each day-of-week and half-hour-slot combination over the initial 120 days. Subtracting this baseline from the raw readings yields 48 residual demands per day. Each observation νt is the empirical distribution of these 48 residuals. Table 2 reports the out-of-sample forecasting results. WES attains the smallest MWPE for all 10 households. The DM tests reject equal predictive accuracy in favor of WES at the 5% level for WAR in 5 households, ATM in 8, ODAM in 9, and DoDRM in 9. WES remains in the 90% MCS for every household. Among the benchmarks, WAR remains in the 90% MCS for 4 of the 10 households, ATM and ODAM for 1 each, and DoDRM for none. These results demonstrate that the predictive gains 
+
+> 1jeanmidev/smart-meters-in-london
+
+13 Table 2: The out-of-sample MWPE with the DM tests and MCS for the smart-meter application. Bold entries were included in the 90% MCS. Significance markers ∗∗ and ∗ on each benchmark entry indicate rejection of the DM test against WES at the 1% and 5% levels, respectively.                                                                    
+
+> WAR ATM ODAM DoDRM WES MAC001989 0.1914 0.1919 ∗∗ 0.3336 ∗∗ 0.1933 0.1897
+> MAC005116 0.0653 0.0758 ∗∗ 0.0654 0.0776 ∗∗ 0.0646
+> MAC003031 0.0064 ∗∗ 0.0061 ∗∗ 0.0078 ∗∗ 0.0067 ∗∗ 0.0053
+> MAC002150 0.1057 ∗∗ 0.1033 ∗∗ 0.1296 ∗∗ 0.1146 ∗∗ 0.0940
+> MAC004208 0.1097 ∗∗ 0.1108 ∗∗ 0.1147 ∗∗ 0.1267 ∗∗ 0.0956
+> MAC003212 0.0776 ∗∗ 0.0716 0.0849 ∗∗ 0.0792 ∗∗ 0.0675
+> MAC002916 0.0162 0.0145 0.0188 ∗∗ 0.0163 ∗0.0134
+> MAC005260 0.0249 0.0270 ∗∗ 0.0261 ∗0.0268 ∗∗ 0.0241
+> MAC000174 0.1042 ∗∗ 0.1126 ∗∗ 0.1068 ∗∗ 0.1199 ∗∗ 0.0977
+> MAC001251 0.1266 0.1433 ∗∗ 0.1340 ∗∗ 0.1484 ∗∗ 0.1241
+> Summary across 10 households
+> In 90% MCS 4/10 1/10 1/10 0/10 10 /10 DM rejects vs. WES at 5% 5/10 8/10 9/10 9/10 —
+
+from WES are not confined to financial returns, but extend robustly to non-financial applications with distinct distributional structures. Figure 5 shows the observed and WES-forecast residual-demand distributions for household MAC003212 over 50 consecutive days from 2013–12–13 to 2014–02–03, with densities estimated by KDE. The observed distributions display substantial day-to-day variation in shape, including a marked concentration around days 41–50. The forecast WES path tracks these distributional changes closely, with the estimated smoothing parameter θT = 0 .214 .
+
+# 7 Conclusion 
+
+The analysis of distributional time series has seen significant recent progress, yet methodological devel-opment has predominantly centered on autoregressive structures. This focus left a notable gap in the literature: the absence of a simple, robust exponential smoothing procedure analogous to those widely utilized in classical scalar forecasting. In this paper, we resolved this omission by introducing WES. By elevating the standard recursive interpolation from Euclidean space into the Wasserstein space, our framework provides a highly parsimonious alternative for forecasting distributional dynamics. The efficacy of this framework stems from the structural elegance of the Wasserstein space. By exploiting the exact isometry between the Wasserstein metric and the L2 distance of quantile func-tions, we ensure that the infinite-dimensional geometric interpolation remains analytically tractable and computationally highly efficient. This tractability enables the establishment of rigorous theoret-ical foundations: the sample-path properties of WES dynamics and the estimator consistency. Fur-thermore, this underlying mathematical mechanism translates directly to empirical robustness. The empirical assessment demonstrated that the method yields superior predictive performance relative to the autoregressive benchmarks for high-frequency asset returns and electricity demand residuals. Despite its empirical success and theoretical foundations, the proposed methodology is subject to a fundamental structural constraint. In its current form, the WES framework focuses on one-dimensional probability distributions. Our analysis exploits the exact isometry between the Wasserstein metric and the L2 distance of quantile functions, which does not generalize straightforwardly to multivariate settings. Theoretically and computationally, adapting this smoothing framework to distributions on 
+
+Rd for d > 1 remains non-trivial. There are several natural directions for future methodological and theoretical research. The most immediate mathematical challenge lies in extending this framework to multivariate distributions. Over-coming this limitation will likely require the development of computationally efficient, regularized ap-proximations of the multidimensional Wasserstein geometry that can sustain the recursive interpolation without losing structural simplicity. Furthermore, expanding the current model to accommodate ex-14 Figure 5: Observed (top) and WES-forecasted (bottom) daily residual-demand distributions for house-hold MAC003212 over 50 consecutive days. plicit trend and seasonal components would significantly broaden its applicability to a wider spectrum of distributional time series. Ultimately, by demonstrating that the foundational, robust principles of classical forecasting can be rigorously translated to infinite-dimensional non-Euclidean spaces, WES provides a powerful new paradigm for balancing mathematical adaptivity with methodological parsi-mony in modern complex data analysis. 
+
+# References 
+
+L. Ambrosio, E. Brué, and D. Semola. Lectures on Optimal Transport . Springer, 2024. R. G. Brown. Statistical Forecasting for Inventory Control . McGraw-Hill, New York, 1959. Y. Chen, Z. Lin, and H.-G. Müller. Wasserstein regression. Journal of the American Statistical Association , 118(542):869–882, 2023. M. Fréchet. Les éléments aléatoires de nature quelconque dans un espace distancié. Annales de l’institut Henri Poincaré , 10(4):215–310, 1948. J. Gardner, Everette S. Exponential smoothing: The state of the art. Journal of Forecasting , 4(1): 1–28, 1985. J. Gardner, Everette S. Exponential smoothing: The state of the art—part II. International Journal of Forecasting , 22(4):637–666, 2006. L. Ghodrati and V. M. Panaretos. Distribution-on-distribution regression via optimal transport maps. 
+
+Biometrika , 109(4):957–974, 2022. L. Ghodrati and V. M. Panaretos. On distributional autoregression and iterated transportation. Jour-nal of Time Series Analysis , 45(5):739–770, 2024. 15 P. R. Hansen, A. Lunde, and J. M. Nason. The model confidence set. Econometrica , 79(2):453–497, 2011. A. C. Harvey. A unified view of statistical forecasting procedures. Journal of Forecasting , 3(3):245–275, 1984. C. C. Holt. Forecasting seasonals and trends by exponentially weighted moving averages. O.N.R. Memorandum 52, Carnegie Institute of Technology, Pittsburgh, PA, 1957. R. J. Hyndman, A. B. Koehler, R. D. Snyder, and S. Grose. A state space framework for automatic forecasting using exponential smoothing methods. International Journal of Forecasting , 18(3):439– 454, 2002. R. J. Hyndman, A. B. Koehler, J. K. Ord, and R. D. Snyder. Forecasting with Exponential Smoothing: The State Space Approach . Springer, Berlin, 2008. S. Makridakis, E. Spiliotis, and V. Assimakopoulos. The M4 competition: Results, findings, conclusion and way forward. International Journal of Forecasting , 34(4):802–808, 2018a. S. Makridakis, E. Spiliotis, and V. Assimakopoulos. Statistical and machine learning forecasting meth-ods: Concerns and ways forward. PLoS ONE , 13(3):e0194889, 2018b. S. Makridakis, E. Spiliotis, and V. Assimakopoulos. The M4 competition: 100,000 time series and 61 forecasting methods. International Journal of Forecasting , 36(1):54–74, 2020. M. Matabuena, A. Petersen, J. C. Vidal, and F. Gude. Glucodensities: A new representation of glucose profiles using distributional data analysis. Statistical Methods in Medical Research , 30(6):1445–1464, 2021. J. F. Muth. Optimal properties of exponentially weighted forecasts. Journal of the American Statistical Association , 55(290):299–306, 1960. W. K. Newey and D. McFadden. Chapter 36 large sample estimation and hypothesis testing. volume 4 of Handbook of Econometrics , pages 2111–2245. Elsevier, 1994. V. M. Panaretos and Y. Zemel. An Invitation to Statistics in Wasserstein Space . Springer, 2020. A. Petersen and H.-G. Müller. Functional data analysis for density functions by transformation to a Hilbert space. The Annals of Statistics , 44(1):183 – 218, 2016. W. Rudin. Principles of Mathematical Analysis . McGraw-Hill, 1976. A. W. v. d. Vaart. Asymptotic Statistics . Cambridge Series in Statistical and Probabilistic Mathematics. Cambridge University Press, 1998. C. Villani. Optimal transport: Old and New . Springer, 2009. P. R. Winters. Forecasting sales by exponentially weighted moving averages. Management Science , 6 (3):324–342, 1960. C. Zhang, P. Kokoszka, and A. Petersen. Wasserstein autoregressive models for density time series. 
+
+Journal of Time Series Analysis , 43(1):30–52, 2022. Y. Zhou and H.-G. Müller. Wasserstein regression with empirical measures and density estimation for sparse data. Biometrics , 80(4):ujae127, 11 2024. C. Zhu and H.-G. Müller. Autoregressive optimal transport models. Journal of the Royal Statistical Society Series B: Statistical Methodology , 85(3):1012—-1033, 2023. 16 Supplementary Material 
+
+This appendix contains proofs of all the theoretical results presented in the main text and additional experimental details. To establish the theoretical results, we first introduce the essential notation and lemmas upon which the proofs are constructed. Section A establishes this necessary prerequisites for the main proofs. Section B lists the proofs of the prerequisite lemmas introduced in Section A. Built on them, Section C provides the main proofs of all the theoretical results presented in the main text. Section D contains the additional details of the experiments. Finally, Section E concisely introduces the basic usage of the Python package for WES. For convenience, we summarize below notations adopted throughout this appendix. Table S1: Common Notations in Appendix. Function Space: 
+
+L2 the Lebesgue space of square-integrable functions in the unit interval (0 , 1) 
+
+∥ · ∥ 2 the norm of the L2 space, i.e., ∥f ∥22 = R 
+
+> (0 ,1)
+
+f (q)2dq 
+
+⟨· , ·⟩ 2 the inner product of the L2 space, i.e., ⟨f, g ⟩2 = R 
+
+> (0 ,1)
+
+f (q)g(q)dq 
+
+Parameter: 
+
+θ∗ the fixed parameter value of the WES process 
+
+θ the parameter of the WES filter to be estimated Random Variable: 
+
+νt the observable variable of the WES process at θ∗
+
+μt the predictor variable of the WES process at θ∗
+
+μθt the predictor variables of the WES filter at θ conditional on {νt}Tt=1 
+
+Vt the quantile function of the observable variable νt
+
+Ut the quantile function of the predictor variable μt
+
+U θt the quantile function of the predictor variable μθt
+
+Et the random pushforward map from R to R used in the WES process 
+
+Ft the quantile residual to be defined in Definition 3 in Section 3.3 
+
+Gθt the quantile residual cumulative at θ to be defined in Definition 7 in Section A Initial Value: 
+
+μ0 the fixed, initial predictor distribution of the WES process 
+
+μθ 
+
+> 0
+
+the fixed, initial predictor distribution of the WES filter 
+
+U0 the quantile function of the fixed initial condition μ0
+
+U θ 
+
+> 0
+
+the quantile function of the fixed initial condition μθ
+
+> 0
+
+# A Preliminaries for Main Proofs 
+
+This section introduces essential notation and intermediate lemmas required for the main proofs. Section A.1 investigates the moment properties of the quantile residual Ft introduced in the main text. Section A.2 further analyzes the moment properties of the temporal cumulative sum of the quantile residuals Ft, demonstrating that the model-quantile residual in Section 4 can be expressed via this sum. Proofs of all the intermediate lemmas are contained in Section B. 
+
+A.1 Quantile Residual and Its Moment Properties 
+
+Since we consider univariate probability distributions in this work, every distribution admits a unique quantile function. For any distribution μ in the 2-Wasserstein space, its quantile function U has a 17 finite L2-norm. This follows from the change of variables x = U (q) for q ∈ (0 , 1) :
+
+∥U ∥22 =
+
+Z
+
+> (0 ,1)
+
+U (q)2dq =
+
+Z
+
+> R
+
+x2dμ (x) < ∞,
+
+where the last inequality holds because μ in W2(R) admits the second moment. Recall that the random observable νt is generated from the random predictor μt−1 under the pushforward formula (6). This pushforward formula can be expressed in terms of the quantile function: 
+
+Vt(q) = Et
+
+ Ut−1(q) = Et ◦ Ut−1(q).
+
+For convenience, we restate the definition of the quantile residual: 
+
+Ft(q) := Et ◦ Ut−1(q) − Ut−1(q) at each q ∈ (0 , 1) . (S1) Observe that the predictor μt−1 is a random element determined by the sequence of random transport maps E1, . . . , Et−1 via the iterations of (6) and (7). Consequently, the quantile residual Ft given by (S1) is a random element dependent on the maps E1, . . . , Et.The following lemma establishes several fundamental properties of the quantile residual Ft.
+
+Lemma 1. For each t ≥ 1, the quantile residual Ft is a random element defined by the sequence of random transport maps E1, . . . , Et. For all t ≥ 1, the quantile residual Ft satisfies: 1. EFt(q) | E 1, . . . , Et−1
+
+ = 0 at every q ∈ (0 , 1) ;2. E⟨Ft, F s⟩2 | E 1, . . . , Et−1
+
+ = 0 for any time s such that 1 ≤ s < t ;3. E∥Ft∥22 | E 1, . . . , Et−1
+
+ = σ2 
+
+> t
+
+;4. E∥Ft∥42 | E 1, . . . , Et−1
+
+ ≤ κ .Furthermore, these imply: E[Ft(q)] = 0 , E[⟨Ft, F s⟩2] = 0 , E[∥Ft∥22] = σ2 
+
+> t
+
+, and E[∥Ft∥42] ≤ κ.
+
+The proof is provided in Section B.1. In the main text, Proposition 1 demonstrated that the WES process can be formulated as autoregressive dynamics of the associated quantile functions. Within these dynamics, the quantile residual Ft serves as a noise term, although it is no longer i.i.d. These moment properties of Ft are essential for the main proofs presented in Section C. 
+
+A.2 Quantile Residual Cumulative and Its Moment Properties 
+
+Next, we introduce a quantity Gθt , which we term the cumulative quantile residual . Recall that the Wasserstein metric between univariate distributions is equivalent to the L2-distance between their quantile functions. Thus, the Wasserstein error LT (θ) in Section 4 can be expressed as 
+
+LT (θ) = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥U θt − Vt+1 ∥22. (S2) As defined in Section 4, the difference U θt (·) − Vt+1 (·) represents the model-quantile residual. We demonstrate that the model-quantile residual can be expressed in terms of the cumulative quantile residual Gθt . This expression facilitates the subsequent concentration analysis of LT (θ).First, we formally define the quantile residual cumulative Gθt below. 
+
+Definition 7 (Quantile Residual Cumulative) . For each t ≥ 1 and θ ∈ (0 , 1) , let Gθt be a random element in L2 defined by the sequence of quantile residuals F1, . . . , F t, given by 
+
+Gθt (q) := 
+
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iFi(q),
+
+where we set Gθ
+
+> 0
+
+(q) := 0 for t = 0 . We call Gθt the quantile residual cumulative at time t.
+
+18 The next lemma shows that, for each t, the model-quantile residual U θt − Vt+1 admits a closed-form expression in terms of the quantile residual cumulative Gθt and the quantile residual Ft.
+
+Lemma 2. For any t ≥ 0 and θ ∈ (0 , 1) , we have for all q ∈ (0 , 1) :
+
+U θt (q) − Vt+1 (q) = (1 − θ)t U θ 
+
+> 0
+
+(q) − U0(q) + ( θ − θ∗)Gθt (q) − Ft+1 (q).
+
+The proof is provided in Section B.2. Finally, we analyze the moment properties of the quantile residual cumulative Gθt . Observe that the quantile residual cumulative Gθt is a weighted sum of the quantile residuals F1, . . . , F t. As a preliminary step for this analysis, we first show that the partial sums of the associated weights {(1 − θ)t−i}ti=1 are bounded and convergent. In the following lemma, 
+
+↗ denotes monotone convergence from below as t → ∞ .
+
+Lemma 3. For any t ≥ 1 and θ ∈ (0 , 1) , we have 1. Pti=1 (1 − θ)t−i = Pt−1
+
+> i=0
+
+(1 − θ)i = 1−(1 −θ)t 
+
+> θ
+
+↗ 1 
+
+> θ
+
+;2. Pti=1 (1 − θ)2( t−i) = Pt−1
+
+> i=0
+
+(1 − θ)2i = 1−(1 −2θ+θ2)t 
+
+> θ(2 −θ)
+
+↗ 1 
+
+> θ(2 −θ)
+
+.Proof. By reindexing the sum, Pti=1 (1 − θ)t−i = Pt−1
+
+> i=0
+
+(1 − θ)i and Pti=1 (1 − θ)2( t−i) = Pt−1
+
+> i=0
+
+(1 − θ)2i.The results then follow directly from the geometric series formula. The limits follow immediately. The moment properties of the quantile residual cumulative Gθt are established as below. 
+
+Lemma 4. At each time t ≥ 1 and θ ∈ (0 , 1) , the quantile residual cumulative Gθt is a random element defined by the sequence of random transport maps E1, . . . , Et. Define mθt := Pti=1 (1 − θ)2( t−i)σ2 
+
+> i
+
+, setting 
+
+mθ 
+
+> 0
+
+:= 0 for t = 0 . For any 0 ≤ s < t , there exists a time-independent constant cθ, such that: 1. E[Gθt (q)] = 0 ;2. E[⟨Ft, G θs⟩] = 0 ;3. E[∥Gθt ∥22] = mθt ≤ σ2 
+
+> θ(2 −θ)
+
+;4. E[( ∥Gθt ∥22 − mθt )2] ≤ cθ;5. E[( ∥Gθt ∥22 − mθt )( ∥Gθs∥22 − mθs)] ≤ (1 − θ)2( t−s)cθ .
+
+The proof is provided in Section B.3. Together with the moment properties of the quantile residual 
+
+Ft, those of the quantile residual cumulative Gθt are essential for the subsequent main proofs. 
+
+# B Proofs of Section A 
+
+This section contains proofs of the intermediate lemmas presented in Section A. 
+
+B.1 Proof of Lemma 1 
+
+Proof. Recall that the random predictor μt in Definition 2—hence its quantile function Ut in Proposi-tion 1—is determined by the sequence of random transport maps E1, . . . , Et via its iterative formula. Accordingly, the quantile residual Ft—determined by Ut−1 and Et as in (S1)—is a random element defined by the sequence of random transport maps E1, . . . , Et.The above argument means that Ft can be viewed as a functional of E1, . . . , Et and its expectation 
+
+E[Ft(q)] can be taken with respect to E1, . . . , Et. By assumption, the expectation of Et equals the identity map. The first item in Lemma 1 then follows from the definition of Ft, yielding 
+
+E[Ft(q) | E 1, . . . , Et−1] = E[Et ◦ Ut−1(q) − Ut−1(q) | E 1, . . . , Et−1] = Ut−1(q) − Ut−1(q) = 0 .
+
+19 Here, Ut−1(q) acts as a constant under conditioning on E1, . . . , Et−1, meaning the above expectation is taken solely with respect to Et. The second item holds by the same argument: 
+
+E[⟨Ft, F s⟩2 | E 1, . . . , Et−1] = E[Ft | E 1, . . . , Et−1] , F s 2 = 0 ,
+
+where Fs acts as a constant under conditioning on E1, . . . , Et−1 since s < t , and the L2 inner product and expectation can be interchanged via the Fubini-Tonelli theorem. Similarly, the third item follows from the definition of Ft and the assumption on Et:
+
+E[∥Ft∥22 | E 1, . . . , Et−1] = E
+
+ Z 
+
+> (0 ,1)
+
+(Et ◦ Ut−1(q) − Ut−1(q)) 2 dq E1, . . . , Et−1
+
+
+
+= E
+
+ Z 
+
+> R
+
+(Et(x) − x)2 dμ t−1(x) E1, . . . , Et−1
+
+
+
+= σ2 
+
+> t
+
+,
+
+where we applied the change of variables x = Ut(q) to obtain the second equality. Finally, the fourth item is an immediate consequence of Jensen’s inequality as follows: 
+
+E ∥Ft∥42 | E 1, . . . , Et−1
+
+ ≤ E
+
+ Z 
+
+> (0 ,1)
+
+(Et ◦ Ut−1(q) − Ut−1(q)) 4 dq E1, . . . , Et−1
+
+
+
+= E
+
+ Z 
+
+> R
+
+(Et(x) − x)4 dμ t−1(x) E1, . . . , Et−1
+
+
+
+≤ κ
+
+where the last inequality holds by assumption. Properties 1–4 immediately imply E[Ft(q)] = 0 , E[⟨Ft, F s⟩2] = 0 , E[∥Ft∥22] = σ2 
+
+> t
+
+, and E[∥Ft∥42] ≤ κ.To see this, applying the law of iterated expectations yields 
+
+E[Ft] = EE[Ft | E 1, . . . , Et−1] = 0 .
+
+The rest can be shown similarly. This completes the proof. 
+
+B.2 Proof of Lemma 2 
+
+Proof. Recall that the WES-filter predictor μθt is given by the pushforward formula 
+
+μθt =
+
+
+
+(1 − θ) Id + θT μθt−1→νt
+
+ 
+
+> #
+
+μθt−1.
+
+Equivalently, this formula can be expressed in terms of the corresponding quantile functions as 
+
+U θt = (1 − θ)U θt−1 + θV t. (S3) Consider U θt − Ut, where it follows from (S3) that U θt − Ut = (1 − θ)U θt−1 + θV t − Ut. Applying the equalities Vt = Ut−1 + Ft and Ut = Ut−1 + θ∗Ft from Proposition 1 yields 
+
+U θt − Ut = (1 − θ)U θt−1 + θ(Ut−1 + Ft) − (Ut−1 + θ∗Ft)= (1 − θ)( U θt−1 − Ut−1) + ( θ − θ∗)Ft.
+
+This first-order non-homogeneous linear recursion admits the following explicit solution 
+
+U θt − Ut = (1 − θ)t(U θ 
+
+> 0
+
+− U0) + ( θ − θ∗)
+
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iFi
+
+= (1 − θ)t(U θ 
+
+> 0
+
+− U0) + ( θ − θ∗)Gθt .
+
+Consider U θt − Vt+1 . Together with Vt+1 = Ut + Ft+1 , the above equality yields 
+
+U θt − Vt+1 = U θt − Ut − Ft+1 = (1 − θ)t(U θ 
+
+> 0
+
+− U0) + ( θ − θ∗)Gθt − Ft+1 ,
+
+which complete the proof. 20 B.3 Proof of Lemma 4 
+
+Proof. The following argument holds pointwise for any θ ∈ (0 , 1) . Hence, for brevity, we drop the superscript θ from the notation, writing Gθt as Gt and setting wt,i := (1 − θ)t−i. By Lemma 3, the partial sums Pti=1 wt,i and Pti=1 w2 
+
+> t,i
+
+satisfy the following bounds uniformly for all t ≥ 1:
+
+> t
+
+X
+
+> i=1
+
+wt,i ≤ 1
+
+θ := c1 and 
+
+> t
+
+X
+
+> i=1
+
+w2 
+
+> t,i
+
+≤ 1
+
+θ(2 − θ) =: c2. (S4) First, recall that Gt is defined by the quantile residuals F1, . . . , F t. By Lemma 1, Fi is defined by the random maps E1, . . . , Ei for each i ≥ 1. Consequently, Gt is a random element entirely dependent on the random maps E1, . . . , Et. We now proceed to prove items 1–5 sequentially. 
+
+Item 1: By the definition of Gt, its expectation is given by 
+
+E[Gt(q)] = 
+
+> t
+
+X
+
+> i=1
+
+wt,i E[Fi(q)] = 0 ,
+
+where the final equality holds immediately by Lemma 1. 
+
+Item 2: As shown above, Gs is a random element defined by E1, . . . , Es. Meanwhile, Lemma 4 states that Ft is a random element defined by E1, . . . , Et. Since s < t , the law of iterated expectations yields 
+
+E⟨Ft, G s⟩ = E
+
+h
+
+EEt
+
+Ft | E 1, . . . , Et−1
+
+, G s
+
+i
+
+= 0 
+
+where the last equality follows from item (i) of Lemma 1. 
+
+Item 3: By the definition of Gt, the squared norm ∥Gt∥22 expands as follows: 
+
+∥Gt∥22 =
+
+> t
+
+X
+
+> i=1
+
+wt,i Fi
+
+> 22
+
+=
+
+> t
+
+X
+
+> i=1
+> t
+
+X
+
+> j=1
+
+wt,i wt,j ⟨Fi, F j ⟩2 =
+
+> t
+
+X
+
+> i=1
+
+w2
+
+> t,i
+
+∥Fi∥22 + 2 
+
+> t
+
+X
+
+> i=1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j ⟨Fi, F j ⟩2 .
+
+Taking the expectation of this squared norm yields 
+
+E ∥Gt∥22
+
+ =
+
+> t
+
+X
+
+> i=1
+
+w2 
+
+> t,i
+
+E[∥Fi∥22]
+
+| {z }
+
+> =σ2
+> i
+
++2 
+
+> t
+
+X
+
+> i=1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j E ⟨Fi, F j ⟩2
+
+| {z }
+
+> =0
+
+=
+
+> t
+
+X
+
+> i=1
+
+w2
+
+> t,i
+
+σ2 
+
+> i
+
+= mt,
+
+where we applied the equalities E[∥Fi∥22] = σ2 
+
+> i
+
+and E [⟨Fi, F j ⟩2] = 0 from Lemma 1. Finally, since 
+
+σi ≤ σ by assumption, we obtain mt ≤ σ Pti=1 w2 
+
+> t,i
+
+≤ σc 2, which establishes item 3. 
+
+Item 4: We now establish the fourth inequality. First, we have 
+
+E
+
+h ∥Gt∥22 − mt
+
+2i
+
+≤ E
+
+h
+
+∥Gt∥42 +  mt
+
+2i
+
+= E
+
+ tX
+
+> i=1
+
+wt,i Fi
+
+> 42
+
+
+
++
+
+ tX
+
+> i=1
+
+w2
+
+> t,i
+
+σ2
+
+> i
+
+2
+
+.
+
+For the first term on the right-hand side, we normalize the weights so that Jensen’s inequality can be applied. Let Wt := Pti=1 wt,i for notational convenience. By rearranging the first term, we obtain 
+
+E
+
+ tX
+
+> i=1
+
+wt,i Fi
+
+> 42
+
+
+
+= W 4 
+
+> t
+
+E
+
+ tX
+
+> i=1
+
+wt,i 
+
+Wt
+
+Fi
+
+> 42
+
+
+
+≤ W 4
+
+> tt
+
+X
+
+> i=1
+
+wt,i 
+
+Wt
+
+E[∥Fi∥42] ≤ W 4 
+
+> t
+
+κ, 
+
+where we used the inequality E[∥Fi∥42] ≤ κ from Lemma 1. Similarly, let Zt := Pti=1 w2 
+
+> t,i
+
+to simplify the notation. Rearranging the second term yields 
+
+ tX
+
+> i=1
+
+w2
+
+> t,i
+
+σ2
+
+> i
+
+2
+
+= Z2
+
+> t
+
+ tX
+
+> i=1
+
+w2
+
+> t,i
+
+Zt
+
+σ2
+
+> i
+
+2
+
+≤ Z2
+
+> tt
+
+X
+
+> i=1
+
+w2
+
+> t,i
+
+Zt
+
+σ4 
+
+> i
+
+≤ Z2 
+
+> t
+
+σ4
+
+21 where we applied the assumption σi ≤ σ. Substituting these bounds into (S4) yields 
+
+E
+
+h ∥Gt∥22 − mt
+
+2i
+
+≤
+
+ tX
+
+> i=1
+
+wt,i 
+
+4
+
+κ +
+
+ tX
+
+> i=1
+
+w2
+
+> t,i
+
+2
+
+σ4 ≤  c1
+
+4κ +  c2
+
+2σ4.
+
+Setting c := ( c1)4κ + ( c2)2σ4 establishes item 4. 
+
+Item 5: For notational convenience, let Ht := ∥Gt∥22 − mt, which expands to 
+
+Ht = ∥Gt∥22 − mt =
+
+> t
+
+X
+
+> i=1
+
+w2
+
+> t,i
+
+ ∥Fi∥22 − σ2
+
+> i
+
+ + 2 
+
+> t
+
+X
+
+> i=1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j ⟨Fi, F j ⟩2 .
+
+For 0 ≤ s < t , decomposing the summation yields Ht = ( ∗1) + ( ∗2), where 
+
+(∗1) = 
+
+> t
+
+X
+
+> i=s+1
+
+w2
+
+> t,i
+
+ ∥Fi∥22 − σ2
+
+> i
+
+ + 2 
+
+> t
+
+X
+
+> i=s+1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j ⟨Fi, F j ⟩2 ,
+
+(∗2) = 
+
+> s
+
+X
+
+> i=1
+
+w2
+
+> t,i
+
+ ∥Fi∥22 − σ2
+
+> i
+
+ + 2 
+
+> s
+
+X
+
+> i=1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j ⟨Fi, F j ⟩2 .
+
+Under this decomposition, we have E[HtHs] = E[( ∗1)Hs] + E[( ∗2)Hs]. First, we demonstrate that the first term E[( ∗1)Hs] is zero. Substituting the definition of (∗1) into E[( ∗1)Hs] yields 
+
+E [( ∗1)Hs] = E
+
+
+
+> t
+
+X
+
+> i=s+1
+
+w2
+
+> t,i
+
+ ∥Fi∥22 − σ2
+
+> i
+
+ Hs + 2 
+
+> t
+
+X
+
+> i=s+1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j ⟨Fi, F j ⟩2 Hs
+
+
+
+=
+
+> t
+
+X
+
+> i=s+1
+
+w2 
+
+> t,i
+
+E   ∥Fi∥22 − σ2
+
+> i
+
+ Hs
+
+| {z }
+
+> =( ∗′
+> i)
+
++2 
+
+> t
+
+X
+
+> i=s+1
+> i−1
+
+X
+
+> j=1
+
+wt,i wt,j E ⟨Fi, F j ⟩2 Hs
+
+| {z } 
+
+> =( ∗′′
+> i)
+
+.
+
+Observe that Hs is completely determined by E1, . . . , Es via its dependence on Gs. Furthermore, the summation index i is strictly greater than s. Thus, for any indices i > s and j ≤ s, we can apply the law of iterated expectations to see 
+
+(∗′
+
+> i
+
+) = E
+
+h
+
+EEi
+
+(∥Fi∥22 − σ2 
+
+> i
+
+) × Hs | E 1, . . . , Ei−1
+
+ i
+
+= E
+
+h
+
+EEi
+
+∥Fi∥22 − σ2 
+
+> i
+
+| E 1, . . . , Ei−1
+
+ × Hs
+
+i
+
+= 0 ,
+
+(∗′′  
+
+> i
+
+) = E
+
+h
+
+EEi
+
+ ⟨Fi, F j ⟩2 × Hs | E 1, . . . , Ei−1
+
+ i
+
+= E
+
+h
+
+EEi
+
+ ⟨Fi, F j ⟩2 | E 1, . . . , Ei−1
+
+ × Hs
+
+i
+
+= 0 ,
+
+where the final equalities follow from Lemma 1. This verifies that E[( ∗1)Hs] = 0 . To conclude item 5, we evaluate the second term E[( ∗2)Hs]. Observe the algebraic identity: 
+
+wt,i = (1 − θ)t−i = (1 − θ)t−s(1 − θ)s−i = (1 − θ)t−sws,i .
+
+Substituting this expression for wt,i into (∗2) yields 
+
+(∗2) = (1 − θ)2( t−s)
+
+ sX
+
+> i=1
+
+w2
+
+> s,i
+
+ ∥Fi∥22 − σ2
+
+> i
+
+ + 2 
+
+> s
+
+X
+
+> i=1
+> i−1
+
+X
+
+> j=1
+
+ws,i ws,j ⟨Fi, F j ⟩2
+
+
+
+= (1 − θ)2( t−s)Hs.
+
+This, in turn, implies that E[( ∗2)Hs] = (1 − θ)2( t−s)E[H2 
+
+> s
+
+]. Applying the upper bound for E[H2 
+
+> s
+
+]
+
+established in item 4 yields the desired upper bound for E[HtHs] in item 5. 
+
+# C Main Proofs 
+
+This section contains the proofs of the theoretical results presented in the main text. 22 C.1 Proof of Proposition 1 
+
+Proof. The expression for the quantile function Vt follows immediately from algebraic manipulation 
+
+Vt(q) = Et ◦ Ut−1(q) = Ut−1(q) + Et ◦ Ut−1(q) − Ut−1(q) = Ut−1(q) + Ft(q).
+
+Recall that the random predictor μt is defined via the pushforward formula in (7), given by 
+
+μt =  (1 − θ∗) · Id + θ∗ · Tμt−1→νt
+
+ 
+
+> #
+
+μt−1.
+
+In the univariate case, the pushforward map Tμt−1→νt for optimal transport from a distribution μ to another distribution ν is given by Tμt−1→νt (·) = V ◦ U −1(·), where U and V denote their quantile functions. Applying this identify, we obtain the following equation for each x ∈ R:
+
+Ut ◦ U −1
+
+> t−1
+
+(x) = (1 − θ∗) · Id( x) + θ∗ · Vt ◦ U −1
+
+> t−1
+
+(x).
+
+Applying the change of variables x = Ut−1(q) for the quantile variable q ∈ (0 , 1) yields 
+
+Ut(q) = (1 − θ∗)Ut−1(q) + θ∗Vt(q) = Ut−1(q) + θ∗Ft(q),
+
+which completes the proof. 
+
+C.2 Proof of Proposition 2 
+
+Proof. First, by solving the recursive formula in Proposition 1, we express the quantile function Vt of the random observable νt as the following linear combination: 
+
+Vt(q) = U0(q) + Ft(q) + θ∗
+
+> t−1
+
+X
+
+> i=1
+
+Fi(q).
+
+Applying Lemma 1 in Section A then yields 
+
+E[Vt(q)] = U0(q) + E[Ft(q)] + θ∗
+
+> t−1
+
+X
+
+> i=1
+
+E[Fi(q)] = U0(q).
+
+For a random measure μ with corresponding random quantile function U , it is well known that its Fréchet mean E(μ) is a distribution whose quantile function equals E[U (q)] pointwise (see, e.g., Panare-tos and Zemel, 2020, Theorem 3.2.11). Accordingly, the Fréchet mean E(νt) of the random observable 
+
+νt is a distribution whose quantile function equals E[Vt(q)] = U0(q) pointwise. In turn, this implies that the Fréchet mean E(νt) equals the initial fixed distribution μ0. Finally, the existence of the Fréchet mean E(νt) implies V (νt) < ∞ by definition, which completes the proof. 
+
+C.3 Proof of Proposition 3 
+
+Proof. Let ∆0 := U θ 
+
+> 0
+
+− U0, noting that ∆0 is deterministic and independent of θ, since U θ 
+
+> 0
+
+is the initial condition of the WES filter. Lemma 2 (see Section A) establishes that 
+
+U θt − Vt+1 = (1 − θ)t∆0 + ( θ − θ∗)Gθt − Ft+1 .
+
+Consequently, the autocovariance of interest E[⟨U θt − Vt+1 , U θs − Vs+1 ⟩] expands to 
+
+(∗) := E[⟨ (1 − θ)t∆0 + ( θ − θ∗)Gθt − Ft+1 , (1 − θ)s∆0 + ( θ − θ∗)Gθs − Fs+1 ⟩]= E ⟨(1 − θ)t∆0, (1 − θ)s∆0⟩ + E
+
+h
+
+⟨(1 − θ)t∆0, (θ − θ∗)Gθs⟩
+
+i
+
++ E ⟨(1 − θ)t∆0, F s+1 ⟩
+
++ E
+
+h
+
+⟨(θ − θ∗)Gθt , (1 − θ)s∆0⟩
+
+i
+
++ E
+
+h
+
+⟨(θ − θ∗)Gθt , (θ − θ∗)Gθs⟩
+
+i
+
++ E
+
+h
+
+⟨(θ − θ∗)Gθt , F s+1 ⟩
+
+i
+
++ E [⟨Ft+1 , (1 − θ)s∆0⟩] + E
+
+h
+
+⟨Ft+1 , (θ − θ∗)Gθs⟩
+
+i
+
++ E [⟨Ft+1 , F s+1 ⟩]= (1 − θ)t+s∥∆0∥2 + (1 − θ)t(θ − θ∗)
+
+D
+
+∆0, EGθs
+
+E
+
++ (1 − θ)t ∆0, EFs+1 
+
+
+
++ (1 − θ)s(θ − θ∗)
+
+D
+
+EGθt
+
+, ∆0
+
+E
+
++ ( θ − θ∗)2E
+
+h
+
+⟨Gθt , G θs⟩
+
+i
+
++ ( θ − θ∗)E
+
+h
+
+⟨Gθt , F s+1 ⟩
+
+i
+
++ (1 − θ)s EFt+1 
+
+, ∆0 + ( θ − θ∗)E
+
+h
+
+⟨Ft+1 , G θs⟩
+
+i
+
++ E [⟨Ft+1 , F s+1 ⟩] .
+
+23 By Lemma 1 and Lemma 4, we have E[Gθs] = 0 , E[Fs+1 ] = 0 , E[Gθt ] = 0 , E[Ft+1 ] = 0 , E[⟨Ft+1 , G θs⟩] = 0 ,and E[⟨Ft+1 , F s+1 ⟩] = 0 . Substituting these identities simplifies (∗) to 
+
+(∗) = (1 − θ)t+s∥∆0∥2 + ( θ − θ∗)2 E
+
+h
+
+⟨Gθt , G θs⟩
+
+i| {z }
+
+> (∗1)
+
++( θ − θ∗) E
+
+h
+
+⟨Gθt , F s+1 ⟩
+
+i| {z }
+
+> (∗2)
+
+. (S5) We evaluate the terms (∗1) and (∗2) in the remainder. 
+
+Term (∗1): Recall the definition of Gθt in Definition 7. The following decomposition holds: 
+
+Gθt =
+
+> s
+
+X
+
+> i=1
+
+(1 − θ)t−iFi +
+
+> t
+
+X
+
+> i=s+1
+
+(1 − θ)t−iFi = (1 − θ)t−ssX
+
+> i=1
+
+(1 − θ)s−iFi
+
+| {z }
+
+> =Gθs
+
++
+
+> t
+
+X
+
+> i=s+1
+
+(1 − θ)t−iFi
+
+It then follows from this decomposition and Lemma 4 that 
+
+(∗1) = E
+
+h
+
+⟨Gθt , G θs⟩
+
+i
+
+= (1 − θ)t−sE∥Gθs∥2 +
+
+> t
+
+X
+
+> i=s+1
+
+(1 − θ)t−iE⟨Gθs, F i⟩ = (1 − θ)t−smθs,
+
+where mθs = Pti=1 (1 − θ)2( t−i)σ2 
+
+> i
+
+as defined in Lemma 4. 
+
+Term (∗2): Returning to the definition of Gθt , we obtain 
+
+(∗2) = E
+
+h
+
+⟨Gθt , F s+1 ⟩
+
+i
+
+=
+
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iE [⟨Fi, F s+1 ⟩] .
+
+Lemma 1 guarantees that E [⟨Ft, F s+1 ⟩] = 0 for all i̸ = s + 1 , meaning that only i = s + 1 remains: 
+
+(∗2) = (1 − θ)t−s−1E ∥Fs+1 ∥22
+
+ = (1 − θ)t−s−1σ2
+
+> s+1
+
+.
+
+where the second equality follows from E[∥Fs+1 ∥22] = σ2 
+
+> s+1
+
+by Lemma 1. Substituting the equalities of (∗1) and (∗2) into (S5) completes the proof. 
+
+C.4 Proof of Theorem 1 
+
+Proof. Let ∆0 := U θ 
+
+> 0
+
+− U0, noting that ∆0 is deterministic and independent of θ, since U θ 
+
+> 0
+
+is the initial condition of the WES filter. Recall from (S2) that LT (θ) = (1 /T ) PT −1 
+
+> t=0
+
+∥U θt − Vt+1 ∥22. Applying Lemma 2 (see Section A) and expanding the square yield 
+
+∥U θt − Vt+1 ∥22 = ∥(1 − θ)t∆0 + ( θ − θ∗)Gθt − Ft+1 ∥22
+
+= ( θ − θ∗)2∥Gθt ∥22 + 2( θ − θ∗) Gθt , (1 − θ)t∆0 − Ft+1 2 + ∥(1 − θ)t∆0 − Ft+1 ∥22.
+
+Substituting this into LT yields the following decomposition 
+
+LT (θ) = 
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥Gθt ∥22
+
+| {z } 
+
+> =: AT(θ)
+
+
+
+× (θ − θ∗)2 + 2 
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Gθt , (1 − θ)t∆0 − Ft+1 2
+
+| {z } 
+
+> =: BT(θ)
+
+
+
+× (θ − θ∗)+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥(1 − θ)t∆0 − Ft+1 ∥22
+
+| {z } 
+
+> =: CT(θ)
+
+.
+
+In the remainder of Section C.4, we show that there exist a strictly-positive deterministic function 
+
+A∞(θ) and a non-negative constant C∞ such that the following convergences hold pointwise: (i) AT (θ) p
+
+−→ A∞(θ); (ii) BT (θ) p
+
+−→ 0; (iii) CT (θ) p
+
+−→ C∞.
+
+We establish each convergence in the subsequent subsections. Specifically, 24 • Section C.4.1 shows item (i); 
+
+• Section C.4.2 shows item (ii); 
+
+• Section C.4.3 shows item (iii); Given these intermediate results, the pointwise convergence of LT follows as 
+
+LT (θ) p
+
+−→ L∞(θ) = A∞(θ) × (θ − θ∗)2 + C∞.
+
+This completes the main proof. 
+
+C.4.1 Proof of Item (i): AT (θ) p
+
+−→ A∞(θ)
+
+Proof. The following argument holds pointwise for any θ ∈ (0 , 1) . Thus, for brevity, we drop the superscript θ in the notation whenever possible. Specifically, we denote Gθt , mθt , and cθ from Lemma 4 by Gt, mt, and c, respectively. Similarly, we denote AT (θ) by AT .First, recall from Lemma 4 that E[∥Gt∥22] = mt. Define Ht := ∥Gt∥22 − mt for each time t ≥ 0. Our aim is to show the concentration of a centered quantity (∗T ) defined as 
+
+(∗T ) := AT − E[AT ] = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥Gt∥22 − 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+mt = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Ht.
+
+By Chebyshev’s inequality, we have 
+
+P (|(∗T )| > ϵ ) ≤ E (∗T )2
+
+ϵ2 . (S6) It suffices to show that the expectation term E[( ∗T )2] converges to 0 in the limit of T → ∞ , since this implies that (∗T ) converges to 0 in probability as above. By expanding the square, we have 
+
+E (∗T )2 = E
+
+"
+
+1
+
+T 2 
+
+> T−1
+
+X
+
+> t=0
+
+H2 
+
+> t
+
++ 2
+
+T 2 
+
+> T−1
+
+X
+
+> t=1
+> t−1
+
+X
+
+> s=0
+
+HtHs
+
+#
+
+= 1
+
+T
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+E H2
+
+> t
+
+| {z }
+
+> =:( ∗1)
+
++ 2
+
+T 
+
+> T−1
+
+X
+
+> t=1
+> t−1
+
+X
+
+> s=0
+
+E [HtHs]
+
+| {z }
+
+> =:( ∗2)
+
+
+
+.
+
+By Lemma 4, the first term (∗1) is bounded as (∗1) = E[H2 
+
+> t
+
+] ≤ c . Lemma 4 further implies that the second term (∗2) satisfies (∗2) = Pt−1 
+
+> s=1
+
+E [HtHs] ≤ Pt−1
+
+> s=0
+
+(1 − θ)2( t−s)c. For this upper bound of the second term (∗2), reindexing the sum first and applying Lemma 3 next yield 
+
+(∗2) ≤
+
+> t−1
+
+X
+
+> s=0
+
+(1 − θ)2( t−s)c =
+
+> t
+
+X
+
+> s=1
+
+(1 − θ)2( t−s)c ≤ cθ(2 − θ) .
+
+Substituting these two upper bounds into E[( ∗T )2] yields 
+
+E (∗T )2 ≤ 1
+
+T
+
+
+
+c + 2cθ(2 − θ)
+
+
+
+−→ 0 as T −→ ∞ .
+
+Therefore, Chebyshev’s inequality (S6) implies that (∗T ) → 0 in probability. Finally, by the definition of (∗T ), this convergence (∗T ) → 0 is equivalent to 
+
+AT = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥Gt∥22
+
+> p
+
+−→ lim  
+
+> T→∞
+
+1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+mt = A∞.
+
+By Lemma 4, mt is bounded uniformly for all t ≥ 1. Since {mt}∞ 
+
+> t=1
+
+is a uniformly bounded sequence, its average limit A∞ exists. Furthermore, since {mt}∞ 
+
+> t=0
+
+is an increasing sequence of positive terms, its average limit A∞ is positive. Making θ explicit completes the proof. 25 C.4.2 Proof of Item (ii): BT (θ) p
+
+−→ 0
+
+Proof. As in Section C.4.1, the following argument holds pointwise for each θ ∈ (0 , 1) . Hence, for brevity, we drop the superscript θ in the notation. Specifically, we denote Gθt , mθt , and cθ from Lemma 4 by Gt, mt, and c, respectively. Similarly, we denote BθT by BT .First, we decompose BT into two terms as follows: 
+
+BT = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)t Gt, U θ 
+
+> 0
+
+− U0 2
+
+| {z }
+
+> =: B(1)
+> T
+
+− 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Gt, F t+1 2
+
+| {z }
+
+> =: B(2)
+> T
+
+.
+
+We show that both B(1)  
+
+> T
+
+and B(2)  
+
+> T
+
+converge to 0 in probability. By Chebyshev’s inequality, we have 
+
+P  B(k) 
+
+> T
+
+≥ ϵ ≤ E  B(k)
+
+> T
+
+2
+
+ϵ2
+
+for each k = 1 , 2. Thus, it suffices to show that E[( B(k) 
+
+> T
+
+)2] → 0 as T → ∞ for each k = 1 , 2.
+
+The First Term: Applying Jensen’s inequality for the first term B(1)  
+
+> T
+
+yeilds 
+
+E  B(1) 
+
+> T
+
+2 ≤ E
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2t⟨Gt, U θ 
+
+> 0
+
+− U0⟩22
+
+
+
+= 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2tE⟨Gt, U θ 
+
+> 0
+
+− U0⟩22
+
+.
+
+Note that U θ 
+
+> 0
+
+and U0 are fixed initial conditions. The Cauchy-Schwarz inequality and Lemma 4 imply 
+
+E  B(1) 
+
+> T
+
+2 ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2t E∥Gt∥2 ∥U θ 
+
+> 0
+
+− U0∥2 = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2tmθt ∥U θ 
+
+> 0
+
+− U0∥2.
+
+Applying the bound mθt ≤ σ2θ−1(2 − θ)−1 in Lemma 4 and subsequently Lemma 3 yields 
+
+E  B(1) 
+
+> T
+
+2 = 1
+
+T
+
+∥U θ 
+
+> 0
+
+− U0∥2
+
+θ(2 − θ)
+
+σ2
+
+θ(2 − θ) −→ 0 as T → ∞ .
+
+By Chebyshev’s inequality, we conclude that B(1)  
+
+> T
+
+→ 0 in probability. 
+
+The Second Term: Expanding the square for the second term B(2)  
+
+> T
+
+yields 
+
+E  B(2) 
+
+> T
+
+2 = E
+
+"
+
+1
+
+T 2
+
+ T −1X
+
+> t=0
+
+⟨Gt, F t+1 ⟩22 + 2  
+
+> T−1
+
+X
+
+> t=1
+> t−1
+
+X
+
+> s=0
+
+⟨Gt, F t+1 ⟩2 ⟨Gs, F s+1 ⟩2
+
+#
+
+= 1
+
+T
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+E
+
+h
+
+⟨Gt, F t+1 ⟩22
+
+i| {z }
+
+> =( ∗t)
+
++ 2
+
+T 
+
+> T−1
+
+X
+
+> t=1
+> t−1
+
+X
+
+> s=0
+
+E
+
+
+
+⟨Gt, F t+1 ⟩2 ⟨Gs, F s+1 ⟩2
+
+| {z }
+
+> =( ∗t,s )
+
+
+
+. (S7) We now show that the terms (∗t) is uniformly bounded in t and that the term (∗t,s ) is zero for any time t > s . By Lemma 4, the random element Gt is defined by E1, . . . , Et. Meanwhile, by Lemma 1, the random element Ft+1 is defined by E1, . . . , Et+1 . Consequently, applying the Cauchy-Schwartz inequality and the law of iterated expectations bound the first term (∗t) as follows: 
+
+(∗t) ≤ E ∥Gt∥22∥Ft+1 ∥22
+
+ = E
+
+h
+
+∥Gt∥22 × EEt+1 
+
+∥Ft+1 ∥22 | E 1, . . . , Et
+
+ i
+
+= E ∥Gt∥22
+
+ × σ2
+
+> t+1
+
+,
+
+where the last equality follows from Lemma 1. Then, applying E[∥Gt∥22] = mt ≤ σ2θ−1(2 − θ)−1 from Lemma 4 and the assumption σt+1 ≤ σ yields 
+
+(∗t) ≤ mt × σ2 
+
+> t
+
+≤ σ4
+
+θ(2 − θ) .
+
+26 Similarly, for the second term (∗t,s ), the law of iterated expectations implies 
+
+(∗t,s ) = E
+
+h
+
+E ⟨Gt, F t+1 ⟩2 ⟨Gs, F s+1 ⟩2 | E 1, . . . , Et
+
+i
+
+= E
+
+h
+
+Gt, EEt+1 [Ft+1 | E 1, . . . , Et] 2 Gs, F s+1 2
+
+i
+
+,
+
+where the last equality holds because s < t . Thus, we have (∗t,s ) = 0 because E[Ft+1 | E 1, . . . , Et] = 0 
+
+according to Lemma 1. Substituting the bound for (∗t) and the fact (∗t,s ) = 0 into (S7) gives 
+
+E  B(2) 
+
+> T
+
+2 ≤ 1
+
+T
+
+ σ4
+
+θ(2 − θ) + 0 
+
+
+
+−→ 0 as T −→ ∞ ,
+
+Therefore, Chebyshev’s inequality guarantees that B(2)  
+
+> T
+
+→ 0 in probability. 
+
+C.4.3 Proof of Item (iii): CT (θ) p
+
+−→ C∞
+
+Proof. As in Section C.4.1 and Section C.4.2, since the following argument holds pointwise, we denote 
+
+CT (θ) by CT for brevity. First, we decompose CT into three terms: 
+
+CT := 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2t∥U θ 
+
+> 0
+
+− U0∥22
+
+| {z }
+
+> =: C(1)
+> T
+
+−2 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)t U θ 
+
+> 0
+
+− U0, F t+1 2
+
+| {z }
+
+> =: C(2)
+> T
+
++ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥Ft+1 ∥22
+
+| {z }
+
+> =: C(3)
+> T
+
+We show convergence of each term in order. 
+
+The First Term: Since U θ 
+
+> 0
+
+and U0 are fixed initial conditions, the first term C(1)  
+
+> T
+
+is deterministic. Rearranging the summation index and applying Lemma 3 yields 
+
+C(1)  
+
+> T
+
+= 1
+
+T ∥U θ 
+
+> 0
+
+− U0∥22
+
+> T
+
+X
+
+> t=1
+
+(1 − θ)2( T −t) ≤ 1
+
+T
+
+∥U θ 
+
+> 0
+
+− U0∥22
+
+θ(2 − θ) ,
+
+which implies that C(1)  
+
+> T
+
+→ 0 in the limit T → ∞ .
+
+The Second Term: We show that C(2)  
+
+> T
+
+→ 0 in probability. By Chebyshev’s inequality, we have 
+
+P  C(2)  
+
+> T
+
+≥ ϵ ≤ 1
+
+ϵ2 E  C(2) 
+
+> T
+
+2.
+
+First, applying Jensen’s inequality yields 
+
+E  C(2) 
+
+> T
+
+2 ≤ 1
+
+T E
+
+ T −1X
+
+> t=0
+
+(1 − θ)2t⟨U θ 
+
+> 0
+
+− U0, F t+1 22
+
+
+
+= 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2tE⟨U θ 
+
+> 0
+
+− U0, F t+1 22
+
+.
+
+Note that U θ 
+
+> 0
+
+and U0 are deterministic. Applying the Cauchy-Schwartz inequality and Lemma 1 yields 
+
+E  C(2) 
+
+> T
+
+2 ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2t ∥U θ 
+
+> 0
+
+− U0∥22 E∥Ft+1 ∥22
+
+ = 1
+
+T ∥U θ 
+
+> 0
+
+− U0∥22 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)2tσ2
+
+> t+1
+
+.
+
+We apply the assumption σt+1 ≤ σ and then Lemma 3 to obtain 
+
+E  C(2) 
+
+> T
+
+2 ≤ 1
+
+T
+
+∥U θ 
+
+> 0
+
+− U0∥22 σ2
+
+θ(2 − θ) −→ 0 as T −→ ∞ .
+
+Consequently, Chebyshev’s inequality guarantees that C(2)  
+
+> T
+
+→ 0 in probability. 
+
+The Third Term: For notational convenience, we shift the summation index to obtain 
+
+C(3)  
+
+> T
+
+= 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+∥Ft+1 ∥22 = 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥Ft∥22.
+
+27 Define Ht := ∥Ft∥22 − σ2 
+
+> t
+
+for each t ≥ 1. We show the concentration of the centered quantity 
+
+(∗T ) := 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥Ft∥22 − E
+
+"
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥Ft∥22
+
+#
+
+= 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+∥Ft∥22 − 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+σ2 
+
+> t
+
+= 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+Ht,
+
+where the second equality follows from Lemma 1. By Chebyshev’s inequality, we have 
+
+P (|(∗T )| > ϵ ) ≤ 1
+
+ϵ2 E (∗T )2 .
+
+By expanding the square, we further have 
+
+E (∗T )2 = E
+
+"
+
+1
+
+T 2
+
+> T
+
+X
+
+> t=1
+
+H2 
+
+> t
+
++ 2
+
+T 2
+
+> T
+
+X
+
+> t=2
+> t−1
+
+X
+
+> s=1
+
+HtHs
+
+#
+
+= 1
+
+T
+
+ 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+E H2
+
+> t
+
+| {z } 
+
+> =( ∗at)
+
++ 2
+
+T
+
+> T
+
+X
+
+> t=2
+> t−1
+
+X
+
+> s=1
+
+E [HtHs]
+
+| {z } 
+
+> =( ∗bt)
+
+
+
+.
+
+For the first term (∗at ), applying Lemma 1 and the assumption σ2 
+
+> t
+
+≤ σ2 yields 
+
+(∗at ) ≤ E ∥Ft+1 ∥42
+
+ + σ4 
+
+> t+1
+
+≤ κ + σ4.
+
+For the second term (∗bt ), the law of iterated expectations and Lemma 1 imply 
+
+(∗bt ) = E
+
+h
+
+Hs × EEt
+
+Ht|E 1, . . . , Et−1
+
+i
+
+= E
+
+h
+
+Hs ×
+
+
+
+EEt
+
+∥Ft∥22 | E 1, . . . , Et−1
+
+| {z }
+
+> =σ2
+> t
+
+−σ2
+
+> t
+
+i 
+
+= 0 .
+
+Substituting the bound of (∗at ) and the fact (∗bt ) = 0 into E[( ∗T )2] yields 
+
+E (∗T )2 ≤ 1
+
+T
+
+ κ + σ4 −→ 0 as T → ∞ .
+
+By Chebyshev’s inequality, we conclude that (∗T ) → 0 in probability. In turn, by the definition of 
+
+(∗T ), this convergence in probability is equivalent to 
+
+C(3)  
+
+> T
+
+=
+
+> T
+
+X
+
+> t=1
+
+∥Ft∥22
+
+> p
+
+−→ C∞ := lim  
+
+> T→∞
+
+1
+
+T
+
+> T
+
+X
+
+> t=1
+
+σ2 
+
+> t
+
+.
+
+The sequence {σ2 
+
+> t
+
+}∞ 
+
+> t=1
+
+is uniformly bounded due to the assumption σ2 
+
+> t
+
+≤ σ2, and is trivially non-negative. Therefore, the average limit C∞ exists and is non-negative, which completes the proof. 
+
+C.5 Proof of Proposition 4 
+
+Proof. Let Ω denote an arbitrary compact set in (0 , 1) , with its minimum and maximum values denoted 
+
+Ωmin > 0 and Ωmax < 1, respectively. By Theorem 1, we have LT (θ) → L∞(θ) := A∞(θ)( θ − θ∗) + C∞
+
+in probability pointwise for each θ ∈ Ω. Our aim is to apply Lemma 2.9 of Newey and McFadden (1994), which states that the uniform convergence LT → L∞ in probability holds on Ω if 1. the function LT is stochastically equicontinuous; 2. the limiting function L∞ is continuous on Ω.The first condition is satisfied if |LT (θ)−LT (θ′)| ≤ CT |θ−θ′| for some CT that is bounded in probability .Here, the non-negative real-valued random variable CT is said to be bounded in probability if, for each 
+
+ϵ > 0, there exists a constant M such that P(CT ≤ M ) ≥ 1 − ϵ for all T sufficiently large. By Markov’s inequality, it suffices to show that E[CT ] is bounded uniformly for all T sufficiently large. 28 For the first condition, recall the quantile representation LT (θ) = (1 /T ) PT −1 
+
+> i=0
+
+∥U θt − Vt+1 ∥22 from Section A. To establish stochastic equicontinuity, consider the absolute difference 
+
+LT (θ) − LT (θ′) = 1
+
+T 
+
+> T−1
+
+X
+
+> i=0
+
+∥U θt − Vt+1 ∥22 − ∥ U θ′ 
+
+> t
+
+− Vt+1 ∥22
+
+where θ, θ ′ are two arbitrary points in Ω. Recall that |∥ u∥22 − ∥ v∥22| ≤ (∥u∥2 + ∥v∥2)∥u − v∥2 holds for any u, v ∈ L2. Applying this inequality yields the following upper bound: 
+
+LT (θ) − LT (θ′) ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> i=0
+
+
+
+∥U θt − Vt+1 ∥2 + ∥U θ′ 
+
+> t
+
+− Vt+1 ∥2
+
+
+
+∥U θt − Vt+1 − (U θ′ 
+
+> t
+
+− Vt+1 )∥2
+
+≤ 1
+
+T 
+
+> T−1
+
+X
+
+> i=0
+
+
+
+2 sup 
+
+> θ∈Ω
+
+∥U θt − Vt+1 ∥2
+
+
+
+∥U θt − Vt+1 − (U θ′ 
+
+> t
+
+− Vt+1 )∥2
+
+≤ 2
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> i=0
+
+sup 
+
+> θ∈Ω
+
+∥U θt − Vt+1 ∥22
+
+ 12
+
+| {z }
+
+> =( ∗1)
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> i=0
+
+∥U θt − Vt+1 − (U θ′ 
+
+> t
+
+− Vt+1 )∥22
+
+ 12
+
+| {z }
+
+> =( ∗2)
+
+where the last inequality follows from the Cauchy-Schwarz inequality. Thus, the function LT is stochas-tically equicontinuous, if (i) the first term (∗1) is bounded in probability and (ii) the second term (∗2)
+
+satisfies the bound (∗2) ≤ CT |θ − θ′| for some non-negative CT bounded in probability. To structure the proof, we establish conditions (i) and (ii) in the subsequent subsections. We then verify the continuity of the limiting function L∞(θ) in the final subsection. Specifically, 
+
+• Section C.5.1 shows condition (i); 
+
+• Section C.5.2 shows condition (ii); 
+
+• Section C.5.3 shows condition 2 (continuity of L∞(θ)). Given these results, the main claim follows from Lemma 2.9 of Newey and McFadden (1994). 
+
+C.5.1 Proof of Condition (i): The Term (∗1) is Bounded in Probability 
+
+Let ∆0 := U θ 
+
+> 0
+
+− U0, noting that ∆0 is deterministic and independent of θ, since U θ 
+
+> 0
+
+is the initial condition of the WES filter. It follows from Lemma 2 in Section A that 
+
+∥U θt − Vt+1 ∥2 = ∥(1 − θ)t∆0 + ( θ − θ∗)Gθt − Ft+1 2
+
+≤ (1 − θ)t ∆0 2 + θ − θ∗ Gθt 2 + Ft+1 2
+
+≤ ∆0 2 + Gθt 2 + Ft+1 2,
+
+where we use the bounds (1 − θ)t ≤ 1 and |θ − θ∗| ≤ 1 since Ω ⊂ (0 , 1) . This leads to 
+
+∥U θt − Vt+1 ∥22 ≤ 3
+
+
+
+∆0 22 + Gθt 
+
+> 22
+
++ Ft+1 22
+
+
+
+,
+
+using the elementary inequality (a + b + c)2 ≤ 3( a2 + b2 + c2) for any a, b, c ∈ R. Consequently, 
+
+(∗1) ≤ 3 12
+
+
+
+∆0 22 + 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+sup 
+
+> θ∈Ω
+
+Gθt
+
+> 22
+
+| {z }
+
+> =( ∗11 )
+
++ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Ft+1 22
+
+| {z }
+
+> =( ∗12 )
+
+ 12
+
+.
+
+To prove that (∗1) is bounded in probability, it suffices to show that both terms (∗11 ) and (∗12 ) are bounded in probability. 29 We begin by verifying that for (∗11 ). By the definition of Gθt and the triangle inequality, 
+
+Gθt 2 =
+
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iFi
+
+> 2
+
+≤
+
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−i∥Fi∥2 ≤
+
+> t
+
+X
+
+> i=1
+
+(1 − Ωmin )t−i∥Fi∥2.
+
+Let wt,i = (1 − Ωmin )t−i and define Wt := Pti=1 wt,i . Applying Jensen’s inequality yields 
+
+Gθt 
+
+> 22
+
+≤
+
+ tX
+
+> i=1
+
+wt,i ∥Fi∥2
+
+2
+
+= W 2
+
+> t
+
+ tX
+
+> i=1
+
+wt,i 
+
+Wt
+
+∥Fi∥2
+
+2
+
+≤ WttX
+
+> i=1
+
+wt,i ∥Fi∥22.
+
+Observe that this upper bound is independent of θ ∈ Ω. Hence, we have 
+
+(∗11 ) ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+WttX
+
+> i=1
+
+wt,i ∥Fi∥22.
+
+As noted at the beginning of Section C.5, Markov’s inequality ensures that (∗11 ) is bounded in proba-bility provided E[( ∗11 )] is uniformly bounded for all sufficiently large T . We have 
+
+E[( ∗11 )] ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+WttX
+
+> i=1
+
+wt,i E∥Fi∥22
+
+.
+
+From Lemma 1 and our standing assumptions, we know that E∥Fi∥22
+
+ = σ2 
+
+> i
+
+≤ σ2. Furthermore, Lemma 3 establishes that Wt ≤ 1/Ωmin . Substituting these bounds into the expectation yields 
+
+E[( ∗11 )] ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+WttX
+
+> i=1
+
+wt,i σ2 = σ2
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+W 2 
+
+> t
+
+≤ σ2
+
+Ω2
+
+> min
+
+,
+
+which holds uniformly for all T . Thus, we conclude that the term (∗11 ) is bounded in probability. Next, we verify that (∗12 ) is bounded in probability. As before, it suffices to show that E[( ∗12 )] is uniformly bounded for all T . Since E[∥Ft∥22] = σ2 
+
+> t
+
+≤ σ2 by Lemma 1 and assumption, we have 
+
+E[( ∗12 )] = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+E[∥Ft+1 ∥22] = 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+E[∥Ft∥22] ≤ 1
+
+T
+
+> T
+
+X
+
+> t=1
+
+σ2 = σ2
+
+which holds uniformly for all T ≥ 1. Thus, we conclude that the term (∗12 ) is bounded in probability, which in turn completes the entire proof of condition (i). 
+
+C.5.2 Proof of Condition (ii): (∗2) ≤ CT |θ − θ′| for Some CT Bounded in Probability 
+
+As in Section C.5.1, we define ∆0 := U θ 
+
+> 0
+
+− U0 which is independent of θ since U θ 
+
+> 0
+
+is the fixed initial condition. It follows from Lemma 2 in Section A and the triangle inequality that 
+
+∥U θt − Vt+1 − (U θ′ 
+
+> t
+
+− Vt+1 )∥2 = (1 − θ)t∆0 + ( θ − θ∗)Gθt − (1 − θ′)t∆0 − (θ′ − θ∗)Gθ′ 
+
+> t2
+
+≤ (1 − θ)t∆0 − (1 − θ′)t∆0 2 + (θ − θ∗)Gθt − (θ′ − θ∗)Gθ′ 
+
+> t2
+
+≤ (1 − θ)t∆0 − (1 − θ′)t∆0 2 + (θ − θ∗)Gθt − (θ − θ∗)Gθ′ 
+
+> t
+
++ ( θ − θ∗)Gθ′ 
+
+> t
+
+− (θ′ − θ∗)Gθ′ 
+
+> t2
+
+≤ (1 − θ)t − (1 − θ′)t ∆0 2 + θ − θ∗ Gθt − Gθ′  
+
+> t2
+
++ θ − θ′ Gθ′ 
+
+> t2
+
+.
+
+Standard calculus shows that the function θ 7 → (1 − θ)t is Lipschitz continuous in Ω with the constant 
+
+tw t−1, where w := (1 − Ωmin ). Since |θ − θ∗| ≤ 1 in Ω ⊂ (0 , 1) , this Lipschitz condition yields 
+
+∥U θt − Vt+1 − (U θ′ 
+
+> t
+
+− Vt+1 )∥2 ≤ tw t
+
+w θ − θ′ ∆0 2 + Gθt − Gθ′  
+
+> t2
+
++ θ − θ′ Gθt 2.
+
+30 Applying the elementary inequality (a + b + c)2 ≤ 3( a2 + b2 + c2) for all a, b, c ∈ R gives 
+
+(∗2) = 3 12 θ − θ′ ∆0 2
+
+w
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+t2w2t
+
+ 12
+
++
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Gθt − Gθ′
+
+> t
+> 22
+
+ 12
+
++ θ − θ′
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Gθt
+
+> 22
+
+1/2!
+
+.
+
+Standard calculus shows that t2w2t is uniformly bounded by 1/(e2(log w)2). Because e > 1, we can loosen and simplify this bound to t2w2t < 1/(log w)2, which leads to 
+
+(∗2) ≤ 3 12 θ − θ′ ∆0 2
+
+w| log w| +
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Gθt − Gθ′
+
+> t
+> 22
+
+| {z }
+
+> =( ∗21 )
+
+ 12
+
++ θ − θ′
+
+ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+sup 
+
+> θ∈Ω
+
+Gθt
+
+> 22
+
+| {z }
+
+> =( ∗22 )
+
+1/2!
+
+. (S8) Observe that (∗22 ) is identical to (∗11 ) in Section C.5.1, which we previously showed to be bounded in probability. Therefore, it remains only to bound the term (∗21 ).It follows from the definition of Gθt and the triangle inequality that 
+
+Gθt − Gθ′  
+
+> t2
+
+=
+
+> t
+
+X
+
+> i=1
+
+ (1 − θ)t−i − (1 − θ′)t−i Fi
+
+> 2
+
+≤
+
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−i − (1 − θ′)t−i ∥Fi∥2.
+
+Standard calculus verifies that, for each 1 ≤ i ≤ t, the function θ 7 → (1 − θ)t−i is Lipschitz continuous in Ω with constant (t − i)wt−i−1, where w := (1 − Ωmin ). This yields 
+
+Gθt − Gθ′  
+
+> t2
+
+≤
+
+> t
+
+X
+
+> i=1
+
+(t − i)wt−i−1 θ − θ′ ∥Fi∥2 = |θ − θ′|
+
+w
+
+> t
+
+X
+
+> i=1
+
+(t − i)wt−i∥Fi∥2.
+
+Let ˜wt,i := ( t − i)wt−i, and define ˜Wt := Pti=1 ˜wt,i . Applying Jensen’s inequality yields 
+
+Gθt − Gθ′ 
+
+> t
+> 22
+
+≤ |θ − θ′|2
+
+w2
+
+
+
+˜WttX
+
+> i=1
+
+˜wt,i 
+
+˜Wt
+
+∥Fi∥2
+
+2
+
+≤ |θ − θ′|2
+
+w2 ˜WttX
+
+> i=1
+
+˜wt,i ∥Fi∥22. (S9) Recall that a sequence {ir i}∞ 
+
+> i=0
+
+for some constant r > 0 is called an arithmetic-geometric sequence. Its partial sum st := Pti=0 ir i converges monotonically to r/ (1 − r)2 for any 0 < r < 1. Due to the monotonicity, it immediately follows that st ≤ r/ (1 − r)2 for all t ≥ 0. Applying this bound gives 
+
+˜Wt =
+
+> t
+
+X
+
+> i=1
+
+(t − i)wt−i =
+
+> t−1
+
+X
+
+> i=0
+
+iw i ≤ w
+
+(1 − w)2 , (S10) which holds uniformly for all t ≥ 0. Substituting (S10) into (S9) yields 
+
+(∗21 ) = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+Gθt − Gθ′ 
+
+> t
+> 22
+
+≤ |θ − θ′|2
+
+w(1 − w)2
+
+1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+˜wt,i ∥Fi∥22
+
+| {z }
+
+> =( ∗23 )
+
+. (S11) Furthermore, substituting (S11) into the main bound (S8) gives 
+
+(∗2) ≤ 3 12 θ − θ′ ∆0 2
+
+w| log w| + θ − θ′ 1
+
+w 12 (1 − w) (∗23 ) 12 + θ − θ′ (∗22 ) 12
+
+!
+
+= 3 12
+
+∆0 2
+
+w| log w| + 1
+
+w 12 (1 − w) (∗23 ) 12 + ( ∗22 ) 12
+
+!
+
+θ − θ′ .
+
+Recall that the term (∗22 ) is bounded in probability, as established previously. Therefore, verifying that (∗23 ) is bounded in probability completes the proof of condition (ii). 31 As noted at the beginning of Section C.5, Markov’s inequality ensures that (∗23 ) is bounded in probability provided E[( ∗23 )] is uniformly bounded for all sufficiently large T . We have 
+
+E[( ∗23 )] = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+˜wt,i E∥Fi∥22
+
+ = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+˜wt,i σ2 
+
+> i
+
+≤= 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+˜wt,i σ2 = σ2
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+˜Wt
+
+where we use Lemma 1 and the assumption σi ≤ σ. It then follows from (S10) that 
+
+E[( ∗23 )] ≤ σ2w
+
+(1 − w)2 ,
+
+which holds uniformly for all T ≥ 1. Therefore, the term (∗23 ) is bounded in probability, which in turn completes the entire proof of condition (ii). 
+
+C.5.3 Proof of Condition 2: Continuity of Limiting Function L∞(θ)
+
+By the definition of L∞(θ), it suffices to show that A∞(θ) is continuous in θ. Recall that Section C.4.1 within the proof of Theorem 1 established 
+
+A∞(θ) = lim  
+
+> T→∞
+
+1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+mθt = lim  
+
+> T→∞
+
+1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iσ2
+
+> i
+
+where mθt is defined as in Lemma 4. For notational convenience, we express A∞(θ) as 
+
+A∞(θ) = lim   
+
+> T→∞
+
+fT (θ) where fT (θ) := 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iσ2 
+
+> i
+
+.
+
+Note that fT is a continuous function for each T , and the sequence of fT (θ) converges to A∞(θ)
+
+pointwise by definition. We will show that the sequence of fT is uniformly bounded and equicontinuous. Under these conditions, the Ascoli-Arzelà theorem (e.g., Rudin, 1976) guarantees that the sequence of 
+
+fT admits a uniformly convergent subsequence to A∞(θ). Then, the sequence must converge uniformly to this same limit A∞(θ), because it is equicontinuous and pointwise convergent. Finally, by the uniform limit theorem (e.g., Rudin, 1976), the uniform limit of continuous functions remains continuous, which establishes the continuity of A∞(θ).We first verify that the sequence of fT is uniformly bounded for all T ≥ 1. Applying Lemma 3 and the standing assumption σi ≤ σ yields 
+
+fT (θ) ≤ 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+(1 − θ)t−iσ2 = σ2
+
+θ ≤ σ2
+
+Ωmin 
+
+.
+
+Next, we establish that the sequence {fT } is equicontinuous. By the mean value theorem, we have 
+
+|fT (θ) − fT (θ′)| ≤ sup 
+
+> θ∈Ω
+
+|f ′ 
+
+> T
+
+(θ)|| θ − θ′|
+
+where f ′ 
+
+> T
+
+(θ) denotes the derivative of fT with respect to θ, given by 
+
+f ′ 
+
+> T
+
+(θ) = 1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+(t − i)(1 − θ)t−i−1σ2 
+
+> i
+
+.
+
+We apply the assumption σi ≤ σ and rearrange the terms to obtain 
+
+|f ′ 
+
+> T
+
+(θ)| ≤ σ2
+
+(1 − θ)1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t
+
+X
+
+> i=1
+
+(t − i)(1 − θ)t−i = σ2
+
+(1 − θ)1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+> t−1
+
+X
+
+> i=0
+
+i(1 − θ)i.
+
+Recall from our earlier derivation that the partial sum st = Pt−1 
+
+> i=0
+
+i(1 − θ)i of the arithmetico-geometric sequence {i(1 − θ)i}∞ 
+
+> i=0
+
+is uniformly bounded by r/ (1 − r)2 with r = 1 − θ. This gives 
+
+|f ′ 
+
+> T
+
+(θ)| ≤ σ2
+
+(1 − θ)1
+
+T 
+
+> T−1
+
+X
+
+> t=0
+
+(1 − θ)
+
+θ2 ≤ σ2
+
+θ2 ≤ σ2
+
+Ω2
+
+> min
+
+.
+
+Therefore, the sequence of fT is equicontinuous, which concludes the continuity of L∞.32 C.6 Proof of Theorem 2 
+
+Proof. We restrict the parameter space to Ω without loss of generality, since Ω contains the estimator for all sufficiently large T by assumption. By Theorem 1, the Wasserstein error LT (θ) converges in probability to the limiting error L∞(θ) := A∞(θ)( θ − θ∗)2 + C∞ pointwise, where A∞(θ) is a strictly positive function and C∞ is a non-negative constant. To establish the consistency, we apply Theorem 2.1 of Newey and McFadden (1994) for the pointwise convergent error LT (θ). This requires verifying the four conditions (i)–(iv) in their theorem. Each condition is verified as follows: (i) the limiting error L∞ is uniquely minimized at θ = θ∗ since A∞(θ) is strictly positive; (ii) Ω is a compact set; (iii) the limiting error L∞ is continuous in Ω, as previously established in Section C.5.3; (iv) the Wasserstein error LT uniformly converges in probability to L∞ by Proposition 4. Therefore, the desired consistency follows from Theorem 2.1 of Newey and McFadden (1994). 
+
+# D Additional Experimental Details 
+
+This section provides additional details of the experiments. Section D.1 verifies that the random pushforward models used in Section 5 satisfy the standing assumptions required for the theoretical analysis. Section D.2 clarifies the computation of the Wasserstein loss evaluated in Section 6. 
+
+D.1 Properties of Random Pushforward Maps in Section 5 
+
+Throughout, the random variables defining the maps are assumed to be independent across time t.First, the random shift map is defined by 
+
+EShift  
+
+> t
+
+(x) = x + Bt, Bt ∼ Normal(0 , s 2).
+
+In the simulation study, we used s = 1 . For every x ∈ R, we immediately have 
+
+E
+
+h
+
+EShift  
+
+> t
+
+(x) − x
+
+i
+
+= E[Bt] = 0 and E
+
+
+
+EShift  
+
+> t
+
+(x) − x
+
+2
+
+= E[B2 
+
+> t
+
+] = s2,
+
+The same argument applies to the fourth moment, which is uniformly bounded. Furthermore, each realization of EShift  
+
+> t
+
+is monotone increasing, since 
+
+ddx EShift  
+
+> t
+
+(x) = 1 .
+
+Thus EShift  
+
+> t
+
+is a valid random pushforward map satisfying the standing assumptions. Next, the random sine map is defined by 
+
+ESine  
+
+> t
+
+(x) = 
+
+> k
+
+X
+
+> j=1
+
+Wt,j 
+
+
+
+x − aπ sin  π(x − Ct,j )
+
+, Ct,j i.i.d.
+
+∼ Uniform( −1, 1) ,
+
+where 0 < a ≤ 1 and the weights are random positive weights normalized to sum to one. In the simulation study, we use a = 0 .3 and k = 3 . Since the weights sum to one, 
+
+ESine  
+
+> t
+
+(x) − x = − aπ
+
+> k
+
+X
+
+> j=1
+
+Wt,j Zt,j (x) where Zt,j (x) := sin  π(x − Ct,j ).
+
+33 Because the integral is taken over one full period of the sine function, for any fixed x ∈ R we have 
+
+ECt,j [Zt,j (x)] = 12
+
+Z 1
+
+> −1
+
+sin( π(x − c)) dc = 0; 
+
+ECt,j [Zt,j (x)2] = 12
+
+Z 1
+
+> −1
+
+sin( π(x − c)) 2dc = 12 ;
+
+ECt,j [Zt,j (x)4] = 12
+
+Z 1
+
+> −1
+
+sin( π(x − c)) 4dc ≤ 1.
+
+Therefore, we have 
+
+E ESine  
+
+> t
+
+(x) − x = EWt, 1,...,W t,k 
+
+
+
+− aπ
+
+> k
+
+X
+
+> j=1
+
+Wt,j ECt,j [Zt,j (x)] 
+
+
+
+= 0 .
+
+Since the Zt,j (x) are independent and centered, we further have 
+
+E
+
+h ESine  
+
+> t
+
+(x) − x2i
+
+= a2
+
+2π2 EWt, 1,...,W t,k 
+
+ kX
+
+> j=1
+
+W 2
+
+> t,j
+
+
+
+= σ2
+
+> t
+
+where the cross terms are zero. Since Wt,j ≥ 0 and Pkj=1 Wt,j = 1 , we have 
+
+> k
+
+X
+
+> j=1
+
+W 2 
+
+> t,j
+
+≤
+
+ kX
+
+> j=1
+
+Wt,j 
+
+2
+
+= 1 .
+
+Consequently, we have the time-independent bound σ2 
+
+> t
+
+≤ a2/(2 π2) = σ2. A similar argument applies to the fourth moment, yielding that 
+
+E
+
+h ESine  
+
+> t
+
+(x) − x4i
+
+≤
+
+ aπ
+
+4
+
+.
+
+Finally, each realization of the map is monotone non-decreasing for 0 < a ≤ 1, since its derivative is 
+
+ddx EShift  
+
+> t
+
+(x) = 
+
+> k
+
+X
+
+> j=1
+
+Wt,j 1 − a cos  π(x − Ct,j ) ≥
+
+> k
+
+X
+
+> j=1
+
+Wt,j (1 − a) ≥ 0.
+
+Therefore ESine  
+
+> t
+
+is a valid random pushforward map satisfying the standing assumptions. 
+
+D.2 Computation of the Wasserstein Loss in Section 6 
+
+Since all distributions are defined on R, the Wasserstein loss can be computed through quantile func-tions. Let Vm,t |t−1 and Vt denote the quantile functions of νm,t |t−1 and νt. Then we have 
+
+l2 
+
+> m,t
+
+= W 22
+
+ νm,t |t−1, ν t
+
+ =
+
+Z 10
+
+ Vm,t |t−1(q) − Vt(q)2 dq. (S12) We evaluated this expression of the Wasserstein loss, using the standard quadrature method on a common midpoint grid with Nq points. In Section 6.2 where the empirical distribution νt at each trading day t consists of a large set of points, we evaluated the expression (S12) on grid points of the sufficiently many number Nq = 200 . In Section 6.2 where νt consists of 48 residual demands, we evaluated the expression (S12) on grid points of the sample number Nq = 48 .34 E Wesmooth: Python Package for WES 
+
+The accompanying Python package wesmooth is available at: 
+
+https://github.com/wilson-ye-chen/wesmooth/ 
+
+The package contains the implementation used in this paper, including simulation from the WES process, estimation of the smoothing parameter, one-step-ahead forecasting, the random pushforward maps used in Section 5, and visualization tools for distributional sample paths. It can be installed directly from the repository using 
+
+> pip install git+https://github.com/wilson-ye-chen/wesmooth
+
+The following code illustrates the main workflow. A sample path is simulated from the WES process, the smoothing parameter is estimated by minimizing the average squared Wasserstein one-step-ahead prediction loss, and the fitted WES path is then generated. 
+
+> from wesmooth.core import WassExpSmooth from wesmooth.core import WassExpSmoothSampler from wesmooth.maps import err_map_shift theta = 0.5 n = 200 sampler = WassExpSmoothSampler(theta, err_map_shift) y, mu = sampler.sample_path(n) model = WassExpSmooth() model.fit(y) theta_hat = model.theta y_hat = model.predict(y)
+
+The package also provides plotting utilities. The function plot_density_path displays a sequence of distributions as sideways density curves, as used in the simulation and empirical sections. 
+
+> import numpy as np from wesmooth.plot import plot_density_path n_grid = y.shape[1] p_grid = (np.arange(n_grid) + 0.5) / n_grid fig, ax = plot_density_path( y[:50], p_grid=p_grid, density_method=’quantile’, xlabel=’t’, ylabel=’x’ )
+
+For empirical distributions, the same function can be used with kernel density estimates by setting 
+
+density_method=’kde’ . This package was used to reproduce the simulation and empirical results reported in the paper. 35
