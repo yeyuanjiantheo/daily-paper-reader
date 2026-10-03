@@ -1,0 +1,380 @@
+Title: Multiperiod bond portfolio optimization with transaction costs using a Markov Decision process
+
+URL Source: https://arxiv.org/pdf/2609.38765v1
+
+Published Time: Thu, 01 Oct 2026 00:40:12 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# Multiperiod bond portfolio optimization with transaction costs using a Markov Decision process 
+
+## Balaji Ramachandran 1, Srikanth Iyer 1, Shashi Jain 2* 
+
+1Department of Mathematics, Indian Institute of Science, Bangalore, 560012, India. 
+
+2Department of Management Studies, Indian Institute of Science, Bangalore, 560012, India. *Corresponding author(s). E-mail(s): shashijain@iisc.ac.in; 
+
+Abstract 
+
+Bank treasury portfolios must balance yield, liquidity, and interest-rate risk across bonds of different maturities. Static allocation rules are ill-suited to this task: portfolios concentrated in long-duration securities with no dynamic adjust-ment mechanism can accumulate large mark-to-market losses and liquidity stress under rising interest rates, as illustrated by the failure of Silicon Valley Bank in 2023. We develop a tractable simulation-based framework for multi-period bond port-folio optimization under interest-rate risk and proportional transaction costs. Yield-curve dynamics are modeled using the Dynamic Nelson-Siegel parameter-ization with Vector Autoregressive factor dynamics, from which we construct a time-inhomogeneous discrete-state Markov chain approximating the joint yield process across bond maturities. This chain forms the state space of a finite-horizon Markov Decision Process in which the investor maximizes expected terminal wealth subject to proportional rebalancing costs. The optimal portfolio policy is obtained by backward induction. We also quantify the approximation error introduced by truncating the transition kernel, and show that it leaves mean terminal wealth almost unchanged while substantially distorting drawdown and tail statistics. In simulations using the VAR parameters estimated by Pericoli and Taboga (2016), the dynamic programming strategy outperforms both an equal-weight ladder and a static mean-variance portfolio in mean and median terminal wealth. Over six months its advantage over the static mean-variance benchmark ranges from 0.7 percentage points at a transaction cost of 100 basis points to 4.0 percent-age points when trading is free, rising to 2.7–9.0 percentage points over twelve months, and it holds across upward-sloping, near-flat and inverted initial yield 
+
+1arXiv:2609.38765v1 [q-fin.CP] 30 Sep 2026 curves. The gain is a return gain rather than a reduction in risk: because the objective is risk-neutral expected terminal wealth, the dynamic policy does not systematically improve fifth-percentile wealth or maximum drawdown relative to the static benchmarks. As transaction costs rise the strategy trades substantially less, with cumulative turnover falling by roughly five-sixths, but it does not col-lapse onto the static benchmark and retains an economically material advantage at the highest cost we consider.   
+
+> Keywords: Multi-period portfolio optimization, Markov Decision Processes, Dynamic Nelson-Siegel, Markov chain approximation
+> JEL Classification: G11 , G21 , C61 , E43
+
+# 1 Introduction 
+
+Banks allocate treasury portfolios across government securities with different maturi-ties as part of asset-liability management and liquidity-risk control (Choudhry 2007, 2011). Short-term securities support near-term cash needs and regulatory liquid-ity requirements, whereas longer-maturity bonds can improve portfolio yield over extended horizons (De Vere et al. 2025; Englisch et al. 2023). A diversified matu-rity structure helps align asset cash flows with liabilities and reduces exposure to interest-rate fluctuations and liquidity shortfalls associated with maturity transfor-mation (Yang 2021; Brunnermeier et al. 2013). These considerations have become especially important under Basel III, whose Liquidity Coverage Ratio requires banks to hold sufficient high-quality liquid assets (HQLA) to withstand a 30-day stress scenario (Basel Committee on Banking Supervision 2013; Doerr 2024). Empirical studies show that banks subject to LCR requirements have increased their holdings of Treasuries and other HQLA, while maturity diversification helps balance liquidity, reinvestment, and interest-rate risks (Yankov 2020; Fuhrer et al. 2016; Giordana and Schumacher 2017). Static mean-variance optimization remains a standard benchmark for managing such portfolios. Following modern portfolio theory, expected returns and the covari-ance matrix of bond returns are estimated over a fixed horizon, and portfolio weights are chosen to maximize expected return for a given level of risk (Markowitz 1952, 1959). Applying this framework across Treasury maturities produces a transparent and computationally tractable trade-off between yield, liquidity, and interest-rate expo-sure (Elton and Gruber 1997; Ikpe et al. 2023; Chandrasekhar 2009; Walder 2002). Static mean-variance allocation remains widely used in treasury and ALM applica-tions because it provides an interpretable benchmark for internal risk management and regulatory analysis (Basel Committee on Banking Supervision 2016). 21.1 Dynamic Multi Period Portfolio Allocation With Transaction Costs 
+
+Research on multi period portfolio allocation extends the classical Markowitz frame-work by accounting for the costs and constraints associated with repeated trading. Early stochastic-control models showed that proportional and market-impact costs lead to no-trade regions and state-dependent rebalancing decisions (Constantinides 1986; Davis and Norman 1990; Gˆ arleanu and Pedersen 2013). Dynamic programming methods have since been used to solve finite-horizon portfolio problems with transac-tion costs and portfolio constraints (Skaf and Boyd 2009; Brown and Smith 2011; Cai et al. 2020; Palczewski et al. 2015). More recent studies apply Wiener-chaos methods and deep reinforcement learning to approximate these dynamic decisions, while there are some other works that show parameter uncertainty can materially affect utility and motivates robust allocation rules (Cousin et al. 2024; Jiang et al. 2025; Cui et al. 2024; DeMiguel et al. 2015; Bertsimas and Pachamanova 2008). Although much of this literature considers equity portfolios, related work has begun to address the specific features of fixed-income allocation. Bond strategies must account for yield-curve dynamics, maturity effects, and the trading costs associated with repositioning across the term structure. Shimai and Makimoto (2023) develop a multi-period bond-allocation framework with stochastic interest rates and transaction costs, while Nakayama and Takahashi (2007) use dynamic yield-curve factors to deter-mine bond weights over multiple periods. These studies highlight the importance of combining interest-rate forecasts, transaction costs, and the investment horizon when evaluating dynamic bond portfolios (Lynch and Tan 2010; Mei et al. 2016). On the practical side the need for careful portfolio selection of bonds of different maturities by bank treasuries is reflected through the recent case of Silicon Valley Bank and the subsequent contagion to other banks. 
+
+## 1.2 The Case Of Silicon Valley Bank 
+
+Silicon Valley Bank (SVB) invested a substantial share of its deposits in long-duration U.S. Treasuries and agency mortgage-backed securities. When the Federal Reserve raised interest rates sharply in 2022, the market value of these assets fell, creating large unrealized losses (Board of Governors of the Federal Reserve System 2023; Board of Governors of the Federal Reserve System Office of Inspector General 2023). Although held-to-maturity securities would have paid par value if retained until maturity, SVB’s concentration in long-duration assets created immediate liquidity pressure. The bank increasingly invested excess deposits in longer-term securities rather than maintaining them in short-duration assets without adequately hedging its interest-rate exposure or holding sufficient liquid assets (Metrick 2024; Board of Governors of the Fed-eral Reserve System 2023; Board of Governors of the Federal Reserve System Office of Inspector General 2023). When venture-capital funding weakened, SVB’s largely uninsured depositors began withdrawing funds rapidly. The bank was forced to sell available-for-sale securities at a realized loss of approximately $1.8 billion, intensifying depositor concerns (Board of Governors of the Federal Reserve System 2023; Metrick 2024). 3The episode exposed how concentrated investments in long term securities with interest rate risk can interact to create severe liquidity stress. Signature Bank expe-rienced a similar uninsured-deposit run and was subsequently closed by regulators (Federal Deposit Insurance Corporation 2023; Federal Deposit Insurance Corporation Office of Inspector General 2023). The broader concern was reflected in Moody’s deci-sion to downgrade its outlook for the U.S. banking sector and place several regional banks under review, citing unrealized securities losses and high uninsured-deposit exposure (Moody’s Investors Service 2023). These events highlight the importance of managing bond portfolios under interest-rate risk. We use the SVB episode to motivate the interest-rate-risk problem studied here, but we are explicit about what our framework does and does not capture. The model in this paper is an asset-side portfolio-choice problem: the investor holds a fixed set of default-free zero-coupon bonds and rebalances across maturities as the yield curve evolves. It does not model liabilities, deposit outflows, the distinction between held-to-maturity and available-for-sale accounting treatment, or regulatory liquidity constraints, all of which were central to the SVB failure. Our contribution is therefore to the maturity-allocation component of the treasury problem, and the framework should be read as one input to asset-liability management rather than a model of bank funding fragility. Section 5 discusses how liabilities and liquidity constraints could be incorporated. 
+
+## 1.3 Modelling interest rate fluctuations 
+
+Interest rate dynamics and the evolution of the term structure have been a cen-tral focus in fixed-income portfolio management. Early work modeled the short rate directly, with models such as Vasicek and Cox-Ingersoll-Ross providing mean-reverting stochastic dynamics useful for bond pricing, while Hull-White and Black-Karasinski extensions enabled calibration to observed yield curves (Vasicek 1977; Cox et al. 1985; Hull and White 1990; Black and Karasinski 1991; Hull and White 1993). Term structure modeling subsequently shifted toward multi-factor frameworks, most notably the infinite dimensional Heath-Jarrow-Morton (HJM) framework, which directly models the evolution of the entire forward rate curve under no-arbitrage conditions (Heath et al. 1992). Complementing these approaches, the Nelson-Siegel parametrization introduced a parsimonious yet flexible representation of yield curves. The Dynamic Nelson-Siegel (DNS) parametrization became a workhorse for yield curve forecasting due to its intuitive level, slope, and curvature interpretation (Nelson and Siegel 1987; Diebold and Li 2006; Diebold et al. 2006; Diebold and Rudebusch 2013). Recognizing that static dynamics may fail to capture structural changes observed in real markets, the literature has extended the DNS model to incorporate regime switching—either via unobserved Markov states or macroeconomic influences—to bet-ter model shifts in interest rate behavior (Xiang and Zhu 2013; Zhu 2015; Levant and Ma 2017). Building on this trajectory, Pericoli and Taboga develop a Markov-switching Dynamic Nelson-Siegel model that allows factor loadings or volatilities to switch across regimes, improving in-sample fit and forecasting accuracy (Pericoli and Taboga 2016). We take the estimated factor dynamics of Pericoli and Taboga (2016) 4as our calibration, but the yield-curve model we actually solve against is a single-regime specification: the factor process (8) has no switching component. Extending the state space to include the regime indicator is straightforward in principle and is left to future work. Tavanielli and Laurini further enhance this methodology by incorporating regime changes and time-varying parameters with Bayesian estimation to model the Brazilian yield curve, providing a flexible framework capable of capturing structural breaks and regime-dependent dynamics (Tavanielli and Laurini 2023). Their formulation embeds the Nelson-Siegel factors within a regime-dependent vector autoregressive (VAR) system. 
+
+## 1.4 The MDP Framework 
+
+The aim of this paper is to develop an optimal selection strategy for a portfolio consist-ing of a fixed set of bonds that depends on the current state of the yield curve, taking into account the mark-to-market value of the portfolio at each intermediate date. To model the evolution of interest rates, we develop a Markov chain approximation of the dynamic Nelson-Siegel framework calibrated to Pericoli and Taboga (2016), simulating the underlying autoregressive process while focusing only on the yields of bonds held in the bank’s portfolio. Because bond maturities decrease over time, the resulting yield process forms a time-inhomogeneous Markov chain driven by the underlying factor dynamics (Tavanielli and Laurini 2023; Levant and Ma 2017; Xiang and Zhu 2013; Ding et al. 2021). Building on this yield curve model, we formulate the portfolio optimization problem as a finite-horizon Markov Decision Process (MDP). In the context of multi-period portfolio optimization, MDPs provide a formal framework for sequential investment decisions under uncertainty. Traditional single-period models are myopic and do not account for intertemporal trade-offs or for mark-to-market losses at intermediate dates. MDPs address these limitations by applying dynamic programming to the sequential allocation problem (Xia and Yu 2025; Skaf and Boyd 2009; Brown and Smith 2011). Recent MDP formulations in portfolio optimization include the work of Xia and Yu (2025), who cast finite-horizon multi-period mean-variance optimization as an MDP with an augmented state that tracks accumulated returns, enabling iterative solu-tion via Bellman recursions. These frameworks have been further extended through reinforcement learning and deep RL techniques to handle high-dimensional state and action spaces (Cui et al. 2024; Jiang et al. 2025). In fixed-income settings, MDPs have been successfully applied to problems involv-ing stochastic interest rates and credit risk. For instance, P´ erez L´ opez et al. (2016) transform a wealth allocation problem with defaultable bonds into an MDP, embed-ding utility maximization and credit-risk considerations into dynamic policies. Broader studies confirm that dynamic policies accounting for stochastic interest rates and transaction costs consistently outperform static single-period allocations (Palczewski et al. 2015; Gˆ arleanu and Pedersen 2013). In this paper, we consider the finite-horizon problem of allocating wealth across a portfolio of bonds with different maturities. The objective is to maximize expected 5terminal wealth 1 over the investment horizon under the time-inhomogeneous Markov chain model of the yield curve. At each time step, rebalancing is permitted subject to linear (proportional) transaction costs, following the treatment in (Pun and Ye 2022; Wang and Liu 2013; Mei et al. 2016). The resulting optimal strategies are obtained via dynamic programming. 
+
+## 1.5 Benchmarking and Simulation Strategies 
+
+We carry out simulations to verify the efficacy of our methods. We first calibrate an in-homogenous discrete time Markov chain of interest-rate transition for various maturities in the portfolio from the Nelson-Siegel parametrization. Various realizations of the evolution of the interest-rate vector using the Markov chain are then simulated. On each trajectory several portfolio strategies are implemented and compared under various metrics such as the terminal wealth, maximum drawdown and the turnover of each strategy. We analyse the impact of changing the transaction costs and market conditions such as the volatility parameters of the vector autoregressive process. The contributions of the paper are as follows: 1. We formulate multi-period bond portfolio allocation as a finite-horizon Markov Decision Process with proportional transaction costs, in which the investor max-imizes expected terminal wealth by choosing among a discrete set of portfolio allocations at each rebalancing date. 2. We develop a time-inhomogeneous discrete-state Markov chain approximation of the Dynamic Nelson-Siegel model, deriving state-dependent transition probabilities from simulated VAR paths. This construction is model-agnostic in the sense that the state space and transition probabilities can be calibrated to any yield-curve model that can be simulated forward, parametric or otherwise. 3. We quantify the approximation error introduced by truncating the transition kernel, which is the step that makes the recursion tractable and is usually left implicit. Retaining only the most probable successors of each state biases the conditional volatility of the approximating chain downward, and the size of the bias depends jointly on the number of successors retained and on the discretization width. In our setting the error leaves mean terminal wealth essentially unchanged while materially distorting drawdown and tail statistics, so a chain that appears adequate on first-moment evidence can be badly miscalibrated for risk measurement. 4. We solve the resulting Bellman recursion by backward induction, producing an optimal policy at each state and time step that responds explicitly to yield-curve movements rather than imposing a fixed rebalancing rule. 5. We benchmark the dynamic strategy against equal-weight and static mean-variance portfolios across a range of transaction costs, investment horizons, and yield-factor volatility regimes, quantifying the trade-off between rebalancing frequency and per-formance. We further show that the result is not an artifact of a particular starting term structure by repeating the comparison under upward-sloping, near-flat and 
+
+> 1While we choose to maximize terminal wealth, our framework allows other objectives like the power utility.
+
+6inverted initial yield curves, and we report paired standard errors throughout, exploiting the fact that all strategies are evaluated on common simulated paths. The closest antecedents in the literature are Shimai and Makimoto (2023), who study multi-period bond allocation under stochastic interest rates and transaction costs using a linear rebalancing rule, and Nakayama and Takahashi (2007), who use dynamic yield-curve factors to determine bond weights without explicit transaction costs. Both papers work in continuous time and obtain closed-form solutions, but neither models the discrete-time problem with state-dependent trading decisions under practical transaction-cost constraints. The broader multi-period portfolio optimization literature (Lynch and Tan 2010; Mei et al. 2016) addresses equity or generic risky-asset settings and does not account for the maturity structure and yield-curve dynamics specific to bond portfolios. Our framework addresses these gaps directly. 
+
+## 1.6 Organization of the paper 
+
+Section 2 describes the multi-period bond portfolio optimization problem and its Markov Decision Process formulation. Section 3 describes the Dynamic Nelson-Siegel framework of parametrizing the yield-curve evolution and the associated Markov Chain approximation underlying the MDP in Section 2. In Section 4, we carry out experi-ments comparing various static and dynamic allocation strategies. We vary transaction costs, investment horizon, volatility and other parameters and present our results. Finally, we conclude in Section 5 with a discussion of the limitations to our approach and future research directions. 
+
+# 2 Formulating the multi-period portfolio optimization 
+
+Consider a finite horizon optimization problem of maximizing the gains from a port-folio consisting of K bonds over a discrete time horizon of T periods. The bonds are zero-coupon bonds with maturities τ1 < τ 2 < . . . < τ K at time t = 0. Maturities τk
+
+are measured in years, while the rebalancing grid is indexed by i = 0 , 1, . . . , T with a step length of ∆ years; in the experiments of Section 4, rebalancing is monthly and ∆ = 1 /12. For simplicity, we assume T ∆ < τ 1, so that no bond matures within the investment horizon. Relaxing this is possible but not immediate: a maturing bond must be removed from the investable set, and its redemption proceeds form part of wealth and must be reinvested, either across the surviving bonds or into a money-market account added to the asset menu. Since the reinvestment rule affects terminal wealth, it is a modelling choice rather than a technicality, and we do not pursue it here. Let Si be the K-dimensional random vector of the yields of the bonds at time 
+
+t = i. We denote by Si,k the k-th component of Si. We allow for Si to take a finite set of values from a state space S. Let pi(s′|s) = P(Si+1 = s′|Si = s) be the transition probability from state s at time t = i to state s′ at time t = i + 1. The transition probabilities are time dependent as the time to maturity of all bonds in the portfolio decrease with time. Deriving the time-dependent transition probabilities for the dis-crete time chain of approximate bond yields in the portfolio from the homogeneous Markov process describing the evolution of the yield curve is explained in Section 3. 7At t = 0, the investor has 1 unit of currency to invest in the bonds. Denote by Bi,k the price of bond k at time t = i when the yield vector is Si. The price of a zero-coupon bond is given by: 
+
+Bi,k = exp   − (τk − i∆) Si,k 
+
+. (1) Denote by xi,k the fraction of wealth invested in bond k at time t = i. We suppose that xi,k can take a finite number of non-negative values such that PKk=1 xi,k = 1. Denote this set of allocation vectors as A, the action space. The investor can rebalance the portfolio at the beginning of each time period. Assume that the cost of rebalancing the portfolio from xi−1 to xi at time t = i is given by 
+
+ϕ(xi−1, x i, s i−1, s i) = c
+
+> K
+
+X
+
+> k=1
+
+|xi,k − x′
+
+> i−1,k
+
+|, (2) where c ≥ 0 is a constant transaction cost per unit of wealth reallocated; the frictionless case c = 0 is included as a reference point in Section 4. Note that x′ 
+
+> i−1,k
+
+is the fraction of wealth in bond k at time t = i just before rebalancing, which is different from xi−1,k 
+
+due to the change in bond values from time t = i − 1 to time t = i. Specifically, 
+
+x′ 
+
+> i−1,k
+
+= xi−1,k Bi,k /B i−1,k 
+
+PKj=1 xi−1,j Bi,j /B i−1,j 
+
+. (3) The investor’s objective is to maximize the expected total gain over the time hori-zon T . Let g(si, x i, s i+1 ) denote the returns of the portfolio, i.e., the change per unit portfolio value, when the state changes from si at time t = i to si+1 at time t = i + 1. The gain is given by: 
+
+g(si, x i, s i+1 ) = 
+
+> K
+
+X
+
+> k=1
+
+xi,k 
+
+ Bi+1 ,k 
+
+Bi,k 
+
+− 1
+
+
+
+=
+
+> K
+
+X
+
+> k=1
+
+xi,k 
+
+ Bi+1 ,k 
+
+Bi,k 
+
+
+
+− 1, (4) since KP
+
+> k=1
+
+xi,k = 1 . At t = 0 denote the optimal value function or the optimal expected profit accumulated across the time horizon T by J0(s0) where s0 is the initial state. At 
+
+t = i, i = 1 , 2, . . . T − 1, the optimal value function per unit portfolio value is denoted by Ji(si, x i−1, s i−1). At t = T , the value function is given by JT (sT , x T −1, s T −1) = 0 for all sT , s T −1 ∈ S and xT −1 ∈ A .We can express the value function at time t = i in terms of the value function at time t = i + 1 using the principle of dynamic programming. We now state the dynamic programming equation for any time 1 ≤ i ≤ T − 1 and explain the rationale for the same. 8Ji(si, x i−1, s i−1) = max 
+
+> xi∈A
+
+X
+
+> si+1 ∈S
+
+pi(si+1 |si)
+
+h
+
+(1 + g(si, x i, s i+1 )) (1 − ϕ(xi−1, x i, s i−1, s i)) − 1+ ρJ i+1 (si+1 , x i, s i)(1 + g(si, x i, s i+1 ))(1 − ϕ(xi−1, x i, s i−1, s i)) 
+
+i
+
+.
+
+(5) At time t = 0, the value function is given by: 
+
+J0(s0) = max 
+
+> x0∈A
+
+X
+
+> s1∈S
+
+p0(s1|s0) [ g(s0, x 0, s 1) + ρJ 1(s1, x 0, s 0)( g(s0, x 0, s 1) + 1)] . (6) Note that no transaction cost appears in (6): the initial portfolio is assumed to be established without cost, so that all strategies begin from the same unit wealth and differ only in their subsequent trading. This convention is applied uniformly to the dynamic policy and to both static benchmarks. Suppose the investor has unit wealth at time t = i. After paying transaction costs, the wealth at time t = i is given by (1 − ϕ(xi−1, x i, s i−1, s i)) which at time 
+
+t = i + 1 would be (1 + g(si, x i, s i+1 ))(1 − ϕ(xi−1, x i, s i−1, s i)). Hence the one-step P&L at time i would be (1 + g(si, x i, s i+1 ))(1 − ϕ(xi−1, x i, s i−1, s i)) − 1. The second term in the dynamic programming equation (5) is the expected future gain from time 
+
+t = i+1 to time t = T . The expected future gain is given by the value function at time 
+
+t = i + 1 multiplied by the wealth at time t = i + 1, which is (1 + g(si, x i, s i+1 ))(1 −
+
+ϕ(xi−1, x i, s i−1, s i)). We discount the future gain to present value using a sensitivity factor, or the continuation parameter ρ ∈ (0 , 1]. Note that the recursion coincides with maximization of expected terminal wealth only when ρ = 1; for ρ < 1 the investor places less weight on gains accruing later in the horizon, and the objective is a discounted sum of period P&L rather than terminal wealth. We use ρ = 1 throughout, so the stated objective and the solved recursion agree; Table 7 reports a sensitivity analysis over ρ and shows that the results are insensitive to this choice. 
+
+## 2.1 Getting the solution strategy 
+
+We solve MDP (5) and (6) using backward induction. We start with t = T and move backwards to t = 0. At each time step i > 0, we compute the value func-tion Ji(si, x i−1, s i−1) by numerically solving (5). The optimal policy at time t = i,
+
+x∗ 
+
+> i
+
+(si, x i−1, s i−1) is given by the action that maximizes the value function at time t = i
+
+for each state. We iteratively solve for x∗ 
+
+> i
+
+(si, x i−1, s i−1) and appropriately rebalance the portfolio to the current optimal allocation. Finally, we compute the value function at time t = 0 using (6) and obtain the optimal policy at time t = 0, x∗
+
+> 0
+
+(s0). Because the value function is indexed by the current state, the previous action, and the previous state, the backward recursion requires O(T |S| 2 |A| 2) operations in the worst case. In the base case the action set contains |A| = 6 allocations and the reachable state space grows from a single initial state to at most 80 states per date, giving 341 states in total over the six-month horizon. Solving the recursion for one 9transaction-cost level takes approximately 29 seconds single-threaded in a pure Python implementation; the full experimental grid is embarrassingly parallel across seeds and scenarios. We now describe how to obtain the transition probabilities pi using simulations of the Dynamic Nelson-Siegel model. 
+
+# 3 Markov Chain Approximation Of the Dynamic Nelson Siegel Model 
+
+Consider the Dynamic Nelson-Siegel parametrization of the yield curve (Pericoli and Taboga 2016). We will use it to infer the transition probabilities of the discrete state Markov Chain as required to solve the MDP (5),(6). The yield for a maturity τ at time t is given by: 
+
+yt(τ ) = lt + st
+
+ 1 − e−λτ 
+
+λτ 
+
+
+
++ κt
+
+ 1 − e−λτ 
+
+λτ − e−λτ 
+
+
+
+, (7) where lt, st, and κt are the level, slope, and curvature factors at time t, respectively, and λ is a decay parameter called the “loading factor”. The curvature factor is written 
+
+κt rather than ct to avoid a clash with the transaction-cost parameter c of Section 2. Let Ft = [ lt, s t, κ t]T be the vector of factors at time t. The evolution of these factors follows a Vector Auto-regressive (VAR) process: 
+
+Ft = ( I − A)μ + AF t−1 + ηt, t = 1 , 2, . . . , T (8) Here A = diag( a1, a 2, a 3) is a diagonal matrix, μ is the mean vector constant with time, and ηt ∼ N (0 , Ση ) is a vector of white noise error terms with a constant diag-onal covariance matrix. Because both A and Σ η are diagonal, (8) reduces to three independent AR(1) processes; we retain the vector notation for consistency with the source specification, but no cross-factor dynamics are estimated. We are interested in obtaining the yields of the K bonds at each timestep. Recall the state St at time t is the K-dimensional vector of yields of the K bonds in the portfolio at time t.We obtain y0(τ ) for each maturity τ in the portfolio. Each yield is then mapped to the nearest value in a discrete set of yields S0 ∈ S . This discretization allows us to formulate the problem as an MDP. As the yield curve (7) evolves, for any 0 ≤ t ≤ T ,we map the yt(τ ) values for the various maturities in the portfolio to a discrete vector 
+
+St ∈ S .To obtain the transition probabilities pt(s′|s), we simulate the VAR process (8) for a large number of runs. For each run, we map the yields yt(τ ) to the nearest state 
+
+St ∈ S . We then count the number of times nt(s′, s ) that St+1 takes the value s′ given that St takes the value s. We denote by Nt(s) the total number of simulation runs where St takes the value s. The transition probability is then estimated as: 
+
+pt(s′|s) = nt(s′, s )
+
+Nt(s) (9) 10 Two practical points arise in constructing the chain, the first of which turns out to have a material effect on the results and, to our knowledge, is not quantified elsewhere. The empirical conditional distribution over successor bins must be truncated for the recursion to remain tractable: for each state we retain the M most probable successors subject to a minimum probability threshold, and renormalize so that P 
+
+> s′
+
+pt(s′|s) = 1. The number of successors retained controls a direct trade-off between tractability and fidelity, because truncation removes mass from the tails of the conditional distribution and therefore understates the volatility of the approximating chain. The severity of this effect depends jointly on M and on the discretization width. At a 20 basis point grid the one-step conditional distribution of the three yields spreads across roughly 390 occupied bins, so retaining M = 10 successors captures only about one third of the conditional mass and roughly halves the conditional standard deviation of each yield. Widening the grid to 40 basis points concentrates the same distribution into about 120 bins, so that M = 25 successors capture approximately 92% of the mass. We therefore adopt a 40 basis point grid with M = 25: the additional discretization error from the coarser grid is small relative to the tail-truncation error it removes, and the resulting chain reproduces the conditional volatility of the underlying VAR far more closely. We treat the retained mass as a diagnostic of approximation quality and report it here rather than in the results tables, since it is a property of the chain construction and not of any particular portfolio strategy. The second point is milder. States are capped at a maximum number per date, retaining the most frequently visited. If a simulated path reaches a yield vector whose nearest discrete state has been pruned, the path is mapped to the closest surviving state under the Euclidean metric on S. In the reported specifications this fallback is never triggered on the evaluation paths, and every state reachable at date t has a non-empty outgoing distribution, so the policy is always well defined along simulated trajectories. For the estimation of parameters of the autoregressive process we refer to Pericoli and Taboga (2016). 11 Fig. 1 : Simulation of Yields of 5 Year Bond over six months using the Markov Chain Approximation with a 40 bps discretization. Figure 1 illustrates the resulting discretized yield paths for the five-year bond over the six-month horizon. 
+
+# 4 Experimental Results 
+
+## 4.1 Experimental design, benchmark strategies, and evaluation metrics 
+
+We consider the investment of a unit of wealth in a portfolio of three bonds with maturities of 2, 5, and 10 years, respectively. Rebalancing is allowed on a monthly basis over a time horizon of T = 6 months. Yield curve dynamics are modeled using the Dynamic Nelson-Siegel parameterization, with parameters following a Vector Auto-Regressive process as described in Section 3. The parameters of the VAR process are taken from Pericoli and Taboga (2016). The state space S of the Markov Chain is obtained by discretizing the yields yt(τ ), 0 ≤ t ≤ T , to the nearest 40 basis points, retaining the M = 25 most probable successors of each state and capping the number of states at 80 per date, as described in Section 3. We simulate the VAR process (8) with the parameters from Pericoli and Taboga (2016) and map the yields yt(τ )obtained from (7) to the nearest state St ∈ S . The transition probabilities pt(s′|s) of the Markov Chain are calculated from (9). We consider different levels of transaction costs, c ∈ [0 , 0.01]. We also consider three volatility regimes, obtained by scaling the standard deviations of the factor innovations ηt in (8) about their estimated values. The action space A consists of six allocations: the three single-bond corner port-folios, the equal-weight portfolio, and the two intermediate allocations (0 .2, 0.3, 0.5) 12 and (0 .5, 0.3, 0.2). This coarse action set is deliberate, since it keeps the state-action recursion tractable, but it means the dynamic policy is restricted to a small menu of allocations and cannot fine-tune weights continuously. Section 5 discusses relaxing this restriction. For each parameter configuration, 10,000 sample paths of the Markov Chain are simulated, averaged over five random seeds, except in the initial-curve experiment of Section 4.6, which uses 4,000 paths and three seeds. Every strategy is evaluated on the same simulated paths within each seed, so that the comparisons use common random numbers, reducing Monte Carlo noise across strategies. Because all strategies are evaluated on common random numbers, we assess the statistical significance of performance differences pathwise. For each simulated path j
+
+we compute the difference in terminal wealth Dj = W DP  
+
+> T
+
+(j) − W bench  
+
+> T
+
+(j) and report the sample mean ¯D together with its standard error ˆ σD/√n, where n is the number of simulated paths. This paired construction removes the common yield-curve variation and yields far tighter confidence intervals than comparing unpaired means. Paired gaps and their standard errors are reported alongside the level statistics in Table 5. The base case uses a transaction-cost grid of c ∈ { 0, 0.0005 , 0.001 , 0.002 ,
+
+0.005 , 0.01 } and continuation parameter ρ = 1. The subsequent experiments vary transaction costs, the investment horizon, and the volatility and continuation param-eters. Terminal wealth is the primary performance measure. We report its mean, median, and fifth percentile; the fifth percentile measures severe adverse outcomes and is used as the principal downside-risk statistic. Maximum drawdown is defined, for a simulated path, as the largest percentage decline from a running wealth peak to a subsequent trough. Denoting by Wt the wealth of the portfolio at time t, the maximum drawdown is given by: Max Drawdown = 100 × max  
+
+> t∈[0 ,T ]
+
+
+
+1 − Wt
+
+max u∈[0 ,t ] Wu
+
+
+
+%. (10) We report the average maximum drawdown across simulated paths. Trading activ-ity is summarized using average turnover and cumulative transaction costs paid. The turnover of a strategy is defined as the total wealth reallocated over the investment horizon: Turnover = 
+
+> T
+
+X
+
+> t=1
+> K
+
+X
+
+> k=1
+
+Wk,t + − Wk,t − . (11) where Wk,t + and Wk,t − are the wealth allocated to bond k at time t after and before rebalancing, respectively. After presenting the base-case results, we examine how the portfolio policy responds to changes in transaction costs and investment horizon. The transaction-cost analysis examines how trading intensity and strategy performance change as rebalanc-ing becomes more expensive. We also examine whether increasing the horizon to twelve months, which gives each strategy more time to adjust its allocation, preserves the conclusions drawn from the six-month horizon. We also consider alternative volatility 13 regimes and continuation-parameter values to evaluate the robustness of the results to the main modeling assumptions. We consider two benchmark strategies to compare against the proposed Dynamic Programming (DP) strategy. The benchmark strategies are as follows: 1. Equal-weight buy-and-hold portfolio : In this strategy, the investor allocates one-third of wealth to each bond at inception and does not subsequently trade. 2. Static Mean-Variance Optimal Portfolio (MVO) : In this strategy, the investor allocates the mean-variance optimal composition of wealth to each bond in the portfolio at the beginning of the investment horizon and does not rebalance thereafter. The mean vector and covariance matrix of horizon returns are estimated from an independent set of simulated paths, drawn under the same dynamics but with a different random seed from the paths used for evaluation. The MVO bench-mark is therefore not given look-ahead information about the evaluation sample, though it does know the true data-generating process. In our proposed strategy, Dynamic Programming (DP) , the investor uses the optimal policy obtained from the MDP solution to make decisions at each timestep, over the transaction-cost grid stated above. 
+
+## 4.2 Main Findings 
+
+The results support four main conclusions. 1. First, the DP strategy outperforms both static benchmarks on mean and median terminal wealth in every configuration we examine. Over six months its advantage over equal-weight buy-and-hold ranges from 1 .0 percentage points at a transac-tion cost of 100 basis points to 4 .3 percentage points when trading is free, and its advantage over the static mean-variance portfolio from 0 .7 to 4 .0 percentage points. Over twelve months the corresponding ranges are 3 .1–9 .5 and 2 .7–9 .0 per-centage points. The advantage is therefore largest when trading is cheap and the horizon is long, but it remains economically material at the highest transaction cost considered. Whether the equal-weight ladder loses money depends on the initial curve rather than on the strategy: it does so under the initial factor vector used in earlier drafts, which embeds an expected rise in yields, but not under the curve shapes reported in Section 4.6. The comparison against the static mean-variance benchmark is therefore the more informative of the two throughout. 2. Second, the gain from dynamic allocation is a return gain, not a risk reduction. Relative to both static benchmarks, DP delivers higher mean and median termi-nal wealth but does not improve, and frequently worsens, the downside statistics: its fifth-percentile wealth is below that of the static mean-variance portfolio under the upward-sloping, unconditional-mean and original initial curves, and its mean maximum drawdown is of the same order as that of the equal-weight ladder rather than materially smaller. The one exception is the inverted curve, where the mean-variance portfolio concentrates in the ten-year bond and consequently has both the weakest fifth-percentile wealth and the largest drawdown of the three strate-gies. This is the expected consequence of the objective rather than a defect of 14 the solution: the investor maximizes expected terminal wealth and is risk-neutral by construction, so the policy is never penalized for intermediate mark-to-market losses and will accept additional duration exposure whenever it raises the expected value. A treasury desk facing mark-to-market or capital constraints would require a risk-sensitive objective; the MDP formulation accommodates this directly through a concave utility or a drawdown penalty in the stage reward, which we leave to future work. 3. Third, higher transaction costs reduce trading intensity but do not extinguish the dynamic policy. Cumulative turnover over six months falls from 6 .34 at c = 0 to 1.10 at c = 0 .01, yet the policy still reallocates more than the whole portfolio over the horizon at the highest cost level and retains a 71 basis point advantage over the static mean-variance benchmark. Cumulative costs paid are not monotone in c:they peak at 1 .43% of initial wealth at c = 0 .005, where the rising cost rate has not yet been offset by the fall in volume. The dynamic policy therefore moves toward, but does not collapse onto, the static benchmark as trading becomes expensive. 4. Fourth, the longer horizon increases the opportunity for dynamic allocation, but it also increases potential turnover, so the benefit of DP depends jointly on the investment horizon and transaction costs. Additionally, we experimented with strategies that rebalance to a fixed static tar-get (equal weighting or the initial MVO weights) at each timestep. These strategies produced significant losses relative to those discussed above and are therefore excluded from the discussion. 
+
+## 4.3 Comparison across different investment horizons 
+
+Table 1 shows the terminal-wealth statistics of each strategy over the six-month invest-ment horizon. The DP strategy has higher mean and median terminal wealth than the other strategies across all transaction costs. However, as transaction costs increase, DP rebalances less frequently, and its advantage over static MVO narrows. From Table 1, we see that increasing the investment horizon to twelve months preserves the ordering of the three strategies on mean and median wealth. The fifth-percentile comparison, however, depends on the horizon: over six months the dynamic policy has lower fifth-percentile wealth than both static benchmarks at every trans-action cost, whereas over twelve months it has the highest fifth-percentile wealth of the three at c = 0. The longer horizon gives the policy more time to trade out of adverse yield-curve states, which improves the left tail; over six months the additional duration exposure it takes on dominates. Table 2 shows the impact of the extended investment horizon on the performance of the DP and MVO strategies. The twelve-month horizon increases the gap between DP and MVO mean terminal wealth across all values of the transaction-cost parameter. The longer horizon therefore gives DP more time to exploit favorable rebalancing opportunities. However, the increase in trading opportunities also results in greater turnover for the DP strategy over the twelve-month horizon. 15 Table 1: Terminal wealth and downside-risk statistics across investment horizons. 
+
+Horizon Strategy Mean Median Q5 MDD 
+
+6 months Equal wt., buy-and-hold 1.0431 1.0408 0.9534 4.40% MVO, buy-and-hold 1.0463 1.0408 0.9616 3.93% DP, c = 0 1.0860 1.0878 0.9500 3.92% DP, c = 0 .0005 1.0829 1.0845 0.9477 4.01% DP, c = 0 .001 1.0800 1.0821 0.9458 4.11% DP, c = 0 .002 1.0750 1.0776 0.9430 4.30% DP, c = 0 .005 1.0630 1.0668 0.9317 4.42% DP, c = 0 .01 1.0534 1.0553 0.9413 3.89% 12 months Equal wt., buy-and-hold 1.0852 1.0820 0.9955 6.10% MVO, buy-and-hold 1.0901 1.0833 1.0032 5.87% DP, c = 0 1.1801 1.1786 1.0196 5.65% DP, c = 0 .01 1.1166 1.1008 0.9864 5.02%  
+
+> Notes: MDD denotes mean maximum drawdown, defined as the largest percentage decline from a running wealth peak to a subsequent trough. Q5 denotes fifth-percentile terminal wealth. All statistics are computed across 10,000 simulated paths using common random numbers and initial wealth normalized to one. The initial yield curve is the unconditional-mean curve of Section 4.6.
+
+Table 2 : Comparison of mean wealth and DP turnover across investment horizons. 
+
+Mean wealth DP turnover Strategy Six months Twelve months Six months Twelve months 
+
+Equal wt., buy-and-hold 1.0431 1.0852 – –MVO, buy-and-hold 1.0463 1.0901 – –DP, c = 0 1.0860 1.1801 6.339 13.822 DP, c = 0 .01 1.0534 1.1166 1.096 1.917  
+
+> Notes: A dash indicates a static buy-and-hold strategy with zero turnover by construction. Fifth-percentile wealth by strategy and horizon is reported in Table 1. Turnover is cumulative over the horizon and expressed as a fraction of portfolio wealth, so a value of 6.339 corresponds to reallocating 634% of wealth in total across the six rebalancing dates.
+
+## 4.4 Sensitivity to transaction costs 
+
+Table 3 shows the turnover and transaction costs of the DP strategy across different values of the transaction-cost parameter. The optimal policy trades less as rebalancing becomes more expensive: cumulative turnover declines monotonically from 6 .34 at 
+
+c = 0 to 1 .10 at c = 0 .01, a reduction of roughly five-sixths. The decline is gradual rather than abrupt, and even at the highest cost level the policy continues to rebalance substantially. 16 Cumulative costs paid, by contrast, are not monotone in c. They rise from 0 .291% of initial wealth at c = 0 .0005 to a maximum of 1 .434% at c = 0 .005, and only then decline, to 1 .096% at c = 0 .01. This reflects the two offsetting forces in the product of the cost rate and the volume traded: over most of the grid the rate rises faster than turnover falls, so total costs paid increase; only beyond c = 0 .005 does the reduction in turnover dominate. The implication for practice is that the total cost burden of a dynamic policy is highest at intermediate trading costs, not at the highest ones, where the policy has already curtailed its activity. 
+
+Table 3 : Trading activity under different transaction costs. 
+
+Transaction cost c DP turnover DP cost paid (% of wealth) 
+
+0.00% 6.339 0.000% 0.05% 5.815 0.291% 0.10% 5.310 0.531% 0.20% 4.566 0.913% 0.50% 2.869 1.434% 1.00% 1.096 1.096%      
+
+> Notes: Transaction costs are expressed in percentage points, so c= 0 .10% corresponds to c= 0 .001 in the notation of Section 2. Turnover is cumulative over the six-month horizon. Cost paid is cumulative transaction cost as a percentage of initial wealth.
+
+## 4.5 Sensitivity to yield-factor volatility 
+
+Table 4 shows the sensitivity of the DP strategy to yield-factor volatility at a trans-action cost of c = 0 .001. The results indicate that the DP strategy maintains its advantage over the static strategies in every volatility regime, with higher mean ter-minal wealth in all three cases. The size of that advantage, however, is remarkably stable: it rises only from 3 .32 to 3 .51 percentage points as the factor standard devi-ations are scaled from the low to the high regime, and DP mean wealth itself varies by just 44 basis points across the three regimes. Turnover is likewise close to flat, and not monotone in volatility. What does respond clearly to volatility is downside risk: DP mean maximum drawdown more than doubles, from 2 .38% to 5 .20%, and its fifth-percentile wealth falls from 0 .9812 to 0 .9274. The dynamic policy therefore delivers a similar return advantage across volatility environments while bearing materially more downside risk in volatile ones. We note that the fifth-percentile comparison reverses across regimes: in the low-volatility regime DP has a lower mean maximum drawdown than the static mean-variance portfolio (2 .38% against 2 .44%), while in the baseline and high regimes it has a higher one. The dynamic policy’s risk profile is thus close to that of the static benchmarks when the curve is calm and deteriorates relative to them as volatility rises. 17 Table 4 : Volatility sensitivity at transaction cost c = 0 .001. 
+
+Vol. Strategy Mean Q5 MDD Turn. TC paid 
+
+Low DP 1.0794 0.9812 2.38% 5.5824 0.005582 MVO, buy-and-hold 1.0462 0.9861 2.44% – –Equal wt., buy-and-hold 1.0422 0.9786 2.79% – –Baseline DP 1.0800 0.9458 4.11% 5.3096 0.005310 MVO, buy-and-hold 1.0463 0.9616 3.93% – –Equal wt., buy-and-hold 1.0431 0.9534 4.40% – –High DP 1.0838 0.9274 5.20% 5.4410 0.005441 MVO, buy-and-hold 1.0487 0.9503 4.95% – –Equal wt., buy-and-hold 1.0456 0.9438 5.41% – –       
+
+> Notes: Q5 denotes the fifth percentile of terminal wealth. MDD denotes mean maximum drawdown. Turnover and TC paid are reported only for DP; buy-and-hold strategies have zero turnover and zero transaction costs by construction. TC paid denotes cumulative transaction costs as a fraction of initial wealth. Low, baseline, and high volatility correspond to factor standard deviations (0 .20 ,0.40 ,0.85), (0 .36 ,0.62 ,0.92), and (0 .50 ,0.80 ,0.99), respectively, for the level, slope, and curvature factors of (8). The baseline values are those estimated by Pericoli and Taboga (2016); the low and high regimes are chosen to bracket them.
+
+## 4.6 Sensitivity to the initial yield curve 
+
+The results reported above condition on a single initial factor vector. Because the DNS factors mean-revert, the initial curve determines both the shape of the term structure the investor faces and the direction in which it is expected to move, so it is a first-order determinant of any maturity-allocation result. We therefore re-estimate the model under three initial curves that differ in shape rather than in level. In each case the level and curvature factors are set to their estimated long-run means and only the slope factor is varied, so that no deterministic level drift is imposed: an upward-sloping curve (slope factor −3.00), the unconditional mean curve (slope factor −1.50, mildly upward-sloping), and an inverted curve (slope factor +1 .50). For comparability with earlier drafts we also report the original initial factor vector (5 .00 , −2.00 , 3.00), which starts the level factor well below its long-run mean and therefore embeds an expected increase in yields of roughly 115 basis points over the six-month horizon. Table 5 reports the results. Three points stand out. First, the static mean-variance benchmark is a corner solution in every scenario, allocating all wealth to a single maturity: the two-year bond when yields are expected to rise, the five-year bond at the unconditional mean, and the ten-year bond when the curve is inverted and expected to re-steepen. This is inherent to a long-only problem with three assets whose risk and expected return are both ordered by duration, and it means that “static mean-variance” should be read as “the single best maturity given the initial curve”. Second, the advantage of the dynamic policy over this benchmark is substantially larger than earlier estimates suggested, ranging from 2 .0 to 3 .3 percentage points at a transaction cost of 10 basis points, and is statistically unambiguous under the paired construction. Third, the extent to which high transaction costs push the dynamic policy toward the 18 static benchmark itself depends on the initial curve. At a transaction cost of 100 basis points the policy all but stops trading under the inverted and original curves, where cumulative turnover falls to 0 .15 and 0 .19 and the advantage over the static benchmark falls to 0 .05 and 0 .10 percentage points. Under the upward-sloping and near-flat curves it continues to reallocate more than the whole portfolio over the horizon, with turnover of 1 .53 and 1 .17, and retains an advantage of 0 .52 and 0 .58 percentage points. Where a single maturity dominates, the policy holds it; where the curve offers relative-value movement between maturities, trading remains worthwhile even at high cost. 
+
+Table 5 : Mean terminal wealth by initial yield-curve shape. 
+
+Initial curve c Equal wt. MVO DP DP −MVO (pp) t DP turnover 
+
+Upward sloping 0 1.0202 1.0243 1.0612 +3.69 56 6.26 0.001 1.0202 1.0243 1.0553 +3.10 47 5.23 0.01 1.0202 1.0243 1.0294 +0.52 8 1.53 At long-run mean 0 1.0449 1.0479 1.0878 +4.00 86 6.51 0.001 1.0449 1.0479 1.0813 +3.34 75 5.56 0.01 1.0449 1.0479 1.0536 +0.58 18 1.17 Inverted 0 1.1069 1.1430 1.1682 +2.52 53 5.14 0.001 1.1069 1.1430 1.1629 +1.99 43 4.52 0.01 1.1069 1.1430 1.1435 +0.05 5 0.15 Original paper 0 0.9825 0.9952 1.0226 +2.74 52 6.27 0.001 0.9825 0.9952 1.0167 +2.15 41 5.37 0.01 0.9825 0.9952 0.9962 +0.10 6 0.19     
+
+> Notes: Level and curvature factors are held at their long-run means in the first three scenarios; only the slope factor varies, so the scenarios differ in curve shape rather than in an imposed level drift. The final scenario reproduces the initial factor vector used in earlier drafts. DP −MVO is the mean pathwise difference in terminal wealth in percentage points, and tis the corresponding paired t-statistic; the paired construction exploits common random numbers across strategies. Results average three seeds with 4,000 paths each, using a 40 basis point grid with 25 retained successors and at most 80 states per date. Tables 1–7 use five seeds with 10,000 paths each on the same chain specification, so figures for the unconditional-mean curve differ between the two sets of tables by a few basis points of Monte Carlo error.
+
+Table 6 reports the corresponding downside statistics. The dynamic policy does not dominate the static benchmarks on either measure. Its fifth-percentile wealth is below that of the mean-variance portfolio in three of the four scenarios, and its mean maximum drawdown exceeds that of the equal-weight ladder in two of the four. The exception is the inverted curve, where the mean-variance portfolio concentrates in the ten-year bond and records both the weakest fifth-percentile wealth and the largest drawdown of the three strategies. As discussed above, this reflects the risk-neutral objective rather than a failure of the policy. 19 Table 6 : Downside statistics by initial yield-curve shape, transaction cost 
+
+c = 0 .001. 
+
+Fifth-percentile wealth Mean maximum drawdown Initial curve Equal wt. MVO DP Equal wt. MVO DP 
+
+Upward sloping 0.9292 0.9960 0.9185 5.26% 1.36% 5.16% At long-run mean 0.9511 0.9627 0.9429 4.34% 3.88% 4.36% Inverted 1.0051 0.9622 0.9930 2.84% 6.06% 3.67% Original paper 0.8933 0.9665 0.8974 6.72% 2.37% 5.04% 
+
+Table 7 : Sensitivity of DP performance to the continuation parameter ρ.
+
+ρ Mean Q5 MDD Turn. TC paid 
+
+c = 0 0.90 1.0860 0.9500 3.93% 6.34 0.000000 0.95 1.0860 0.9500 3.93% 6.34 0.000000 1.00 1.0860 0.9500 3.92% 6.34 0.000000 
+
+c = 0 .01 0.90 1.0533 0.9394 4.25% 1.05 0.010496 0.95 1.0534 0.9416 3.84% 1.05 0.010546 1.00 1.0534 0.9413 3.89% 1.10 0.010959  
+
+> Notes: Q5 denotes the fifth percentile of terminal wealth. MDD denotes mean maximum drawdown. TC paid denotes cumulative transaction costs as a fraction of initial wealth.
+
+## 4.7 Sensitivity to the continuation-weight parameter 
+
+As shown in Table 7, changing ρ from 0 .90 to 1 .00 produces no economically meaningful change in DP performance. Mean terminal wealth is identical to four decimal places at c = 0 and differs by at most one unit in the fourth decimal at c = 0 .01. This near-invariance is not because the parameter is inert. Varying ρ from 1 .00 to 0 .90 changes the selected action in 0 .4% of state-action-history combinations at 
+
+c = 0 and in 2 .0% at c = 0 .01. Performance is nevertheless almost unchanged because continuation values are small relative to the one-period differences across actions, so the states in which the argmax flips are visited rarely along simulated paths. At c = 0 the affected states are visited so seldom that turnover is unchanged to two decimal places; at c = 0 .01, where a larger share of the policy is affected, turnover moves from 1.05 to 1 .10 and mean maximum drawdown from 4 .25% to 3 .89%. These differences are within the range of seed-to-seed variation and we do not interpret them. The results 20 are driven by transaction costs rather than by the continuation parameter, and we use 
+
+ρ = 1 as the baseline specification throughout. 
+
+# 5 Conclusion and Future Work 
+
+Bank treasury portfolios must balance yield, liquidity, and interest-rate risk across bonds of different maturities. Static allocation rules are ill-suited to this task: as the SVB episode illustrated, a portfolio concentrated in long-duration fixed-income securities with no dynamic adjustment mechanism can accumulate large mark-to-market losses and liquidity stress under rising interest rates. This paper develops a tractable dynamic framework for multi-period bond portfolio allocation that responds explicitly to yield-curve movements. We make three methodological contributions. First, we construct a time-inhomogeneous discrete-state Markov chain that approximates the Dynamic Nelson-Siegel yield-curve model of Pericoli and Taboga (2016), using simulated VAR paths to estimate state-dependent transition probabilities. Second, we formulate the bond allocation problem as a finite-horizon Markov Decision Process with proportional transaction costs, in which the investor maximizes expected terminal wealth by choos-ing among a discrete set of portfolio allocations at each rebalancing date. Third, we solve the resulting Bellman recursion by backward induction, yielding a numerically tabulated optimal policy indexed by each state and time step. The experimental results support four conclusions. First, the DP strategy out-performs equal-weight buy-and-hold by 1 .0–4 .3 percentage points in mean terminal wealth over six months and by 3 .1–9 .5 percentage points over twelve months, and the static mean-variance portfolio by 0 .7–4 .0 and 2 .7–9 .0 percentage points respectively, with the range spanned by transaction costs from 100 basis points down to zero. Sec-ond, the advantage is a return advantage rather than a reduction in risk: DP does not systematically improve fifth-percentile wealth or maximum drawdown relative to either static benchmark, which follows directly from the risk-neutral objective. Third, higher transaction costs reduce trading intensity substantially, cumulative turnover falling by roughly five-sixths between zero and 100 basis points, but the policy does not collapse onto the static benchmark and retains a 71 basis point advantage at the highest cost level; cumulative costs paid peak at intermediate cost levels rather than at the highest. Fourth, the ordering of the three strategies is unchanged under upward-sloping, near-flat and inverted initial yield curves, so the result does not depend on a particular starting term structure. The framework has several limitations that point toward future work. The dis-crete action and state spaces introduce approximation error, and the finite set of portfolio weights may preclude some beneficial adjustments available in continuous-action settings. The transition probabilities are estimated from simulated paths of a specific VAR parameterization (Pericoli and Taboga 2016), so performance depends on the accuracy of those parameter estimates and the adequacy of the DNS model for the yield curve in question. In particular, all results reported here are obtained under the data-generating process assumed by the model itself, so they measure the value of dynamic rebalancing when the yield-curve dynamics are known, and should 21 be interpreted as an upper bound on what is achievable out of sample. The anal-ysis also assumes zero-coupon bonds and a fixed portfolio composition, and models transaction costs as a simple proportional charge rather than incorporating bid-ask spreads, market impact, or regulatory liquidity requirements. Finally, the objective is risk-neutral expected terminal wealth; a treasury desk subject to mark-to-market or capital constraints would require a risk-sensitive objective, which the MDP framework accommodates but which we do not explore here. In future work, we plan to address these limitations in three directions. First, and most importantly, we intend to estimate the DNS-VAR system directly on observed Treasury yields and to evaluate the policy out of sample over the 2021–2023 tighten-ing cycle, which would test whether the framework delivers value under realized rather than simulated dynamics. On the modeling side, we aim to incorporate liquidity con-straints and more realistic transaction-cost structures, and to extend the framework to coupon-bearing bonds and portfolios whose composition can be adjusted over time, together with a liability side comprising a stochastic deposit-outflow process and an LCR-type constraint, which would bring the model closer to the asset-liability prob-lem the SVB episode exposed. On the computational side, deep reinforcement learning methods offer a natural path to continuous action spaces and higher-dimensional state representations, removing the need for explicit state-space discretization and enabling the framework to scale to larger portfolios of bonds across the full term structure. 
+
+# Declaration of competing interest 
+
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper. 
+
+# Funding 
+
+This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors. 
+
+# Data and code availability 
+
+No proprietary data were used. All results are generated from simulations of the Dynamic Nelson-Siegel model with parameters taken from Pericoli and Taboga (2016). 
+
+# References 
+
+Basel Committee on Banking Supervision (2013) Basel iii: The liquidity coverage ratio and liquidity risk monitoring tools. BCBS Standards 238, Bank for International Settlements Basel Committee on Banking Supervision (2016) Interest rate risk in the banking book. BCBS Standards d319, Bank for International Settlements 22 Bertsimas D, Pachamanova D (2008) Robust multiperiod portfolio management in the presence of transaction costs. Computers & Operations Research Black F, Karasinski P (1991) Bond and option pricing when short rates are lognormal. Financial Analysts Journal 47(4):52–59. https://doi.org/10.2469/faj.v47.n4.52 Board of Governors of the Federal Reserve System (2023) Review of the federal reserve’s supervision and regulation of silicon valley bank. Tech. rep., Board of Governors of the Federal Reserve System, URL https://www.federalreserve.gov/ publications/files/svb-review-20230428.pdf Board of Governors of the Federal Reserve System Office of Inspector General (2023) Material loss review of silicon valley bank. Evaluation Report 2023-SR-B-013, Board of Governors of the Federal Reserve System, URL https://oig.federalreserve.gov/ reports/board-material-loss-review-silicon-valley-bank-sep2023.pdf Brown DB, Smith JE (2011) Dynamic portfolio optimization with transaction costs: Heuristics and dual bounds. Management Science 57(10):1752–1770. https://doi. org/10.1287/mnsc.1110.1377 Brunnermeier MK, Gorton G, Krishnamurthy A (2013) Liquidity mismatch measure-ment. In: Brunnermeier MK, Krishnamurthy A (eds) Risk Topography: Systemic Risk and Macro Modeling. University of Chicago Press, p 99–122 Cai Y, Judd KL, Xu R (2020) Numerical solution of dynamic portfolio optimization with transaction costs. arXiv preprint arXiv:2003.01809. Quantitative Finance ¿ Portfolio Management Chandrasekhar R (2009) Fixed-income portfolio optimization. Master’s thesis, Uni-versity of Texas at Austin, master’s Report, Department of Mechanical Engineering Choudhry M (2007) Bank Asset and Liability Management: Strategy, Trading, Analy-sis. John Wiley & Sons, Singapore, comprehensive reference on bank ALM, Treasury operations, liquidity and gap risk management, yield curve analysis, interest-rate risk hedging with fixed-income securities including government Treasuries, securitisation, and balance sheet management. Choudhry M (2011) Bank Asset-Liability and Liquidity Risk Management. Palgrave Macmillan, https://doi.org/10.1057/9780230307230, chapter and handbook contri-bution focusing on ALM, liquidity risk management, interest-rate risk in the banking book, and the role of fixed-income securities and Treasuries in bank balance sheet optimisation. Constantinides GM (1986) Capital market equilibrium with transaction costs. Journal of Political Economy 94(4):842–862. https://doi.org/10.1086/261410 23 Cousin A, et al (2024) Mean-variance dynamic portfolio allocation with transaction costs: A wiener chaos expansion approach. Applied Mathematical Finance 30(1):1– 41. https://doi.org/10.1080/1350486X.2024.2357200, arXiv:2305.16152 (2023) Cox JC, Ingersoll JE, Ross SA (1985) A theory of the term structure of interest rates. Econometrica 53(2):385–407. https://doi.org/10.2307/1911242 Cui T, et al (2024) Multi-period portfolio optimization using a deep reinforcement learning hyper-heuristic approach. Technological Forecasting and Social Change Davis MHA, Norman AR (1990) Portfolio selection with transaction costs. Mathe-matics of Operations Research 15(4):676–713. https://doi.org/10.1287/moor.15.4. 676 De Vere H, Ramaswamy S, Schulhofer-Wohl S (2025) An asset-liability management approach to the federal reserve balance sheet. Working Paper 2525, Federal Reserve Bank of Dallas, https://doi.org/10.24149/wp2525 DeMiguel V, et al (2015) Parameter uncertainty in multiperiod portfolio optimization with transaction costs. Journal of Financial and Quantitative Analysis Diebold FX, Li C (2006) Forecasting the term structure of government bond yields. Journal of Econometrics 130(2):337–364. https://doi.org/10.1016/j.jeconom.2005. 03.005 Diebold FX, Rudebusch GD (2013) Yield Curve Modeling and Forecasting: The Dynamic Nelson-Siegel Approach. Princeton University Press Diebold FX, Rudebusch GD, Aruoba SB (2006) The macroeconomy and the yield curve: A dynamic latent factor approach. Journal of Econometrics 131(1-2):309–338. https://doi.org/10.1016/j.jeconom.2005.01.011 Ding K, et al (2021) Markov chain approximation and measure change for time-inhomogeneous continuous-time markov chains. Applied Mathematics and Compu-tation Doerr S (2024) The liquidity coverage ratio a decade on: A stocktake of the literature. BIS Papers 164, Bank for International Settlements Elton EJ, Gruber MJ (1997) Modern portfolio theory, 1950 to date. Journal of Banking & Finance 21(11-12):1743–1759. https://doi.org/10.1016/S0378-4266(97)00048-4 Englisch H, Krabichler T, M¨ uller KJ, et al (2023) Deep treasury management for banks. Frontiers in Artificial Intelligence 6:1120297. https://doi.org/10.3389/frai. 2023.1120297 Federal Deposit Insurance Corporation (2023) Fdic’s supervision of signature bank. Tech. rep., Federal Deposit Insurance Corporation, URL https://www.fdic.gov/ 24 news/press-releases/2023/pr23033a.pdf Federal Deposit Insurance Corporation Office of Inspector General (2023) Material loss review of signature bank of new york. Evaluation Report EVAL-24-02, Federal Deposit Insurance Corporation, URL https://www.fdicoig.gov/sites/default/files/ reports/2023-10/EVAL-24-02.pdf Fuhrer LM, M¨ uller B, Steiner L (2016) The liquidity coverage ratio and security prices. Swiss National Bank Working Papers (2016-11) Gˆ arleanu N, Pedersen LH (2013) Dynamic trading with predictable returns and trans-action costs. The Journal of Finance 68(6):2309–2340. https://doi.org/10.1111/jofi. 12080 Giordana GA, Schumacher I (2017) An empirical study on the impact of basel iii standards on banks’ default risk: The case of luxembourg. Journal of Risk and Financial Management 10(2):8. https://doi.org/10.3390/jrfm10020008 Heath D, Jarrow R, Morton A (1992) Bond pricing and the term structure of interest rates: A new methodology for contingent claims valuation. Econometrica 60(1):77– 105. https://doi.org/10.2307/2951677 Hull J, White A (1990) Pricing interest-rate-derivative securities. Review of Financial Studies 3(4):573–592. https://doi.org/10.1093/rfs/3.4.573 Hull J, White A (1993) One-factor interest-rate models and the valuation of interest-rate derivative securities. Journal of Financial and Quantitative Analysis 28(2):235– 254. https://doi.org/10.2307/2331288 Ikpe D, Mawonike R, Viens F (2023) Static markowitz mean-variance portfolio selec-tion model with long-term bonds. Numerical Algebra, Control and Optimization https://doi.org/10.3934/naco.2022030, first published online 2022 Jiang Y, et al (2025) High-dimensional multi-period portfolio allocation using deep reinforcement learning. International Review of Financial Analysis Levant J, Ma J (2017) A dynamic nelson-siegel yield curve model with markov switching. Economic Modelling 67:73–87. https://doi.org/10.1016/j.econmod.2016. 09.011 Lynch AW, Tan S (2010) Multiple risky assets, transaction costs, and return pre-dictability. Journal of Financial and Quantitative Analysis 45(4):1015–1053. https: //doi.org/10.1017/S0022109010000330 Markowitz H (1952) Portfolio selection. The Journal of Finance 7(1):77–91. https: //doi.org/10.1111/j.1540-6261.1952.tb01525.x 25 Markowitz HM (1959) Portfolio Selection: Efficient Diversification of Investments. John Wiley & Sons, New York Mei X, DeMiguel V, Nogales FJ (2016) Multiperiod portfolio optimization with mul-tiple risky assets and general transaction costs. Journal of Banking & Finance 69:108–120. https://doi.org/10.1016/j.jbankfin.2016.04.002 Metrick A (2024) The failure of silicon valley bank and the panic of 2023. Journal of Economic Perspectives 38(1):133–152. https://doi.org/10.1257/jep.38.1.133 Moody’s Investors Service (2023) Moody’s downgrades u.s. banking sector outlook; places six banks on review for downgrade. Rating Action and Press Release, banks placed on review: First Republic, Zions, Western Alliance, Comerica, UMB Financial, Intrust Financial Nakayama K, Takahashi A (2007) A factor allocation approach to optimal bond portfolio. Asia-Pacific Financial Markets Nelson CR, Siegel AF (1987) Parsimonious modeling of yield curves. Journal of Business 60(4):473–489. https://doi.org/10.1086/296409 Palczewski J, et al (2015) Dynamic portfolio optimization with transaction costs and state-dependent drift. European Journal of Operational Research P´ erez L´ opez I, Hodge D, Le H (2016) Markov decision process algorithms for wealth allocation problems with defaultable bonds. Advances in Applied Probability 48(2):726–748. https://doi.org/10.1017/apr.2016.28 Pericoli M, Taboga M (2016) A markov-switching dynamic nelson-siegel term structure model. Tech. rep., Bank of Italy / AEA 2014 conference paper, working paper version; no formal journal publication found Pun CS, Ye Z (2022) Optimal dynamic mean–variance portfolio subject to proportional transaction costs and no-shorting constraint. Automatica 135:109986. https://doi. org/10.1016/j.automatica.2021.109986 Shimai Y, Makimoto N (2023) Multi-period dynamic bond portfolio optimization utilizing a stochastic interest rate model. Asia-Pacific Financial Markets 30(4). https://doi.org/10.1007/s10690-023-09401-2 Skaf J, Boyd S (2009) Multi-period portfolio optimization with constraints and transaction costs. Tech. rep., Stanford University, working Paper Tavanielli R, Laurini M (2023) Yield curve models with regime changes: An analysis for the brazilian interest rate market. Mathematics 11(11):2549. https://doi.org/10. 3390/math11112549 26 Vasicek OA (1977) An equilibrium characterization of the term structure. Journal of Financial Economics 5(2):177–188. https://doi.org/10.1016/0304-405X(77)90016-2 Walder R (2002) Dynamic allocation of treasury and corporate bond portfolios. FAME Research Paper Series 64, International Center for Financial Asset Management and Engineering (FAME) Wang Z, Liu S (2013) Multi-period mean-variance portfolio selection with fixed and proportional transaction costs. Journal of Industrial and Management Optimization 9(3):643–657. https://doi.org/10.3934/jimo.2013.9.643 Xia L, Yu Z (2025) Mean-variance optimization and algorithm for finite-horizon markov decision processes. arXiv:2507.22327 [math.OC], https://arxiv.org/abs/2507.22327 Xiang J, Zhu X (2013) A regime-switching nelson–siegel term structure model and interest rate forecasts. Journal of Financial Econometrics 11(3):522–555 Yang L (2021) Banks’ maturity mismatch, financial stability, and macroeconomic dynamics. Economic Research-Ekonomska Istraˇ zivanja 34(1):3038–3063. https:// doi.org/10.1080/1331677X.2020.1867212 Yankov V (2020) The liquidity coverage ratio and corporate liquidity management. Feds notes, Board of Governors of the Federal Reserve System Zhu X (2015) A regime-switching nelson–siegel term structure model of the macroe-conomy. Journal of Macroeconomics 44:53–70 27

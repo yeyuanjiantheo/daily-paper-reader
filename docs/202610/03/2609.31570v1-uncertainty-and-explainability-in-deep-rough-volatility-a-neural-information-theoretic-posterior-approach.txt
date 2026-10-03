@@ -1,0 +1,2886 @@
+Title: Uncertainty and Explainability in Deep Rough Volatility: A Neural Information-Theoretic Posterior Approach
+
+URL Source: https://arxiv.org/pdf/2609.31570v1
+
+Published Time: Mon, 28 Sep 2026 01:28:37 GMT
+
+Number of Pages: 76
+
+Markdown Content:
+UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY: A NEURAL INFORMATION-THEORETIC POSTERIOR APPROACH 
+
+DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE Abstract . Deep learning has substantially accelerated the calibration of complex stochastic-volatility models, but neural point calibration alone does not capture the uncertainty remain-ing after an implied-volatility (IV) surface has been observed. We develop a simulation-based inference framework for rough Heston (rHeston) calibration that learns the pos-terior distribution of the model parameters conditional on an IV surface. Using neural ratio estimation, we obtain calibrated posterior samples that can be propagated through heteroscedastic neural surrogate pricers for path-dependent exotic options. The resulting posterior-predictive distributions combine residual parameter uncertainty with conditional surrogate uncertainty and yield uncertainty-aware price intervals. We further introduce Hellinger-SHAP, an information-theoretic explainability method for posterior inference. Rather than attributing a single parameter point estimate, it applies local-background Kernel SHAP to a posterior-information functional measuring contrac-tion from the prior to the posterior. This identifies maturity–moneyness regions associated with posterior information gain for individual rHeston parameters. In a simulation study, posterior-predictive intervals provide calibrated or conservative coverage across forward-start, barrier, and realized-variance claims, while point plug-in prices can be materially un-reliable for selected contract regimes. Together, the UQ and XAI analyses provide a trans-parent framework for uncertainty-aware neural calibration and downstream exotic pricing under the specified prior-predictive model. 
+
+1. I ntroduction 
+
+Deep learning has substantially accelerated the calibration and valuation of complex de-rivative portfolios. In risk-critical applications, however, a neural network that maps market data to a single parameter vector does not by itself quantify the uncertainty that remains conditional on the observed data. This issue is especially relevant for stochastic-volatility models, where an observed implied-volatility (IV) surface is finite (i.e., available only at finitely many maturities and strikes) and subject to numerical simulation or observation er-rors, and may leave residual uncertainty about the parameters under the specified model and prior. A principled treatment of this uncertainty is needed both for downstream pricing and for meaningful explainability analyses. 
+
+Date : September 24, 2026. 2020 Mathematics Subject Classification. 68T07, 68T37, 91G20, 91G60. 
+
+Key words and phrases. Option pricing, rough volatility, deep learning, uncertainty quantification, calibra-tion uncertainty, uncertainty bid ask spread, explainability, XAI, Rough Heston Model. 
+
+The opinions here expressed are solely those of the authors and do not represent in any way those of their employers. For the purpose of open access, the authors have applied a Creative Commons Attribution (CC BY) license to any Author Accepted Manuscript version arising.  
+
+> 1arXiv:2609.31570v1 [stat.ML] 25 Sep 2026 2DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE
+
+We study this problem for the rough Heston (rHeston) model, a representative rough-volatility model (RVM) [29]. We use the rHeston formulation in [22, 24, 23]. Rough-volatility models can capture salient short-maturity features of equity-option markets, but their simulation, calibration, and path-dependent pricing remain numerically demanding. The nonlinear parameter-to-price map and the numerical construction of an IV surface make point calibration alone an incomplete inferential output when downstream claims depend nonlinearly on the parameters. Moreover, propagating parameter uncertainty to such claims requires repeated evaluations of (potentially path-dependent) option prices, for which direct Monte Carlo simulation is computationally prohibitive. Three specific sources of numerical fragility motivate both the uncertainty-quantification framework and the surrogate-based exotic pricing approach developed in this paper; Sec-tion 2 discusses these challenges in detail, together with the adopted simulation scheme. First, even the semi-closed-form route to European option prices relies on a numerical so-lution of a singular fractional Riccati equation, whose associated Fourier-inversion step is notoriously unstable precisely in the short-maturity, deep out-of-the-money regime that matters most for skew calibration [24, 41]. Second, the volatility process is non-Markovian, so path-dependent pricing and the repeated simulation required throughout this paper must either carry the full process history or replace it with a finite-dimensional Markovian lift; the lift restores tractable, a ffi ne dynamics only by introducing a sti ff , multi-scale factor sys-tem that can be expensive to resolve [1]. Third, as for classical square-root di ff usions, the discretized variance process must be kept nonnegative, which requires dedicated truncation or correction schemes and their attendant bias-variance trade-o ff s. Each di ffi culty can be controlled for a one-o ff evaluation at a fixed parameter value, but together they become prohibitive when the model must be evaluated repeatedly across many parameter configu-rations. This fragility is the primary motivation for the neural surrogate and uncertainty-quantification framework developed in this paper. A complementary objective is to understand how di ff erent parts of the IV surface inform parameter inference. Previous work has applied post-hoc XAI methods to neural point es-timators for the Heston and rHeston models; see [17] and [59]. Such analyses can identify regions of the IV surface associated with changes in a fitted point prediction, using meth-ods such as LIME [51], DeepLIFT [56], LRP [5], and SHAP [45]. In the present setting, however, the inferential object of interest is a posterior distribution rather than only a sin-gle parameter summary. We therefore explain posterior information gain—the contraction from a chosen prior to the posterior induced by an IV surface—rather than a point estimate alone. Our approach combines simulation-based inference (SBI), uncertainty-aware neural exotic-option surrogate pricers, and information-theoretic explainability. Telescoping neural ra-tio estimation (TRE) learns an approximation to the conditional posterior distribution of the rHeston parameters given an IV surface. Posterior samples are propagated through conditional surrogate predictive distributions to obtain posterior-predictive laws for path-dependent exotic prices. This construction retains both residual parameter uncertainty and the conditional uncertainty represented by the surrogate, rather than collapsing the cali-bration to a single parameter vector. Separately trained MSE- and MAE-based inverse networks are used as point-estimation benchmarks. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 3
+
+Specifically, the main contributions of this work are as follows: 
+
+• Posterior inference for neural rough-volatility calibration: we use SBI to learn the full conditional distribution of rHeston parameters given a synthetic IV surface, and assess the quality of the learnt approximate distribution through simulation-based calibration checks on held-out datasets. 
+
+• Posterior-predictive uncertainty quantification for exotic prices: we propagate posterior draws through heteroscedastic neural surrogate pricers for forward-start, barrier, and realized-variance exotic contracts. This yields predictive intervals that combine parameter and conditional surrogate uncertainty, together with a law-of-total-variance attribution of their relative contributions. We therefore bridge the gap between deep uncertainty quantification and practical quantitative trading. 
+
+• Information-theoretic XAI: we introduce Hellinger-SHAP, which uses local-background Kernel SHAP to attribute posterior information gain for individual parameters across the IV surface. Squared Hellinger distance provides a bounded, robust complement to the Kullback–Leibler information-gain analysis. We refer to the introduction of [59] for a more comprehensive review of machine-learning work on rHeston calibration and interpretability. The remainder of this paper is organized as follows. Section 2 details the rough He-ston model and the generation of our implied-volatility dataset. Section 3 introduces the simulation-based inference framework, point-estimation benchmarks, and exotic surrogate pricing methodology. Section 4 develops the Hellinger-SHAP methodology. Section 5 presents the numerical study, including posterior recovery and posterior-predictive cover-age. Section 6 presents the XAI results. Finally, Section 7 concludes the paper and dis-cusses directions for future research. Further details and simulation results can be found in the appendix. 2. R ough Heston model and synthetic data generation 
+
+2.1. Rough volatility (and rough Heston). We have abundant evidence that traditional SVMs cannot reproduce the volatility surfaces observed in real markets, see for exam-ple [10, 15]. As a response, SVMs driven by a fractional Brownian motion with Hurst exponent in (0 , 12 ) have been proposed. In Gatheral, Jaisson and Rosenbaum [29], such a model was introduced based on statistical observations under the historical measure, and triggered a large research response that has extended the boundaries of such models and their applications [1, 2, 36, 24, 23, 31, 35]. The overall consensus coming from these and related papers is that, while rough volatility behaviour can be mimicked by standard Markovian models, ‘rough volatility as the null statistical hypothesis is very hard to beat’ 
+
+(quoting the original paper of Gatheral and Rosenbaum). We now briefly introduce the rHeston model, whose implied volatility surface is studied in this paper. A fractional Brow-nian motion WH is a continuous-time centered Gaussian process starting from zero, with covariance function 
+
+E hWHt WHs
+
+i = 12
+
+|t|2H + |s|2H − | t − s|2H  , for all s, t ≥ 0.4 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Here, H ∈ (0 , 12 ) is called the Hurst parameter and describes the roughness of the paths of the process, in the sense of Hölder ( H − ε)-regularity for any ε ∈ (0 , H), and H = 12
+
+corresponds to the standard Brownian motion. Such a process can be built on top of a two-sided standard Brownian motion W via the Mandelbrot-Van Ness representation [46] (2.1) WHt = 1
+
+Γ(H + 12 )
+
+Z 0
+
+> −∞
+
+
+
+(t − s)H− 12 − (−s)H− 12
+
+
+
+dWs +
+
+Z t
+
+> 0
+
+(t − s)H− 12 dWs
+
+!
+
+,
+
+almost surely for all t ≥ 0, where Γ denotes the Gamma function. Other types of fractional Brownian motions exist, and in fact the general class of interest for applications corresponds to continuous Gaussian Volterra processes of the form (2.2) WHt =
+
+Z t
+
+> 0
+
+K(t − s)d Ws,
+
+almost surely for all t ≥ 0, for some square integrable kernel function K(·) on [0 , ∞) and some standard Brownian motion W. In this formulation, both W and WH generate the same filtration [20] and the Hölder regularity of WH is generated by the local singularity behaviour of K(·) around the origin. A common example uses K(u) = uH− 12 11{u>0}, giving rise to the Riemann-Liouville (or type II) fractional Brownian motion, while the represen-tation (2.1) can also be written as (2.2), albeit with a more complicated kernel function (but also with Hölder regularity H − ε for any ε ∈ (0 , H)). Inspired by this convolutional representation, the rough Heston model [24] is defined as dS t
+
+S t
+
+= pVtdBt, S 0 > 0,(2.3) 
+
+Vt = V0 + 1
+
+Γ H + 12
+
+Z t
+
+> 0
+
+(t − s)H− 12
+
+nκ (θ − Vs) d s + ν pVsdWs
+
+o ,(2.4) under the risk-neutral measure (where we ignore interest rates and dividends for simplicity), where S denotes the stock price process, V the instantaneous variance process, B and W are standard Brownian motions with instantaneous covariation ρ as in d⟨B, W⟩t = ρ dt,
+
+the “leverage parameter”, and the parameters satisfy κ, θ, ν, V0 > 0, ρ ∈ [−1, 1], H ∈ (0 , 12 ). A di ff erent formulation [31] is also possible, but the one from [24] is more amenable to computations and most popular in practice, and the reader is referred to [10, Chapter 4] for a full comparison. While simulating these rough paths was exceptionally computationally intensive a few years ago, a wealth of sophisticated numerical techniques have recently been devised to accelerate this process [13, 1, 26, 11, 12, 9]. One important benefit of adopting this rHeston model is that the a ffi ne property of the standard Heston model is preserved (in an infinite-dimensional setting), so that pricing European options can be achieved in principle via Fourier transform methods, see for example Lewis [41]. Even in this compar-atively favourable case of European payo ff s, the rough Heston characteristic function has no closed form and is itself approximated by a numerical solution to the fractional Riccati ODE with a singular kernel at t = 0 [24], typically through an Adams predictor–corrector scheme [21] whose number of time-steps has to be chosen by the user. This approximation is then used within a Fourier-inversion pricing routine, e.g., the Lewis formula [41] or the UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 5
+
+COS expansion [25], which introduces a second layer of approximation through the trunca-tion of the semi-infinite inversion integral and through the number of quadrature or cosine nodes used to discretize it, together with the choice of a damping parameter needed to en-sure integrability. Adequate values for these hyper-parameters are not trivial to determine and vary across the options surface: short maturities, where the characteristic function has fatter tails, require substantially finer settings than long ones, so in practice the parameter ranges are tuned per maturity band rather than chosen once and fixed. As a consequence, the evaluation of the characteristic function via the fractional Riccati equation is notori-ously unstable for specific market regimes: for short maturities and deep out-of-the-money strikes, the Adams predictor-corrector scheme su ff ers from numerical instability, and the highly oscillatory integrals required by Fourier inversion fail to converge. In these extreme wing regions, one must often abandon the semi-closed-form approach entirely and resort to heavy Monte Carlo simulations. Beyond European options, di ffi culties compound. For path-dependent options, Fourier approaches are fundamentally not amenable, and one is strictly forced to rely on Monte Carlo methods regardless of the strike or maturity. Moreover, the volatility process is non-Markovian and its kernel is singular at the origin, which makes the dynamics inherently di ffi cult to simulate as H → 0 [1]. Consequently, any task that requires repeated path eval-uations, e.g., Monte Carlo pricing of path-dependent payo ff s or simulation-based inference, must either carry the full history of the process or replace it by a finite-dimensional Markov-ian lift [1, 8]. This lift approximates the singular kernel by a weighted sum of exponentials, representing the volatility process as a superposition of mean-reverting factors, and in do-ing so restores non-fractional, a ffi ne, Fourier-amenable dynamics. The added dimensions, however, are not benign and constitute a heterogeneous, multi-scale system: resolving the singularity forces a subset of factors to mean-revert on extremely fast timescales, rendering the system sti ff and imposing small discretization steps [9], while the factors’ speeds and weights must themselves be determined numerically, through quadrature or optimization routines. A further di ffi culty is shared with the classical square-root di ff usions considered in Section 2.2: the discretized variance must be kept nonnegative, which calls for dedicated truncation or correction schemes [44, 3]. Although the discretization and sti ff ness costs are well controlled for one-o ff European pricing at a fixed parameter value, they become prohibitive in the large-scale simulation regimes required for exotic pricing and simulation-based inference, where the model must be evaluated repeatedly across many rough Heston parameter configurations. The fact that even state-of-the-art numerical pricing on the rough manifold is fragile motivates shifting the computational burden o ffl ine: high-quality simulations are generated in advance and used to train neural surrogates that subsequently allow fast evaluations. At the same time, replacing direct numerical evaluation by learned approximations makes rigorous uncertainty quantification critical, and the framework we propose accounts for both residual uncertainty in the calibrated parameters and predictive uncertainty from the surrogate pricers. 2.2. Simulation algorithm. We simulate the rough Heston variance process ( Vt)t≥0 us-ing the hybrid quadratic-exponential (HQE) discretisation scheme [27]. HQE combines two ideas that address the main di ffi culties induced by roughness: i) the hybrid scheme of 6 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+[13] from Brownian semi-stationary processes tames the singularity while staying computa-tionally feasible, and ii) the quadratic–exponential (QE) approximate sampler [4], adapted by [27] to rough Heston, replaces the potentially negative Gaussian update of the volatility process by a non-negative, approximate distribution constructed through moment-matching and drastically reduces truncation bias. First, the standard left-point, Riemann discretisation fails to capture the steepness of the fractional kernel ( t − s)H−1/2 inside the intervals of the time partition immediately preceding 
+
+t, and its error deteriorates substantially as H ↓ 0. The hybrid scheme of [13] resolves this by splitting the partition intervals into two groups. The intervals closest to the singularity 
+
+s = t, referred to as the head cells, are handled by a specialised scheme that eliminates kernel discretisation error. In the remaining intervals, the kernel varies smoothly without a singularity, and its contribution can be approximated well by a single evaluation of the kernel, or alternatively by a cell average, multiplied by a Brownian increment. This con-struction removes the singularity while staying computationally feasible, and the remaining approximation error arises only from freezing the variance process at the left endpoint of each interval. Second, although the paths V· are non-negative, the Gaussian discretisation does not pre-serve this property. Standard remedies such as the Lord–Koekkoek–van Dijk (LKvD) full truncation [44] keep the square-root term well-defined, but in our experiments, this posi-tivity correction introduces non-negligible bias which gets worse in the relevant parameter regimes, e.g., low H and V0. The QE step addresses this specific issue. We contribute to the HQE scheme on three fronts. First, since the QE approximation only preserves the first two moments of the aforementioned head increment, the resulting discrete asset price is no longer a martingale, and we propose a martingale correction which is available analytically and easy to implement. Second, we show that a version of the conditional representation due to Romano and Touzi [52] survives the rough kernel despite 
+
+V· no longer being a semimartingale, which allows us to analytically integrate the Brownian motion orthogonal to the one driving V· for a number of contracts, e.g., European and forward start options. By significantly reducing MC variance, this guarantees that our finite sample estimators satisfy some highly desirable properties, e.g., convexity of the price in the strike and hence the absence of butterfly arbitrage. Third, we consider graded, non-uniform grids and several variance reduction techniques, which further reduces the required number of discretisation steps and MC paths. 2.2.1. The hybrid construction and head cell decomposition. For ease of notation, we present the uniform-grid case, with all changes necessary for the non-uniform case detailed in Appendix A.2. Let α = H + 1/2 and fix a time grid 0 = t0 < t1 < . . . < tN = T with equidistant step-size ∆ = T/N. Throughout, we write Vtn for the process (2.4) at a mesh point, and use a hat for the corresponding quantity produced by discretisation: bVn ≈ Vtn ,and so on for all other processes. For tn+1 ≤ T , splitting the integral from (2.4) cell by cell UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 7
+
+gives (2.5) 
+
+Vtn+1 = V0+ κ
+
+Γ(α)
+
+> n
+
+X
+
+> m=0
+
+Z tm+1
+
+> tm
+
+(tn+1 − s)α−1(θ − Vs) d s
+
+| {z }
+
+> drift
+
++ ν
+
+Γ(α)
+
+> n
+
+X
+
+> m=0
+
+Z tm+1
+
+> tm
+
+(tn+1 − s)α−1 pVs dWs
+
+| {z }
+
+> di ff usion
+
+.
+
+For the drift term, we freeze Vs ≈ Vtm at the left endpoint of each cell [ tm, tm+1]. The same approximation is also used for the di ff usion on the history cells. However, by Itô’s isometry, the mean-square error of the di ff usion approximation involves the squared kernel (tn+1 − s)2H−1, which is more singular near s = tn+1 than the kernel ( tn+1 − s)H−1/2 appearing in the drift term. We therefore use left-point freezing in the drift and in the di ff usion for all m < n, while treating the current head cell [ tn, tn+1] separately. To this end, for a lag 
+
+j := n − m ∈ { 0, . . . , n}, denote the (Toeplitz) drift weights an,m := a j by (2.6) a j := 1
+
+Γ(α)
+
+Z tm+1
+
+> tm
+
+(tn+1 − s)α−1 ds = ∆α
+
+Γ(α + 1) 
+
+( j + 1) α − jα.
+
+The drift term is then approximated by κ Pnm=0 an−m(θ − bV+
+
+> m
+
+), where bV+ 
+
+> n
+
+= max {bVn, 0} imple-ments LKvD full truncation; this amounts to retaining potentially negative values, and only clipping when consuming the volatility. For the di ff usion term, we split the history cells 
+
+m < n, where the kernel is not singular and can be replaced by the constant cell average  
+
+> an−m
+> ∆
+
+, from the head cell m = n, where the kernel is singular and requires special treatment. Define the exact head increment of the variance process and the exact stochastic increment 
+
+un := ν
+
+Γ(α)
+
+Z tn+1
+
+> tn
+
+(tn+1 − s)α−1 pVs dWs,χn :=
+
+Z tn+1
+
+> tn
+
+pVs dWs,
+
+Let the simulated counterparts be bun and bχn. Then the di ff usion term is approximated by 
+
+> ν
+> ∆
+
+Pn−1 
+
+> m=0
+
+an−mbχm + bun, where the index stops at m = n − 1 to not double-count the head cell. Grouping the drift with the di ff usion m < n past cells, define 
+
+bΞn :=V0 + κ
+
+> n
+
+X
+
+> m=0
+
+an−m
+
+θ − bV+
+
+> m
+
+ + ν
+
+∆
+
+> n−1
+
+X
+
+> m=0
+
+an−mbχm,(2.7) 
+
+bVn+1 =bΞn + bun,(2.8) Note that for m < n, bχm is sampled at the mth step and reused (rather than sampled again) at step n. It is also worth emphasizing that un and χn are driven by the same infinitesimal Brownian motion d Ws, therefore dependent, and the crux of the discretization scheme is to retain the joint law of ( un, χ n), or at least the first two moments. Formally, let Gn =
+
+{bV0, . . . , bVn, bχ0, . . . , bχn−1} be the information available from the discretized scheme after simulating bVn and before simulating bVn+1. The hybrid and HQE schemes di ff er precisely in the choice of ( bun, bχn). In the hybrid scheme, un and χn are approximated through Vs ≈ bVn8 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+for s ∈ [tn, tn+1], which yields 
+
+bun = ν
+
+Γ(α)
+
+qbV+
+
+> n
+
+Z tn+1
+
+> tn
+
+(tn+1 − s)α−1 dWs,
+
+bχn =
+
+qbV+ 
+
+> n
+
+(Wtn+1 − Wtn ),
+
+Then the pair ( bun, bχn)|G n is a bivariate Gaussian with conditional mean 0 and variance-covariance matrix given by 
+
+bV+
+
+> n
+
+
+
+> ν2
+> Γ(α)2
+
+R tn+1 
+
+> tn
+
+(tn+1 − s)2( α−1) ds ν
+
+> Γ(α)
+
+R tn+1 
+
+> tn
+
+(tn+1 − s)α−1ds
+
+> ν
+> Γ(α)
+
+R tn+1 
+
+> tn
+
+(tn+1 − s)α−1ds R tn+1 
+
+> tn
+
+ds
+
+ = bV+
+
+> n
+
+   
+
+> ∆2Hν2
+> 2HΓ(α)2
+> ν∆α
+> Γ(α+1)
+> ν∆α
+> Γ(α+1)
+
+∆
+
+ ,
+
+and drawing samples is trivial. Also, since E[bun | G tn ] = 0, we have that bΞn = E[bVn+1 | G n]can be interpreted as the one-step-ahead conditional mean predictor of bVn+1.Nevertheless, this approach does not enforce non-negativity by default. The clipped path 
+
+bV+ 
+
+> ·
+
+systematically overstates the volatility, biasing the implied volatility upwards. Further, when bV+ 
+
+> n
+
+= 0, the di ff usion term from (2.5) is identically zero, thus maintaining V· ≡ 0 until the drift returns above 0, which means V· is truncated for non-negligible periods of time. Importantly, the truncation issue aggravates as either H or V0 → 0. 2.2.2. The HQE scheme. We now discuss the HQE scheme of [27], which improves the approximation of Vs on the head-cell [ tn, tn+1] and also enforces non-negativity by design. To begin with, note that as H ↓ 0 in un = ν R tn+1 
+
+> tn
+
+(tn+1 − s)α−1 √Vs dWs, the singular kernel ( tn+1 − s)α−1 = (tn+1 − s)H−1/2 assigns most of the mass towards the right endpoint 
+
+Vtn+1 and negligible weight on the left endpoint Vtn . Thus, although the singularity itself is treated well by the hybrid scheme, approximating the variance on the entire cell by left endpoint bVn loses accuracy as H ↓ 0. HQE proposes the 1 st order approximation 
+
+E[Vs | G n] ≈ (s − tn)
+
+∆ bΞn + (tn+1 − s)
+
+∆ bVn
+
+given by the linear interpolation between bVn and bΞn = E[bVn+1 | G n]. By direct calculation and Itô’s Lemma, we obtain Var( un | F tn ) ≈ ν2 ∆2H  
+
+> Γ(α)22H
+
+¯vn, where (2.9) ¯vn = 2H
+
+2H + 1 bVn + 12H + 1bΞn.
+
+The weighted average (2.9) improves the local approximation of the first two conditional moments, but it does not by itself produce a non-negative update for the variance process. If one were to retain a Gaussian head-cell update at this stage, the resulting one-step ap-proximation still becomes negative with non-negligible probability, especially in the rough regimes of small H or small V0, and truncation-based fixes reintroduce undesirable bias. HQE therefore combines the hybrid discretisation of the singular Volterra kernel with An-dersen’s quadratic–exponential (QE) moment-matching construction, which enforces posi-tivity at the one-step level while preserving the local mean–variance information encoded in UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 9
+
+(2.9). Accordingly, freeze Vs to the weighted average ¯ vn on [ tn, tn+1] (see [27] for the formal treatment), which then gives the approximate conditional variance-covariance matrix 
+
+bΣn = Var bun
+
+bχn
+
+!
+
+Gn
+
+!
+
+= ¯vn
+
+  
+
+> ν2∆2H
+> 2HΓ(α)2
+> ν∆α
+> Γ(α+1)
+> ν∆α
+> Γ(α+1)
+
+∆
+
+ ,
+
+It is worth noting that as H → 1/2, ¯ vn → 12 (bVn + bΞn) recovers the quadrature rule from the standard, non-rough Heston model. In the rough limit H ↓ 0, the singularity dominates and the weighted average collapses to the right endpoint prediction ¯ vn → bΞn. Having deter-mined more accurate approximations for the first two conditional moments by replacing bVn
+
+with ¯ vn, we next enforce positivity via Andersen’s Quadratic-Exponential (QE) sampler. We write X ∼ QE( m, s2) for a non-negative QE random variable with mean m and vari-ance s2. The sampler switches between a quadratic-Gaussian and a zero-inflated exponen-tial representation depending on the relative variance s2/m2; the explicit sampling formulas are given in Appendix A. Conditionally on Gn, draw two independent QE variables 
+
+Yn ∼ QE 
+
+bΞn
+
+2 , ¯vn
+
+ν2∆2H
+
+Γ(α + 1) 2
+
+ ,(2.10) 
+
+En ∼ QE 
+
+bΞn
+
+2 , ¯vn
+
+ν2∆2H
+
+Γ(α)2
+
+(H − 12 )2
+
+2Hα2
+
+ ,(2.11) and reconstruct (2.12) bVn+1 = Yn + En, bχn = Γ(α + 1) ∆1−α
+
+ν
+
+Yn − bΞn
+
+2
+
+ , bun = bVn+1 − bΞn.
+
+Since Yn, En ≥ 0, this guarantees bVn+1 ≥ 0. Since the two QE samples Yn and En are conditionally independent and because of their prescribed means and variances, then 
+
+E[bun | G n] = E[bχn | G n] = 0, Var bun
+
+bχn
+
+!
+
+Gn
+
+!
+
+= bΣn.
+
+Thus HQE preserves the first two conditional moments of the head-cell construction while enforcing non-negativity. It is worth keeping in mind though that the resulting bχn is no longer conditionally Gaussian. 2.2.3. Martingale correction, Romano-Touzi and other improvements. Recall that the Brow-nian motion driving the stock price admits the orthogonal decomposition (2.13) Bt = ρWt +
+
+q
+
+1 − ρ2 W⊥ 
+
+> t
+
+,
+
+where W and W⊥ are independent Brownian motions. With Xt := log S t, Itô’s formula gives 
+
+Xtn+1 − Xtn = − 12
+
+Z tn+1
+
+> tn
+
+Vs ds + ρ
+
+Z tn+1
+
+> tn
+
+pVs dWs +
+
+q
+
+1 − ρ2
+
+Z tn+1
+
+> tn
+
+pVs dW⊥ 
+
+> s
+
+.
+
+over [ tn, tn+1]. In the following, let Z⊥ 
+
+> n
+
+denote the standard Gaussian increment associated with W⊥ over the interval [ tn, tn+1] and let evn := 12 (bVn + bVn+1) ≈ 1
+
+> ∆
+
+R tn+1 
+
+> tn
+
+Vs ds. Then the 10 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+(uncorrected) log-price increment is given by (2.14) ∆bXun = − 12evn∆ + ρbχn +
+
+q
+
+1 − ρ2 pevn∆ Z⊥ 
+
+> n
+
+,
+
+where Z⊥ 
+
+> n
+
+∼ N (0 , 1). While the continuous-time stock price is a martingale, the HQE discretisation does not satisfy this property in general, because i) the QE approximations changes the conditional exponential moments of bχn, and ii) the trapezoidal approximation 
+
+evn = 12 (bVn +bVn+1) is itself random at time tn and correlated with bχn through Vn+1, hence with ˆun. Note that preserving the martingale property under the HQE discretisation is equivalent to 
+
+E
+
+
+
+e∆bXn | G n
+
+
+
+= 1.
+
+We therefore propose the (corrected) update (2.15) ∆bXn = − 12evn∆ + ρbχn − Cn +
+
+q
+
+1 − ρ2 pevn∆ Z⊥ 
+
+> n
+
+,
+
+where 
+
+Cn := log E
+
+
+
+e∆bX(0)  
+
+> n
+
+| G n
+
+
+
+is available analytically; see Appendix A.1 for the derivation and closed-form expression. This yields E[e∆bXn | F tn ] = 1 at negligible computational cost and enforces the martingale property. This correction is also practically important beyond the martingale property itself. Since the conditional Monte Carlo representation used to generate the European-option prices underlying the IV dataset is built on the same corrected log-price dynamics, it yields a forward convention that is numerically consistent with the simulated pricing engine. In particular, the implied volatilities obtained by put–call parity and forward-based inversion, and hence the IV surfaces used as inputs to the inverse calibration and posterior-inference procedures, are computed under this same convention. The martingale correction therefore removes a small but systematic inconsistency that the QE replacement would otherwise introduce. 
+
+Remark 2.1. Note that the trapezoidal approximation evn = 12 (bVn + bVn+1) provides a more accurate approximation of the integrated variance over the cell than the left-point approx-imation evn = bVn. Even if the latter was used instead, the martingale correction would still be needed, since the QE scheme is such that the uncorrected asset-price update does not satisfy E[e∆bXn | G n] = 1 in general. We now turn our attention to variance reduction techniques. The decomposition (2.13) immediately suggests a conditional Monte Carlo estimator. Since the HQE construction only modifies the variance-driven increment bχn, the orthogonal Gaussian innovation Z⊥
+
+> n
+
+remains independent of the simulated variance path. Conditioning on the latter therefore yields a Gaussian mixing representation similar to the Romano–Touzi trick [52]. Summing the corrected log-price increments (2.15) over the time grid, define (2.16) bM :=
+
+> N−1
+
+X
+
+> n=0
+
+bχn, bQ :=
+
+> N−1
+
+X
+
+> n=0
+
+evn∆, bC :=
+
+> N−1
+
+X
+
+> n=0
+
+Cn.UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 11 
+
+The log-price at time T can then be expressed as (2.17) log bS T = − 12 bQ + ρ bM − bC +
+
+q
+
+1 − ρ2
+
+> N−1
+
+X
+
+> n=0
+
+pevn∆ Z⊥ 
+
+> n
+
+.
+
+Using the fact that the variables Z⊥ 
+
+> n
+
+are independent standard Gaussians, it follows that 
+
+> N−1
+
+X
+
+> n=0
+
+pevn∆ Z⊥ 
+
+> n
+
+Gn ∼ N (0 , bQ).
+
+Therefore (2.18) log bS T | G n ∼ N ρ bM − 12 bQ − bC, (1 − ρ2) bQ
+
+!
+
+,
+
+There are two main types of options we must consider. For contracts such as European and forward-start options, the orthogonal Brownian motion can be integrated out analytically instead of simulated. Besides substantially reducing the Monte Carlo variance, for Euro-pean calls, each conditional price is decreasing and convex in the strike; the finite-sample Monte Carlo average therefore inherits these properties and, in particular, is free of butterfly arbitrage. For path-dependent contracts such as barriers, although a closed-form integration over W⊥ as in (2.18) is generally not available, we can exploit a similar structure: for each simulated variance path, we draw multiple independent realizations of W⊥, each paired with its antithetic counterpart, and construct the corresponding asset-price paths without re-peating the computationally expensive rough variance discretisation. Averaging these inner replicates almost eliminates the MC variability arising from W⊥.Neither the martingale correction nor the other techniques presented in this section have been employed in the existing works [27, 14] or computer implementations [28, 16] for the HQE scheme. Finally, we also employ graded time grids and antithetic sampling adapted to the QE construction. On a graded grid, the same construction applies broadly, at the cost of losing the Toeplitz structure available on a uniform grid, see Appendix A for details. 3. S imulation -B ased Inference methodology 
+
+Throughout the paper, θ = (κ, θ, ν, ρ, V0, H) ∈ Θ ⊂ Rm with m = 6 is parameterizing the rough Heston model, and x denotes market data; in our case, x is an implied-volatility (IV) surface, whose detailed construction is deferred to Section 5. This section is organized around two inferential tasks. Subsection 3.1 addresses the inverse problem of recovering model parameters from market data. Given an observed IV surface xo, we train neural networks (NN) that return either a point estimator ˆ θ := ˆθ(xo) or a full posterior distribu-tion p(θ | xo). Posterior uncertainty quantification is essential because, under the spec-ified prior-predictive simulator, an observed finite and numerically generated IV surface can leave residual uncertainty about θ. A point estimate alone therefore does not reflect the residual uncertainty that can propagate downstream into pricing uncertainty. Subsec-tion 3.2 studies the forward map, from parameters to prices. A second NN, which we refer to as the surrogate pricer, inputs θ and returns the price of an exotic option together with an error scale quantifying the discrepancy between the surrogate output and the actual price, derived by Monte Carlo (MC). Composing the two maps amounts to propagating posterior 12 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+draws of θ through the surrogate, while also accounting for the surrogate’s estimated error distribution. This yields a predictive distribution for each exotic price, whose quantiles may be interpreted as model-implied bid and ask quotes. The distribution reflects both i) param-eter uncertainty after observing market data, represented by p(θ | xo), and approximation uncertainty arising from replacing repeated MC evaluations with the surrogate model. The methodology has two stages. O ffl ine, we simulate a dataset of parameter–data pairs (θ, x) once and use it to train point and posterior estimators for the inverse map, as well as surrogate pricers for the forward map. Online, a newly observed IV surface is passed through the trained models to deliver either a point calibration together with the corre-sponding surrogate exotic prices, or a posterior distribution over parameters together with the induced predictive distribution over exotic prices. The training cost is therefore incurred once and amortized across subsequent calibrations. 3.1. The neural point and density estimation landscape. Parameter calibration is often formulated as a point-estimation problem [33, 34, 53]: given an observed IV surface x ∈ X ,one selects the parameter value ˆ θ whose model-implied surface best matches it and then treats that value as correct. We instead adopt a Bayesian formulation, assigning θ a prior density p(θ) on Θ and inferring the posterior p(θ | x). Point summaries can be recovered from the posterior, but not conversely. Evaluating the posterior requires access to the likelihood θ, x 7 → p(x | θ), which is intractable for the rough Heston model, whereas simulating from the model, and subse-quently the IV surface x for any θ is fast through the HQE scheme from Section 2.2; this is the regime SBI is designed for. Modern SBI is dominated by amortized, neural methods see [60] for a review. Among the available methods, we employ neural ratio estimation (NRE) [18, 32] for three reasons. First, its classification formulation places no parametric or architectural restrictions on the posterior (as in normalizing flows). Second, it enables fast posterior inference: the posterior density is available in a single NN forward pass, and, through the telescoping extension from [50], posterior sampling is MCMC-free, vectoriz-able, and GPU-friendly. By contrast, in flow-matching and di ff usion models [42, 58], each density evaluation requires integrating the divergence of the learned vector field along an ODE trajectory, which is not fully and e ffi ciently vectorizable for GPU use. Third, this formulation inherits the calibration toolbox of binary classification, which supplies addi-tional simulation-based checks on, and post-training corrections to, the quality of the learnt approximation. Instead of estimating the likelihood or the posterior directly, NRE replaces the intractable density-estimation problem with a binary classification one. The key insight is that a clas-sifier trained to distinguish samples from two distributions implicitly learns their density ratio; NRE applies this to the joint p(x, θ) and the product of marginals p(x)p(θ) to learn the likelihood-to-evidence ratio: (3.1) r(x, θ) : = p(x | θ)
+
+p(x) = p(x, θ)
+
+p(x)p(θ) = p(θ | x)
+
+p(θ) ,
+
+where p(x) = R p(x | θ)p(θ)d θ is the evidence. Formally, a classifier c(·, ·) : X × Θ → [0 , 1] trained to minimize the binary cross-entropy (BCE) loss (3.2) L(c) = −Ep(x,θ)[log c(x, θ)] − Ep(x)p(θ)[log {1 − c(x, θ)}],UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 13 
+
+to distinguish between samples from p(x, θ) and p(x)p(θ), has the Bayes-optimal solution [32] (3.3) c⋆(x, θ) = p(x, θ)
+
+p(x, θ) + p(x)p(θ) , so that r(x, θ) = c⋆(x, θ)1 − c⋆(x, θ) .
+
+In practice, the loss from (3.2) is unavailable, and we replace it by its Monte Carlo (MC) approximation over simulated pairs and minimize it over a flexible class of functionals that satisfy a universal approximation theorem, e.g., the neural-network class {cψ}, parameter-ized by weights and biases ψ. The fitted weights ˆ ψ yield the approximation (3.4) ˆr(x, θ) : = c ˆψ(x, θ)1 − c ˆψ(x, θ) ≈ r(x, θ).
+
+The posterior can be recovered up to classifier approximation error as p(θ | x) ≈ p(θ)ˆ r(x, θ). Finally, note that both classes are cheap to simulate: drawing θ ∼ p(θ) and then x ∼ p(· | θ)produces pairs from p(x, θ); replacing θ in each pair with a fresh draw from the prior breaks the dependence between x and θ while preserving the marginals, hence producing pairs from p(x)p(θ). Applying (3.1) directly becomes numerically unreliable as the parameter dimension m
+
+grows [50]. Indeed, the joint q concentrates like a point-mass relative to ˜ q, and the classifier increasingly separates the two classes without accurately learning the level curves of c⋆,and consequently, of the posterior. In machine learning terms, the loss function saturates and cannot tell a good classifier from a poor one [50, 57]. To bypass this issue, we follow the telescoping ratio estimation (TRE) development of [50] and learn the ratio sequentially in the coordinates of θ. Writing θ1: i = (θ1, . . . , θ i), this sequential decomposition gives (3.5) 
+
+r(x, θ) =
+
+> m
+
+Y
+
+> i=1
+
+ri(x, θ1: i), where ri(x, θ1: i) = p(θi | x, θ1: i−1)
+
+p(θi | θ1: i−1) = p(θi | x, θ 1, . . . , θ i−1)
+
+p(θi | θ1, . . . , θ i−1) .
+
+For each i, the factor ri is estimated by training a binary classifier to distinguish between samples θi drawn from the densities θi 7 → p(θi | x, θ1: i−1) and θi 7 → p(θi | θ1: i−1), condition-ally on x, θ1: i−1. Because each classification subproblem introduces only one coordinate of 
+
+θ at a time, the two classes overlap substantially and the loss saturation that plagues NRE is alleviated [50]. The factorized structure also yields a fast, MCMC-free posterior sampler, which is essential in financial applications. For example, propagating parameter uncertainty into exotic prices (Subsection 3.2) requires drawing thousands of posterior samples within the strict latency limits of a trading desk, a regime where MCMC algorithms are simply too slow. Crucially, each learned factor ri gives access to a one-dimensional conditional density (3.6) p(θi | x, θ1: i−1) = ri(x, θ1: i)p(θi | θ1: i−1).
+
+With only a small number of NN evaluations, we can construct a polynomial approxima-tion of this one-dimensional density that is accurate to machine precision [48]. Because the cumulative distribution function (CDF) is simply the antiderivative of this density, it can 14 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+be computed through direct algebraic manipulation of the approximate polynomial coe ffi -cients, completely bypassing the need for further NN evaluations. This permits rapid in-verse transform sampling, proceeding sequentially coordinate by coordinate: we first draw 
+
+θ1 ∼ p(θ1 | x), then θ2 ∼ p(θ2 | x, θ 1), and so on, up to θm ∼ p(θm | x, θ 1, . . . , θ m−1). Consequently, generating a large number of independent posterior samples is almost in-stantaneous, fully vectorizable, GPU-friendly; see [50] for details. 
+
+Changing the prior at inference time. A useful consequence of (3.1) is that the learned ratio does not depend on the distribution used to generate the training parameters, beyond a normalising constant. Let π be any prior with supp π(θ) ⊆ supp p(θ) ⊂ Θ, which ensures the trained NN is not extrapolating out of the training distribution. Since π(θ | x) ∝ π(θ)r(x, θ)while p(θ | x) = p(θ)r(x, θ), the two posteriors di ff er only through the ratio of priors, (3.7) π(θ | x)
+
+p(θ | x) ∝ π(θ)
+
+p(θ) =: w(θ),
+
+with w available in closed form, as we choose both densities. Thus, approximate posterior samples under π can be obtained by reweighting posterior samples under p according to 
+
+w(θ). This is particularly important in finance, where priors encode market regimes. 
+
+Remark 3.1 (Simulation designs) . Deep-calibration studies use a range of simulation de-signs, including space-filling or randomized designs and, in some numerical experiments, fixed grids; see, for example, [43, 7]. Here the random design θ ∼ p is not merely a numer-ical choice: it induces a joint law for simulated pairs ( θ, x) under which posterior estima-tion, posterior summaries, and direct point estimation can all be viewed as learning di ff erent functionals of the same probabilistic object. The ratio r identifies the full conditional law, while squared-error and coordinatewise absolute-error losses target the conditional mean and conditional median, respectively [60, 54]. A deterministic grid may still be paired with explicit quadrature weights or regarded as an empirical design distribution. Without such a choice, however, it does not directly induce the prior-predictive joint law that underlies the posterior and risk interpretations used here. For comparison with point calibration, we also train neural inverse maps fη : x 7 → θ. A network trained with mean squared-error (MSE) loss targets the conditional mean under the simulation design, whereas mean absolute-error (MAE) training targets conditional medi-ans; see Remark 3.1. These directly trained inverse maps are implemented separately from the TRE posterior estimator. Posterior means and medians computed from ˆ p(θ | x) have related population targets, but need not coincide numerically with the outputs of separately trained MSE- and MAE-based networks because of finite-sample, architectural, optimiza-tion, and posterior-approximation errors. Moreover, a direct inverse point estimator is tied to its training design, whereas the ratio-based posterior can be reweighted under an alterna-tive prior with support contained in the training support. It is worth mentioning the relation to forward-surrogate calibration. Indeed, an alternative deep-calibration strategy first learns the forward map from model parameters to vanilla-option prices or implied volatilities and then obtains a calibration by minimizing a weighted discrepancy between the learned sur-face and the observed market surface; see, for example, [34]. This approach is highly useful when a practitioner requires a point calibration under a specified fitting objective, possibly incorporating quote weights, bid–ask spreads, missing observations, or parameter UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 15 
+
+constraints. It reintroduces an optimization-based procedure at inference time, however, and its output is a single selected parameter vector. Our aim is complementary. Under the prior-predictive data-generating law, an IV surface can leave residual uncertainty about θ. The TRE therefore targets the full conditional law 
+
+p(θ | x) rather than a particular optimizer-dependent point solution. This distinction is consequential for downstream nonlinear payo ff s: propagating only one calibrated vector discards the residual parameter uncertainty represented by p(θ | x), whereas the posterior-predictive construction in (3.8) retains it. The MSE- and MAE-trained inverse networks are included as point-estimation benchmarks, not as substitutes for a conventional weighted forward-surface calibration. 3.2. Propagating posterior uncertainty through exotic surrogates. Let Π(· | θ) denote the distribution of the surrogate prediction conditional on parameters θ, which may be de-generate in the deterministic-surrogate case or non-degenerate if the surrogate returns both a predictive mean and a predictive uncertainty. The downstream predictive law for an exotic price Pexo given observed market data xo is then (3.8) p(Pexo | xo) =
+
+Z
+
+Π(Pexo | θ) p(θ | xo) d θ.
+
+This construction combines two distinct sources of uncertainty represented by the fitted pipeline. First, p(θ | xo) describes residual parameter uncertainty conditional on the ob-served IV surface under the specified prior-predictive simulator. Second, Π(· | θ) represents the conditional uncertainty of the exotic surrogate, including its approximation discrepancy and the Monte Carlo variability absorbed by its training targets. The posterior is there-fore not an uncertainty quantity computed after a separate optimization-based calibration; it is an inferential object conditional on xo, which can be summarized by a point decision or propagated directly to exotic prices. We approximate Π by a neural network Πξ with weights and biases ξ; the remainder of this subsection details the methodology and training details. Fix a single exotic contract, i.e., its payo ff , strike and maturity. For each θ ∈ Θ, the corresponding price Pexo (θ) under the rough Heston model can be estimated by Monte Carlo (MC) with the HQE simulator from Section 2.2. The surrogate pricer replaces these repeated MC evaluations at inference time with a single forward pass, with price–parameter pairs generated under the same random design θ ∼ p(θ) as in Section 3.1. Two aspects are in order. First, even for a fixed contract, the price can vary by orders of magnitude as 
+
+θ ranges over Θ, and a loss in absolute terms would concentrate training e ff ort only on regions where prices are large and let the relative error deteriorate where these are small. We therefore train with prices in log-space, regressing (3.9) y(θ) : = log  Pexo (θ) + ϵ ,
+
+where the jitter ϵ ≥ 0 prevents numerical instability coming from settings where none of the MC paths give a positive price, e.g., deep out-of-the-money options. Second, we design the surrogate NN to also quantify its discrepancies from the MC prices. To this end, let it output both a location μξ(θ) and a scale σξ(θ) > 0 in log space, trained by minimising the 16 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Gaussian negative log-likelihood (3.10) L(ξ) = Eθ∼p
+
+log σξ(θ) +
+
+ny(θ) − μξ(θ)o2
+
+2σξ(θ)2
+
+ .
+
+Up to the jitter, this assumes the log-normal family for the law of the surrogate prediction (3.11) Pexo + ϵ | θ ∼ LogNormal μξ(θ), σ ξ(θ)2 .
+
+A deterministic surrogate corresponds to the degenerate limit σξ → 0; richer families are possible, for instance heavier-tailed location–scale distributions in log space, but (3.11) su ffi ces for our purposes. Because the training targets are themselves MC estimates, the learnt scale absorbs both the network’s approximation error and the MC noise in the targets. With Πξ specified, the downstream predictive law from (3.8) is a posterior-weighted mixture of (potentially shifted) log-normals, (3.12) ˆp(Pexo + ϵ | xo) = 1
+
+k
+
+> k
+
+X
+
+> j=1
+
+Πξ(Pexo | θ j),
+
+where θ1, . . . , θk ∼ p(· | x) and whose quantiles define uncertainty-aware predictive in-tervals for the exotic price; in particular, upper and lower quantiles may be interpreted as model-implied ask and bid levels. Finally, note that if ε > 0, the shifted log-normal from (3.12) allows for negative prices, specifically prices in [ −ε, 0]. More flexible condi-tional predictive families can be employed in future work to remove this numerical artefact. 4. A N ovel XAI approach : H ellinger -SHAP Classical post-hoc explainability methods such as SHAP are usually applied to a point prediction. In the present setting, however, the inferential object of interest is the poste-rior distribution over model parameters conditional on an implied-volatility (IV) surface, rather than only a single calibrated parameter vector. Even when point recovery is ac-curate on average, the inverse map from numerically generated or Monte Carlo noisy IV surfaces to model parameters can leave residual parameter uncertainty under the specified prior-predictive model. For nonlinear downstream exotic prices, collapsing this conditional uncertainty to a point calibration can be consequential. Our goal is therefore to explain posterior information gain—the reduction in prior uncertainty induced by observing an IV surface—rather than merely a point estimate. To identify the regions of the observed IV surface most associated with this information gain, we apply Shapley values from cooperative game theory to a scalar functional mea-suring posterior contraction from the prior. Let S := {1, . . . , dx} index the entries of an IV surface. For a scalar coalition value function v and feature k ∈ S , the Shapley attribution is 
+
+ϕk(v, xo) =
+
+X
+
+> I⊆S\{ k}
+
+|I|!( dx − | I| − 1)! 
+
+dx! {v(I ∪ { k}; xo) − v(I; xo)} .
+
+Because exact evaluation is combinatorial in dx, we approximate these attributions using Kernel SHAP [45] with a local empirical background distribution, defined next. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 17 
+
+For each explained surface xo, let Bxo denote the empirical distribution supported on its 100 nearest IV surfaces from the simulated dataset, where nearness is measured with the Euclidean distance in the space of retained principal components. For a coalition I ⊆ S and a background surface xb, write ( xo)I , (xb)−I for the hybrid surface that retains the entries in I from xo and replaces the complementary entries by those of xb. If g is a scalar model output or posterior-information functional, the local-background game is 
+
+vg(I; xo) : = Exb∼Bxo
+
+g(( xo)I , (xb)−I ) .
+
+Thus, Kernel SHAP attributes marginal changes in g relative to nearby, empirically gener-ated reference surfaces. The use of the full simulated dataset as the candidate pool provides a substantially denser set of local backgrounds than selection from the held-out test set alone. This construction reduces, but does not eliminate, the o ff -manifold issue inherent in coalition-based explanations of structured surfaces. Although both xo and xb are simu-lated IV surfaces, their feature-wise hybrid need not itself lie exactly on the rough-Heston IV-surface manifold. The resulting scores should consequently be interpreted as local rela-tive attributions under the stated background-completion distribution, rather than as strictly manifold-preserving counterfactual e ff ects. The key modelling choice is the scalar functional g. For a parameter coordinate θi, let ˆri(x, θ i) : = ˆp(θi | x)
+
+p(θi)denote the estimated marginal posterior-to-prior density ratio. We consider two information-theoretic measures of posterior contraction, 
+
+gKL  
+
+> i
+
+(x) : = DKL 
+
+ ˆp(θi | x) p(θi) = Eθi∼ ˆp(·| x)
+
+hlog ˆ ri(x, θ i)i ,
+
+and 
+
+gH2 
+
+> i
+
+(x) : = H2 ˆp(θi | x), p(θi) = 1 − Eθi∼p
+
+h p ˆri(x, θ i)i ,
+
+where we use the convention 
+
+H2(p, q) = 12
+
+Z  p p(y) − pq(y)2 dy = 1 −
+
+Z pp(y)q(y)d y
+
+for the squared Hellinger distance. The corresponding Kernel-SHAP value function is 
+
+vgDi (I; xo), with D equal to KL or H2. Its attributions identify the surface regions whose inclusion, relative to the local background-completion distribution, most increases poste-rior information about θi.The Kullback–Leibler and squared-Hellinger constructions are complementary summaries of posterior contraction. In particular, the squared Hellinger distance is bounded and there-fore provides a useful sensitivity analysis to the Kullback–Leibler version. Agreement be-tween their attribution maps is an empirical robustness finding, rather than a consequence of correct model specification. Two implementation points are worth noting. First, the full-posterior estimator ˆ p(θ | x)described in Section 3.1 is not convenient for this analysis, as evaluating its marginals would require numerically integrating over the remaining m−1 coordinates of θ. We therefore train 
+
+m neural ratio estimators, one for each marginal posterior-to-prior ratio ˆ ri. Second, once the 18 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+one-dimensional ˆ ri’s are available, both gKL  
+
+> i
+
+and gH2 
+
+> i
+
+are evaluated by Clenshaw–Curtis quadrature. The same construction extends beyond one-dimensional marginals. For example, when posterior dependence between two components is of interest, one may define an information functional using 
+
+D ˆp(θi, θ j | x) p(θi, θ j)
+
+and apply the same local-background Shapley decomposition. Thus, the methodology can be used both for single-parameter recovery and for joint posterior-information analysis. Finally, the posterior-information functional, and hence its Shapley decomposition, is prior- or regime-specific. A di ff erent prior changes both the posterior contraction being measured and the appropriate local reference distribution. The reported attributions should therefore be understood as properties of the specified prior-predictive rough-Heston exper-iment, rather than as prior-free statements about IV-surface informativeness. 5. U ncertainty quantification results 
+
+We next validate our uncertainty-quantification (UQ) methodology in a simulation study. To this end, for each parameter vector θ, we apply the HQE scheme described in Section 2.2 to produce a set of discretized asset-volatility paths S (m) 
+
+> t
+
+, V(m)
+
+> t
+
+, for m = 1, . . . , M. These paths are used to generate datasets for the two SBI tasks, specifically generate implied-volatility (IV) surfaces derived from European option prices for the inverse problem consid-ered in Section 5.1, and prices for J = 3 exotics contract classes: forward-start call, down-and-out put barrier and realized-variance (RV) call options, considered in Section 5.3. Each exotic family is evaluated over several maturities and other contract specific terms, which are omitted for brevity until Section 5.3. Formally, let 
+
+C(T, K; θ) = E[( S T − K)+],
+
+Pexo  
+
+> j
+
+(θ) = E[Ψ j(S ·, V·)] ,
+
+where ( T, K) are the maturity and strike of the European call, and Ψ j denote the potentially path-dependent exotic payo ff functionals for j = 1, 2, 3. We write bCM (T, K; θ) and bPexo  
+
+> j,M
+
+(θ)for the corresponding Monte Carlo (MC) approximations obtained from the HQE scheme. Schematically, for each value of θθ −→ n  bS (m) 
+
+> ·
+
+, bV(m)
+
+> ·
+
+o Mm=1 −→ 
+
+bCM (T, K; θ) −→ bσIV (T, K; θ) −→ x(θ),
+
+bPexo  
+
+> j,M
+
+(θ), j = 1, 2, 3.
+
+Here bσIV (T, K; θ) is the implied volatility obtained by inverting the corresponding MC Eu-ropean price, and x(θ) collects these IVs over an observation grid of pairs ( T, K). Thus, the upper branch produces the observation used for the inverse SBI problem, in which we approximate p(θ | x), whereas the lower branch produces quantities that are held out for downstream pricing applications. After an IV surface xo has been observed and a posterior for θ obtained, these exotic pricing maps are used to propagate parameter uncertainty into posterior distributions for financially relevant, non-European claims. Given an observed IV surface xo, the posterior for θ can subsequently be propagated through the exotic pric-ing maps to quantify uncertainty in non-European claims. To simplify notation, we write UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 19 
+
+the Monte Carlo approximation of an exotic price as bPMC , with the contract understood from context. In the following, Section 5.1 describes the parameter design, construction and numerical validation of the IV dataset. Section 5.2 evaluates posterior recovery, while Section 5.3 studies posterior uncertainty propagation to exotic prices. 5.1. Synthetic dataset generation for the inverse problem. 
+
+5.1.1. Parameter and IV surface design. Recall the rough Heston parameterization θ =
+
+(κ, θ, ν, ρ, V0, H) ∈ Θ, where we take Θ to be the Cartesian product of the support ranges listed in Table 1, and let the simulation prior p(θ) be uniform on Θ. As discussed in Sec-tion 3, this choice ensures that our neural posterior estimator θ, x 7 → ˆp(θ | x) is trained over a broad parameter region, while allowing alternative priors to be imposed at inference time. Table 1. Parameter supports for the rough Heston model synthetic dataset. 
+
+Parameter Symbol Support Range 
+
+Mean-reversion Speed κ (0 .10 , 2.00) Long-run Variance θ (0 .01 , 0.25) Vol-of-Vol ν (0 .05 , 0.45) Leverage correlation ρ (−0.95 , −0.1) Initial Variance V0 (0 .01 , 0.25) Hurst Exponent H (0 .05 , 0.45) Previous deep-calibration studies for stochastic-volatility models often work with a cone-shaped subset of the implied-volatility surface, excluding parts of the ( T, k) grid that are either too illiquid in practice or numerically unstable. Here we instead work with a stan-dardized surface indexed by maturities T and normalized moneyness coordinates. For each maturity T , we define the log-forward moneyness 
+
+k = log KF0(T )
+
+!
+
+,
+
+where F0(T ) denotes the forward price for maturity T . Under our zero-rate specification, 
+
+F0(T ) = S 0, but the forward notation is convenient and keeps the construction consistent with standard implied-volatility parametrizations. We then standardize moneyness by the at-the-money volatility scale, 
+
+z = k
+
+¯σATM (T ) √T ,
+
+where ¯ σATM (T ) denotes the at-the-money implied volatility estimated from the same Monte Carlo sample paths used to compute all strikes at maturity T . Equivalently, if one fixes a standardized coordinate z, the corresponding log-moneyness is 
+
+k(T, z) = z ¯σATM (T ) √T .
+
+This normalization reduces scale heterogeneity across maturities and improves the con-ditioning of the inverse map θ 7 → x(θ) without increasing computational cost, since the 20 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+ATM volatility is obtained from the same simulated option prices. We take 
+
+z ∈ {− 2.5, −2.0, −1.5, −1.0, −0.5, 0, 0.5, 1.0, 1.5}
+
+at maturities 
+
+T ∈
+
+( 5252 , 10 252 , 112 , 14 , 12 , 1, 2
+
+)
+
+,
+
+which yields a 63-dimensional implied-volatility surface. Because a common set of simulated paths is used to construct entries of a given surface, the Monte Carlo and inversion errors across strikes and maturities are generally dependent. This dependence is retained in the simulated joint distribution of x on which the amortized estimators are trained; we do not impose an independent-noise model on individual IV entries. The key advantage of this standardized representation is that each feature corresponds to a comparable location on the smile across parameter draws: near-the-money and wing ob-servations remain informative even when the overall volatility level changes. In particular, this avoids allocating too many features to contracts that become numerically negligible in low-volatility regimes while preserving a fixed and interpretable observation layout for the neural estimators. 5.1.2. IV inversion. The standardized observation grid from Section 5.1 is indexed by the nominal log-forward moneyness k = log  KF0(T )
+
+ , which reduces to k = log( K/S 0) under our zero-rate specification. However, when inverting Monte Carlo European prices into implied volatilities, we do not use a naive Monte Carlo average of terminal asset values as the forward input. Instead, the inversion is performed relative to the forward level induced by the same martingale-corrected conditional Black–Scholes representation used in the HQE pricing step. In particular, whenever one side of the smile is more stable in put rather than call repre-sentation, we recover the corresponding European price through the standard put–call parity relation using that same forward convention, and then invert implied volatility consistently throughout. This avoids a small inconsistency that would arise from mixing parity relations under the simulated forward with inversion formulas centered directly at S 0, and in practice reduces spurious inversion noise, especially for deep in- or out-of-the-money contracts. The same inversion convention is used to obtain the at-the-money implied volatilities entering the standardized z-grid construction from Section 5.1.1. In other words, the grid itself is indexed by the nominal coordinates ( T, z), but the numerical inversion producing the associated implied volatilities is carried out under the forward convention consistent with the martingale-corrected conditional pricing scheme. 5.1.3. Numerical validation. We validate the HQE generator by benchmarking the result-ing European implied volatilities against a Lewis inversion based on the rough Heston char-acteristic function. For each parameter vector θ and grid point ( T, z), define (5.1) ∆HQE IV (T, z; θ) = bσHQE (T, z; θ) − σLewis (T, z; θ) .
+
+Table 2 reports quantiles of ∆IV across the simulation prior for di ff erent time-grid resolu-tions and grading rates. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 21 
+
+Table 2. Quantiles of the absolute di ff erence between the HQE and Lewis implied-volatilities ∆HQE IV (T, z; θ) defined in (5.1) over all pairs ( T, z), for di ff erent time-grid resolutions N ∈ { 504 , 1008 , 2016 , 4032 } and grading rates r ∈ { 1, 2, 3}. We use MC estimators with M = 5 · 10 5 samples; quan-tiles are estimated based on 500 pairs ( θ, x). Non-uniform grids perform better, and we settle on N = 2016 and r = 2 for the dataset generation.                                                    
+
+> N=504 N=1008 N=2016 N=4032
+> rq50 q90 q95 q99 q50 q90 q95 q99 q50 q90 q95 q99 q50 q90 q95 q99
+> 10.03 0.23 0.38 0.80 0.02 0.15 0.23 0.48 0.02 0.10 0.15 0.29 0.02 0.08 0.12 0.21 20.02 0.10 0.14 0.24 0.02 0.08 0.11 0.19 0.02 0.07 0.10 0.15 0.01 0.07 0.09 0.15 30.02 0.10 0.13 0.22 0.02 0.08 0.11 0.17 0.02 0.07 0.09 0.15 0.01 0.07 0.10 0.17
+
+Two conclusions emerge clearly from these experiments. First, graded time grids sub-stantially improve the approximation relative to the uniform case, and we therefore adopt grading rate r = 2 in the final dataset generation. Second, once the QE correction is in-cluded, the remaining discrepancy with the Lewis benchmark is already of the same order as, or smaller than, the intrinsic Monte Carlo noise over much of the simulation prior. In particular, additional diagnostics reported in Appendix B show that the main improvement comes from controlling truncation error rather than from refining the purely hybrid part of the scheme. The Lewis benchmark itself is numerically delicate, especially in the short-maturity and wing regimes. In our implementation, benchmark values were stabilized using pair-specific Fourier-inversion settings together with Richardson extrapolation. The reported discrepan-cies should therefore be interpreted as total numerical disagreement, which includes Lewis pricing error, rather than as a pure HQE bias estimate. Nevertheless, the refinement diagnostics indicate that the HQE scheme achieves sub-10bp accuracy up to the 95th percentile, while the remaining upper-tail discrepancy is small and appears to be dominated by benchmark instability and Monte Carlo noise rather than by the HQE discretization itself. This is more than su ffi cient for the synthetic-data generation task considered in this paper. 5.1.4. Surface-quality checks. As a further sanity check on the synthetic dataset, we verify that the generated implied-volatility surfaces satisfy the expected qualitative shape con-straints, including convexity- and wing-behavior diagnostics in the spirit of static-arbitrage and Roger-Lee-type checks [38]. No generated surface violates any of these diagnostics. 5.2. Parameter calibration and posterior recovery. We generate 500000 parameter-surface pairs ( θ, x) using the HQE scheme with N = 2016 and grading parameter r = 2. We ran-domly assign them to training, validation and test sets containing 90%, 5% and 5% of the pairs, respectively. Each IV surface x is 63-dimensional, as explained in Section 5.1.1. We train a neural posterior estimator, specifically a Telescoping ratio estimator (TRE) on these pairs to recover the parameters underlying an observed IV surface and quantify the associated uncertainty through posterior (credible) regions. To facilitate neural-network 22 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 0200 400 600 800 1000 0.194 0.196 0.198 0.200 0.202         
+
+> θ
+> 0.39 0.40 0.41
+> ν
+> −0.876
+> −0.874
+> −0.872
+> −0.870
+> −0.868
+> −0.866
+> ρ
+> 0.111 0.112 0.113
+> V0
+> 1.2 1.3
+> 0.075 0.080 0.085 0.090
+> H
+> 0.195 0.200
+> θ
+> 0.39 0.40 0.41
+> ν
+> −0.875 −0.870
+> ρ
+> 0.111 0.112 0.113
+> V0
+> 0.08 0.09
+> H
+
+Ground truth MAP Posterior mean Posterior median 
+
+Figure 1. Posterior distribution of the parameter vector θ conditional on an IV surface x from the held-out test set. The diagonal panels display the estimated marginal posterior density of each parameter, while the o ff -diagonal panels show the corresponding pairwise marginal posterior distri-butions. For each parameter, the ground truth value is shown together with three point summaries of the posterior: the maximum a posteriori (MAP) estimate, the sample posterior mean and the sample posterior median. Pa-rameter recovery is good, while the shape of the posterior distributions reflect the remaining parameter uncertainty and correlation. These plots are generated from 15000 posterior draws. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 23 0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Nominal HPD level
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Empirical coverage
+> θνρV0
+> H
+> Ideal
+
+Figure 2. Empirical highest posterior density (HPD) regions coverage of the learnt TRE conditional posteriors over the held-out test set. We note good coverage results, i.e., the empirical coverage of the HPD regions matches the nominal values almost exactly. This confirms the learnt ap-proximations ˆp(κ | x), . . . , ˆp(H | x, κ, θ, ν, ρ, V0) are neither over- nor under-confident. See Appendix E.2.3, in particular the second half of this section, for further details. training, we centre the surfaces and project them onto their first 20 principal components (PCs), with the PCA fitted on the training set only; these PCs explain more than 99 .9999% of the variability. The retained PC scores are then standardized to unit variance, again us-ing training-set statistics. Higher-order PCs explain negligible variation and correspond to eigenvalues that are numerically close to zero, which makes the subsequent standard-ization of PC scores numerically unstable. For TRE, the parameter components of θ are also standardized to the common range [ −1, 1] before being passed as input to the neural network. Further details on the preprocessing steps, post-training steps, hyperparameter search neural-network architectures are provided in the Appendix E. Figure 1 illustrates posterior recovery for an arbitrary IV surface x from the test set. Beyond recovering the ground truth θ, we also require the posterior uncertainty reported by TRE to be reliable, be-cause it is precisely this uncertainty that is subsequently propagated to the prices of exotic derivatives in Section 5.3. We therefore assess the calibration of the approximate posterior 
+
+θ, x 7 → ˆp(θ | x). Here, (posterior) calibration means that Bayesian credible regions have the expected frequentist coverage under repeated simulation from the prior. For example, a 95% posterior credible region should contain the corresponding ground truth θ param-eter in approximately 95% of pairs ( θ, x) from the test set. Recall from Section 3.1 that 24 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+TRE constructs the posterior sequentially, and here, we approximate p(κ | x), followed by 
+
+p(θ | x, κ ) and up to p(H | x, κ, θ, ν, ρ, V0). We can therefore assess calibration separately for each of the above conditional posterior densities. Specifically, for each approximate conditional density, we compute the corresponding approximate highest posterior density (HPD) regions at a range of nominal levels and compare the empirical coverage of these HPD regions over the test set with the theoretical value. Figure 2 shows near-perfect cal-ibration for each of the approximate conditional densities, as the displayed curves barely deviate from the line y = x; see Appendix E.2.3 for further details. 5.2.1. Point estimators. For comparison with the TRE, using the same dataset and prepro-cessing steps, we also train neural point estimators with the MSE and MAE loss functions. As discussed in Remark 3.1, these target the posterior mean and median, respectively. Fig-ures 3 and 4 illustrate excellent performance of the trained neural estimators; training details are provided in Appendix E. 5.3. Pricing and uncertainty quantification for the forward exotic problem. 
+
+5.3.1. Exotic contract description. As mentioned at the beginning of Section 5, we con-sider three families of exotic contracts. First, the forward-start call option has payo ff Ψfwd (S ·) = S T2 − ekS T1
+
++ ,
+
+with τ = T2 − T1 and where k ∈ {− 0.10 , −0.05 , 0, 0.05 , 0.10 }, T1 ∈ n 112 , 14 , 12 , 1o and τ ∈
+
+n 112 , 14
+
+o. Second, consider the down-and-out put barrier option with payo ff Ψb(S ·) = (K − S T )+ · 1
+
+
+
+inf  
+
+> 0≤t≤T
+
+S t > B
+
+
+
+,
+
+with K = S 0ekK and B = S 0ekB , and where kK ∈ { 0, −0.05 }, kB ∈ {− 0.10 , −0.15 , −0.20 },and T ∈ n 14 , 12 , 1o. The third and final contract is the realized-variance (RV) call option, with payo ff given by 
+
+ΨRV (V·) = 1
+
+T
+
+Z T
+
+> 0
+
+Vt dt − KRV 
+
+!+
+
+,
+
+with KRV = c · vref and where vref = 0.13, c ∈ { 0.25 , 0.45 , 0.65 }, and T ∈ n 112 , 14 , 12 , 1o. In all three cases, we set S 0 = 100. 5.3.2. Variance analysis of Monte Carlo exotic-price targets. Before studying posterior uncertainty propagation through the surrogate pricers, we first assess the intrinsic Monte Carlo (MC) variability of the exotic-price targets themselves. This step is important be-cause the surrogate models of Section 3.2 are trained on MC prices rather than exact prices, so excessive target noise would mechanically inflate the predictive uncertainty learned by the network and blur the distinction between parameter uncertainty and surrogate approxi-mation error. For each exotic contract family, we report the quantiles of the relative MC standard error (also known as coe ffi cient of variation). Relative diagnostics are informative for forward-start and barrier contracts, whose prices remain comfortably away from 0 over the prior parameter region from Table 1. For realized-variance (RV) calls, however, some of the UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 25 0.5 1.0 1.5 2.0 0.5 1.0 1.5 2.0   
+
+> 0.1 0.2 0.05 0.10 0.15 0.20 0.25
+
+θ   
+
+> 0.1 0.2 0.3 0.4 0.1 0.2 0.3 0.4
+
+ν  
+
+> −0.75 −0.50 −0.25
+> −0.8
+> −0.6
+> −0.4
+> −0.2
+
+ρ  
+
+> 0.1 0.2 0.05 0.10 0.15 0.20 0.25
+
+V0   
+
+> 0.1 0.2 0.3 0.4 0.1 0.2 0.3 0.4
+
+H
+
+True parameter Predicted parameter 
+
+Figure 3. Neural point estimator trained with the MSE loss evaluated over the test set. Each subfigure illustrates the true versus predicted parameter values, with the y = x line representing perfect parameter recovery. 0.5 1.0 1.5 2.0 0.5 1.0 1.5 2.0   
+
+> 0.1 0.2 0.05 0.10 0.15 0.20 0.25
+
+θ   
+
+> 0.1 0.2 0.3 0.4 0.1 0.2 0.3 0.4
+
+ν  
+
+> −0.75 −0.50 −0.25
+> −0.8
+> −0.6
+> −0.4
+> −0.2
+
+ρ  
+
+> 0.1 0.2 0.05 0.10 0.15 0.20 0.25
+
+V0   
+
+> 0.1 0.2 0.3 0.4 0.1 0.2 0.3 0.4
+
+H
+
+True parameter Predicted parameter 
+
+Figure 4. Neural point estimator trained with the MAE loss evaluated over the test set. Each subfigure illustrates the true versus predicted parameter values, with the y = x line representing perfect parameter recovery. 26 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 0.000 0.001 0.002 0.003 0.004  
+
+> Relative MC standard error, SE( ˆPMC )/|ˆPMC |
+> 0500 1000 1500
+> Density
+> 95% quantile 99% quantile
+
+(a) Forward-start 0.000 0.005 0.010 0.015 0.020   
+
+> Relative MC standard error, SE( ˆPMC )/|ˆPMC |
+> 050 100 150 200 250
+> Density
+> 95% quantile 99% quantile
+
+(b) Barrier 0.000 0.005 0.010 0.015   
+
+> Relative MC standard error, SE( ˆPMC )/|ˆPMC |
+> 0500 1000 1500 2000
+> Density
+> 95% quantile 99% quantile
+
+(c) Realized variance 
+
+Figure 5. Empirical distributions of relative Monte Carlo standard errors for the three exotic contract families. The relative standard error is defined as the estimated Monte Carlo standard error divided by the corresponding estimated option price. For realized-variance options, contracts with esti-mated prices below 10 −5 are excluded from this relative diagnostic to avoid instability from near-degenerate prices that are not informative. The results are pooled over all retained contracts within each family. most extreme upper-strike contracts become degenerate, i.e., none of the 500000 MC es-timator’s paths yield non-zero contributions. Thus, for the RV family, we exclude from any subsequent analysis the contracts ( c, T ) ∈ { (0 .65 , 1/12) , (0 .65 , 1/4) }. Further, to keep relative summaries meaningful and focus on economically-relevant prices, when reporting results evaluated on the test-set, we exclude observations with estimated MC prices below 10 −5. Detailed contract-by-contract diagnostics, including lower quantiles of prices, frac-tions of zero or near-zero realizations, and coe ffi cient-of-variation summaries, are reported in Appendix B.2. The main conclusion is that the forward-start and barrier training targets are su ffi ciently well resolved by MC for the purposes of surrogate learning. Forward-start options exhibit the smallest relative MC noise overall, while barriers are noisier, as expected from their path dependence and discontinuous payo ff structure, but still remain within an acceptable range. The RV family is more delicate: lower and intermediate strike multipliers display stable coe ffi cients of variation across the parameter space, whereas the two excluded contracts frequently concentrate MC prices at or near the numerical floor and do not provide useful regression targets over the broad prior considered here. For the retained contracts, the observed MC variability is small enough that the uncertainty decompositions reported in the next subsection may be interpreted as reflecting mainly posterior and surrogate e ff ects rather than raw simulation noise. 5.3.3. Predictive intervals and decomposition of uncertainty. We now assess whether the posterior uncertainty recovered from the IV surface is economically material after propa-gation to exotic prices, and whether the resulting predictive distribution is calibrated. Here, predictive calibration refers to whether predictive intervals with a given nominal coverage level contain the corresponding held-out estimated price PMC with approximately that fre-quency across the test set. Importantly, we distinguish between posterior-only predictive UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 27 
+
+Table 3. Percentage of held-out test pairs for which the relative plug-in pricing error exceeds the stated threshold, pooled over the retained contract within each exotic family. The plug-in price is obtained by evaluating the exotic surrogate at the MSE- or MAE-trained neural point calibration, and the error is measured relative to the held-out Monte Carlo reference price. Contract-level patterns are reported in Appendix C. Error > 1% Error > 3% Error > 5% Family MSE MAE MSE MAE MSE MAE Forward-start 6.46 4.86 1.08 0.85 0.46 0.40 Barrier 17.25 14.87 1.03 0.85 0.15 0.11 RV 22.05 18.38 6.83 6.05 4.21 3.81 intervals, which propagate posterior uncertainty through the surrogate pricer, and full pre-dictive intervals, which also account for the surrogate’s conditional predictive uncertainty. Our analysis has four complementary parts. First, we assess the downstream error in-curred by using a neural point estimator ˆ θ. Second, we quantify the economic size of the resulting full posterior-predictive intervals relative to the exotic price. Third, we compare the empirical coverage of posterior-only and full predictive intervals. Finally, we use the law of total variance to determine how the predictive uncertainty is divided between residual parameter uncertainty and conditional surrogate-pricing uncertainty. 
+
+Plug-in pricing error. Recall the MC standard-error diagnostics from Figure 5, which show that the sampling noise of these reference prices is small relative to the downstream eff ects reported below. The 99% quantile of the relative MC standard error remains be-low 0 .5% for forward starts, is approximately 1 .3% for realized-variance claims, and is approximately 2% for barriers. These values are smaller than, or of a lower order than, the contract-level plug-in discrepancies documented below. Thus, although MC noise is necessarily present in the surrogate training targets and reference prices, it cannot by itself account for the observed downstream discrepancies. For a test pair ( θ, x), let bθMSE (x) and bθMAE (x) denote the point calibrations produced by the networks trained under the MSE and MAE losses, respectively. For each contract specification, we compute the relative plug-in error (5.2) Eplug (bθ) : =
+
+bPMC − bPexo (bθ)
+
+bPMC ,
+
+and report the proportions for which Eplug (bθ) > q at q ∈ { 0.01 , 0.03 , 0.05 }. This comparison isolates the practical limitation of replacing a posterior by a single parameter vector. It should not be interpreted as a pure measure of inverse-network error: it also reflects the sensitivity of the exotic-pricing map and any residual surrogate approximation error. Table 3 shows that visually accurate parameter recovery does not guarantee reliable plug-in exotic prices. For example, at the 3% threshold, the fraction of failures appears moderate for forward starts and barriers, however Figure 6 shows substantial heterogeneity within the 28 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE -0.10 -0.05 0.00 0.05 0.10 
+
+k (ITM to OTM)                 
+
+> T1= 1 /12 ,∆ = 1 /12
+> T1= 1 /12 ,∆ = 1 /4
+> T1= 1 /4,∆ = 1 /12
+> T1= 1 /4,∆ = 1 /4
+> T1= 1 /2,∆ = 1 /12
+> T1= 1 /2,∆ = 1 /4
+> T1= 1 ,∆ = 1 /12
+> T1= 1 ,∆ = 1 /4
+
+MSE     
+
+> -0.10 -0.05 0.00 0.05 0.10
+
+k (ITM to OTM) 
+
+MAE 
+
+> 0.0% 1.0% 2.0% 3.0% 4.0% 5.0% 6.0%
+
+Fraction of pairs ( , x) with plug-in error bigger than 3% 
+
+(a) Forward-start -0.20 -0.15 -0.10 
+
+kB (far to near barrier)                
+
+> T= 1 /4, k K= 0 .00
+> T= 1 /4, k K=−0.05
+> T= 1 /2, k K= 0 .00
+> T= 1 /2, k K=−0.05
+> T= 1 , k K= 0 .00
+> T= 1 , k K=−0.05
+
+MSE   
+
+> -0.20 -0.15 -0.10
+
+kB (far to near barrier) 
+
+MAE 
+
+> 0.0% 2.0% 4.0% 6.0% 8.0% 10.0%
+
+(b) Barrier 0.25 0.45 0.65 
+
+c (lower to higher strike) 
+
+T = 1 /12 
+
+T = 1 /4
+
+T = 1 /2
+
+T = 1 
+
+> excluded excluded
+
+MSE 
+
+0.25 0.45 0.65 
+
+c (lower to higher strike) 
+
+> excluded excluded
+
+MAE 
+
+> 0.0% 2.0% 4.0% 6.0% 8.0% 10.0% 12.0%
+
+(c) Realized variance 
+
+Figure 6. Frequency (%) of test samples for which the relative plug-in pricing error exceeds 3%, by exotic-contract specification. The plug-in price evaluates the exotic surrogate at the MSE- or MAE-trained neural point estimator, and the error is measured relative to the held-out MC reference price. Within each family, the left and right panels show rates for the MSE- and MAE-trained estimators, respectively. Grey cells denote excluded near-degenerate realized-variance con-tracts. Results for the 1% and 5% thresholds are reported in Appendix C. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 29 
+
+same family. In particular, the high error rates are clustered among out-of-the-money con-tracts for forward-starts, e.g. k = 0.10, and similarly for higher kB = −0.10 at longer maturi-ties for barriers. The corresponding error rates are much larger for realized-variance claims for all contract specifications. After pooling over contract specifications, the MSE and MAE point estimators exceed the 1% error threshold in 6 .46% and 4 .86% of forward-start cases, 17 .25% and 14 .87% of barrier cases, and 22 .05% and 18 .38% of realized-variance cases, respectively. The corresponding rates remain non-zero at the 5% threshold, especially for realized-variance contracts. Figures 8 and 9 in Appendix C give the contract-level patterns at the two additional 1% and 5% thresholds. As discussed above, the errors are strongly contract-dependent. They are most prevalent for out-of-the-money forward starts, for barriers close to the prevailing level, and for the higher-strike realized-variance claims retained in the experiment. The MAE estimator is slightly better in these aggregate summaries, but the di ff erence between the two point esti-mators is secondary to the central finding: neither point summary provides an interval or a diagnostic of when its associated plug-in price is unreliable. In particular, the larger plug-in discrepancies relative to the MC standard errors establish that the e ff ects documented here are not merely the direct transmission of sampling noise in the training prices. They arise from collapsing a non-degenerate inverse distribution to one parameter vector, together with the sensitivity of the downstream pricing map. 
+
+Relative widths of full predictive intervals. To assess the economic size of the uncertainty-aware quotes, let L(α) 
+
+> i j
+
+and U(α) 
+
+> i j
+
+be the lower and upper endpoints of the nominal α predictive interval for test case i and contract specification j. We measure its scale relative to the held-out MC price by (5.3) W(α) 
+
+> i j
+
+:= 100 U(α) 
+
+> i j
+
+− L(α)
+
+> i j
+
+bPMC 
+
+> i j
+
+, α ∈ (0 , 1) .
+
+The full predictive interval is used here, so that W(α) 
+
+> i j
+
+incorporates both posterior uncertainty and conditional surrogate uncertainty. We summarize the empirical distribution of W(0 .95) 
+
+> i j
+
+by its median and upper quantiles. Table 4 shows that the 95% predictive intervals are economically non-negligible even after pooling across heterogeneous contract specifications. Their median width is 0 .65% of the reference price for forward starts, 1 .66% for realized-variance claims, and 2 .20% for barriers. The upper tail is substantially wider: the 95% quantile reaches 3 .84%, 18 .18%, and 5 .82% of the respective reference price. These pooled summaries conceal meaningful heterogeneity. The contract-level results in Tables 14, 15, and 16 show that some compara-tively insensitive claims have narrow relative intervals, whereas out-of-the-money forward starts, near-barrier contracts, and several higher-strike realized-variance claims have partic-ularly wide bands. Hence uncertainty quantification is not equally valuable across contracts, but it identifies precisely those regimes in which a point quote is least reliable. 
+
+Predictive coverage. We next empirically evaluate predictive coverage. We remind the reader that we distinguish the posterior-only interval, obtained by propagating posterior samples through the conditional surrogate mean, from the full interval, obtained from the posterior mixture of conditional log-normal surrogate distributions in (3.12). 30 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 4. Distribution of the relative width W(0 .95)  
+
+> i j
+
+of the full nominal-95% predictive interval, pooled over all retained contract–test pairs within each exotic family. For each pair, W(0 .95)  
+
+> i j
+
+is defined in (5.3) as the relative inter-val length expressed as a percentage of the held-out Monte Carlo reference price. Entries are the median, 90% quantile, and 95% quantile of the re-sulting distribution of relative widths. Contract-level results are reported in Tables 14–16. Family Median (%) 90% quantile (%) 95% quantile (%) Forward-start 0.65 2.46 3.84 Barrier 2.20 4.56 5.82 Realized variance 1.66 8.17 18.18 Table 5. Median and interquartile range (IQR) of empirical coverage rates for nominal-95% predictive intervals across retained contract specifications within each exotic family. “Posterior only” (PO) propagates draws from the post-training-calibrated TRE posterior through the conditional surrogate mean. “Full UQ” additionally samples from the conditional surrogate-predictive law and therefore incorporates both posterior and conditional surrogate uncertainty. All entries are percentages; IQRs are reported in percentage points. Contract-level results are reported in Tables 17–19. Family PO 95% median PO 95% IQR Full UQ 95% median Full UQ 95% IQR Forward-start 94.60 1.58 97.19 0.33 Barrier 78.83 15.59 95.75 0.90 Realized variance 94.24 1.66 96.89 0.43 The distinction is consequential. As summarized in Table 5, posterior-only intervals materially under-cover barrier claims: their median contract-level 95% coverage is 78 .83%, with an interquartile range of 15 .59 percentage points. Posterior-only coverage is slightly closer to nominal for forward starts and realized-variance claims, but remains contract-dependent; see Tables 17, 18, and 19. Once conditional surrogate uncertainty is included, the median coverage is restored to 97 .19% for forward starts, 95 .75% for barriers, and 96 .89% for realized-variance claims. The corresponding interquartile ranges, reported in Table 5, are small, indicating that full predictive calibration is substantially more stable across retained contract specifications. Accordingly, the evidence supports the calibration of the full predictive construction, not a claim that posterior uncertainty alone is always su ffi cient. The modest over-coverage observed for some specifications is consistent with conservative predictive intervals and finite-sample estimation. Residual departures from nominal coverage may arise because the conditional surrogate law is approximated by a log-normal distribution whose shape need not exactly match the parameter-dependent distribution of surrogate and MC errors. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 31 
+
+Table 6. Median and interquartile range (IQR), across retained contract specifications, of the case-wise shares of full predictive variance attributed to TRE posterior uncertainty and conditional surrogate uncertainty. For each held-out test pair, the shares are computed from the law of total vari-ance in (5.5) and then averaged within its contract specification. All entries are percentages; IQRs are reported in percentage points. Contract-level re-sults are reported in Appendix C. Family TRE median TRE IQR Surrogate median Surrogate IQR Forward-start 81.67 8.01 18.33 8.01 Barrier 43.07 18.40 56.93 18.40 Realized variance 89.69 3.66 10.31 3.66 A richer conditional family or post-training calibration of the exotic predictive distribution could be used if sharper nominal calibration were required; see [55] for such an application to neural estimators. 
+
+Predictive-variance attribution. Finally, we quantify the relative contributions of in-verse and surrogate uncertainty. Let P denote the full predictive exotic price and write (5.4) mξ(θ) : = E[P | θ], s2 
+
+> ξ
+
+(θ) : = Var( P | θ),
+
+where, under the shifted log-normal surrogate in (3.11), both quantities are available in closed form. Conditional on the observed surface x, the law of total variance gives (5.5) Var( P | x) = Var θ|x
+
+hmξ(θ)i| {z }
+
+> posterior (TRE) component
+
++ Eθ|x
+
+hs2 
+
+> ξ
+
+(θ)i| {z }
+
+> conditional surrogate component
+
+.
+
+For each retained test pair and contract specification, we express the two terms in (5.5) as shares of the total predictive variance. The reported contract-level values from Table 6 average these case-wise shares over the held-out test set, thus avoiding a raw-variance ag-gregation across contracts with di ff erent price scales. The decomposition is clearly contract-specific. For realized-variance claims, the poste-rior component accounts for approximately 86%–92% of total predictive variance across the displayed specifications (Table 22); residual parameter uncertainty is therefore the leading source of pricing uncertainty. For barriers, by contrast, the conditional surrogate compo-nent is often comparable to or larger than the posterior component, and reaches more than 80% for some near-barrier, longer-maturity claims (Table 21). This is consistent with the greater di ffi culty of approximating a discontinuous path-dependent payo ff . Forward starts predominantly exhibit posterior-driven uncertainty away from the most in-the-money spec-ifications, but their surrogate share can still be material; see Table 20. These results rein-force the need to propagate both layers: omitting surrogate uncertainty is especially costly for barriers, whereas treating the surrogate layer as the only uncertainty source would miss the dominant contribution for most realized-variance claims. Taken together, the plug-in, width, coverage, and variance-decomposition diagnostics show that UQ is not merely a cosmetic enlargement of a neural point estimate. A point 32 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+calibration can be highly accurate on average while still generate economically consequen-tial errors for selected downstream claims. The full posterior-predictive construction flags these regimes through wider intervals and attains well-calibrated or conservative coverage by retaining uncertainty from the surrogate-pricing stage. 6. XAI results 
+
+This section applies the local-background Hellinger–SHAP construction from Section 4 to identify the regions of the IV surface most strongly associated with marginal posterior contraction under the specified prior-predictive rough-Heston experiment. Figure 7 reports mean absolute squared-Hellinger Kernel-SHAP attributions, averaged over 500 held-out IV surfaces. Thus, each panel summarizes the average magnitude of a feature’s local contribu-tion to posterior information gain about the corresponding parameter. Since the attributions are taken in absolute value before averaging, the maps describe strength rather than di-rection: they do not show whether changing a particular IV entry increases or decreases posterior contraction for an individual surface. We also remind the reader that the results correspond to a surface constructed in the standardized coordinate z from Section 5.1.1, and not to a raw-strike wing construction. A common pattern across the panels of Figure 7 is the prominence of the positive standardized-moneyness wing, especially at medium and long maturities. This pattern is particularly visible for κ, θ, ρ, V0, and H, and is also present, though more localized, for ν. Further, we stress that these results do not imply that one right-wing quote identifies all parameters on its own. Rather, the finding is that these entries recurrently make large contributions in the local Shapley coalitions, and their common importance is consistent with the residual posterior dependence between parameters visible in Figure 1. The maturity profiles nevertheless di ff er across parameters. For κ and θ, the largest at-tributions are concentrated in the positive wing at the longest maturities, indicating that long-horizon smile information is particularly associated with contraction of the mean-reversion-speed and long-run-variance marginals. The attribution map for ν is more lo-calized, with pronounced contributions in the positive wing at long maturity and at selected intermediate maturities. This is consistent with the role of curvature and wing behaviour in distinguishing the volatility-of-volatility component. For ρ, the positive wing is important over a broader range of maturities, in line with its association with smile asymmetry in this simulation design. The profiles for V0 and H further show that the information is not concentrated exclu-sively at the shortest maturity. The V0 map retains an important positive-wing contribution at intermediate and longer maturities. The map for H is more distributed across the maturity dimension, with substantial positive-wing contributions at both shorter and longer horizons. Thus, within the present standardized 63-point surface design, roughness is associated with cross-maturity smile information rather than with a single isolated short-dated quote. More generally, the absence of a uniformly dominant shortest-maturity at-the-money region em-phasizes that posterior contraction is driven by the joint term-structure and smile geometry. Appendix D compares these maps with the Kullback–Leibler version of the posterior-information functional and with Kernel-SHAP maps for the MSE- and MAE-trained inverse UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 33 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+0.000 0.001 0.002 0.003 0.004 0.005 0.006 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+θ
+
+0.000 0.001 0.002 0.003 0.004 0.005 0.006 0.007 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+ν
+
+0.000 0.001 0.002 0.003 0.004 0.005 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+ρ
+
+0.000 0.001 0.002 0.003 0.004 0.005 0.006 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+V0
+
+0.00000 0.00025 0.00050 0.00075 0.00100 0.00125 0.00150 0.00175 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+H
+
+0.000 0.001 0.002 0.003 0.004 
+
+Figure 7. Mean absolute squared-Hellinger Kernel-SHAP attributions for the six rough-Heston parameters, averaged over 500 held-out IV surfaces from the test set. Each panel displays the average magnitude of the local attribution at a maturity–standardized-moneyness location; it does not dis-play a signed e ff ect. 34 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+networks. The Kullback–Leibler maps reproduce the principal maturity–moneyness pat-terns in Figure 7, including the repeated positive-wing concentration and the long-maturity importance for κ and θ. This agreement is an empirical sensitivity result: it indicates that the qualitative localization observed here is not driven solely by the use of the bounded squared-Hellinger functional. The point-estimator maps also display broadly similar prominent re-gions. This provides useful qualitative triangulation, but not equality of estimands: point-estimator SHAP explains variation in a conditional point summary, whereas Hellinger– SHAP explains contraction of a marginal posterior relative to its prior. As specified in Section 4, these results remain local, background-completion, and prior-specific attributions. They should therefore be interpreted as properties of the stated prior-predictive rough-Heston experiment, rather than as prior-free or strictly manifold-preserving counterfactual statements about IV-surface informativeness. 7. C onclusions 
+
+We have developed an uncertainty-aware neural calibration framework for the rough Heston model. Rather than reducing an observed implied-volatility surface to a single cal-ibrated parameter vector, the TRE learns an approximation to the posterior distribution of the parameters conditional on that surface under the specified prior-predictive simulator. The held-out coverage diagnostics show that the conditional posterior approximations are well calibrated in the simulation setting. Propagating the learnt posterior distribution through heteroscedastic neural surrogate pricers yields predictive distributions for potentially path-dependent exotic prices. The nu-merical study shows that visually accurate point calibration does not guarantee reliable plug-in exotic prices for every contract specification. The full posterior-predictive con-struction instead retains both residual parameter uncertainty and conditional surrogate un-certainty. Its contract-specific coverage and variance decompositions show why both layers matter: posterior uncertainty is the leading contribution for most realized-variance claims, whereas conditional surrogate uncertainty is often material, and sometimes dominant, for barrier claims. We have also introduced Hellinger-SHAP to explain posterior contraction rather than a single parameter point prediction. The resulting attributions are local relative contributions to posterior information gain under the stated background-completion distribution. They are therefore prior-specific and should not be interpreted as strictly manifold-preserving coun-terfactuals; the local-background construction makes this limitation explicit. Comparison with the Kullback–Leibler version provides a useful sensitivity analysis of the information-gain target. Several extensions merit investigation. First, observed market surfaces require an obser-vation model that accounts for features such as bid–ask spreads, missing quotes, liquidity, and potential model misspecification. Second, a useful benchmark would compare the di-rectly trained inverse point estimators with calibration obtained by optimizing a learned forward IV-surface surrogate under a specified weighted fitting criterion [34]. Such a com-parison would clarify when distinct point estimators agree and how a forward-optimizer UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 35 
+
+calibration a ff ects the downstream plug-in error. Nevertheless, this would still be comple-mentary to the posterior propagation methodology developed in this paper, and not a substi-tute for it. Finally, the framework can be applied to alternative volatility models, including these based on Trawl processes [6, 40] , to assess how model structure a ff ects posterior un-certainty, posterior-predictive exotic pricing, and information-theoretic attribution patterns. Acknowledgements 
+
+Large language models were used in this work to assist with text and code generation, text rewriting and code refactoring, as well as grammatical checks and improvements to phrasing and structure. All authors have reviewed and take full responsibility for any AI assisted content. References 
+
+[1] E. A bi Jaber and O. E l Euch , Multifactor approximation of rough volatility models ,SIAM Journal on Financial Mathematics, 10 (2019), pp. 309–349. [2] E. A bi Jaber , M. L arsson , and S. P ulido , Affi ne volterra processes , The Annals of Applied Probability, 29 (2019), pp. 3155–3200. [3] A. A lfonsi , Nonnegativity preserving convolution kernels. application to stochastic volterra equations in closed convex domains and their approximation , Stochastic Pro-cesses and their Applications, 181 (2025), p. 104535. [4] L. B. G. A ndersen , Effi cient simulation of the heston stochastic volatility model , SSRN Electron. J., (2007). [5] S. B ach , A. B inder , G. M ontavon , F. K lauschen , K.-R. M¨ uller , and W. S amek , On pixel-wise explanations for non-linear classifier decisions by layer-wise relevance propagation , PLOS One, 10 (2015). [6] O. E. B arndorff -N ielsen , Stationary infinitely divisible processes , Brazilian Journal of Probability and Statistics, 25 (2011), pp. 294 – 322. [7] F. B aschetti , G. B ormetti , and P. R ossi , Deep calibration with random grids , Quanti-tative Finance, (2024), pp. 1–23. [8] C. B ayer and S. B reneis , Markovian approximations of stochastic volterra equations with the fractional kernel , Quantitative Finance, 23 (2023), pp. 53–70. [9] , Effi cient option pricing in the rough heston model using weak simulation schemes , Quantitative Finance, 24 (2024), pp. 1247–1261. [10] C. B ayer , P. K. F riz , M. F ukasawa , J. G atheral , A. J acquier , and M. R osenbaum ,
+
+Rough volatility , SIAM, 2023. [11] C. B ayer , M. F ukasawa , and S. N akahara , On the weak convergence rate in the dis-cretization of rough volatility models , SIAM Journal on Financial Mathematics, 13 (2022), pp. SC66–SC73. [12] C. B ayer , E. J. H all , and R. T empone , Weak error rates for option pricing under linear rough volatility , International Journal of Theoretical and Applied Finance, 25 (2022), p. 2250029. [13] M. B ennedsen , A. L unde , and M. S. P akkanen , Hybrid scheme for Brownian semista-tionary processes , Finance and Stochastics, 21 (2017), pp. 931–965. 36 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+[14] M. B ertolo , Two simulation schemes for the rough Heston model: a comparison ,2024. [15] A. E. B olko , K. C hristensen , M. S. P akkanen , and B. V eliyev , A GMM approach to estimate the roughness of stochastic volatility , Journal of Econometrics, 235 (2023), pp. 745–778. [16] S. Breneis , Approximations to fractional stochastic Volterra equations .
+
+https://github.com/SimonBreneis/approximations_to_fractional_ stochastic_volterra_equations , 2024. [17] D. B rigo , X. H uang , A. P allavicini , and H. S´ aez de Oc´ariz Borde , Interpretability in deep learning for finance: a case study for the Heston model , Risk Sciences, 2 (2025). [18] K. C ranmer , J. P avez , and G. L ouppe , Approximating likelihood ratios with calibrated discriminative classifiers . arXiv: 1506.02169, 2015. [19] C. C remer , X. L i, and D. D uvenaud , Inference suboptimality in variational autoen-coders , in International conference on machine learning, PMLR, 2018, pp. 1078– 1086. [20] L. D ecreusefond and A. S. Ü st ¨unel , Stochastic analysis of the fractional Brownian motion , Potential analysis, 10 (1999), pp. 177–214. [21] K. D iethelm , N. J. F ord , and A. D. F reed , A predictor-corrector approach for the nu-merical solution of fractional di ff erential equations , Nonlinear Dynamics, 29 (2002), pp. 3–22. [22] O. E l Euch , J. G atheral , and M. R osenbaum , Roughening Heston , Risk, (2019), pp. 84–89. [23] O. E l Euch and M. R osenbaum , Perfect hedging in rough Heston models , The Annals of Applied Probability, 28 (2018), pp. 3813–3856. [24] , The characteristic function of rough Heston models , Mathematical Finance, 29 (2019), pp. 3–38. [25] F. F ang and C. W. O osterlee , A novel pricing method for european options based on fourier-cosine series expansions , SIAM Journal on Scientific Computing, 31 (2009), pp. 826–848. [26] M. F ukasawa and A. H irano , Refinement by reducing and reusing random numbers of the hybrid scheme for Brownian semistationary processes , Quantitative Finance, 21 (2021), pp. 1127–1146. [27] J. G atheral , Effi cient simulation of a ffi ne forward variance models , SSRN Electronic Journal, (2021). [28] , Afv simulation code . https://github.com/jgatheral/ AFVsimulationCode , 2022. [29] J. G atheral , T. J aisson , and M. R osenbaum , Volatility is rough , Quantitative Finance, 18 (2018), pp. 933–949. [30] P. G lasserman , Monte Carlo methods in financial engineering , Springer, New York, 2004. [31] H. G uennoun , A. J acquier , P. R oome , and F. S hi , Asymptotic behavior of the fractional Heston model , SIAM Journal on Financial Mathematics, 9 (2018), pp. 1017–1045. [32] J. H ermans , V. B egy , and G. L ouppe , Likelihood-free MCMC with amortized approxi-mate ratio estimators , in 37th International Conference on Machine Learning, PMLR, UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 37 
+
+2020, pp. 4239–4248. [33] A. H ernandez , Model calibration with neural networks , 2017. [34] B. H orvath , A. M uguruza , and M. T omas , Deep learning volatility: a deep neural net-work perspective on pricing and calibration in (rough) volatility models , Quantitative Finance, 21 (2021), pp. 11–27. [35] A. J acquier , C. M artini , and A. M uguruza , On VIX Futures in the rough Bergomi model , Quantitative Finance, 18 (2018), pp. 45–61. [36] M. K eller -R essel , M. L arsson , and S. P ulido , Affi ne rough models , in Rough Volatil-ity, C. Bayer, P. K. Friz, M. Fukasawa, J. Gatheral, A. Jacquier, and M. Rosenbaum, eds., SIAM, 2023. [37] M. K ull , T. S ilva Filho , and P. F lach , Beta calibration: a well-founded and easily implemented improvement on logistic calibration for binary classifiers , in Artificial Intelligence and Statistics, PMLR, 2017, pp. 623–631. [38] R. W. L ee , The moment formula for implied volatility at extreme strikes , Mathematical Finance, 14 (2004), pp. 469–480. [39] D. L eonte , R. H user , and A. E. V eraart , Simulation-based inference via telescoping ratio estimation for trawl processes . arXiv: 2510.04042, 2025. [40] D. L eonte and A. E. V eraart , Simulation methods and error analysis for trawl processes and ambit fields , Mathematics and Computers in Simulation, 215 (2024), pp. 518–542. [41] A. L ewis , Option Valuation under Stochastic Volatility , Finance Press, Newport Beach, 2001. [42] Y. L ipman , M. H avasi , P. H olderrieth , N. S haul , M. L e, B. K arrer , R. T. Q. C hen ,D. L opez -P az , H. B en -H amu , and I. G at , Flow matching guide and code , 2024. [43] S. L iu , A. B orovykh , L. A. G rzelak , and C. W. O osterlee , A neural network-based framework for financial model calibration , Journal of Mathematics in Industry, 9 (2019), p. 9. [44] R. L ord , R. K oekkoek , and D. V. D ijk , A comparison of biased simulation schemes for stochastic volatility models , Quantitative Finance, 10 (2010), pp. 177–194. [45] S. M. L undberg and S.-I. L ee , A unified approach to interpreting model predictions ,NeurIPS, 30 (2017). [46] B. B. M andelbrot and J. W. V an Ness , Fractional Brownian motions, fractional noises and applications , SIAM Review, 10 (1968), pp. 422–437. [47] A. N iculescu -M izil and R. C aruana , Predicting good probabilities with supervised learning , in 22nd International Conference on Machine Learning, Association for Computing Machinery, 2005, pp. 625–632. [48] S. O lver and A. T ownsend , Fast inverse transform sampling in one and two dimen-sions . arXiv: 1307.1223, 2013. [49] J. P latt et al ., Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods , Advances in Large Margin Classifiers, 10 (1999), pp. 61–74. [50] B. R hodes , K. X u, and M. U. G utmann , Telescoping density-ratio estimation , in Ad-vances in Neural Information Processing Systems, Curran Associates, 2020, pp. 4905– 4916. 38 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+[51] M. T. R ibeiro , S. S ingh , and C. G uestrin , Why should I trust you? Explaining the predictions of any classifier , in Proceedings of the 22nd ACM SIGKDD International Conference, 2016, pp. 1135–1144. [52] M. R omano and N. T ouzi , Contingent claims and market completeness in a stochastic volatility model , Mathematical Finance, 7 (1997), pp. 399–412. [53] S. E. R ømer , Empirical analysis of rough and classical stochastic volatility models to the SPX and VIX markets , Quantitative Finance, 22 (2022), pp. 1805–1838. [54] M. S ainsbury -D ale , A. Z ammit -M angion , and R. H user , Likelihood-free parameter estimation with neural Bayes estimators , The American Statistician, 78 (2024), pp. 1– 14. [55] D. S alnikov , D. L eonte , and K. M ichalewicz , The MAPS algorithm: Fast model-agnostic and distribution-free prediction intervals for supervised learning , 2026. arXiv preprint arXiv:2410.08958. [56] A. S hrikumar , P. G reenside , and A. K undaje , Learning important features through propagating activation di ff erences , in International conference on machine learning, PMlR, 2017, pp. 3145–3153. [57] J. S ong and S. E rmon , Understanding the limitations of variational mutual informa-tion estimators , in International Conference on Learning Representations. [58] Y. S ong , J. S ohl -D ickstein , D. P. K ingma , A. K umar , S. E rmon , and B. P oole , Score-based generative modeling through stochastic di ff erential equations , in International Conference on Learning Representations. [59] B. Y uan , D. B rigo , J. J acquier , and N. P ede , Deep Learning Interpretability for Rough Volatility , arXiv:2411.19317, (2024). [60] A. Z ammit -M angion , M. S ainsbury -D ale , and R. H user , Neural methods for amortized inference , Annual Review of Statistics and Its Application, 12 (2025), pp. 311–335. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 39 
+
+Appendix A. S ynthetic dataset generation : methodological aspects 
+
+This appendix is organised as follows: 
+
+• Section A.1 gives parameterization of the quadratic exponential (QE) distribution, together with the martingale correction used for the HQE scheme on the uniform grid. 
+
+• Section A.2 extends the HQE scheme to non-equidistant grids. 
+
+• Section A.3 details further variance reduction techniques used with the HQE scheme. A.1. The QE step and martingale property. Write X ∼ QE( m, s2) for the non-negative moment-matching variable of [4], with mean m > 0, variance s2 ≥ 0, and relative variance 
+
+ψ := s2/m2. Setting q := 12 min( ψ, 3/2) and ω := 2/(max( ψ, 3/2) + 1), and drawing 
+
+Z ∼ N (0 , 1) and U ∼ U [0 , 1), let (A.1) X =
+
+  √B + √A Z 2, A = mq 
+
+1 + p1 − q , B = m(1 − q + p1 − q)1 + p1 − q , ψ ≤ 3/2,
+
+m
+
+ω log ω
+
+1 − U 1{1−U<ω }, ψ > 3/2.
+
+The above construction stays non-negative and satisfies E[X] = m and Var( X) = s2; we refer the reader to [4] and [27] for the derivation and accuracy of the approximation, and why it is suitable in the Heston and rough Heston models. We use the above parameterization in (A, B) because it remains well defined as ψ ↓ 0. The branchwise moment-generating is (A.2) log M(γ) =
+
+
+
+γB
+
+1 − 2γA − 12 log(1 − 2γA), ψ ≤ 3/2, γ < 12A ,
+
+log 1 − ω + ω
+
+1 − γm/ω 
+
+!
+
+, ψ > 3/2, γ < ω 
+
+> m
+
+.
+
+We next adapt the martingale-correction from [4] to the HQE scheme. Recall α = H + 12 ,
+
+Gn = σ(bV0, . . . , bVn, bχ0, . . . , bχn−1), evn = 12 (bVn + bVn+1). Let β := ν∆α−1 
+
+> Γ(α+1)
+
+, so that 
+
+bχn =(Yn − 12bΞn)/β, (A.3) 
+
+bVn+1 =Yn + En.(A.4) 
+
+Martingale correction Recall the uncorrected log-asset price increment from (2.14) 
+
+∆bXun = − 12evn∆ + ρbχn +
+
+q
+
+1 − ρ2 pevn∆ Z⊥ 
+
+> n
+
+.
+
+Since the Gaussian innovation Z⊥ 
+
+> n
+
+∼ N (0 , 1) is independent of Yn and En conditionally independent on Gn, it follows by the tower property that 
+
+Cn := log E
+
+
+
+e∆bXun | G n
+
+
+
+= log E
+
+
+
+e− 12evn∆+ ρbχn E
+
+
+
+e
+
+√1−ρ2 √evn∆ Z⊥ 
+
+> n
+
+Gn, Yn, En
+
+
+
+Gn
+
+
+
+= log E
+
+"
+
+exp 
+
+(
+
+ρbχn − ρ2
+
+2 evn∆
+
+)
+
+Gn
+
+#
+
+,(A.5) 40 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+where we used the closed form expression for the moment generating function of a standard Gaussian. We therefore have (A.6) Cn = log E
+
+"
+
+exp 
+
+(
+
+ρbχn − ρ2
+
+2 evn∆
+
+)
+
+Gn
+
+#
+
+.
+
+Plugging in (A.3) and (A.4), note that (A.7) ρbχn − ρ2
+
+2 evn∆ = ρβ − ρ2∆
+
+4
+
+!
+
+Yn + − ρ2∆
+
+4 En − ρbΞn
+
+2β − ρ2∆
+
+4 bVn.
+
+Hence 
+
+Cn = − ρbΞn
+
+2β − ρ2∆
+
+4 bVn + log MYn
+
+ρβ − ρ2∆
+
+4
+
+!
+
++ log MEn − ρ2∆
+
+4
+
+!
+
+.
+
+Thus Cn is Gn-measurable and the corrected increment given by ∆bXn = ∆ bXun − Cn preserves the martingale property. A.2. The HQE scheme with non-uniform grids. We extend the HQE scheme to non-equidistant partitions 0 = t0 < t1 < · · · < tN = T . Let ∆n := tn+1 − tn be the width of the nth 
+
+cell. In our experiments, we use the graded mesh 
+
+ti = T
+
+ iN
+
+r
+
+, i = 0, . . . , N,
+
+with r ≥ 1 and where r = 1 recovers the uniform mesh. For graded meshes, most quantities of interest, e.g., the coe ffi cients a j from (2.6), or the parameters of the QE draws Yn and 
+
+En from (2.10) and (2.11) depend on the cell width ∆n. While this comes with an extra computational cost, we find empirically that it yields substantial improvements in the HQE scheme’s accuracy that far exceed the additional time required (see Tables 2 and 7- 10). To begin with, define 
+
+An,m = (tn+1 − tm)α − (tn+1 − tm+1)α
+
+Γ(α + 1) , m ≤ n,
+
+and set ¯vn =(2 HbVn + bΞn)/(2 H + 1) ,
+
+evn = 12 (bVn + bVn+1).
+
+where ¯ vn and evn are unchanged from the main body. Conditional on Gn = {bV0, . . . , bVn, bχ0, . . . , bχn−1},the nth iteration of the HQE scheme is: (1) Define the one-step ahead conditional-mean predictor and corresponding increment by bun, matching (2.7) and 2.8 
+
+bΞn =V0 + κ
+
+> n
+
+X
+
+> m=0
+
+An,m(θ − bVm) +
+
+> n−1
+
+X
+
+> m=0
+
+νAn,m
+
+∆m
+
+bχm,
+
+bVn+1 =bΞn + bunUNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 41 
+
+(2) Draw independent samples Yn and En using (A.1) from 
+
+Yn ∼ QE 
+
+bΞn
+
+2 , ¯vn
+
+ν2∆2α−1
+
+> n
+
+Γ(α + 1) 2
+
+ = QE 
+
+bΞn
+
+2 , β 2 
+
+> n
+
+¯vn∆n
+
+ ,
+
+En ∼ QE 
+
+bΞn
+
+2 , ¯vn
+
+ν2∆2Hn
+
+Γ(α)2
+
+(H − 12 )2
+
+2Hα2
+
+ ,
+
+where βn = ν∆α−1 
+
+> n
+
+/Γ(α + 1). This matches 2.10 and 2.11. (3) Reconstruct 
+
+bVn+1 = Yn + En, bχn = β−1
+
+> n
+
+Yn − bΞn
+
+2
+
+ , bun = bVn+1 − bΞn.
+
+(4) For the discretised log-asset price, evaluate Cn in (A.5) with ∆n and βn in place of 
+
+∆ and β and accumulate 
+
+bMn :=
+
+> n−1
+
+X
+
+> j=0
+
+bχ j, bQn :=
+
+> n−1
+
+X
+
+> j=0
+
+ev j∆ j, bCn :=
+
+> n−1
+
+X
+
+> j=0
+
+C j.
+
+For contracts admitting the conditional mixing representation no Z⊥ 
+
+> n
+
+draw is neces-sary, as we discuss in Section A.3; otherwise, we use 
+
+∆bXn = − 12evn∆n + ρbχn − Cn +
+
+q
+
+1 − ρ2 pevn∆n Z⊥ 
+
+> n
+
+.
+
+We next discuss the application of the HQE scheme to pricing options. Whereas a direct approach based on a discretisation of the (log-) asset price is possible, it generally yields unsatisfactory estimators without further variance reduction techniques. A.3. The HQE scheme applied for option pricing and further variance reduction. We consider European calls, together with the families of exotic contracts from Section 5.3.1: forward-start calls, calls on realised variance, and down-and-out put options. In all cases, the HQE variance paths are generated using antithetic samples for the QE draws. Specifi-cally, let ( ZYn , UYn ) be the samples used to generate Yn and ( ZEn , UEn ) the samples used for En
+
+in the QE sampler (A.1), and consider the variance paths using the flipped draws (ZYn , ZEn , UYn , UEn ) 7 → (−ZYn , −ZEn , 1 − UYn , 1 − UEn ),
+
+for all n ∈ { 1, . . . , N}. Unlike a flipped Gaussian increment, the nonlinear, two-branch QE map does not in general yield as high of a variance reduction. Nevertheless, it provides variance reduction at no additional computational cost. Hence, we apply this strategy for all four contracts. A.3.1. European and forward-start calls. For a European call with maturity tn, the contri-bution of the orthogonal Brownian motion W⊥ can be integrated out analytically, as dis-cussed before. Conditional on the simulated HQE variance paths, log bS tn ∼ N log S 0 + ρ bMn − 12 bQn − bCn, (1 − ρ2) bQn
+
+!
+
+.42 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Thus, the conditional MC estimator is given by 
+
+E h(bS tn − K)+ | G n
+
+i = CBS 
+
+bF cn , K, (1 − ρ2) bQn
+
+ ,
+
+where 
+
+bF cn = S 0 exp ρ bMn − 12 ρ2 bQn − bCn
+
+!
+
+,
+
+CBS (F, K, w) = FΦ(d1) − KΦ(d2),
+
+with d1 = log( F/K)+ 12 w 
+
+> √w
+
+, d2 = d1 − √w for w > 0 and Φ(·) the cumulative distribution function of the standard normal. The same conditional approach applies to the forward-start payo ff (S T2 − ekS T1 )+. With 
+
+T1 = tn1 < T2 = tn2 , write the payo ff as 
+
+S T2 − ek · S T1
+
++ = S T1
+
+S T2
+
+S T1
+
+− ek
+
+!+
+
+.
+
+By conditional independence and subsequently by the tower property, we have that 
+
+E
+
+
+
+(bS T2 − ekbS T1 )+ Gn2
+
+
+
+=E
+
+
+
+S T1 Gn1
+
+
+
+· E
+
+" S T2
+
+S T1
+
+− ek
+
+!+
+
+Gn2
+
+#
+
+=bF cn1 · CBS 
+
+bFcn1,n2 , ek, (1 − ρ2)( bQn2 − bQn1 ) ,
+
+where 
+
+bFcn1,n2 := exp 
+
+(
+
+ρ( bMn2 − bMn1 ) − 12 ρ2( bQn2 − bQn1 ) − ( bCn2 − bCn1 )
+
+)
+
+Overall, the contribution of W⊥ is integrated out analytically in both cases. A.3.2. Realised-variance calls. For the realised-variance payo ff 
+
+1
+
+T
+
+Z T
+
+> 0
+
+Vt dt − KRV 
+
+!+
+
+,
+
+no additional variance reduction is applied beyond the QE antithetic construction. If T = tn,the discretised payo ff is directly available from the discretised V. path 
+
+bQn
+
+T − KRV 
+
+
+
+> +
+
+.
+
+A.3.3. Barrier options. For the path-dependent, non-smooth down-and-out put payo ff 
+
+(K − S T )+1
+
+
+
+inf  
+
+> 0≤t≤T
+
+S t > B
+
+
+
+,
+
+the conditional MC representation is not available. Instead, we reduce the variability arising from W⊥ by reusing each simulated variance path across R independent asset-price paths. Each of the R paths is paired with its antithetic counterpart obtained by replacing Z⊥ 
+
+> j
+
+with 
+
+−Z⊥ 
+
+> j
+
+, and the resulting payo ff s are averaged. Based on empirical validation, we use R = 3; this recovers much of the variance reduction obtained by analytic conditioning, without repeating the comparatively expensive variance discretisation. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 43 
+
+To account for barrier crossings between consecutive grid points, we additionally apply a Brownian-bridge continuity correction [30]. If both endpoints of a cell lie above the barrier, the within-cell survival probability is approximated by 
+
+psurv  
+
+> j
+
+= 1 − exp 
+
+− 2(log bS j − log B)(log bS j+1 − log B)
+
+ev j∆ j
+
+ ,
+
+The barrier payo ff is weighted by the product of the survival probabilities. 44 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Appendix B. E xtended numerical validation of the synthetic dataset 
+
+This appendix is organised as follows: 
+
+• Section B.1 presents additional diagnostics on the quality of the approximations given by the hybrid and HQE schemes for generating implied volatility surfaces. In particular, we present a benchmark against Lewis pricing, which relies on numeri-cally inverting the characteristic function of the asset price. 
+
+• Section B.2 summarizes the exotic contract dataset. B.1. European option prices and IV surfaces. Recall the notation from (5.1). For each parameter vector θ and grid point ( T, z), define the absolute value of the di ff erence between the European implied volatilities against a Lewis inversion based on the rough Heston char-acteristic function. 
+
+∆scheme IV (T, z; θ) = bσscheme (T, z; θ) − σLewis (T, z; θ) ,
+
+where scheme ∈ { hybrid , HQE }. We implement two version of the hybrid scheme [13], one where only the head-cell is dealt with in closed form, i.e. Kh = 1, and one in which both the head-cell and the following cell are treated exactly, i.e., Kh = 2. We refer the reader to [13] for full details on the hybrid scheme. For Lewis inversion, we use the standard Adams predictor-corrector scheme followed by numerical inversion of the characteristic function. We stress that while extensive hyperparameter tuning was performed to obtain accurate results for Lewis inversion, it is worth keeping in mind that the values from Tables 7- 10 reflect approximation errors for both Lewis and HQE. We start by analyzing the results from Table 7. Note that Kh = 2 barely improves over 
+
+Kh = 1 in the hybrid scheme, and that the HQE scheme is substantially more accurate than the hybrid scheme, regardless of the rate r. We attribute the ine ffi ciency of the hybrid scheme in the rough Heston model to the bias induced by the truncation V+ = max {V, 0},especially in the following regimes: rough regime (low H), low initial volatility V0, or low long-term volatility θ. Indeed, we monitor the fraction of steps where truncation is necessary and note empirically that more truncation yields larger values for ∆hybrid IV (T, z; θ). The QE step in the HQE scheme directly addresses this limitation and indeed yields far lower values ∆HQE IV (T, z; θ), especially at the 95% and 99% quantiles. Also note that graded meshes further and substantially improve accuracy. Indeed, for the HQE scheme, N = 1008 with r = 2 gives better results than N = 4032 with r = 1. This amounts to a 16 fold reduction in the O(N2) complexity of the scheme, with only minor additional computation required for the non-uniform partition. To ensure good accuracy over the entire prior, we decide to use the HQE scheme with N = 2016 discretisation steps between 0 and Tmax = 2, rate r = 2 on the graded mesh, and M = 5 · 10 5 paths in the remainder of the study. Having settled on these values, we provide a breakdown of the ∆HQE IV (T, z; θ) values over pairs ( T, z)in Table 8. We note good accuracy, with most 95% and 99% quantiles remaining below the 10 and 15 basis point levels, respectively. Slightly larger values are observed in the wings, at very short maturities. Finally, Tables 9 and 10 provide quantiles of the coe ffi cient of variation, i.e., the standard error of the MC estimator divided by the corresponding MC price, first pooled over all pairs ( T, z) and then with a breakdown for each pair. Based on the results we conclude that the potential bias incurred by the HQE scheme is on the same UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 45 
+
+Table 7. Quantiles ∆hybrid IV (T, z; θ) and ∆HQE IV (T, z; θ) of the absolute di ff er-ence between implied volatilities derived from Lewis pricing and those produced by inverting prices computed with the hybrid and HQE schemes, pooled over all ( T, z). The HQE scheme gives IVs that are substantially closer to the Lewis benchmark than the hybrid scheme, even when Kh = 2for the hybrid scheme, in which both the head-cell and the following cell are treated exactly. We use M = 5 · 10 5 paths for the MC estimation. Quan-tiles are estimated based on 500 pairs ( θ, x) drawn from the prior. 
+
+N = 504 N = 1008 N = 2016 N = 4032 Simulation scheme r q50 q90 q95 q99 q50 q90 q95 q99 q50 q90 q95 q99 q50 q90 q95 q99 
+
+Hybrid ( Kh = 1) 1 0.06 0.64 1.14 2.45 0.04 0.46 0.97 2.11 0.03 0.34 0.84 1.80 0.02 0.28 0.72 1.54 2 0.03 0.40 0.98 1.84 0.02 0.32 0.85 1.59 0.02 0.27 0.73 1.39 0.02 0.22 0.62 1.21 3 0.03 0.39 0.96 1.78 0.02 0.32 0.83 1.54 0.02 0.26 0.71 1.34 0.02 0.22 0.60 1.17 Hybrid ( Kh = 2) 1 0.06 0.65 1.13 2.44 0.04 0.44 0.95 2.08 0.03 0.35 0.83 1.78 0.02 0.28 0.71 1.54 2 0.03 0.40 0.96 1.83 0.02 0.33 0.84 1.59 0.02 0.27 0.72 1.38 0.02 0.22 0.61 1.21 3 0.03 0.39 0.95 1.76 0.02 0.32 0.83 1.55 0.02 0.26 0.71 1.32 0.02 0.22 0.60 1.16 HQE 1 0.03 0.23 0.38 0.80 0.02 0.15 0.23 0.48 0.02 0.10 0.15 0.29 0.02 0.08 0.12 0.21 2 0.02 0.10 0.14 0.24 0.02 0.08 0.11 0.19 0.02 0.07 0.10 0.15 0.01 0.07 0.09 0.15 3 0.02 0.10 0.13 0.22 0.02 0.08 0.11 0.17 0.02 0.07 0.09 0.15 0.01 0.07 0.10 0.17 
+
+order, or smaller than the MC noise. We emphasize that M = 5 · 10 5 is already a large number of paths to use for MC pricing of each option. We next turn our attention to exotic contracts. 46 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 8. Absolute errors ∆HQE IV (T, z; θ) between HQE and Lewis implied volatilities. This table provides a breakdown by ( T, z) pairs of the values reported in Table 7. 
+
+T z q50 q90 q95 q99 
+
+5/252 
+
+−2.5 0.02 0.12 0.16 0.29 
+
+−2 0.02 0.10 0.13 0.21 
+
+−1.5 0.02 0.08 0.10 0.16 
+
+−1 0.02 0.07 0.10 0.16 
+
+−0.5 0.02 0.07 0.10 0.15 0 0.01 0.07 0.10 0.15 0.5 0.01 0.07 0.10 0.15 1 0.01 0.07 0.10 0.16 1.5 0.01 0.07 0.10 0.17 10 /252 
+
+−2.5 0.02 0.10 0.14 0.22 
+
+−2 0.02 0.09 0.11 0.19 
+
+−1.5 0.02 0.07 0.10 0.15 
+
+−1 0.02 0.07 0.09 0.14 
+
+−0.5 0.01 0.07 0.09 0.14 0 0.01 0.07 0.09 0.13 0.5 0.01 0.07 0.09 0.12 1 0.01 0.06 0.09 0.13 1.5 0.01 0.06 0.09 0.14 1/12 
+
+−2.5 0.03 0.11 0.15 0.22 
+
+−2 0.02 0.09 0.12 0.18 
+
+−1.5 0.02 0.08 0.11 0.16 
+
+−1 0.02 0.08 0.10 0.15 
+
+−0.5 0.02 0.07 0.10 0.15 0 0.01 0.07 0.09 0.14 0.5 0.01 0.07 0.08 0.14 1 0.01 0.06 0.08 0.13 1.5 0.01 0.06 0.08 0.12 1/4
+
+−2.5 0.03 0.10 0.14 0.24 
+
+−2 0.02 0.09 0.12 0.19 
+
+−1.5 0.02 0.08 0.10 0.15 
+
+−1 0.02 0.07 0.09 0.13 
+
+−0.5 0.01 0.06 0.09 0.13 0 0.01 0.05 0.08 0.13 0.5 0.01 0.05 0.07 0.12 1 0.01 0.05 0.07 0.11 1.5 0.01 0.04 0.06 0.11 
+
+T z q50 q90 q95 q99 
+
+1/2
+
+−2.5 0.03 0.09 0.12 0.17 
+
+−2 0.02 0.08 0.10 0.15 
+
+−1.5 0.02 0.07 0.09 0.13 
+
+−1 0.02 0.06 0.08 0.12 
+
+−0.5 0.01 0.06 0.08 0.11 0 0.01 0.06 0.08 0.11 0.5 0.01 0.05 0.07 0.11 1 0.01 0.05 0.07 0.11 1.5 0.01 0.05 0.06 0.10 1
+
+−2.5 0.03 0.09 0.12 0.16 
+
+−2 0.02 0.08 0.10 0.14 
+
+−1.5 0.02 0.07 0.09 0.12 
+
+−1 0.02 0.06 0.08 0.12 
+
+−0.5 0.01 0.06 0.08 0.12 0 0.01 0.05 0.07 0.11 0.5 0.01 0.05 0.06 0.10 1 0.01 0.05 0.06 0.10 1.5 0.01 0.05 0.06 0.09 2
+
+−2.5 0.02 0.09 0.12 0.17 
+
+−2 0.02 0.08 0.11 0.15 
+
+−1.5 0.02 0.07 0.09 0.13 
+
+−1 0.02 0.07 0.08 0.13 
+
+−0.5 0.01 0.06 0.08 0.13 0 0.01 0.06 0.08 0.12 0.5 0.01 0.05 0.07 0.12 1 0.01 0.05 0.07 0.12 1.5 0.01 0.05 0.07 0.12 UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 47 
+
+Table 9. Quantiles of the coe ffi cient of variation for the MC estimators of European options, pooled over all pairs ( T, z). The coe ffi cient of variation is defined as the standard error of the MC estimator, divided by the corre-sponding MC price. We conclude that for our choice of prior, N ≥ 2016 discretisation steps with r = 2 (or r = 3) yields HQE discretisation bias that is roughly on the same order of magnitude, or lower than that of the randomness inherent to MC estimation with M = 5 · 10 5 samples. As be-fore, quantiles are estimated based on 500 pairs ( θ, x) drawn from the prior. 
+
+N = 504 N = 1008 N = 2016 N = 4032 
+
+r q50 q95 q50 q95 q50 q95 q50 q95 
+
+1 1.57 12.00 1.16 7.06 0.92 4.67 0.82 3.37 2 0.99 4.78 0.83 3.43 0.75 2.93 0.71 2.65 3 0.95 4.53 0.82 3.35 0.74 2.91 0.72 2.60 48 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 10. Quantiles of the coe ffi cient of variation for the MC estimators of European options. This provides a breakdown of the values reported in Table 9 by ( T, z) pairs. The three largest values at the 95% level are 5 .12, 4.98, 4 .90 for maturities T = 5/252,1 /12,10 /252 respectively and z = 1.5. These correspond to deep out-of-the-money contracts where the MC price is small, thus inflating the relative MC error. 
+
+T z q50 q95 
+
+5/252 
+
+−2.5 0.68 2.13 
+
+−2 0.68 1.87 
+
+−1.5 0.66 1.82 
+
+−1 0.63 1.69 
+
+−0.5 0.59 1.58 0 1.11 3.64 0.5 1.21 4.02 1 1.21 4.60 1.5 1.25 5.12 10 /252 
+
+−2.5 0.65 2.00 
+
+−2 0.62 1.86 
+
+−1.5 0.57 1.79 
+
+−1 0.54 1.71 
+
+−0.5 0.52 1.59 0 1.00 3.50 0.5 1.13 4.15 1 1.24 4.53 1.5 1.20 4.90 1/12 
+
+−2.5 0.67 1.96 
+
+−2 0.65 1.80 
+
+−1.5 0.63 1.76 
+
+−1 0.60 1.77 
+
+−0.5 0.53 1.68 0 1.04 3.93 0.5 1.16 4.27 1 1.25 4.80 1.5 1.17 4.98 1/4
+
+−2.5 0.66 2.10 
+
+−2 0.67 1.99 
+
+−1.5 0.63 1.82 
+
+−1 0.61 1.75 
+
+−0.5 0.54 1.63 0 0.87 3.41 0.5 1.05 3.40 1 1.10 3.89 1.5 1.09 4.30 
+
+T z q50 q95 
+
+1/2
+
+−2.5 0.63 1.84 
+
+−2 0.61 1.86 
+
+−1.5 0.59 1.73 
+
+−1 0.52 1.64 
+
+−0.5 0.51 1.55 0 0.78 3.09 0.5 0.93 3.43 1 1.10 3.75 1.5 1.18 4.28 1
+
+−2.5 0.68 1.97 
+
+−2 0.67 1.87 
+
+−1.5 0.64 1.90 
+
+−1 0.58 1.89 
+
+−0.5 0.53 1.85 0 0.69 2.77 0.5 0.85 3.35 1 0.94 3.59 1.5 1.04 4.08 2
+
+−2.5 0.63 1.99 
+
+−2 0.66 1.97 
+
+−1.5 0.64 1.93 
+
+−1 0.60 1.95 
+
+−0.5 0.60 1.98 0 0.59 2.17 0.5 0.78 2.58 1 0.93 3.13 1.5 1.11 3.72 UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 49 
+
+B.2. Exotic contracts. Recall the exotic contracts defined in Section 5.3.1. In Figure 5, we displayed the coe ffi cient of variation for MC price estimates each of the three families of exotic contracts, with results pooled over all the contracts within each family. We next provide more detailed, contract-level summary statistics. For the forward start and barrier contracts (Tables 11 and 12), we report the minimum and the 1% , 5% , 50% , 95% , 99% quantiles of the MC prices across the parameter vectors θ
+
+in the simulated dataset; we also display the 95% and 99% quantiles of the coe ffi cient of variation (i.e., ratio of the standard error of the MC estimator to the MC price) and remind the reader that we simulated 500000 pairs ( θ, x). For both families, the minimum MC prices are bounded away from 0, and the quantiles reported for the coe ffi cient of variation show that our MC estimators have standard deviations that are far smaller than the corresponding estimated prices. For the realized-variance contracts, we require a two-step filtering approach. We remind the reader that we initially considered ( c, T ) ∈ { 0.25 , 0.45 , 0.65 } × n 112 , 14 , 12 , 1o, and then dis-carded the two contracts corresponding to c = 0.65 and T ∈ { 112 , 14 } because they had a large fraction of MC prices equal to 0. This leaves 10 out of 12 economically relevant contracts. For the purposes of displaying results in Table 13, we apply a second, observation-level filter within each retained contract. Specifically, Table 13 reports the fractions of MC prices that are exactly 0 and below 10 −5, respectively. We compute the reported price quantiles and coe ffi cient-of-variation quantities only from MC prices that are above 10 −5. This is the exact same filtering applied to RV contracts in Sections 5.3.2 and 5.3.3 and Appendix C. Importantly, this filtering is contract-specific: if the MC price falls below ϵ for one RV con-tract at a given parameter vector θ, the other retained ( c, T ) contracts for the same θ are not discarded automatically. 
+
+Remark B.1. We note that when training the surrogate pricers for the RV contracts, we also use ϵ = 10 −5; see Section 3.2 and Appendix E.2.2. Its role there is di ff erent: ϵ is introduced as a numerical jitter in the transformed training target and is subsequently subtracted, see, for example, (3.12). Thus, during training, ϵ serves only as a numerical stabilization mech-anism and does not amount to excluding any samples, whereas here it defines the threshold used to exclude economically negligible RV prices from evaluation. 50 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 11. Summary statistics for the dataset of forward-start MC prices. 
+
+bPMC CV 
+
+T1 T2 k min q01 q05 q50 q95 q99 q95 q99 
+
+0.08 0.17 -0.10 9.51711 9.57 9.68 10.50 11.32 11.46 0.000 0.001 0.08 0.17 -0.05 4.94331 5.20 5.50 6.95 8.06 8.24 0.001 0.001 0.08 0.17 0.00 0.67721 1.49 2.06 4.02 5.31 5.52 0.001 0.001 0.08 0.17 0.05 0.01395 0.16 0.41 1.96 3.20 3.42 0.002 0.003 0.08 0.17 0.10 0.00001 0.01 0.05 0.79 1.75 1.95 0.005 0.010 0.08 0.33 -0.10 9.58587 10.00 10.48 12.68 14.44 14.74 0.001 0.001 0.08 0.33 -0.05 5.32628 6.05 6.81 9.64 11.64 11.99 0.001 0.001 0.08 0.33 0.00 1.23481 2.70 3.72 6.96 9.12 9.51 0.001 0.001 0.08 0.33 0.05 0.06900 0.76 1.61 4.74 6.92 7.34 0.002 0.002 0.08 0.33 0.10 0.00336 0.16 0.55 3.02 5.09 5.51 0.002 0.004 0.25 0.33 -0.10 9.51771 9.59 9.72 10.48 11.24 11.39 0.001 0.001 0.25 0.33 -0.05 4.94699 5.24 5.56 6.90 7.95 8.15 0.001 0.001 0.25 0.33 0.00 0.60623 1.51 2.12 3.96 5.19 5.44 0.001 0.001 0.25 0.33 0.05 0.01690 0.20 0.48 1.91 3.09 3.35 0.002 0.004 0.25 0.33 0.10 0.00003 0.02 0.09 0.77 1.67 1.89 0.005 0.009 0.25 0.50 -0.10 9.58937 10.04 10.54 12.63 14.30 14.64 0.001 0.001 0.25 0.50 -0.05 5.32549 6.08 6.87 9.57 11.49 11.89 0.001 0.001 0.25 0.50 0.00 1.10548 2.70 3.77 6.88 8.97 9.41 0.001 0.001 0.25 0.50 0.05 0.09346 0.82 1.67 4.66 6.78 7.25 0.002 0.002 0.25 0.50 0.10 0.00739 0.21 0.62 2.96 4.96 5.42 0.002 0.004 0.50 0.58 -0.10 9.51828 9.60 9.74 10.46 11.19 11.36 0.001 0.001 0.50 0.58 -0.05 4.95095 5.26 5.59 6.87 7.89 8.12 0.001 0.001 0.50 0.58 0.00 0.53772 1.50 2.13 3.91 5.12 5.40 0.001 0.001 0.50 0.58 0.05 0.01827 0.22 0.51 1.88 3.03 3.32 0.002 0.004 0.50 0.58 0.10 0.00005 0.03 0.10 0.76 1.63 1.86 0.005 0.008 0.50 0.75 -0.10 9.59377 10.06 10.56 12.58 14.22 14.59 0.001 0.001 0.50 0.75 -0.05 5.31797 6.08 6.88 9.50 11.41 11.83 0.001 0.001 0.50 0.75 0.00 0.96526 2.67 3.77 6.80 8.88 9.36 0.001 0.001 0.50 0.75 0.05 0.09211 0.83 1.68 4.58 6.70 7.20 0.002 0.002 0.50 0.75 0.10 0.00814 0.24 0.65 2.90 4.89 5.38 0.002 0.004 1.00 1.08 -0.10 9.51816 9.60 9.73 10.43 11.16 11.32 0.001 0.001 1.00 1.08 -0.05 4.95197 5.24 5.56 6.81 7.85 8.08 0.001 0.001 1.00 1.08 0.00 0.45711 1.44 2.06 3.83 5.09 5.37 0.001 0.001 1.00 1.08 0.05 0.01799 0.21 0.48 1.81 3.00 3.28 0.002 0.004 1.00 1.08 0.10 0.00004 0.03 0.10 0.73 1.60 1.84 0.005 0.008 1.00 1.25 -0.10 9.59483 10.03 10.50 12.50 14.18 14.54 0.001 0.001 1.00 1.25 -0.05 5.27416 6.03 6.79 9.39 11.37 11.79 0.001 0.001 1.00 1.25 0.00 0.83495 2.57 3.63 6.68 8.85 9.32 0.001 0.002 1.00 1.25 0.05 0.08667 0.78 1.57 4.46 6.67 7.16 0.002 0.002 1.00 1.25 0.10 0.00757 0.23 0.61 2.80 4.86 5.35 0.003 0.004 UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 51 
+
+Table 12. Summary statistics for the dataset of barrier MC prices. 
+
+bPMC CV 
+
+T kK kB min q01 q05 q50 q95 q99 q95 q99 
+
+0.25 0.00 -0.10 0.0390 0.07 0.08 0.16 0.63 0.91 0.005 0.005 0.25 0.00 -0.15 0.1739 0.28 0.34 0.64 1.56 1.90 0.003 0.003 0.25 0.00 -0.20 0.4599 0.73 0.86 1.44 2.53 2.81 0.002 0.003 0.25 -0.05 -0.10 0.0036 0.01 0.01 0.02 0.07 0.11 0.009 0.010 0.25 -0.05 -0.15 0.0409 0.07 0.09 0.18 0.44 0.54 0.004 0.005 0.25 -0.05 -0.20 0.1493 0.28 0.34 0.58 1.02 1.14 0.003 0.003 0.50 0.00 -0.10 0.0142 0.02 0.03 0.06 0.29 0.53 0.007 0.008 0.50 0.00 -0.15 0.0688 0.12 0.14 0.28 0.94 1.37 0.004 0.005 0.50 0.00 -0.20 0.2012 0.33 0.39 0.74 1.85 2.34 0.003 0.004 0.50 -0.05 -0.10 0.0014 0.00 0.00 0.01 0.03 0.06 0.014 0.016 0.50 -0.05 -0.15 0.0165 0.03 0.04 0.08 0.26 0.38 0.006 0.007 0.50 -0.05 -0.20 0.0706 0.13 0.16 0.30 0.74 0.95 0.004 0.005 1.00 0.00 -0.10 0.0049 0.01 0.01 0.02 0.12 0.26 0.012 0.014 1.00 0.00 -0.15 0.0255 0.04 0.05 0.11 0.46 0.82 0.007 0.008 1.00 0.00 -0.20 0.0785 0.13 0.16 0.32 1.07 1.63 0.005 0.005 1.00 -0.05 -0.10 0.0005 0.00 0.00 0.00 0.01 0.03 0.023 0.026 1.00 -0.05 -0.15 0.0063 0.01 0.01 0.03 0.12 0.23 0.010 0.012 1.00 -0.05 -0.20 0.0280 0.05 0.06 0.13 0.43 0.65 0.006 0.007 Table 13. Summary statistics for the dataset of realised-variance MC prices; quantiles and the coe ffi cient of variations (CV) are only computed for MC prices above 10 −5
+
+bPMC CV 
+
+T c K = 0 (%) < 10 −5 (%) q01 q05 q50 q95 q99 q95 q99 
+
+0.08 0.25 0.03 0.10 0.43 0.0005 0.006 0.10 0.20 0.21 0.003 0.006 0.08 0.45 0.06 1.13 2.88 0.0001 0.001 0.07 0.17 0.18 0.006 0.020 0.25 0.25 0.03 0.01 0.13 0.0016 0.010 0.10 0.19 0.21 0.002 0.005 0.25 0.45 0.06 0.39 1.27 0.0001 0.002 0.07 0.16 0.18 0.005 0.014 0.50 0.25 0.03 0.00 0.06 0.0027 0.013 0.10 0.19 0.20 0.002 0.004 0.50 0.45 0.06 0.20 0.78 0.0002 0.003 0.07 0.16 0.18 0.004 0.011 0.50 0.65 0.08 0.92 2.58 0.0001 0.001 0.05 0.14 0.15 0.008 0.023 1.00 0.25 0.03 0.00 0.04 0.0035 0.015 0.10 0.18 0.20 0.002 0.004 1.00 0.45 0.06 0.14 0.58 0.0003 0.005 0.07 0.16 0.18 0.004 0.010 1.00 0.65 0.08 0.69 2.03 0.0001 0.001 0.05 0.13 0.15 0.007 0.021 52 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Appendix C. E xtended uncertainty quantification results 
+
+This appendix reports the contract-level counterparts of the pooled uncertainty-quantification summaries in Section 5.3.3. The main text pools results over contract specifications to com-municate the overall economic implications of the posterior-predictive construction. The figures and tables below document the resulting heterogeneity across maturities, money-ness or strike, barrier location, and forward-start dates. All results use the retained contract set. C.1. Contract-level plug-in pricing errors. Figures 8 and 9 complement Figure 6 by re-porting the frequencies of relative plug-in errors above 1% and 5%, respectively. They make explicit that the pooled results in Table 3 do not arise uniformly across the contract grids. The errors are most prevalent for out-of-the-money forward starts, for barriers close to the prevailing price region, and for the higher-strike realized-variance claims retained in the experiment. The tighter 1% threshold is useful for identifying where a point calibration can be economically imprecise even when average parameter recovery appears strong. The 5% results show that the issue is not confined to negligible deviations. C.2. Relative widths of full predictive intervals. Tables 14–16 report, for each retained contract specification, the median and upper quantiles of the relative width W(0 .95)  
+
+> i j
+
+defined in (5.3). The widths are expressed as percentages of the held-out Monte Carlo reference price. These tables explain the heterogeneity behind the pooled values in Table 4. In particular, relatively wide intervals occur for out-of-the-money forward starts, near-barrier contracts, and several higher-strike realized-variance claims. Thus the full predictive construction is not equally consequential for every claim: it identifies the regions in which a point quote has the weakest reliability interpretation. C.3. Coverage of posterior-only and full predictive intervals. Tables 17–19 report em-pirical coverage of nominal-95% intervals for every retained contract specification. “Pos-terior only” propagates draws from the calibrated TRE posterior through the conditional surrogate mean. “Full UQ” additionally uses the conditional surrogate-predictive distribu-tion and is therefore the relevant interval for a downstream quote. The comparison shows most clearly for barriers that posterior uncertainty alone need not provide adequate predic-tive coverage. Including conditional surrogate uncertainty restores coverage close to, and in some specifications modestly above, the nominal level. The detailed results also reveal the residual contract-to-contract variation that is necessarily hidden by the family-level medians and IQRs in Table 5. C.4. Predictive-variance attribution. Tables 20- 22 report the contract-level decomposi-tions and complement Table 6. The detailed variance decompositions report the shares of full predictive variance attributable to the two terms in (5.5). The decomposition is descrip-tive: it attributes uncertainty under the fitted posterior-predictive model and should not be read as a causal attribution. Realized-variance claims are predominantly posterior-driven, whereas for barriers the conditional surrogate component is often comparable to, or larger than, the posterior component. Forward-start claims are generally posterior-driven away from the most in-the-money specifications, although their surrogate contribution can re-main material. Hence propagating posterior uncertainty alone is especially inadequate for UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 53 
+
+barriers, while retaining only surrogate uncertainty would miss the principal contribution for most realized-variance claims. 54 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE -0.10 -0.05 0.00 0.05 0.10 
+
+k (ITM to OTM) 
+
+T1 = 1 /12 , ∆ = 1 /12 
+
+T1 = 1 /12 , ∆ = 1 /4
+
+T1 = 1 /4, ∆ = 1 /12 
+
+T1 = 1 /4, ∆ = 1 /4
+
+T1 = 1 /2, ∆ = 1 /12 
+
+T1 = 1 /2, ∆ = 1 /4
+
+T1 = 1 , ∆ = 1 /12 
+
+T1 = 1 , ∆ = 1 /4
+
+MSE 
+
+-0.10 -0.05 0.00 0.05 0.10 
+
+k (ITM to OTM) 
+
+MAE 
+
+> 0.0% 5.0% 10.0% 15.0% 20.0% 25.0% 30.0%
+
+Fraction of pairs ( , x) with plug-in error bigger than 1% 
+
+(a) Forward-start -0.20 -0.15 -0.10 
+
+kB (far to near barrier) 
+
+T = 1 /4, k K = 0 .00 
+
+T = 1 /4, k K = −0.05 
+
+T = 1 /2, k K = 0 .00 
+
+T = 1 /2, k K = −0.05 
+
+T = 1 , k K = 0 .00 
+
+T = 1 , k K = −0.05 
+
+MSE 
+
+-0.20 -0.15 -0.10 
+
+kB (far to near barrier) 
+
+MAE 
+
+0% 10% 20% 30% 40% 50% 
+
+(b) Barrier 0.25 0.45 0.65 
+
+c (lower to higher strike) 
+
+T = 1 /12 
+
+T = 1 /4
+
+T = 1 /2
+
+T = 1 
+
+> excluded excluded
+
+MSE 
+
+0.25 0.45 0.65 
+
+c (lower to higher strike) 
+
+> excluded excluded
+
+MAE 
+
+0.0% 5.0% 10.0% 15.0% 20.0% 25.0% 30.0% 35.0% 
+
+(c) Realized variance 
+
+Figure 8. As Figure 6 in the main text, for the 1% relative plug-in-pricing-error threshold. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 55 -0.10 -0.05 0.00 0.05 0.10 
+
+k (ITM to OTM) 
+
+T1 = 1 /12 , ∆ = 1 /12 
+
+T1 = 1 /12 , ∆ = 1 /4
+
+T1 = 1 /4, ∆ = 1 /12 
+
+T1 = 1 /4, ∆ = 1 /4
+
+T1 = 1 /2, ∆ = 1 /12 
+
+T1 = 1 /2, ∆ = 1 /4
+
+T1 = 1 , ∆ = 1 /12 
+
+T1 = 1 , ∆ = 1 /4
+
+MSE 
+
+-0.10 -0.05 0.00 0.05 0.10 
+
+k (ITM to OTM) 
+
+MAE 
+
+> 0.00% 0.50% 1.00% 1.50% 2.00% 2.50% 3.00%
+
+Fraction of pairs ( , x) with plug-in error bigger than 5% 
+
+(a) Forward-start -0.20 -0.15 -0.10 
+
+kB (far to near barrier) 
+
+T = 1 /4, k K = 0 .00 
+
+T = 1 /4, k K = −0.05 
+
+T = 1 /2, k K = 0 .00 
+
+T = 1 /2, k K = −0.05 
+
+T = 1 , k K = 0 .00 
+
+T = 1 , k K = −0.05 
+
+MSE 
+
+-0.20 -0.15 -0.10 
+
+kB (far to near barrier) 
+
+MAE 
+
+> 0.00% 0.25% 0.50% 0.75% 1.00% 1.25% 1.50% 1.75% 2.00%
+
+(b) Barrier 0.25 0.45 0.65 
+
+c (lower to higher strike) 
+
+T = 1 /12 
+
+T = 1 /4
+
+T = 1 /2
+
+T = 1 
+
+> excluded excluded
+
+MSE 
+
+0.25 0.45 0.65 
+
+c (lower to higher strike) 
+
+> excluded excluded
+
+MAE 
+
+0.0% 1.0% 2.0% 3.0% 4.0% 5.0% 6.0% 7.0% 8.0% 
+
+(c) Realized variance 
+
+Figure 9. As Figure 6 in the main text, for the 5% relative plug-in-pricing-error threshold. 56 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 14. Forward-start options: median, 90% and 95% quantiles of the ratio of the length of the 95% full predictive intervals to the held-out MC prices. All reported widths are percentages of the reference price. T1 T2 k 95% PI median 95% PI q90 95% PI q95 0.08 0.17 -0.10 0.14 0.21 0.24 0.08 0.17 -0.05 0.28 0.43 0.50 0.08 0.17 0.00 0.56 1.34 1.84 0.08 0.17 0.05 1.02 3.54 5.54 0.08 0.17 0.10 1.70 6.59 10.50 0.08 0.33 -0.10 0.27 0.40 0.45 0.08 0.33 -0.05 0.39 0.69 0.83 0.08 0.33 0.00 0.58 1.30 1.79 0.08 0.33 0.05 0.84 2.39 3.63 0.08 0.33 0.10 1.18 3.95 6.29 0.25 0.33 -0.10 0.15 0.23 0.26 0.25 0.33 -0.05 0.31 0.46 0.53 0.25 0.33 0.00 0.62 1.37 1.90 0.25 0.33 0.05 1.15 3.29 4.88 0.25 0.33 0.10 1.86 5.66 8.30 0.25 0.50 -0.10 0.28 0.42 0.49 0.25 0.50 -0.05 0.43 0.73 0.87 0.25 0.50 0.00 0.64 1.36 1.88 0.25 0.50 0.05 0.93 2.46 3.69 0.25 0.50 0.10 1.31 3.82 5.89 0.50 0.58 -0.10 0.18 0.25 0.28 0.50 0.58 -0.05 0.33 0.50 0.57 0.50 0.58 0.00 0.71 1.51 2.09 0.50 0.58 0.05 1.31 3.45 5.04 0.50 0.58 0.10 2.07 5.54 7.98 0.50 0.75 -0.10 0.30 0.45 0.51 0.50 0.75 -0.05 0.48 0.79 0.95 0.50 0.75 0.00 0.72 1.50 2.07 0.50 0.75 0.05 1.05 2.68 4.03 0.50 0.75 0.10 1.47 4.08 6.09 1.00 1.08 -0.10 0.18 0.28 0.32 1.00 1.08 -0.05 0.38 0.58 0.66 1.00 1.08 0.00 0.82 1.85 2.62 1.00 1.08 0.05 1.51 4.08 5.86 1.00 1.08 0.10 2.38 6.40 9.29 1.00 1.25 -0.10 0.34 0.52 0.59 1.00 1.25 -0.05 0.54 0.92 1.10 1.00 1.25 0.00 0.82 1.84 2.56 1.00 1.25 0.05 1.21 3.26 4.91 1.00 1.25 0.10 1.68 4.86 7.32 UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 57 
+
+Table 15. Barrier options: median, 90% and 95% quantiles of the ratio of the length of the 95% predictive intervals to the held-out MC prices. All reported widths are percentages of the reference price. T kK kB 95% PI median 95% PI q90 95% PI q95 0.25 -0.05 -0.20 1.15 1.75 2.22 0.25 -0.05 -0.15 1.60 2.20 2.64 0.25 -0.05 -0.10 2.86 3.73 4.20 0.25 0.00 -0.20 0.99 1.46 1.73 0.25 0.00 -0.15 1.29 1.82 2.13 0.25 0.00 -0.10 1.87 2.64 3.07 0.50 -0.05 -0.20 1.60 2.23 2.63 0.50 -0.05 -0.15 2.26 2.95 3.33 0.50 -0.05 -0.10 4.23 5.51 5.98 0.50 0.00 -0.20 1.41 1.96 2.24 0.50 0.00 -0.15 1.83 2.54 2.92 0.50 0.00 -0.10 2.65 3.58 4.07 1.00 -0.05 -0.20 2.33 3.13 3.63 1.00 -0.05 -0.15 3.30 4.28 4.76 1.00 -0.05 -0.10 6.49 8.73 9.40 1.00 0.00 -0.20 2.02 2.89 3.38 1.00 0.00 -0.15 2.59 3.56 4.14 1.00 0.00 -0.10 3.86 5.09 5.73 Table 16. Realized-variance options: median, 90% and 95% quantiles of the ratio of the length of the 95% predictive intervals to the held-out MC prices. All reported widths are percentages of the reference price. T c K 95% PI median 95% PI q90 95% PI q95 0.08 0.25 0.03 1.19 7.32 23.04 0.08 0.45 0.06 1.54 13.56 27.52 0.25 0.25 0.03 1.22 5.40 13.03 0.25 0.45 0.06 1.60 9.48 20.70 0.50 0.25 0.03 1.31 4.57 8.08 0.50 0.45 0.06 1.73 7.70 14.49 0.50 0.65 0.08 2.35 11.65 22.68 1.00 0.25 0.03 1.49 4.56 8.11 1.00 0.45 0.06 1.97 7.37 13.60 1.00 0.65 0.08 2.68 12.57 41.10 58 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 17. Empirical coverage rates for nominal-95% predictive intervals for forward-start options. All entries as explained in percentages. These results complement Table 5. 
+
+T1 T2 k Posterior only 95% Full UQ 95% 0.08 0.17 -0.10 87.66 97.39 0.08 0.17 -0.05 92.95 97.26 0.08 0.17 0.00 93.84 96.62 0.08 0.17 0.05 93.87 96.87 0.08 0.17 0.10 93.80 97.01 0.08 0.33 -0.10 92.95 97.50 0.08 0.33 -0.05 93.99 97.06 0.08 0.33 0.00 94.01 96.70 0.08 0.33 0.05 94.76 97.18 0.08 0.33 0.10 94.42 97.17 0.25 0.33 -0.10 87.80 97.16 0.25 0.33 -0.05 93.60 97.16 0.25 0.33 0.00 95.25 97.27 0.25 0.33 0.05 94.86 97.06 0.25 0.33 0.10 94.30 97.16 0.25 0.50 -0.10 93.52 97.44 0.25 0.50 -0.05 95.42 97.52 0.25 0.50 0.00 95.84 97.42 0.25 0.50 0.05 95.59 97.37 0.25 0.50 0.10 95.22 97.36 0.50 0.58 -0.10 89.10 98.28 0.50 0.58 -0.05 94.50 97.17 0.50 0.58 0.00 95.62 97.24 0.50 0.58 0.05 94.69 96.88 0.50 0.58 0.10 94.24 96.82 0.50 0.75 -0.10 94.00 97.14 0.50 0.75 -0.05 95.28 97.36 0.50 0.75 0.00 95.60 97.29 0.50 0.75 0.05 95.43 96.98 0.50 0.75 0.10 95.41 97.20 1.00 1.08 -0.10 89.48 97.76 1.00 1.08 -0.05 94.71 97.22 1.00 1.08 0.00 95.82 97.29 1.00 1.08 0.05 94.98 96.78 1.00 1.08 0.10 93.84 96.78 1.00 1.25 -0.10 94.23 97.31 1.00 1.25 -0.05 95.71 97.52 1.00 1.25 0.00 95.77 97.22 1.00 1.25 0.05 95.48 97.04 1.00 1.25 0.10 95.28 96.99 UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 59 
+
+Table 18. Empirical coverage rates for nominal-95% predictive intervals for barrier options. All entries as explained in percentages. These results complement Table 5. T kK kB Posterior only 95% Full UQ 95% 0.25 -0.05 -0.20 82.92 96.17 0.25 -0.05 -0.15 79.34 95.70 0.25 -0.05 -0.10 63.54 94.72 0.25 0.00 -0.20 87.08 96.56 0.25 0.00 -0.15 86.06 95.78 0.25 0.00 -0.10 80.14 95.01 0.50 -0.05 -0.20 83.20 96.19 0.50 -0.05 -0.15 75.06 95.88 0.50 -0.05 -0.10 53.94 94.96 0.50 0.00 -0.20 87.94 96.40 0.50 0.00 -0.15 83.93 96.18 0.50 0.00 -0.10 73.69 95.54 1.00 -0.05 -0.20 78.31 95.76 1.00 -0.05 -0.15 66.32 95.14 1.00 -0.05 -0.10 43.90 95.27 1.00 0.00 -0.20 84.29 96.34 1.00 0.00 -0.15 77.46 95.74 1.00 0.00 -0.10 63.64 95.28 Table 19. Empirical coverage rates for nominal-95% predictive intervals for realized-variance options. All entries as explained in percentages. These results complement Table 5. T c K Posterior only 95% Full UQ 95% 0.08 0.25 0.03 91.70 96.42 0.08 0.45 0.06 93.24 96.29 0.25 0.25 0.03 93.10 96.62 0.25 0.45 0.06 94.16 96.73 0.50 0.25 0.03 94.32 96.73 0.50 0.45 0.06 95.11 97.09 0.50 0.65 0.08 94.80 97.15 1.00 0.25 0.03 94.77 97.05 1.00 0.45 0.06 94.83 97.05 1.00 0.65 0.08 91.59 97.34 60 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Table 20. Percentage of variance attributed by the law of total variance to the posterior uncertainty and to the surrogate pricer for contracts in the forward start family. These results complement Table 6. 
+
+T1 T2 k TRE variance share (%) Surrogate variance share (%) 0.08 0.17 -0.10 49.99 50.01 0.08 0.17 -0.05 69.29 30.71 0.08 0.17 0.00 80.20 19.80 0.08 0.17 0.05 80.18 19.82 0.08 0.17 0.10 78.41 21.59 0.08 0.33 -0.10 64.66 35.34 0.08 0.33 -0.05 76.50 23.50 0.08 0.33 0.00 80.36 19.64 0.08 0.33 0.05 82.23 17.77 0.08 0.33 0.10 83.13 16.87 0.25 0.33 -0.10 50.85 49.15 0.25 0.33 -0.05 71.90 28.10 0.25 0.33 0.00 82.27 17.73 0.25 0.33 0.05 83.43 16.57 0.25 0.33 0.10 81.12 18.88 0.25 0.50 -0.10 69.18 30.82 0.25 0.50 -0.05 79.81 20.19 0.25 0.50 0.00 82.96 17.04 0.25 0.50 0.05 84.67 15.33 0.25 0.50 0.10 84.96 15.04 0.50 0.58 -0.10 46.42 53.58 0.50 0.58 -0.05 76.98 23.02 0.50 0.58 0.00 84.37 15.63 0.50 0.58 0.05 85.02 14.98 0.50 0.58 0.10 83.11 16.89 0.50 0.75 -0.10 74.80 25.20 0.50 0.75 -0.05 80.15 19.85 0.50 0.75 0.00 83.73 16.27 0.50 0.75 0.05 86.84 13.16 0.50 0.75 0.10 86.76 13.24 1.00 1.08 -0.10 53.79 46.21 1.00 1.08 -0.05 78.33 21.67 1.00 1.08 0.00 85.79 14.21 1.00 1.08 0.05 87.01 12.99 1.00 1.08 0.10 82.87 17.13 1.00 1.25 -0.10 76.22 23.78 1.00 1.25 -0.05 83.61 16.39 1.00 1.25 0.00 85.92 14.08 1.00 1.25 0.05 86.55 13.45 1.00 1.25 0.10 87.40 12.60 UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 61 
+
+Table 21. Percentage of variance attributed by the law of total variance to the posterior uncertainty and to the surrogate pricer for contracts in the barrier family. These results complement Table 6. 
+
+T kK kB TRE variance share (%) Surrogate variance share (%) 0.25 0.00 -0.10 48.38 51.62 0.25 0.00 -0.15 56.33 43.67 0.25 0.00 -0.20 55.64 44.36 0.25 -0.05 -0.10 27.84 72.16 0.25 -0.05 -0.15 43.04 56.96 0.25 -0.05 -0.20 47.09 52.91 0.50 0.00 -0.10 38.99 61.01 0.50 0.00 -0.15 51.73 48.27 0.50 0.00 -0.20 57.88 42.12 0.50 -0.05 -0.10 20.75 79.25 0.50 -0.05 -0.15 38.62 61.38 0.50 -0.05 -0.20 47.56 52.44 1.00 0.00 -0.10 28.96 71.04 1.00 0.00 -0.15 43.09 56.91 1.00 0.00 -0.20 51.83 48.17 1.00 -0.05 -0.10 14.08 85.92 1.00 -0.05 -0.15 30.45 69.55 1.00 -0.05 -0.20 42.21 57.79 Table 22. Percentage of variance attributed by the law of total variance to the posterior uncertainty and to the surrogate pricer for contracts in the Realized variance family. These results complement Table 6. T c K TRE variance share (%) Surrogate variance share (%) 0.08 0.25 0.03 87.63 12.37 0.08 0.45 0.06 86.40 13.60 0.25 0.25 0.03 89.05 10.95 0.25 0.45 0.06 89.84 10.16 0.50 0.25 0.03 91.92 8.08 0.50 0.45 0.06 91.63 8.37 0.50 0.65 0.08 89.54 10.46 1.00 0.25 0.03 91.89 8.11 1.00 0.45 0.06 91.65 8.35 1.00 0.65 0.08 86.01 13.99 62 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Appendix D. E xtended XAI analysis 
+
+We complement the main posterior-information analysis with comparisons to KL-SHAP and point-estimator explanations. The point-estimator maps explain the outputs of sepa-rately trained MSE- and MAE-based inverse networks, whereas Hellinger-SHAP and KL-SHAP explain posterior contraction relative to the chosen prior. These are di ff erent infer-ential targets. Thus, qualitative agreement between point and posterior maps is evidence of convergent feature importance across distinct fitted estimators, not equality of the underly-ing estimands. Di ff erences for individual parameters are correspondingly informative and should not be regarded as inconsistencies by default. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 63 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+0.00 0.01 0.02 0.03 0.04 0.05 0.06 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+θ
+
+0.00 0.01 0.02 0.03 0.04 0.05 0.06 0.07 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+ν
+
+0.00 0.01 0.02 0.03 0.04 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+ρ
+
+0.00 0.01 0.02 0.03 0.04 0.05 0.06 0.07 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+V0
+
+0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+H
+
+0.00 0.01 0.02 0.03 0.04 0.05 0.06 
+
+Figure 10. Mean absolute KL Kernel-SHAP attributions for each of the six rough Heston parameters, averaged over 500 explained held-out IV sur-faces. 64 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+0.00 0.02 0.04 0.06 0.08 0.10 
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+0.000 0.002 0.004 0.006 0.008 
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+0.000 0.005 0.010 0.015 0.020 
+
+θν
+
+MSE MAE 
+
+Figure 11. Mean absolute Kernel-SHAP attributions for MSE- and MAE-trained point estimator for the κ, θ, ν rough Heston parameters. Results are averaged over 500 explained held-out IV surfaces. See Figure 12 for results on the remaining three parameters ρ, Vo, H. These results complement the Hellinger-SHAP attributions from Figure 10. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 65 -2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+0.000 0.005 0.010 0.015 0.020 0.025 0.030 0.035 
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+0.0000 0.0001 0.0002 0.0003 0.0004 0.0005 0.0006 
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+21
+
+> 1214112 10 252 5252
+> T
+
+-2.5 -2 -1.5 -1 -0.5 0 0.5 1 1.5 
+
+z
+
+0.000 0.002 0.004 0.006 0.008 0.010 0.012 0.014 
+
+ρV0
+
+H
+
+MSE MAE 
+
+Figure 12. Mean absolute Kernel-SHAP attributions for MSE- and MAE-trained point estimator for the ρ, Vo, H rough Heston parameters. Results are averaged over 500 explained held-out IV surfaces. See Figure 11 for results on the first three parameters κ, θ, ν .66 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 
+
+Appendix E. M ethodological considerations on the training of the neural estimators 
+
+This appendix section is structured as follows: 
+
+• Section E.1 describes the preprocessing and standardization steps applied to the neural-network inputs. 
+
+• Section E.2 details the network architectures and loss functions used for the neural point estimators, ratio estimators, and exotic-option surrogate pricers. The last part of Section E.2.3 additionally describes the post-training calibration of the telescop-ing ratio estimator (TRE) and assesses the quality of the learnt posterior densities through simulation-based calibration (SBC) checks. 
+
+• Section E.3 reports the hyperparameter grids used during neural network training. E.1. Data preprocessing and standardization procedures. We remind the reader that in this paper we consider two learning problems. In the inverse problem, we observe an IV surface x and learn either a point estimator x → bθ(x) or an approximation x, θ →
+
+ˆp(θ | x) of the full posterior density, as described in Section 3.1. In addition, for the inverse problem, we require learning approximations x, θ → ˆp(θi | x) of the corresponding posterior marginals for i = 1, . . . , m for the interpretability (XAI) analysis described in Section 4. In our case, m = 6. In the forward problem, the direction is reversed: the input is the rough Heston parameter vector θ and the outputs are estimators ˆ Pexo of exotic-option prices. We apply preprocessing steps to both x and θ before passing them as inputs to the neural networks, as follows. 
+
+x preprocessing: The IV surface is a 63-dimensional vector, see Section 5.1.1. Let ¯ xtr 
+
+be the componentwise mean of the IV surfaces in the training dataset and let bΣtr = VΛV⊤
+
+be the eigendecomposition of their empirical covariance, with eigenvalues λ1 ≥ · · · ≥ λ63 
+
+on the diagonal of Λ and the corresponding orthonormal eigenvectors as the columns of V.Writing V20 for the first 20 columns of V and Λ20 = diag( λ1, . . . , λ 20 ), the network input is the vector of whitened scores (E.1) ex = Λ −1/220 V⊤
+
+> 20
+
+(x − ¯xtr ) ∈ R20 ,
+
+which projects x onto the 20 leading principal directions and rescales each score to unit variance. The transform is fitted on the training split only and subsequently applied to the validation and test datasets. The retained components capture over 99 .9999% of the vari-ability in the training dataset; the discarded directions correspond to near-zero eigenvalues, and retaining them causes numerical instability of the whitening procedure in float32. To ensure numerical stability, we apply (E.1) in float64 and subsequently train the networks in float32. 
+
+PCA representation for local XAI backgrounds. The local-background Kernel-SHAP analyses in Section 4 use the same training-split PCA fit, but select nearest neighbours in the unwhitened retained-score representation 
+
+x 7 −→ V⊤
+
+> 20
+
+(x − ¯xtr ).
+
+For each explained surface, its 100 nearest IV surfaces are selected from the full 500000-surface dataset using Euclidean distance in this 20-dimensional representation. Thus, local-ity is assessed in the dominant principal directions without rescaling them to equal variance. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 67 
+
+The resulting raw IV-surface backgrounds are subsequently supplied to Kernel SHAP for feature-wise completion; every hybrid surface is then transformed according to (E.1) before evaluation by the neural estimators. 
+
+θ preprocessing Let [ li, ui] be the prior ranges from Table 1, i = 1, . . . , m. Each compo-nent θi is standardized to [ −1, 1], as follows (E.2) ˜θi = 2 θi − li
+
+ui − li
+
+− 1 = 2θi − ui − li
+
+ui − li
+
+.
+
+In the schematic representation we discuss below, i.e., Figures 13- 19, we keep using x and 
+
+θ instead of ˜ x and ˜ θ, for simplicity of notation. E.2. Neural network multi-head architecture and loss functions. All networks use a multi-head architecture to alleviate multi-output optimization issues. A shared multi-layer perceptron (MLP), called the encoder, extracts a set of informative summary statistics s(·)from the input. This representation is then passed to separate, independently parameterized MLP networks, called the heads. The encoder therefore learns features that are informative for all outputs, while the parallel heads can perform output-specific finetuning. We discuss networks one at a time. All estimation methods we consider are amortized, which makes the considered ap-proaches feasible for real-life applications. Specifically, each network is fitted once and then can be reused across many inputs at inference time. We train one network per esti-mator for the inverse problem and one surrogate pricer per exotic family for the forward exotic pricing problem. Nevertheless, the harder the inference task or the more tasks solved at once, e.g., the more contracts considered in one exotic family, the more likely it is that at least some of the learnt approximations are sub-optimal. The loss in performance rela-tive to the true estimator is often called the amortization gap [19]. The preprocessing steps described above already reduce this gap by presenting the networks with well-conditioned inputs; further, all networks use the multi-head architecture to alleviate potential multi-output optimization issues. For each estimator, we state the loss function used and report its corresponding values, as estimated on the validation set, at the end of each training epoch. E.2.1. Neural point estimators. For the neural point estimators, let ∆i = ui − li denote the width of the prior support of the ith parameter for i = 1, . . . , m, see Table 1. The two training objectives are then given by scaled MSE and MAE losses, as follows: 
+
+LMSE = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+E
+
+
+
+ˆθi(x) − θi
+
+∆i
+
+!2 ,(E.3) 
+
+LMAE = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+E
+
+" |ˆθi(x) − θi|
+
+∆i
+
+#
+
+.(E.4) The schema for this estimator is given in Figure 13, while the validation losses are given in Figure 14. We further provide the unscaled, componentwise losses in Figure 15, noting that early stopping and best-epoch selection are done on the scaled losses. The scaled and unscaled objectives share the same theoretical optimum, i.e., the posterior mean and median of θ | x respectively, but their empirical minimizers can di ff er in practice. Indeed, coordinates with small prior support (short intervals) can result in smaller loss values and 68 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE x MLP Encoder s(x)MLP head 1 MLP head i
+
+MLP head m
+
+ˆθ1(x)ˆθi(x)ˆθm(x)
+
+Figure 13. Schematic representation of the neural point estimator archi-tecture. The observed IV surface x is passed to an MLP network to obtain a set of informative summary statistics, call them s(x). Next s(x) is passed as input to m MLP heads to obtain estimates of θ1, . . . , θ m.100 200 300 400 500 Epoch 0.0001 0.0002 0.0003 0.0004 0.0005 Scaled MSE 50 100 150 200 250 300 Epoch 0.004 0.005 0.006 0.007 0.008 0.009 Scaled MAE 
+
+Figure 14. Validation losses for the neural point estimators trained with the scaled MSE (left) and MAE (right) losses. The epoch selected through early stopping is marked in black. consequently, gradients. Scaling the loss as in (E.3) and in (E.4) ensures componentwise MSE and MAE losses are on the same scale. 100 200 300 400 500 Epoch 10 −7     
+
+> 10 −6
+> 10 −5
+> 10 −4
+> 10 −3
+> Unscaled MSE
+> θνρV0
+> H50 100 150 200 250 300 Epoch 10 −3
+> 10 −2
+> Unscaled MAE
+> θνρV0
+> H
+
+Figure 15. Breakdown of the validation losses on the original parameter scale, i.e., unscaled, for the two neural point estimators from Figure 14. The y axis is displayed on log scale. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 69 θ MLP Encoder s(θ)MLP head 1 MLP head i 
+
+> MLP head k
+> ˆμ1(θ), ˆ σ1(θ)ˆμi(θ), ˆ σi(θ)ˆμk(θ), ˆ σk(θ)
+
+Figure 16. Schematic representation of the surrogate pricer architecture. For each family the exotic contracts (forward-start, barrier, realized-variance), the parameter vector θ is passed to an MLP encoder to obtain a set of informative summary statistics s(θ). Next s(θ) is passed to k MLP heads to obtain estimates of the exotic options prices Pexo ,1, . . . , Pexo ,k,where k is the number of contracts within the exotic family. E.2.2. Neural surrogate pricers. The neural surrogate pricers are similar to the neural point estimator above, but solve the forward problem. We train one network per exotic family, with one head for each contract in the aforementioned family. All forward-start and barrier contracts are retained. For realized-variance (RV) options, we retain 10 active RV contracts: 
+
+c ∈ { 0.25 , 0.45 } at all four maturities T ∈ { 1/12 , 1/4, 1/2, 1}, and c = 0.65 at T ∈ { 1/2, 1}.This contract-level filtering removes some of the higher-strike contracts that contain a large fraction of MC prices ˆ Pexo  
+
+> i
+
+that are either exactly 0 or economically irrelevant. Within the retained contracts, assume (E.5) Pexo  
+
+> i
+
++ ϵ | θ ∼ LogNormal μi(θ), σ 2 
+
+> i
+
+(θ) ,
+
+for some μi(θ) ∈ R and σi(θ) ≥ 0, where ϵ = 0 for forward-start and barrier options and ϵ = 10 −5 for RV options. This ϵ is used for numerical stability. Even within the retained RV contracts, there is still a small fraction of MC prices that are exactly zero, or extremely small, see Table 13. Thus a small, strictly-positive ϵ is required to prevent such observations from disproportionately influencing the loss functions (which we discuss below) and damaging optimization. To this end, we use the multi-head architecture from Figure 16, in which each active head outputs a location ˆ μi(θ) and log-scale log ˆ σi(θ). Say we retain k RV contracts. Then the network is trained by minimizing the average Gaussian negative log-likelihood (NLL) (E.6) Lsur = 1
+
+k
+
+> k
+
+X
+
+> i=1
+
+E
+
+log ˆ σi(θ) +
+
+log ( ˆ Pexo  
+
+> i
+
++ ϵ) − ˆμi(θ)2
+
+2 ˆ σ2 
+
+> i
+
+(θ)
+
+ ,
+
+where ˆ Pexo  
+
+> i
+
+denotes the MC approximation of the corresponding exotic contract price. Note that the LogNormal assumption from (E.5) allows for mass on [ −ε, 0], a limitation that can in principle be removed by using more complex predictive distribution for Pexo | θ.Validation losses are reported in Figure 17. E.2.3. Telescoping neural ratio estimator (TRE) and marginal neural ratio estimator (NRE). 
+
+We start with the TRE. Although it solves the inverse problem, it inputs both x and θ and outputs an approximation of the posterior density p(θ | x). We employ the multi-head 70 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 200 400 600 800 1000 1200 Epoch 
+
+> −6
+> −4
+> −202NLL
+
+(a) Forward-start 200 400 600 800 1000 1200 Epoch  
+
+> −5.0
+> −4.8
+> −4.6
+> −4.4
+> −4.2
+> −4.0
+> −3.8
+
+(b) Barrier 200 400 600 800 1000 1200 1400 1600 Epoch  
+
+> −6
+> −4
+> −2024
+
+(c) Realized variance 
+
+Figure 17. Validation negative log-likelihoods for the exotic-option surro-gate models. The epoch selected through early stopping is marked in black. architecture from Figure 18, in which the ith heads inputs x and the first i coordinates 
+
+θ1: i = (θ1, . . . , θ i) and outputs an approximation of 
+
+ri(x, θ1: i) = p(θi | x, θ 1, . . . , θ i−1)
+
+p(θi | θ1, . . . , θ i−1) , i = 1, . . . , m.
+
+The full log likelihood-to-evidence is then recovered as a product. In our case, the chosen prior factorizes as p(θ) = p(θ1) · . . . · p(θm), see Table 1, and the above ratio simplifies to 
+
+ri(x, θ1: i) = p(θi | x, θ 1, . . . , θ i−1)
+
+p(θi) , i = 1, . . . , m.
+
+The full ratio is then recovered by 
+
+r(x, θ) =
+
+mY
+
+i=1
+
+ri(x, θ1: i).
+
+We next discuss the loss functions used for each head. Let cTRE ,i be the classifier associated with the ith head. The corresponding binary-cross entropy (BCE) is then given by 
+
+LTRE ,i = −Eq1 
+
+> i
+
+(x,θ1: i)
+
+hlog cTRE ,i
+
+x, θ1: ii − Eq0 
+
+> i
+
+(x,θ1: i)
+
+hlog 1 − cTRE ,i
+
+x, θ1: ii ,
+
+where 
+
+q1
+
+i (x, θ1: i) = p(x, θ1: i)
+
+q0
+
+i (x, θ1: i) = p(x, θ1: i−1)p(θi),
+
+for i = 1, . . . , m, and the full loss function is given by 
+
+LTRE (x, θ) = 1
+
+m
+
+mX
+
+i=1
+
+LTRE ,i(x, θ1: i).
+
+Under the above BCE losses, the optimal Bayes classifiers satisfy 
+
+c∗
+
+TRE ,i(x.θ1: i) = q1
+
+i (x, θ1: i)
+
+q1
+
+i (x, θ1: i) + q0
+
+i (x, θ1: i) = p(θi | x, θ1: i−1)
+
+p(θi | x, θ1: i−1) + p(θi)UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 71 xθ          
+
+> MLP Encoder s(x)concat( θ1:1 , s (x)) concat( θ1: i, s (x)) concat( θ1: m, s (x)) MLP head 1 MLP head i
+> MLP head m
+> log ˆ r1(x,θ1:1 )log ˆ ri(x,θ1: i)log ˆ rm(x,θ1: m)log ˆ r(x,θ) = ∑mi=1 log ˆ ri(x,θ1: i)
+
+Figure 18. Schematic representation of the telescoping ratio estimator (TRE) architecture. The observed IV surface x is passed to an MLP network to obtain a set of informative summary statistics. Then, for 
+
+i ∈ { 1, . . . , m}, the ith head inputs s(x) concatenated with the first i com-ponents θ1: i = (θ1, . . . , θ i) of θ and outputs an estimate of log ri(x, θ1: i). Summing the m outputs yields an estimate of log r(x, θ). and yield the conditional posteriors 
+
+ri(x, θ1: i) = c∗
+
+> TRE ,i
+
+(x, θ1: i)1 − c∗
+
+> TRE ,i
+
+(x, θ1: i) , i = 1, . . . , m.
+
+We defer the reader to the end of this subsection for post-training calibration technique and assessing the quality of the learnt estimators. A detailed analysis of the TRE methodology is available in [39]. Per-head validation BCE losses are reported in Figure 20a. We now turn to the marginal NRE, which is needed for the XAI analysis from Section 6. Indeed, there we need to learn the posterior marginals p(θi | x) for i = 1, . . . , m, rather than the full posterior p(θ | x). Note that marginalizing posterior samples produces samples from the marginal posteriors, but it does not give direct access to the marginal posterior densities, hence a second neural estimator is required. For the marginal NRE, we employ the architecture from Figure 19. The loss functions associated with head i is the following BCE expression: 
+
+LmNRE ,i = −Ep(x,θ i)
+
+hlog cmNRE ,i
+
+x, θ ii − Ep(x)p(θi)
+
+hlog 1 − cmNRE ,i
+
+x, θ ii 
+
+and the full loss function is given by 
+
+LmNRE (x, θ) = 1
+
+m
+
+> m
+
+X
+
+> i=1
+
+LmNRE ,i(x, θ i).
+
+Under the above BCE losses, the optimal Bayes classifiers satisfy 
+
+c∗
+
+> mNRE ,i
+
+(x.θ1: i) = p(θi | x)
+
+p(θi | x) + p(θi) ,
+
+and yield the marginal conditional posteriors 
+
+p(θi | x)
+
+p(θi) = c∗
+
+> mNRE ,i
+
+(x, θi)1 − c∗
+
+> mNRE ,i
+
+(x, θi) , i = 1, . . . , m.
+
+Per-head validation BCE losses are provided in Figure 20b. 72 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE xθ
+
+MLP Encoder s(x)concat( θ1, s (x)) concat( θi, s (x)) concat( θm, s (x)) MLP head 1 MLP head i
+
+MLP head m
+
+log p(θ1|x)
+
+> p(θ1)
+
+log p(θi|x)
+
+> p(θi)
+
+log p(θm|x)
+
+> p(θm)
+
+Figure 19. Schematic representation of the marginal neural ratio estima-tor (NRE) architecture. The observed IV surface x is passed to an MLP network to obtain a set of informative summary statistics. Then, for 
+
+i ∈ { 1, . . . , m}, the ith head inputs s(x) concatenated with θi of θ and outputs an estimate of log p(θi|x)
+
+p(θi) , i = 1, . . . , m.100 200 300 400 500 600 700 Epoch 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 BCE 
+
+> θνρV0
+> H
+
+(a) TRE. 100 200 300 400 500 600 Epoch 0.0 0.2 0.4 0.6 0.8 1.0 1.2 θνρV0 
+
+> H
+
+(b) Marginal NRE. 
+
+Figure 20. Binary cross-entropy validation losses LTRE and LmNRE for the two ratio-estimation models. The epoch selected through early stopping is marked in black. UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 73 
+
+Remark E.1. The ratio-estimators and, to a lesser extent the other estimators, can exhibit occasional spikes. For the ratio-estimators, this likely reflects rare high-confidence classifi-cation errors. This is not an issue, as we select the set of weights and biases corresponding to the epoch achieving the lowest validation loss, and not those corresponding to the last epoch. The substantive validation of the fitted models is therefore based on simulation-based calibration checks, together with the held-out posterior-coverage and downstream predictive-coverage diagnostics reported in this paper, rather than on visual smoothness of the training curves. 
+
+Further TRE details and diagnoistcs. We discuss two aspects in this last part: i) post-training calibration of the TRE and ii) checks on the quality of the approximate posterior. Having trained the m classifiers ˆ ci := ˆcTRE ,i underlying the TRE, these classifiers yield es-timated conditional density ratios ˆ ri = ˆci/(1 − ˆci), and hence approximations ˆ p(θi | x, θ1: i−1)for i = 1, . . . , m. By definition, these approximations are not exact, and classification errors can propagate to the estimated posterior densities. A useful feature of classifier-based ratio estimators, and one of the reasons we chose to employ this methodology is that we can apply a post-training calibration step and thereby obtain (potentially) improved posterior approximations without retraining the neural networks. Specifically, for each head, we fit a calibration map Ti : [0 , 1] → [0 , 1] and define ˆci,cal = Ti ◦ ˆci,
+
+ˆri,cal = ˆci,cal /(1 − ˆci,cal ).
+
+This post-training classifier calibration is distinct from parameter calibration , by which we mean recovering the rough Heston parameters from an observed IV surface. Among common post-training calibration approaches, we consider Platt scaling [49], β-calibration [37], and isotonic regression [47]. We test all three and empirically find that both Platt scaling and isotonic regression can degrade performance. Platt scaling is relatively re-strictive, while isotonic regression can produce nearly degenerate posterior approximations. We therefore use β-calibration, which applies the monotone transformation 
+
+T (s; a, b, c) = 1/ 1 + e−c(1 − s)b s−a ,
+
+with a, b > 0 and c ∈ R. Importantly, this family contains the identity map for a = b = 1 and 
+
+c = 0, so an already well-calibrated classifier can remain unchanged. Further, β-calibration is more flexible than Platt scaling while remaining parametric and well behaved in our setting. The calibration parameters are fitted separately for each TRE head, with the BCE loss. We now turn our attention to simulation-based calibration (SBC) checks. 
+
+Sequential checks. Having trained and β-calibrated the TRE, we assess the empirical coverage of the learnt approximate conditional posterior densities. For any density q, let 
+
+Θq(1 − α) denote its 1 − α highest posterior density (HPD) region, defined as (E.7) Θq(1 − α) = nϑ : q(ϑ) ≥ γq(α)o ,
+
+where γq(α) is chosen so that (E.8) 
+
+Z
+
+> ϑ∈Θq(1 −α)
+
+q(ϑ) d ϑ = 1 − α. 74 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE 0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Nominal HPD level
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Empirical coverage
+> θνρV0
+> H
+> Ideal
+
+(a) Uncalibrated. 0.0 0.2 0.4 0.6 0.8 1.0  
+
+> Nominal HPD level
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Empirical coverage
+> θνρV0
+> H
+> Ideal
+
+(b) Beta-calibrated. 
+
+Figure 21. Empirical coverage of the HPD regions of the learnt posterior approximations ˆ p(κ | x), . . . , ˆp(H | x, κ, θ, ν, ρ, V0). We note that the β-calibrated classifiers yield posterior densities with near-perfect coverage, and that β-calibration qualitatively improves the coverage properties of the learnt conditional distributions. For the ith TRE head, we take q(ϑi) = ˆp(ϑi | x, θ1: i−1). For each parameter θi, define the (averaged) coverage of the corresponding approximate 1 − α HPD regions by (E.9) Ci 
+
+> 1−α
+
+= Ep(x,θ1: i)
+
+h1 θi ∈ Θ ˆp(·| x,θ1: i−1)(1 − α)i , i = 1, . . . , m.
+
+In practice, we estimate (E.9) from N pairs ( x j, θ j). For each pair and parameter i, we draw 
+
+L samples ϑij,1, . . . , ϑ ij,L ∼ ˆp(θi | x j, θ1: i−1 
+
+> j
+
+), evaluate and sort the corresponding approximate posterior densities p(ϑij,1 | x j, θ1: i−1), . . . , p(ϑij,L | x j, θ1: i−1) in descending order. Then, the smallest value among the top (1 − α)L samples defines the empirical HPD threshold ˆ γij(α). The empirical coverage is then given by (E.10) bCi 
+
+> 1−α
+
+= 1
+
+N
+
+> N
+
+X
+
+> j=1
+
+1 h ˆp(θij | x j, θ1: i−1 
+
+> j
+
+) ≥ γij(α)i .
+
+If the ith TRE classifier is well-calibrated, or equivalently if the corresponding condi-tional posterior approximation is accurate, then Ci 
+
+> 1−α
+
+= 1 − α. All in all, we apply this check and presents results in Figure 21. While the uncalibrated TRE classifiers display some miscalibration, specifically under-confidence, the β- calibrated versions have near-perfect coverage. E.3. Grid hyperparameter search. Hyperparameters are selected based on the loss eval-uated on the validation set. After each epoch, we evaluate and compare the validation loss with its previous best value. If the validation loss improves by more than a tolerance δ, the UNCERTAINTY AND EXPLAINABILITY IN DEEP ROUGH VOLATILITY 75 
+
+Table 23. Hyperparameter grid for the neural point estimator (NPE), mar-ginal NRE and TRE. Hyperparameter Values Shared-encoder widths (64 , 64 , 64), (128 , 64), (64 , 64), (64 , 32), (32 , 32), (32 , 16) Encoder dropout 0.1, 0 Head widths (16 , 16 , 1), (8 , 8, 1), (16 , 1), (8 , 1) Learning rate 10 −3, 5 × 10 −4
+
+AdamW weight decay 10 −3, 10 −4
+
+Table 24. Hyperparameter grid for the exotic surrogate pricers. Hyperparameter Values Shared-encoder widths (16 , 32 , 64 , 128), (16 , 32 , 64), (16 , 16), (16 , 32) Encoder dropout 0.1, 0 Head widths (16 , 8, 4, 1), (16 , 16 , 1), (8 , 8, 1), (8 , 4, 1), Learning rate 10 −3, 5 × 10 −4
+
+AdamW weight decay 10 −3 , 10 −4
+
+current weights and biases are set as the new best checkpoint and the patience counter is reset; otherwise, the counter is incremented, and training stops once 50 consecutive epochs pass without improvement above δ. We use δ = 10 −6 for the (scaled) MSE-trained neural point estimator, δ = 10 −5 for the surrogate pricers and δ = 10 −4 for the (scaled) MAE-trained point estimator and ratio estimators, specifically the TRE and marginal NRE. In-spection of the validation losses confirms that these tolerances are su ffi ciently small not to induce materially earlier stopping. Dropout, when used, is applied to the shared encoder, while the output heads use no dropout. E.3.1. Neural point and ratio estimators. For the inverse estimators we use the hyperpa-rameter grid in Table 23. This gives 6 × 2 × 4 × 2 × 2 = 192 configurations for each of three estimators. Neural point estimators are ranked by the corresponding scaled validation MSE or MAE losses, whereas marginal and telescoping ratio estimators are ranked by validation BCE. E.3.2. Surrogate pricers. For the forward estimators, a separate hyperparameter search is performed for each exotic family. The search grid is given in Table 24, yielding 4 × 4 × 2 ×
+
+2 × 2 = 128 configurations per family. Models are ranked by validation Gaussian negative log-likelihood on the log-prices.       
+
+> Email address :damiano.brigo@imperial.ac.uk
+> Department of Mathematics , I mperial College , L ondon , U nited Kingdom .
+> Email address :raphael.huser@kaust.edu.sa 76 DAMIANO BRIGO, RAPHAËL HUSER, AND DAN LEONTE
+
+Computer , E lectrical and Mathematical Sciences and Engineering Division (CEMSE), K ing Abdullah 
+
+University of Science and Technology (KAUST), T huwal , S audi Arabia 
+
+Email address : dan.leonte@kaust.edu.sa 
+
+Computer , E lectrical and Mathematical Sciences and Engineering Division (CEMSE), K ing Abdullah 
+
+University of Science and Technology (KAUST), T huwal , S audi Arabia

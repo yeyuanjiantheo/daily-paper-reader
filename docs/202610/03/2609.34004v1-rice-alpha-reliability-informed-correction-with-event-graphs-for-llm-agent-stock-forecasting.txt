@@ -1,0 +1,461 @@
+Title: RICE-Alpha: Reliability-Informed Correction with Event Graphs for LLM-Agent Stock Forecasting
+
+URL Source: https://arxiv.org/pdf/2609.34004v1
+
+Published Time: Tue, 29 Sep 2026 02:34:23 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+Preprint 
+
+# RICE-A LPHA : RELIABILITY -INFORMED 
+
+# CORRECTION WITH EVENT GRAPHS FOR 
+
+# LLM-A GENT STOCK FORECASTING 
+
+Tong Liu 1,∗ Lanmiao Liu 2,3,∗,† Xiang Hu 4,∗
+
+> 1
+
+Zircon Security 2Utrecht University 
+
+> 3
+
+The Max Planck Institute for Psycholinguistics 
+
+> 4
+
+China Life R&D Center 
+
+> ∗
+
+Equal contribution. †Corresponding author: lanmiao.liu@mpi.nl 
+
+Xiang Hu: huxiang2022@e-chinalife.com 
+
+## ABSTRACT 
+
+Equity-relevant news evolves through temporally dependent corporate events rather than isolated observations, making historical information useful only when event continuity, information availability, and transition reliability are modeled explicitly. Existing LLM-based financial agents increasingly incorporate historical evidence, yet they provide limited support for preserving issuer-specific chronology under point-in-time constraints and for identifying when historical transitions contribute information beyond the current forecast. We present R ICE -A LPHA (Reliability-Informed Correction with Event Graphs), a point-in-time stock-scoring framework that separates a history-aware multi-view Base Alpha from a reliability-calibrated residual correction derived from historical event continuation. A Multi-Tier Mem-ory Layer grounds news interpretation in temporally eligible issuer-specific history, while a Typed Event Agent constructs event states whose successor relations are formed within issuers and pooled across firms only after valid local pairing. Ma-tured transitions are calibrated by their empirical reliability, and the resulting graph signal is residualized against the Base Alpha and technical view to obtain the RICE Delta. On daily Nasdaq-100 and Hang Seng Index panels from 2024 to 2026, R ICE -A LPHA achieves the strongest results among the evaluated LLM-based agents and momentum across four predictive and four portfolio-level metrics in both markets. Its ICIR more than doubles that of the strongest baseline, while net Sharpe ratios reach 1.656 and 1.725 in the U.S. and Hong Kong, respectively. U.S. ablations further show significant reductions in IC and RankIC after Holm adjust-ment when major components are removed. These results indicate that historical event continuation adds incremental information when it is temporally grounded, reliability-calibrated, and introduced as a residual correction to a multi-view fore-cast. 
+
+## 1 INTRODUCTION 
+
+Financial decision-making requires integrating heterogeneous information from firm-level news (Boudoukh et al., 2019), financial statements (Ou & Penman, 1989), market dynamics (Gˆ arleanu & Pedersen, 2013), and macroeconomic conditions (Fama & French, 1989). Concurrent advances in large language model (LLM) architectures (Liu et al., 2024a; Achiam et al., 2023), training paradigms, and data scaling have substantially improved their ability to represent and integrate heterogeneous information, providing a natural foundation for financial reasoning. Recent studies leverage LLMs to extract predictive signals from time-sensitive financial text and combine them with structured market information (Xiong et al., 2025; Lopez-Lira & Tang, 2026). Financial information, however, evolves continuously: newly observed news may update an existing corporate event, interact with prior issuer-specific developments, or acquire a different interpretation under changing market 1arXiv:2609.34004v1 [cs.LG] 27 Sep 2026 Preprint conditions. Effective financial reasoning therefore requires not only cutoff-available evidence, but also a temporally valid representation of how that evidence relates to historical event dynamics. Related design challenges appear in other generative-AI domains: a survey of fashion generation organizes heterogeneous image, 3D, and video tasks (Shi et al., 2025c); FonTS and WordCon study fine-grained control of rendered text (Shi et al., 2025b; 2026b); and vision-guided audio alignment supports multimodal emotion understanding (Zhang et al., 2025). AnySurf uses directed edges to represent surface orientation in 3D generation (Shi et al., 2026a). These works provide cross-domain examples of structured representations and controlled information integration, motivating our attention to explicit event states and directed transitions in financial forecasting. LLM-based financial agents increasingly retrieve historical information to contextualize current evidence (Yu et al., 2025; Guo et al., 2026; Qian et al., 2026), while event-based forecasting methods exploit structured news relations and temporal dependencies for return prediction (Han et al., 2025; Li et al., 2024a; 2026). Historical context and event structure, however, remain difficult to use reliably under a strict point-in-time setting. Retrieved evidence must remain consistent with what was observable at the prediction cutoff, while event relations should preserve issuer-specific chronology rather than arise from spurious cross-stock pairing. Structured event models show lag-dependent, time-varying inter-stock relations (Li et al., 2024a; Liu et al., 2024b), suggesting that the predictive relevance of historical transitions varies with empirical support, temporal stability, market context, and association with subsequent returns. These observations expose three coupled challenges in history-aware financial reasoning: limited historical contextualization , weak temporal grounding of event relations , and uncalibrated use of historical transitions .To address these challenges, we present R ICE -A LPHA (Reliability-Informed Correction with Event Graphs ), a point-in-time stock-scoring framework that separates a history-aware multi-view reference signal from the incremental contribution of historical event continuation. As illustrated in Figure 1, RICE -A LPHA follows three stages. First, History-Aware Multi-View Base Alpha Generation con-structs a point-in-time reference signal through dedicated sentiment, technical, fundamental, and macroeconomic agents. A structured Multi-Tier Memory Layer (M ML ) grounds the Sentiment Agent in temporally eligible issuer-specific history, while the remaining agents capture complementary cutoff-available market views. The resulting stock-level signals are reconciled before bounded macro adjustment to obtain Base Alpha. Second, Point-in-Time Event Modeling and Reliability-Weighted Correction is performed by the RICE Event Engine. A Typed Event Agent converts cutoff-available news and prior active records into structured event states. Historical successor relations are formed strictly within each issuer and pooled across firms only after valid local pairing, yielding a frozen point-in-time typed-event graph. Current states retrieve eligible one-hop transitions whose contribu-tions are calibrated by transition frequency, regime-relative lift, lag structure, matured successor-return association, and observational reliability. The resulting graph signal is residualized against the Base Alpha and technical view to form the RICE Delta. Finally, Final Alpha Synthesis combines Base Alpha and RICE Delta through a bounded residual composition.  
+
+> Figure 1: Overview of the RICE-Alpha framework. A point-in-time multi-view Base Alpha is refined by a reliability-calibrated residual derived from historical event propagation.
+
+We evaluate R ICE -A LPHA on daily U.S. and Hong Kong equity panels using four predictive metrics and four portfolio-level backtesting met-rics. The empirical comparison focuses on LLM-agent stock-scoring systems and a price-based momentum baseline under a common evalua-tion protocol, while prior event-graph methods serve as methodological antecedents rather than directly benchmarked systems. Across both mar-kets, R ICE -A LPHA achieves the strongest re-sults among the evaluated methods on all eight metrics. Ablation studies on the U.S. panel show significant reductions in IC and RankIC after Holm correction when major components are removed. Evaluations with an alternative LLM backbone, constituent-exclusion analysis, transaction-cost stress tests, and regime-specific analysis further examine robustness across modeling and trading conditions. Our contributions are summarized as follows: 2Preprint • History-Aware Multi-View Base Alpha Generation. We introduce a point-in-time multi-agent formulation that integrates sentiment, technical, fundamental, and macroeconomic evidence while grounding the Sentiment Agent in temporally eligible issuer-specific history through a structured M ML . This enables historical context to inform current-news reasoning under a consistent point-in-time information set. • Point-in-Time Issuer-Local Event Graph Construction. We introduce a Typed Event Agent that maps cutoff-available news to structured event records and typed states, and construct successor relations strictly within each issuer. Comparable transitions are pooled across issuers only after valid local pairing, preserving issuer-specific chronology while preventing look-ahead and spurious cross-stock transitions. • Reliability-Calibrated Residual Event Correction. We develop a reliability-aware mecha-nism that converts matured one-hop transitions into a separate RICE Delta using transition frequency, regime-relative lift, lag structure, successor-return association, and observational reliability. The graph signal is residualized against the Base Alpha and technical view before final synthesis, isolating the incremental predictive content of historical event continuation. 
+
+## 2 RELATED WORK 
+
+LLM-Based Agents for Financial Trading. Financial prediction has been studied through rein-forcement learning and market representation (Wang et al., 2021; Liu et al., 2022; Li et al., 2024b), formulaic alpha discovery (Yu et al., 2023; Shi et al., 2025a; Zhu & Zhu, 2025; Chen et al., 2026; Shi et al., 2026c), and financial language models for textual reasoning and return forecasting (Araci, 2019; Wu et al., 2023; Yang et al., 2023; Xiao et al., 2024; Xie et al., 2023). Recent agentic systems further automate factor and strategy development (Zhang et al., 2026; Li et al., 2025; Song et al., 2026), while layered-memory and experience-retrieval mechanisms incorporate historical context into LLM-based decision making (Yu et al., 2025; Zhao et al., 2024; Fountas et al., 2025). Despite these advances, current market views and retrieved historical evidence are often processed through separate reasoning or signal-generation pathways (Yu et al., 2025; Xiao et al., 2024; Song et al., 2026), providing limited support for grounding current news in issuer-specific event history before cross-view aggregation. R ICE -A LPHA differs by conditioning the sentiment view on temporally eligible historical evidence through a structured M ML within a point-in-time multi-view Base Alpha. 
+
+Temporal Event Modeling and Reliability-Aware Forecasting. Structured event representations encode temporal, semantic, and causal dependencies in financial news (Han et al., 2025; Li et al., 2024a), while graph-based methods extend this formulation to cross-stock interactions, supply-chain relations, and dynamically evolving market structures (Qian et al., 2024; Huang et al., 2026; Yılkı, 2026; Zhang, 2026; Liu et al., 2024b). TRACE (Ding et al., 2026) combines temporal graph structure with mined rules and multi-hop reasoning, while retrieval- and memory-based systems incorporate historical availability, delayed feedback, and evolving contextual state (Zhao & Welsch, 2026; Deng et al., 2026; Yu et al., 2025; Fountas et al., 2025). These studies establish temporal event structure as an important source of predictive context. Relation construction over pooled observations, however, can attenuate issuer-specific chronology (Li et al., 2024a; Huang et al., 2026), whereas point-in-time forecasting requires queried relations, outcomes, and memory states to remain restricted to information available at the prediction cutoff (Zhao & Welsch, 2026; Deng et al., 2026). R ICE -A LPHA 
+
+differs in its construction principle by forming successor relations within each issuer and pooling comparable transitions only after valid local pairing under point-in-time constraints. Graph-based stock models learn time-varying, lag-dependent relation strengths (Qian et al., 2024; Liu et al., 2024b; Li et al., 2024a), so historical transitions may differ in predictive relevance with empirical support, market regime, and return stability. Financial-agent frameworks increasingly decouple language-based reasoning from downstream numerical execution (Zhang et al., 2026; Li et al., 2025; Song et al., 2026; Koa et al., 2026), while structured consensus and temporal evaluation improve the stability of intermediate reasoning (Guo et al., 2026). These event-graph and event-reasoning approaches are methodologically related to R ICE -A LPHA but are not directly benchmarked under the empirical protocol used in this study. Accordingly, our distinction is architectural rather than an empirical claim of superiority over prior event-graph methods. R ICE -A LPHA represents matured transition evidence through a separate reliability-weighted residual, allowing its incremental contribution relative to the point-in-time Base Alpha to be isolated before final synthesis. 3Preprint 
+
+Figure 2: Overview of the R ICE -A LPHA pipeline. Base Alpha captures multi-view evidence, RICE Delta captures reliability-weighted event continuation, and their bounded synthesis yields the final stock score. 
+
+## 3 METHODOLOGY 
+
+3.1 OVERVIEW OF RICE-A LPHA 
+
+As illustrated in Figure 2, we present R ICE -A LPHA (Reliability-Informed Correction with Event Graphs ), a point-in-time stock-scoring framework that separates a history-aware multi-view reference signal from an explicit correction derived from historical event continuation. R ICE -A LPHA comprises three modules: History-Aware Multi-View Base Alpha Generation , where dedicated sentiment, tech-nical, fundamental, and macroeconomic agents process complementary financial views, with M ML 
+
+conditioning the Sentiment Agent on temporally eligible issuer-specific history before reconciliation into Base Alpha; Alpha Correction via the RICE Event Engine , which maps current and prior event records to typed states, queries a frozen PIT graph, and aggregates reliability-weighted one-hop tran-sition evidence into RICE Delta; and Final Alpha Synthesis , which combines the two signals through a bounded residual composition. Cutoff-available news is therefore used along two complementary paths: M ML supports history-aware semantic interpretation, while the Typed Event Agent and frozen event graph provide structured numerical evidence for event-continuation correction. At signal date t, given tradable universe Ut and cutoff-available news, price–volume history, funda-mentals, and macro/market indicators, R ICE -A LPHA outputs a cross-sectional stock-ranking score 
+
+ai,t for each i ∈ U t. Evaluation follows a T +1 execution convention. 3.2 HISTORY -A WARE MULTI -V IEW BASE ALPHA GENERATION 
+
+For stock i at signal date t, the input state is Xi,t = ( Ni,t , Ti,t , Fi,t , Mt), where Ni,t denotes cutoff-available stock news, Ti,t the price–volume history observed through t, Fi,t the admitted fundamental information, and Mt the dated macro/market indicators. The Sentiment, Technical, and Fundamental Agents process Ni,t , Ti,t , and Fi,t , respectively, and return view-specific signals with associated confidence scores, while the Macro Agent maps Mt to a shared date-level market signal. The Sentiment Agent is additionally conditioned on the Multi-Tier Memory Layer (M ML ), which retrieves temporally eligible issuer-specific context, including local graph context, matured historical cases, the current event narrative, regime-matched calibration evidence, and direct successor-event memories. Outcome-dependent memory is admitted only after the corresponding returns have matured. MML supports semantic interpretation of current news, whereas numerical transition statistics are handled separately by the RICE Event Engine in Section 3.3. Let vi,t = ( vSi,t , v Ti,t , v Fi,t ) denote the standardized sentiment, technical, and fundamental signals, and let ewi,t denote their effective weights after confidence filtering, mature-feedback adjustment, and disagreement handling. Their weighted reconciliation defines evi,t , while the Macro Agent induces a stock-specific adjustment mi,t . The Base Alpha is 
+
+bi,t = clip( mi,t evi,t , b min , b max ) , (1) 4Preprint where bmin and bmax define the admissible Base Alpha range. Both evi,t and mi,t are constructed exclusively from information available before the prediction cutoff. The resulting bi,t serves as the reference signal for the residual correction in Section 3.3. 3.3 ALPHA CORRECTION VIA THE RICE E VENT ENGINE 
+
+Conditioned on the Base Alpha bi,t , the RICE Event Engine models predictive structure arising from the temporal evolution of corporate events. Issuer-specific news events form recurring successor patterns whose statistical regularities may persist across firms and market regimes. Semantic event extraction is performed by the Typed Event Agent, while graph construction, reliability weighting, aggregation, and residualization are deterministic. Figure 3 details its two-stage construction. 
+
+Figure 3: Overview of the RICE Event Engine. Stage 1 constructs a frozen point-in-time typed-event graph from issuer-local successor relations, while Stage 2 converts reliability-weighted graph evidence into the residual RICE Delta ∆i,t .3.3.1 STAGE 1: P OINT -IN -T IME TYPED -E VENT GRAPH CONSTRUCTION 
+
+News to typed event states. Corporate news streams contain both genuine event progression and repeated reporting, so treating individual articles as independent events would distort transition statistics. At each historical cutoff τ < t , the Typed Event Agent jointly processes stock news 
+
+Ni,τ and the previously validated active record set Zi,τ − , resolving newly reported information against existing issuer-specific episodes. Each accepted record is z = ( gz , f z , π z , κ z ), where gz
+
+is a grounded event description, fz an event type, πz an event-level sentiment label, and κz ∈{NEW , UPDATED , CARRIED } the lifecycle state. N EW opens an unmatched episode, U PDATED 
+
+records substantive information about an active episode, and C ARRIED preserves an unresolved episode without introducing a new occurrence. Only validated N EW and U PDATED records create dated graph occurrences, preventing repeated coverage from inflating transition support. Each occurrence is projected to P (z) = ( fz , π z ), while episode identity and lifecycle metadata remain attached to the underlying record. At prediction cutoff t, typed states associated with current validated records, including C ARRIED episodes, form the query set Si,t .
+
+Typed states to issuer-local transitions. Temporal succession is estimated within issuers to distinguish event evolution from incidental co-occurrence. For two eligible occurrences of the same stock with typed states A and B, Stage 1 admits A → B when B occurs within the successor window Wsucc after A and both occurrences belong to the same market regime ζ. Issuer-local pairing preserves corporate-event chronology, while regime consistency separates successor patterns observed under distinct market conditions. Each directed pair represents temporal order rather than causation. An occurrence becomes an eligible anchor only after its full successor window has elapsed, preventing incomplete follow-up from being interpreted as absence of successors. 
+
+Issuer-local transitions to the frozen PIT graph. Individual firms typically provide too few repeated transitions for stable estimation, so Stage 1 pools comparable directed pairs across firms 5Preprint only after issuer-local formation and within the same market and regime ζ. The graph at cutoff t is 
+
+G(ζ) 
+
+> t
+
+= ( V(ζ) 
+
+> t
+
+, E(ζ) 
+
+> t
+
+), where A = ( f, π ) ∈ V (ζ) 
+
+> t
+
+denotes a typed event state and e = ( A, B ) ∈ E (ζ)
+
+> t
+
+a matured successor relation. This local-first, pool-second construction combines issuer-specific chronology with cross-sectional statistical strength. Each pooled edge summarizes transition support, regime-relative frequency, lag structure, distinct successor dates, and matured successor-return behavior. The graph is frozen at cutoff t, so current records may query but cannot update the statistics used for their own prediction. 3.3.2 STAGE 2: R ELIABILITY -W EIGHTED RESIDUAL CORRECTION 
+
+Current states to one-hop successor edges. At cutoff t, the current query set is matched against the frozen graph for regime ζt, yielding Ai,t = Si,t ∩ V (ζt) 
+
+> t
+
+. For each matched state A, Stage 2 considers eligible one-hop outgoing edges e = ( A, B ), restricting propagation to directly observed successor structure. Let nA denote the number of eligible anchors of A, ne the number followed by B, n→B
+
+the number of regime-matched anchors followed by B, and Nζ the total number of eligible anchors in regime ζ. The smoothed conditional transition rate pe = ( ne + αp)/(nA + αp + βp) estimates how frequently B follows A, while qe = ( n→B + αq )/(Nζ + αq + βq ) provides the corresponding regime baseline. Their ratio Le = pe/ max( qe, ε ) defines relative lift, discounting broadly prevalent successors. Candidate edges are restricted to non-self transitions and filtered by support, transition strength, and per-node budget constraints. 
+
+Successor edges to reliability weights. Transition recurrence alone is insufficient to establish predictive relevance. Each retained edge therefore receives an observational reliability weight 
+
+ρobs  
+
+> e
+
+∈ [0 , 1] based on matured transition support, coverage across distinct successor dates, and standardized successor-return association; lag alignment enters the edge contribution separately. Successor returns are admitted only after maturity, adjusted within market and date, and aggregated at the successor-date level to prevent repeated observations from dominating the estimate. 
+
+Weighted edges to the residual RICE Delta. Each retained edge e = ( A, B ) contributes a bounded score Ci,e,t whose sign follows the matured successor-return association and whose magnitude com-bines transition strength, observational reliability, query-state importance, and temporal alignment. Aggregating retained outgoing edges yields      
+
+> rgraph
+> i,t = clip
+> X
+> A∈A i,t
+> X
+> e∈E (ζt),→
+> t(A)
+> Ci,e,t ,−τ∆, τ ∆
+> ,(2)
+
+where E(ζt),→ 
+
+> t
+
+(A) denotes the retained outgoing edges of A and τ∆ bounds the aggregate graph contribution. Because M ML and the technical view may already encode information associated with the same underlying events, direct addition can duplicate information contained in the reference forecast. The graph signal is therefore residualized against the Base Alpha and technical view: 
+
+∆i,t = gedge  
+
+> i,t
+
+Res t
+
+
+
+rgraph  
+
+> ·,t
+
+; b·,t , v T
+
+> ·,t
+
+
+
+> i
+
+, (3) where gedge  
+
+> i,t
+
+∈ { 0, 1} indicates whether stock i has at least one retained non-self transition. The gating restricts correction to observations supported by matched historical evidence, while Res t
+
+removes cross-sectional rank-linear overlap with the controls before standardization. 3.4 FINAL ALPHA SYNTHESIS 
+
+The RICE Delta ∆i,t is combined with Base Alpha bi,t through a bounded residual composition: 
+
+ai,t = clip( bi,t + λ∆s∆∆i,t , a min , a max ) , (4) where s∆ > 0 aligns the standardized residual correction with the Base Alpha scale, λ∆ controls its contribution, and amin and amax define the admissible score range. The indispensable parameter and residualization definitions are collected in Appendix A. 6Preprint 
+
+## 4 EXPERIMENTS AND RESULTS 
+
+4.1 EXPERIMENTAL SETTINGS 
+
+Task, data, and baselines. On each signal date, every method scores the Nasdaq-100 (U.S.) or Hang Seng Index (Hong Kong) constituents against the five-session return from the next open, using date-specific membership, adjusted prices, financials, news (English and Chinese in Hong Kong), and market indicators (Alpha Vantage, 2026; Tushare, 2026). Following a 2023 warm-up that initializes memory and event statistics, evaluation runs from 2024-01-02 to 2026-03-30 (562 U.S. and 551 Hong Kong signal dates). LLM-agent baselines, MEME (Guo et al., 2026), R&D-Agent-Quant (Li et al., 2025), and AI Hedge Fund (Singh, 2024), test whether R ICE -A LPHA adds value beyond existing agentic systems; price-only 12–1 momentum tests it against a simple trend signal. All methods share each market’s data, period, targets, and dated universe. R ICE -A LPHA uses DeepSeek-V4-Flash (DeepSeek-AI, 2026) without fine-tuning. 
+
+Portfolio and frozen configuration. Every strategy in Table 1 follows one long-only rule, so strategies differ only in their scores. At each weekly rebalance, the portfolio is reset to equal weights on the top-scoring 10% of constituents, trades at the next open, and is held until the next rebalance. It pays trading costs of 4+4 bp per side in the U.S. and 10+4 bp in Hong Kong (commission plus slippage). Prompts, hyperparameter values, update rules, the portfolio rule, and trading costs were frozen at the end of the 2023 warm-up, with identical hyperparameters in the two markets. No setting was tuned, selected, or revised using 2024–2026 data. During evaluation, memory, event statistics, feedback, and view weights change only through the frozen update rules. 
+
+Metrics and tests. IC and RankIC (daily cross-sectional correlations of scores with realized returns) measure ranking quality, ICIR and RankICIR day-to-day stability, and ARR, Sharpe, maximum drawdown (MDD), and Calmar ratio (CR) net tradable outcomes. Newey–West t-statistics (five lags) handle the overlapping five-session targets, and one-sided paired 20-session block bootstraps (5,000 replications) with Holm adjustment compare the complete system with the ablation variants and AI Hedge Fund. 4.2 MAIN RESULTS 
+
+Table 1: Main results on common data and dated universes. ICIR and RankICIR are not annualized; ARR and MDD (a positive loss) are in %. Bold: market best. All strategies use the long-only, equal-weighted top-10% weekly rule and costs of Section 4.1; NDX/HSI exclude costs. †/‡: lag-5 Newey–West t > 1.96 /2.58 .                                                                                                                           
+
+> U.S. (Nasdaq-100) Hong Kong (HSI)
+> Panel A: Prediction quality
+> Method IC ↑ICIR ↑RankIC ↑RankICIR ↑IC ↑ICIR ↑RankIC ↑RankICIR ↑
+> MEME 0.0216 0.1135 0.0254 0.1228 0.0013 0.0067 0.0156 0.0794 R&D-Agent-Quant 0.0188 0.0796 0.0177 0.0706 0.0011 0.0048 0.0125 0.0630 AI Hedge Fund 0.0077 0.0595 0.0094 0.0845 −0.0018 −0.0121 0.0033 0.0264 Momentum (12–1) 0.0316 0.1274 0.0322 0.1324 0.0160 0.0645 0.0327 0.1312 RICE -A LPHA (ours) 0.0350 ‡0.2928 0.0360 ‡0.2927 0.0283 †0.1986 0.0395 ‡0.2514
+> Panel B: Strategy performance
+> Method ARR ↑Sharpe ↑MDD ↓CR ↑ARR ↑Sharpe ↑MDD ↓CR ↑
+> Index (NDX / HSI) 20.66 0.986 24.37 0.848 22.24 0.952 21.24 1.047 MEME 10.60 0.591 22.38 0.474 11.07 0.638 15.72 0.704 R&D-Agent-Quant 11.62 0.567 27.24 0.427 17.43 0.929 16.32 1.068 AI Hedge Fund 10.97 0.700 17.52 0.626 27.84 1.130 20.13 1.383 Momentum (12–1) 18.94 0.889 21.46 0.883 23.10 1.098 13.23 1.746 RICE -A LPHA (ours) 30.86 1.656 12.09 2.552 36.64 1.725 11.83 3.097
+
+RICE -A LPHA ranks first on every metric in both markets. As shown in Table 1, R ICE -A LPHA 
+
+supplies the strongest ranking signal in both markets, with the most notable improvement being its repeatability. Compared to momentum (the strongest baseline), IC rises from 0.0316 to 0.0350 in the U.S. and from 0.0160 to 0.0283 in Hong Kong, whereas the best agent baselines reach at most 0.0216 and 0.0013. ICIR more than doubles in both markets (0.2928 vs. 0.1274; 0.1986 vs. 0.0645), 7Preprint largely because the daily U.S. IC of R ICE -A LPHA exhibits half the dispersion (SD 0.120 vs. 0.248), consistent with the event correction turning sparse historical episodes into a steadier daily ranking. 
+
+The advantage carries over to Hong Kong. Hong Kong is a demanding stress test: with the same frozen hyperparameters, it changes the language mix, disclosure sources, and market microstructure. MEME, R&D-Agent-Quant, and AI Hedge Fund degrade severely, reaching Hong Kong ICs of 0.0013, 0.0011, and −0.0018 (at most 6% of their U.S. values), while momentum drops from 0.0316 to 0.0160. In contrast, R ICE -A LPHA retains 81% of its U.S. IC, and its Hong Kong RankIC (0.0395) exceeds its U.S. value (0.0360), the only LLM-based method whose signal stays largely intact across markets. 
+
+Statistical significance. Mean IC and RankIC are significantly positive in both markets (Newey– West t of 4.31 and 4.24 in the U.S., 2.48 and 3.10 in Hong Kong), whereas those of momentum and AI Hedge Fund are not significant in either market, and paired tests against AI Hedge Fund yield Holm-adjusted p ≤ 0.0096 (Table 3). 
+
+Better rankings translate into superior portfolios. RICE -A LPHA achieves the highest ARR, Sharpe, and CR and the smallest MDD in each market, with Sharpe ratios of 1.656 in the U.S. and 1.725 in Hong Kong (best baselines: 0.889 and 1.130). Its net ARR exceeds the indices by 10.20 and 14.40 points with roughly half the drawdown (12.09% vs. 24.37%; 11.83% vs. 21.24%). Figure 4 shows how this edge accumulates: the Hong Kong strategy leads all baselines from late September 2024, while the U.S. strategy limits losses in the 2025 sell-off and pulls ahead in early 2026. 2024-01 2024-07 2025-01 2025-07 2026-01 0.8 1.0 1.2 1.4 1.6 1.8          
+
+> Net asset value
+> (a) U.S. (Nasdaq-100)
+> 2024-01 2024-07 2025-01 2025-07 2026-01 1.0 1.2 1.4 1.6 1.8 2.0
+> Net asset value
+> (b) Hong Kong (HSI)
+> RICE-Alpha (ours) MEME R&D-Agent-Quant AI Hedge Fund Momentum (12–1) Index (NDX / HSI)
+
+Figure 4: Net asset value of R ICE -A LPHA , the baselines, and the index in (a) the U.S. and (b) Hong Kong from 2024-01-03; models are net of costs, indices exclude costs. 4.3 ABLATION STUDY 
+
+Table 2 introduces the components cumulatively on the U.S. panel, mapping each to a challenge of Section 1: retrieved memory (C1) addresses limited historical contextualization; numerical evidence from the issuer-local event graph (C2) resolves weak temporal grounding; and reliability weighting with residualization (C3) mitigates uncalibrated transitions. The w/o C3 row injects the graph evidence as a direct correction without either C3 operation, two rows retain exactly one operation each to disentangle reliability weighting from residualization, and a separate run replaces the specialized sentiment, technical, and fundamental agents with one generalist stock-analysis agent.                                      
+
+> Configuration IC ICIR RankIC RankICIR RICE -A LPHA (complete) 0.0350 0.2928 0.0360 0.2927
+> w/o C3 (direct) 0.0260 0.2203 0.0290 0.2437 Reliability only 0.0326 0.2706 0.0330 0.2665 Residualization only 0.0208 0.1777 0.0242 0.2040 w/o C2–C3 (memory) 0.0191 0.1469 0.0205 0.1531 w/o C1–C2–C3 0.0064 0.0472 0.0090 0.0641 Single-agent run 0.0148 0.0925 0.0142 0.0828 Qwen3-Max backbone 0.0281 0.1958 0.0291 0.2012
+
+Table 2: U.S. ablations and two separate references. C1 is retrieved memory, C2 nu-merical graph evidence, and C3 reliability weighting plus residualization. All compo-nent rows use multi-agent stock scoring; the single-agent row reports that run’s stored fi-nal score. Component paired tests are in Table 3; the single-agent test is in the text. 8Preprint Table 3: Daily signal significance and mechanism contrasts. Panel A gives mean IC and RankIC with Newey–West t-statistics (lag 5; 20-lag IC values 4.72 and 2.28). Pooled means weight the two markets equally on 534 shared valid dates. Panel B compares the complete system with six U.S. rows or Hong Kong AI Hedge Fund on common valid dates; p-values use one-sided 20-session paired block bootstrap (5,000 replications), with Holm adjustment by market and metric. Panel C reports the separate unadjusted comparison of reliability-only against residualization-only; it is outside the Panel B Holm family. 
+
+Panel A: RICE -A LPHA means 
+
+Market Dates IC ( t) RankIC ( t)U.S. 562 0.0350 (4.31) 0.0360 (4.24) Hong Kong 551 0.0283 (2.48) 0.0395 (3.10) Pooled 534 0.0317 (4.17) 0.0377 (4.41) 
+
+Panel B: paired increments of RICE -A LPHA over each comparator 
+
+Market Comparator Metric Increment tdiff pboot (pHolm )U.S. w/o C1–C2–C3 IC 0.0286 3.80 0.0002 (0.0012) RankIC 0.0270 3.40 0.0004 (0.0024) w/o C2–C3 (memory only) IC 0.0159 3.70 0.0002 (0.0012) RankIC 0.0155 3.34 0.0004 (0.0024) w/o C3 (direct correction) IC 0.0090 2.44 0.0096 (0.0192) RankIC 0.0070 1.82 0.0444 (0.0480) AI Hedge Fund IC 0.0252 2.58 0.0024 (0.0072) RankIC 0.0246 2.64 0.0024 (0.0096) Residualization only IC 0.0142 2.86 0.0008 (0.0032) RankIC 0.0118 2.27 0.0120 (0.0360) Reliability weighting only IC 0.0023 1.66 0.0378 (0.0378) RankIC 0.0030 2.02 0.0240 (0.0480) Hong Kong AI Hedge Fund IC 0.0305 2.52 0.0020 (0.0020) RankIC 0.0370 3.06 0.0004 (0.0004) 
+
+Panel C: reliability-only minus residualization-only (unadjusted) 
+
+Market Contrast Metric Increment tdiff pboot 
+
+U.S. Reliability only − residualization only IC 0.0119 2.35 0.0050 RankIC 0.0087 1.67 0.0406 
+
+9Preprint 
+
+Every component adds measurable signal. Both ranking quality and stability improve monotoni-cally as components are added: IC rises from 0.0064 (no components) to 0.0191 (memory), 0.0260 (direct correction), and 0.0350 (full correction), and ICIR climbs from 0.0472 to 0.1469, 0.2203, and 0.2928, with RankIC and RankICIR following the same trajectory. All five ablation variants trail the complete system on IC and RankIC under six-row Holm tests (maximum adjusted p = 0 .0480 ). Even with memory alone, the ICIR (0.1469) exceeds every baseline. 
+
+Reliability and residualization play complementary roles. Reliability weighting alone achieves an IC of 0.0326 (ICIR 0.2706), already surpassing momentum, and exceeds residualization alone (0.0208) with unadjusted one-sided p = 0 .0050 for IC and 0.0406 for RankIC (Table 3, Panel C). Adding residualization on top of reliability weighting raises IC further to 0.0350 and ICIR to 0.2928, a Holm-significant gain. Reliability weighting thus acts as the primary safeguard against noisy continuations, and residualization adds value on top of it by excising overlap with the Base Alpha. 
+
+Multi-agent versus single-agent scoring. The single-agent run reaches IC 0.0148 and RankIC 0.0142. On the common U.S. panel, the complete system exceeds it by 0.0202 in IC and 0.0218 in RankIC (two-sided block bootstrap, p = 0 .020 and 0.042), so the comparison favors the complete multi-agent configuration over the evaluated single-agent implementation. 
+
+Robustness across backbone, size, and cost. With Qwen3-Max in every LLM role, U.S. IC is 0.0281 and ICIR 0.1958, above every agent baseline (at most 0.0216 and 0.1135). Dropping ten large caps keeps IC and RankIC significant in both markets (Newey–West t ≥ 2.69 ), and per-side costs of 20 and 28 bp leave Sharpe ratios of 1.551 and 1.659, above every default-cost baseline. 4.4 BEHAVIOR IN FALLING MARKETS 
+
+Table 4 compares all methods on index-down and index-up sessions. Because all strategies share one portfolio rule, gaps between them reflect stock selection, whereas the gap to the index partly comes from the rule itself. Table 4: Behavior in falling and rising markets. Capture: mean return on index-down/up sessions relative to the index. Crash: return (%) in the index’s largest drawdown. Down mo.: mean return (%) in the 7 and 13 months the index fell. Bold: best Crash and Down mo.                                             
+
+> U.S. (Nasdaq-100) Hong Kong (HSI) Method Capture Crash Down mo. Capture Crash Down mo. Index (NDX / HSI) 1.00/1.00 −24 .4−4.51.00/1.00 −21 .2−3.3
+> MEME 0.28/0.33 −20 .8−4.10.02/0.11 +3.5 +0 .2
+> R&D-Agent-Quant 0.29/0.35 −24 .9−4.90.25/0.33 −11 .8−1.8
+> AI Hedge Fund 0.73/0.71 −17 .0−3.20.93/0.97 −20 .1−2.8
+> Momentum (12–1) 0.83/0.85 −16 .8−4.10.58/0.64 −9.3−1.4
+> RICE -A LPHA (ours) 0.51/0.65 −10.9 −0.4 0.34/0.51 −9.2+1.3
+
+RICE -A LPHA cuts losses more than gains. On index-down sessions, R ICE -A LPHA captures 51% (U.S.) and 34% (Hong Kong) of the index decline, versus 83% and 58% for momentum and 73% and 93% for AI Hedge Fund, while retaining 65% and 51% of up-session gains. MEME and R&D-Agent-Quant lose less on ordinary down sessions owing to low market exposure (U.S. beta 0.20 and 0.18), but capture only a third of rallies and still lost 20.8% and 24.9% in the Nasdaq-100’s largest crash (index 24.4%), whereas R ICE -A LPHA lost 10.9%, the least of all methods. In months when the index fell, R ICE -A LPHA posted the best mean return in both markets ( −0.4% and +1 .3% )and outperformed the index in 6 of 7 U.S. months and all 13 Hong Kong months. 
+
+## 5 CONCLUSION 
+
+RICE -A LPHA addresses how historical corporate-event dynamics can improve stock forecasting without violating point-in-time constraints or duplicating information already captured by the current forecast. It combines temporally eligible issuer history for Base Alpha generation with an issuer-local event graph that calibrates matured transitions by reliability and residualizes their contribution 10 Preprint into RICE Delta. Across the Nasdaq-100 and Hang Seng Index panels, R ICE -A LPHA achieves the strongest results among the evaluated methods, while ablations confirm the contribution of memory, graph evidence, reliability weighting, and residualization. These findings remain robust across alternative backbones, constituent exclusions, higher transaction costs, and falling-market conditions, but are limited to two large-cap universes and pretrained LLM backbones whose training data may postdate individual forecasts. Overall, the results support point-in-time, issuer-local, reliability-calibrated event continuation as an effective source of incremental predictive information. 
+
+## 6 LIMITATIONS 
+
+The study covers two large-cap equity universes. Evaluation-period selection can make estimates optimistic; tests of the selected series do not adjust for this selection. Event coverage and conditions may change results elsewhere. Portfolio evaluation uses DeepSeek-V4-Flash; Qwen3-Max is evaluated only for prediction quality. Both models may contain information that postdates individual forecasts. 
+
+## REFERENCES 
+
+Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, et al. GPT-4 technical report. arXiv preprint arXiv:2303.08774 , 2023. Alpha Vantage. API documentation, 2026. URL 
+
+https://www.alphavantage.co/documentation/ . Accessed September 26, 2026. Dogu Araci. FinBERT: Financial sentiment analysis with pre-trained language models. arXiv preprint arXiv:1908.10063, 2019. URL https://arxiv.org/abs/1908.10063 .Jacob Boudoukh, Ronen Feldman, Shimon Kogan, and Matthew Richardson. Information, trading, and volatility: Evidence from firm-specific news. The Review of Financial Studies , 32(3): 992–1033, 2019. doi: 10.1093/rfs/hhy083. Binqi Chen, Hongjun Ding, Ning Shen, Taian Guo, Jinsheng Huang, Luchen Liu, and Ming Zhang. AlphaSAGE: Structure-aware alpha mining via GFlowNets for robust exploration. In International Conference on Learning Representations , pp. 2955–2982, 2026. URL 
+
+https://proceedings.iclr.cc/paper_files/paper/2026/hash/ 06115011841a8d500050261c0ac4b1e4-Abstract-Conference.html .DeepSeek-AI. DeepSeek-V4: Towards highly efficient million-token context intelligence. arXiv preprint arXiv:2606.19348, 2026. URL https://arxiv.org/abs/2606.19348 .Zihao Deng, Yining Zhu, Leiming Wang, Jingfei Lu, Junbo Wang, Chuncheng Ran, Yu Yang, Dixuan Yang, and Jikun Shen. FinEvolveBench: A benchmark for self-evolving agents on low-repetition tasks with implicit rewards. arXiv preprint arXiv:2606.06960, 2026. URL 
+
+https://arxiv.org/abs/2606.06960v3 . Version 3, revised 12 August 2026. Qianggang Ding, Haochen Shi, Luis Castej´ on Lozano, Miguel Conner, Juan Abia, Luis Gallego-Ledesma, Joshua Fellowes, Gerard Conangla Planes, Adam Elwood, and Bang Liu. TRACE: Temporal rule-anchored chain-of-evidence on knowledge graphs for interpretable stock movement prediction. arXiv preprint arXiv:2603.12500, 2026. URL 
+
+https://arxiv.org/abs/2603.12500 .Eugene F. Fama and Kenneth R. French. Business conditions and expected returns on stocks and bonds. Journal of Financial Economics , 25(1):23–49, 1989. doi: 10.1016/0304-405X(89)90095-0. Zafeirios Fountas, Martin A. Benfeghoul, Adnan Oomerjee, Fenia Christopoulou, Gerasimos Lampouras, Haitham Bou Ammar, and Jun Wang. Human-inspired episodic memory for infinite context LLMs. In International Conference on Learning Representations , pp. 77230–77268, 2025. URL https://proceedings.iclr.cc/paper_files/paper/2025/hash/ c05144b635df16ac9bbf8246bbbd55ca-Abstract-Conference.html .Nicolae Gˆ arleanu and Lasse Heje Pedersen. Dynamic trading with predictable returns and transaction costs. The Journal of Finance , 68(6):2309–2340, 2013. doi: 10.1111/jofi.12080. Taian Guo, Haiyang Shen, Junyu Luo, Zhongshi Xing, Hanchun Lian, Jinsheng Huang, Binqi Chen, Luchen Liu, Yun Ma, and Ming Zhang. MEME: Modeling the evolutionary modes of financial markets. arXiv preprint arXiv:2602.11918, 2026. URL 
+
+https://arxiv.org/abs/2602.11918 .11 Preprint Bing Han, Gang Li, Dandan Qiao, and Mingxuan Zheng. Structured event representation and stock return predictability. SSRN Working Paper, 2025. URL 
+
+https://ssrn.com/abstract=5952915 .Yikuan Huang, Zheqi Fan, Kaiqi Hu, and Yifan Ye. Cross-stock predictability via LLM-augmented semantic networks. arXiv preprint arXiv:2604.19476, 2026. URL 
+
+https://arxiv.org/abs/2604.19476 .Kelvin J. L. Koa, Jan Chen, Yunshan Ma, Huanhuan Zheng, and Tat-Seng Chua. Reasoning on time-series for financial technical analysis. In International Conference on Learning Representations , pp. 64059–64079, 2026. URL 
+
+https://proceedings.iclr.cc/paper_files/paper/2026/hash/ 68c1b9784d982fa5575bb45ace7bd64e-Abstract-Conference.html .Shuqi Li, Yuebo Sun, Yuxin Lin, Xin Gao, Shuo Shang, and Rui Yan. CausalStock: Deep end-to-end causal discovery for news-driven multi-stock movement prediction. In Advances in Neural Information Processing Systems , volume 37, pp. 47432–47454, 2024a. doi: 10.52202/079017-1504. URL 
+
+https://proceedings.neurips.cc/paper_files/paper/2024/hash/ 54d689d58fe54c92aee2d732fc49fca8-Abstract-Conference.html .Tong Li, Zhaoyang Liu, Yanyan Shen, Xue Wang, Haokun Chen, and Sen Huang. MASTER: Market-guided stock transformer for stock price forecasting. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pp. 162–170, 2024b. doi: 10.1609/aaai.v38i1.27767. URL 
+
+https://ojs.aaai.org/index.php/AAAI/article/view/27767 .Yuante Li, Xu Yang, Xiao Yang, Xisen Wang, Weiqing Liu, and Jiang Bian. R&D-Agent-Quant: A multi-agent framework for data-centric factors and model joint optimization. In Advances in Neural Information Processing Systems , volume 38, pp. 131781–131830, 2025. doi: 10.52202/085713-3967. URL https://papers.neurips.cc/paper_files/paper/ 2025/hash/ac5c2b6e423883cbcacbcccf88491b78-Abstract-Datasets_and_Benchmarks_Track.html . Datasets and Benchmarks Track. Zhixi Li, Jie Xiong, Jun Wang, Jinghua Tan, Philippe Du Jardin, Muhammet Deveci, and Kaiyang Zhong. A multi-graph learning framework to fuse heterogeneous market information for stock forecasting. Expert Systems with Applications , 319:132142, 2026. doi: 10.1016/j.eswa.2026.132142. Aixin Liu, Bei Feng, Bing Xue, Bingxuan Wang, Bochao Wu, Chengda Lu, Chenggang Zhao, Chengqi Deng, Chenyu Zhang, Chong Ruan, et al. DeepSeek-V3 technical report. arXiv preprint arXiv:2412.19437 , 2024a. Mengpu Liu, Mengying Zhu, Xiuyuan Wang, Guofang Ma, Jianwei Yin, and Xiaolin Zheng. ECHO-GL: Earnings calls-driven heterogeneous graph learning for stock movement prediction. In 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pp. 13972–13980, 2024b. doi: 10.1609/aaai.v38i12.29305. Xiao-Yang Liu, Ziyi Xia, Jingyang Rui, Jiechao Gao, Hongyang Yang, Ming Zhu, Christina Wang, Zhaoran Wang, and Jian Guo. FinRL-Meta: Market environments and benchmarks for data-driven financial reinforcement learning. In Advances in Neural Information Processing Systems ,volume 35, pp. 1835–1849, 2022. doi: 10.52202/068431-0134. URL 
+
+https://proceedings.neurips.cc/paper_files/paper/2022/hash/ 0bf54b80686d2c4dc0808c2e98d430f7-Abstract.html . Datasets and Benchmarks Track. Alejandro Lopez-Lira and Yuehua Tang. Can ChatGPT forecast stock price movements? Return predictability and large language models. Journal of Financial Economics , 184:104335, 2026. doi: 10.1016/j.jfineco.2026.104335. Jane A. Ou and Stephen H. Penman. Financial statement analysis and the prediction of stock returns. 
+
+Journal of Accounting and Economics , 11(4):295–329, 1989. doi: 10.1016/0165-4101(89)90017-7. Hao Qian, Hongting Zhou, Qian Zhao, Hao Chen, Hongxiang Yao, Jingwei Wang, Ziqi Liu, Fei Yu, Zhiqiang Zhang, and Jun Zhou. MDGNN: Multi-relational dynamic graph neural network for comprehensive and dynamic stock investment prediction. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pp. 14642–14650, 2024. doi: 10.1609/aaai.v38i13.29381. Xiaojun Qian, Sidi Chen, and Zhenqiang Sun. Sleipnir: Multi-agent based stock operator framework with interpretability. IEEE Access , 2026. doi: 10.1109/ACCESS.2026.3664216. 12 Preprint Hao Shi, Weili Song, Xinting Zhang, Jiahe Shi, Cuicui Luo, Xiang Ao, Hamid Arian, and Luis Angel Seco. AlphaForge: A framework to mine and dynamically combine formulaic alpha factors. In 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , volume 39, pp. 12524–12532, 2025a. doi: 10.1609/aaai.v39i12.33365. URL 
+
+https://ojs.aaai.org/index.php/AAAI/article/view/33365 .Wenda Shi, Yiren Song, Dengming Zhang, Jiaming Liu, and Xingxing Zou. FonTS: Text rendering with typography and style controls. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) , pp. 18463–18474, 2025b. URL https://openaccess.thecvf. com/content/ICCV2025/html/Shi_FonTS_Text_Rendering_With_ Typography_and_Style_Controls_ICCV_2025_paper.html .Wenda Shi, Waikeung Wong, and Xingxing Zou. Generative AI in fashion: Overview. ACM Transactions on Intelligent Systems and Technology , 16(4), 2025c. doi: 10.1145/3718098. Article 74, 73 pages. Wenda Shi, Chenyuan Pan, Dengming Zhang, Yiren Song, Biao Zhang, and Xingxing Zou. AnySurf: Any surface generation with directed edge, 2026a. URL 
+
+https://arxiv.org/abs/2605.26149 .Wenda Shi, Yiren Song, Zihan Rao, Dengming Zhang, Jiaming Liu, and Xingxing Zou. WordCon: Word-level typography control in visual text rendering. IEEE Transactions on Circuits and Systems for Video Technology , 2026b. doi: 10.1109/TCSVT.2026.3686871. Accepted/in press. Yu Shi, Yitong Duan, and Jian Li. Navigating the alpha jungle: An LLM-powered MCTS framework for formulaic alpha factor mining. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 40, pp. 997–1005, 2026c. doi: 10.1609/aaai.v40i2.37069. URL 
+
+https://ojs.aaai.org/index.php/AAAI/article/view/37069 .Virat Singh. AI Hedge Fund. GitHub repository, 2024. URL 
+
+https://github.com/virattt/ai-hedge-fund . Accessed September 26, 2026. Zifan Song, Kaitao Song, Guosheng Hu, Ding Qi, Junyao Gao, Xiaohua Wang, Dongsheng Li, and Cairong Zhao. Trade in minutes! Rationality-driven agentic system for quantitative financial trading. In International Conference on Learning Representations , pp. 27140–27156, 2026. URL 
+
+https://proceedings.iclr.cc/paper_files/paper/2026/hash/ 2db9fbe4f34340cb928c653a6333084b-Abstract-Conference.html .Tushare. Tushare Pro data API documentation, 2026. URL 
+
+https://tushare.pro/document/2 . Accessed September 26, 2026. Zhicheng Wang, Biwei Huang, Shikui Tu, Kun Zhang, and Lei Xu. DeepTrader: A deep reinforcement learning approach for risk-return balanced portfolio management with market conditions embedding. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 35, pp. 643–650, 2021. doi: 10.1609/aaai.v35i1.16144. URL 
+
+https://ojs.aaai.org/index.php/AAAI/article/view/16144 .Shijie Wu, Ozan Irsoy, Steven Lu, Vadim Dabravolski, Mark Dredze, Sebastian Gehrmann, Prabhanjan Kambadur, David Rosenberg, and Gideon Mann. BloombergGPT: A large language model for finance. arXiv preprint arXiv:2303.17564, 2023. URL 
+
+https://arxiv.org/abs/2303.17564 .Yijia Xiao, Edward Sun, Di Luo, and Wei Wang. TradingAgents: Multi-agents LLM financial trading framework. arXiv preprint arXiv:2412.20138, 2024. URL 
+
+https://arxiv.org/abs/2412.20138 .Qianqian Xie, Weiguang Han, Yanzhao Lai, Min Peng, and Jimin Huang. The Wall Street neophyte: A zero-shot analysis of ChatGPT over multimodal stock movement prediction challenges. arXiv preprint arXiv:2304.05351, 2023. URL https://arxiv.org/abs/2304.05351 .Guojun Xiong, Zhiyang Deng, Keyi Wang, Yupeng Cao, Haohang Li, Yangyang Yu, Xueqing Peng, Mingquan Lin, Kaleb E. Smith, Xiao-Yang Liu, Jimin Huang, Sophia Ananiadou, and Qianqian Xie. FLAG-Trader: Fusion LLM-agent with gradient-based reinforcement learning for financial trading. In Findings of the Association for Computational Linguistics: ACL 2025 , pp. 13921–13934, Vienna, Austria, 2025. Association for Computational Linguistics. doi: 10.18653/v1/2025.findings-acl.716. URL 
+
+https://aclanthology.org/2025.findings-acl.716/ .Hongyang Yang, Xiao-Yang Liu, and Christina Dan Wang. FinGPT: Open-source financial large language models. arXiv preprint arXiv:2306.06031, 2023. URL 
+
+https://arxiv.org/abs/2306.06031 .Asef Yılkı. Supply chain propagation of textual signals: LLM embeddings and cross-sectional return predictability. arXiv preprint arXiv:2606.29290, 2026. URL 13 Preprint 
+
+https://arxiv.org/abs/2606.29290 .Shuo Yu, Hongyan Xue, Xiang Ao, Feiyang Pan, Jia He, Dandan Tu, and Qing He. Generating synergistic formulaic alpha collections via reinforcement learning. In Proceedings of the 29th ACM SIGKDD Conference on Knowledge Discovery and Data Mining , pp. 5476–5486, 2023. doi: 10.1145/3580305.3599831. URL https://doi.org/10.1145/3580305.3599831 .Applied Data Science Track. Yangyang Yu, Haohang Li, Zhi Chen, Yuechen Jiang, Yang Li, Jordan W. Suchow, Denghui Zhang, and Khaldoun Khashanah. FinMem: A performance-enhanced LLM trading agent with layered memory and character design. IEEE Transactions on Big Data , 11(6):3443–3459, 2025. doi: 10.1109/TBDATA.2025.3593370. URL 
+
+https://doi.org/10.1109/TBDATA.2025.3593370 .Dengming Zhang, Weitao You, Jingxiong Li, Weishen Lin, Wenda Shi, Xue Zhao, Heda Zuo, Junxian Wu, and Lingyun Sun. Learning to hear by seeing: It’s time for vision language models to understand artistic emotion from sight and sound, 2025. URL 
+
+https://arxiv.org/abs/2511.12077 .Lin Zhang. LLM-enhanced dynamic financial knowledge graphs for cross-entity signal propagation and alpha discovery. arXiv preprint arXiv:2607.10932, 2026. URL 
+
+https://arxiv.org/abs/2607.10932 .Wentao Zhang, Mingxuan Zhao, Jincheng Gao, Jieshun You, Huaiyu Jia, Yilei Zhao, Bo An, and Shuo Sun. AlphaForgeBench: Benchmarking end-to-end trading strategy design with large language models. In Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining V. 2 , pp. 10268–10277, 2026. doi: 10.1145/3770855.3817500. Andrew Zhao, Daniel Huang, Quentin Xu, Matthieu Lin, Yong-Jin Liu, and Gao Huang. ExpeL: LLM agents are experiential learners. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 38, pp. 19632–19642, 2024. doi: 10.1609/aaai.v38i17.29936. URL 
+
+https://ojs.aaai.org/index.php/AAAI/article/view/29936 .Zijie Zhao and Roy E. Welsch. Point-in-time financial RAG with frozen LLMs and market-feedback adaptive retrieval. arXiv preprint arXiv:2605.31201, 2026. URL 
+
+https://arxiv.org/abs/2605.31201 .Zhoufan Zhu and Ke Zhu. AlphaQCM: Alpha discovery in finance with distributional reinforcement learning. In Proceedings of the 42nd International Conference on Machine Learning , volume 267 of Proceedings of Machine Learning Research , pp. 80463–80479. PMLR, 2025. URL 
+
+https://proceedings.mlr.press/v267/zhu25ag.html .14 Preprint 
+
+## A NOTATION AND FIXED SCALES 
+
+Base Alpha. For view j ∈ { S, T, F }, vji,t , cji,t , and ewji,t are the cutoff-time standardized score, confidence, and effective weight. With Ji,t = {j : cji,t ≥ 0.30 }, the reconciled view is 
+
+¯vi,t =
+
+P 
+
+> j∈J i,t
+
+ewji,t cji,t vji,t 
+
+P 
+
+> j∈J i,t
+
+ewji,t cji,t 
+
+,
+
+evi,t = clip  sfb  
+
+> i,t
+
+clip(¯ vi,t /3, −1, 1) , −1, 1 . (5) We set ¯vi,t = 0 when no view is eligible. The matured-feedback scale sfb  
+
+> i,t
+
+is one without eligible feedback. The macro factor is mi,t = clip(1 + 0 .25 μtχi,t , 0.75 , 1.25) , where μt is the bounded date-level macro signal and χi,t the clipped historical market beta. Equation 1 uses (bmin , b max ) = ( −1, 1) .
+
+Event counts and maturity. The successor window Wsucc is 1–20 exchange sessions. Each graph estimate reads records at least 25 sessions old; an anchor is eligible only after its full successor window, making eligible anchors at least 45 sessions old. The date-level regime ζt crosses three historical index-volatility levels with risk-on, neutral, and risk-off states. In Section 3.3, nA counts eligible A-anchors, ne counts distinct A-anchors followed by B, n→B counts regime-matched anchors followed by B, and Nζ counts all eligible anchors in the regime. The rate priors are αp = βp = αq = βq = 1 
+
+and ε = 10 −12 . Retained non-self edges require ne ≥ 5, pe ≥ 0.30 , and Le ≥ 1.5; at most eight outgoing edges per query state are used. 
+
+Return association and edge contribution. Let De be the number of distinct successor dates and 
+
+DYe,h the dates with a matured h-session return; Je,h = |D Ye,h |, for h ∈ H = {1, 5, 20 }. For successor date d, ¯ye,d,h is the mean edge-linked return after subtraction of the same market–date return mean. Define 
+
+θe,h = J−1
+
+> e,h
+
+X
+
+> d∈D Ye,h
+
+¯ye,d,h , bσe,h = sd population ,d (¯ ye,d,h ),sassoc  
+
+> e,h
+
+= θe,h 
+
+pJe,h /bσe,h . (6) When Je,h = 0 , both θe,h and bσe,h are set to zero. The association is zero unless Je,h > 1 and 
+
+bσe,h > 10 −12 . The five-session values θe = θe, 5 and σret  
+
+> e
+
+= max( bσe, 5, 0.02) enter the correction. The support factor and stored reliability are 
+
+Re = min(1 , n e/20) min(1 , D e/8) min(1 , n e/10) min(1 , (Nζ − nA)/30) ,ρstored  
+
+> e
+
+= clip 
+
+
+
+Re min 
+
+
+
+1, max  
+
+> h∈H
+
+|sassoc  
+
+> e,h
+
+|/2
+
+
+
+, 0, 1
+
+
+
+. (7) The observational weight ρobs  
+
+> e
+
+equals this stored weight when positive; otherwise it is Reψ(sassoc  
+
+> e, 5
+
+),where ψ(x) = min(1 , |x|/2) for nonzero finite x and 0.5 otherwise. Let ℓe and σℓ,e be the mean and population standard deviation of observed successor lags. The lag-alignment weight is wlag  
+
+> e,h
+
+= exp[ − 12 (( ℓe − h)/ max( σℓ,e , 1.5)) 2] and ω(e) = wlag  
+
+> e, 5
+
+/ P 
+
+> h∈H
+
+wlag 
+
+> e,h
+
+.Writing sclip u(x) = clip( x, −u, u ), the contribution in Eq. 2 is 
+
+ηe = sclip 0.25 
+
+ρobs  
+
+> e
+
+tanh  log clip( Le, 10 −6, 20)  tanh( θe/σ ret  
+
+> e
+
+) ,Ci,e,t = sclip 0.25 [xi,A,t (0 .6) peηeω(e)] . (8) Here xi,A,t is matched-state importance normalized to mean one across the stock’s matched nodes, and τ∆ = 0 .20 bounds the sum. 
+
+Residual and final score. Res t first standardizes and clips the raw graph signal to [−3, 3] , assigns average ranks to it and to the Base Alpha and technical view, and regresses the ranked signal on an intercept and nondegenerate ranked controls across at least 20 common stocks. It centers and standardizes the residual; degenerate residuals and stocks without a retained edge receive zero correction. Equation 4 uses λ∆ = 0 .30 , s∆ = 1 /3, and (amin , a max ) = ( −1, 1) .15
