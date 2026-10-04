@@ -6,92 +6,44 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-10-03
-- 运行时间：2026-10-03 22:20:41 UTC
+- 最新运行日期：2026-10-04
+- 运行时间：2026-10-04 23:13:51 UTC
 - 运行状态：成功
-- 本次总论文数：23
-- 精读区：12
-- 速读区：11
+- 本次总论文数：7
+- 精读区：6
+- 速读区：1
 
 ### 今日简报（AI）
-- 今日共生成 23 篇推荐（精读 12 篇，速读 11 篇）
-- 精读：《Large and Moderate Deviations for Conservative Tail-Index Estimation》（9.0/10）, 《Taming the Option Factor Zoo: A High-Dimensional Analysis》（9.0/10）
-- 速读：《Efficient and Adaptive Estimation of Portfolio Weights with Spectral Risk Measures》（8.0/10）, 《RICE-Alpha: Reliability-Informed Correction with Event Graphs for LLM-Agent Stock Forecasting》（8.0/10）, 《From Word Counts to Context: Topic Models for Asset Pricing》（8.0/10）
+- 今日共生成 7 篇推荐（精读 6 篇，速读 1 篇）
+- 精读：《Universal Dynamic Portfolios》（8.0/10）, 《Retrieval-Augmented Diffusion Modeling for Stochastic Discount Factor Portfolios》（8.0/10）
+- 速读：《On the Pricing of American Options under Stochastic Local Volatility and Stochastic Correlation via the RBSDE Framework》（8.0/10）
 - 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
-- 详情：[/202610/03/README](/202610/03/README)
+- 详情：[/202610/04/README](/202610/04/README)
 
 ### 精读区论文标签
-1. [Large and Moderate Deviations for Conservative Tail-Index Estimation](/202610/03/2609.31127v1-large-and-moderate-deviations-for-conservative-tail-index-estimation)  
-   标签：评分：9.0/10、query:qf
-   evidence：带大偏差保证的尾指数估计；直接支持尾部风险管理的极值理论方法
-2. [Taming the Option Factor Zoo: A High-Dimensional Analysis](/202610/03/2609.31263v1-taming-the-option-factor-zoo-a-high-dimensional-analysis)  
-   标签：评分：9.0/10、query:qf
-   evidence：用LASSO比较期权隐含因子与股票因子在实证资产定价中的表现
-3. [Uncertainty and Explainability in Deep Rough Volatility: A Neural Information-Theoretic Posterior Approach](/202610/03/2609.31570v1-uncertainty-and-explainability-in-deep-rough-volatility-a-neural-information-theoretic-posterior-approach)  
-   标签：评分：9.0/10、query:qf
-   evidence：基于神经比率估计的粗糙Heston模型隐含波动率曲面校准后验推断
-4. [Monte Carlo pricing under fast mean-reverting stochastic volatility: the multi-scale limit ${ε\to 0}$](/202610/03/2609.32765v1-monte-carlo-pricing-under-fast-mean-reverting-stochastic-volatility-the-multi-scale-limit-to-0)  
-   标签：评分：9.0/10、query:qf
-   evidence：快速均值回归随机波动率下的蒙特卡洛期权定价
-5. [Taming the Greeks: Option Portfolios with Inductive Biases](/202610/03/2609.33767v1-taming-the-greeks-option-portfolios-with-inductive-biases)  
-   标签：评分：9.0/10、query:qf
-   evidence：用于系统性期权交易的端到端深度学习框架，嵌入对冲行为和风险敏感惩罚
-6. [KiT: A Foundation Model for Financial Time-Series Forecasting using DiffusionTransformers](/202610/03/2609.34507v1-kit-a-foundation-model-for-financial-time-series-forecasting-using-diffusiontransformers)  
-   标签：评分：9.0/10、query:qf
-   evidence：基于扩散Transformer基础模型的金融K线预测；直接面向金融时间序列深度学习预测
-7. [A tale of two allocations: Risk capital contributions versus risk contributions in the tail](/202610/03/2609.36177v1-a-tale-of-two-allocations-risk-capital-contributions-versus-risk-contributions-in-the-tail)  
-   标签：评分：9.0/10、query:qf
-   evidence：比较CTE与GTE比例风险资本分配，直接涉及尾部风险度量与风险贡献
-8. [The Efficient Frontier from a LASSO Solver](/202610/03/2609.37108v1-the-efficient-frontier-from-a-lasso-solver)  
-   标签：评分：9.0/10、query:qf
-   evidence：利用LASSO求解器计算马科维茨有效前沿，支持多空与纯多头组合
-9. [Volatility-Clustering Adaptation for Financial Time Series](/202610/03/2609.37715v1-volatility-clustering-adaptation-for-financial-time-series)  
-   标签：评分：9.0/10、query:qf
-   evidence：面向金融时间序列的波动率聚类自适应方法改进基础模型的波动率预测
-10. [Dyson-Schwinger Effective-Action Methods for Rough Volatility: A Correlation-Response Architecture for Calibration, Exotics and Risk](/202610/03/2609.37741v1-dyson-schwinger-effective-action-methods-for-rough-volatility-a-correlation-response-architecture-for-calibration-exotics-and-risk)  
-   标签：评分：9.0/10、query:qf
-   evidence：基于量子场论方法的粗糙波动率期权定价与校准
-11. [Basket implied volatility skew and stickiness](/202610/03/2609.38230v1-basket-implied-volatility-skew-and-stickiness)  
-   标签：评分：9.0/10、query:qf
-   evidence：篮子资产近货币期权隐含波动率展开与偏斜粘性比；适用于期权隐含波动率与波动率曲面分析
-12. [Multiperiod bond portfolio optimization with transaction costs using a Markov Decision process](/202610/03/2609.38765v1-multiperiod-bond-portfolio-optimization-with-transaction-costs-using-a-markov-decision-process)  
-   标签：评分：9.0/10、query:qf
-   evidence：利率风险与交易成本下多期债券组合优化的马尔可夫决策过程；直接解决资产配置与风险管理问题
+1. [Universal Dynamic Portfolios](/202610/04/2609.34643v1-universal-dynamic-portfolios)  
+   标签：评分：8.0/10、query:qf
+   evidence：通用动态投资组合与动态遗憾最小化
+2. [Retrieval-Augmented Diffusion Modeling for Stochastic Discount Factor Portfolios](/202610/04/2609.35086v1-retrieval-augmented-diffusion-modeling-for-stochastic-discount-factor-portfolios)  
+   标签：评分：8.0/10、query:qf
+   evidence：随机贴现因子下的投资组合优化与检索增强扩散
+3. [When Hedging Changes the Payoff: Option Replication with Price Impact and Execution Costs](/202610/04/2609.36257v1-when-hedging-changes-the-payoff-option-replication-with-price-impact-and-execution-costs)  
+   标签：评分：8.0/10、query:qf
+   evidence：考虑价格冲击和执行成本的期权复制，直接涉及摩擦条件下的期权对冲
+4. [When Stress Tests Miss the Risk: Statistical Scenario Analysis for Financial Portfolios](/202610/04/2609.37273v1-when-stress-tests-miss-the-risk-statistical-scenario-analysis-for-financial-portfolios)  
+   标签：评分：8.0/10、query:qf
+   evidence：机器学习方法实现金融组合压力测试中的情景条件分位数预测
+5. [Stochastic Knothe-Rosenblatt: Light-speed Calibration of Stochastic Local Volatility Models](/202610/04/2609.39256v1-stochastic-knothe-rosenblatt-light-speed-calibration-of-stochastic-local-volatility-models)  
+   标签：评分：8.0/10、query:qf
+   evidence：随机局部波动率模型的校准，用于期权定价和波动率曲面建模
+6. [Short-term barrier option price expansion](/202610/04/2610.00340v1-short-term-barrier-option-price-expansion)  
+   标签：评分：8.0/10、query:qf
+   evidence：随机波动率下障碍期权短期限展开，有助于波动率曲面建模
 
 ### 速读区论文标签
-1. [Efficient and Adaptive Estimation of Portfolio Weights with Spectral Risk Measures](/202610/03/2609.31994v1-efficient-and-adaptive-estimation-of-portfolio-weights-with-spectral-risk-measures)  
+1. [On the Pricing of American Options under Stochastic Local Volatility and Stochastic Correlation via the RBSDE Framework](/202610/04/2610.01187v1-on-the-pricing-of-american-options-under-stochastic-local-volatility-and-stochastic-correlation-via-the-rbsde-framework)  
    标签：评分：8.0/10、query:qf
-   evidence：谱风险度量（CVaR）下的投资组合权重自适应估计
-2. [RICE-Alpha: Reliability-Informed Correction with Event Graphs for LLM-Agent Stock Forecasting](/202610/03/2609.34004v2-rice-alpha-reliability-informed-correction-with-event-graphs-for-llm-agent-stock-forecasting)  
-   标签：评分：8.0/10、query:qf
-   evidence：LLM智能体的时点股票评分与事件图可靠性校正
-3. [From Word Counts to Context: Topic Models for Asset Pricing](/202610/03/2609.34169v1-from-word-counts-to-context-topic-models-for-asset-pricing)  
-   标签：评分：8.0/10、query:qf
-   evidence：使用句子转换器和主题模型从新闻文本构建资产定价因子
-4. [Deep kernel hedging](/202610/03/2609.34474v1-deep-kernel-hedging)  
-   标签：评分：8.0/10、query:qf
-   evidence：使用路径依赖签名特征的深度核对冲框架
-5. [UQ-LOB: Uncertainty-Aware Limit Order Book Mid-Price Forecasting](/202610/03/2609.31491v1-uq-lob-uncertainty-aware-limit-order-book-mid-price-forecasting)  
-   标签：评分：7.0/10、query:qf
-   evidence：限价订单簿中间价预测与不确定性量化
-6. [UQ-LOB: Uncertainty-Aware Limit Order Book Mid-Price Forecasting](/202610/03/2609.31491v2-uq-lob-uncertainty-aware-limit-order-book-mid-price-forecasting)  
-   标签：评分：7.0/10、query:qf
-   evidence：面向算法交易的限价订单簿中间价预测不确定性量化，是市场微观结构主题的核心
-7. [Finance-Informed Operator Learning for Option Pricing with Quantum-Compatible Realizations](/202610/03/2609.33213v1-finance-informed-operator-learning-for-option-pricing-with-quantum-compatible-realizations)  
-   标签：评分：7.0/10、query:qf
-   evidence：基于局部波动率的期权定价，使用金融信息深度算子网络，直接关联波动率曲面建模
-8. [RICE-Alpha: Reliability-Informed Correction with Event Graphs for LLM-Agent Stock Forecasting](/202610/03/2609.34004v1-rice-alpha-reliability-informed-correction-with-event-graphs-for-llm-agent-stock-forecasting)  
-   标签：评分：7.0/10、query:qf
-   evidence：基于LLM的事件图股票收益预测与可靠性校准，支持截面收益预测
-9. [Moment Ambiguity and the Limits of Robust Stochastic Optimization](/202610/03/2609.31090v1-moment-ambiguity-and-the-limits-of-robust-stochastic-optimization)  
-   标签：评分：6.0/10、query:qf
-   evidence：矩模糊下的鲁棒随机优化与投资组合配置相关
-10. [DiffPTS: Rethinking Diffusion ELBO for Probabilistic Time Series Forecasting](/202610/03/2609.32363v1-diffpts-rethinking-diffusion-elbo-for-probabilistic-time-series-forecasting)  
-   标签：评分：6.0/10、query:qf
-   evidence：基于扩散的概率时间序列预测，可用于金融波动率建模
-11. [TimeES: Probabilistic and Deterministic Time Series Forecasting via Evolutionary Spectra](/202610/03/2609.32384v1-timees-probabilistic-and-deterministic-time-series-forecasting-via-evolutionary-spectra)  
-   标签：评分：6.0/10、query:qf
-   evidence：概率时间序列预测框架可应用于金融波动率
+   evidence：随机局部波动率下美式期权定价与对冲
 
 
 <div class="dpr-home-promo-card">

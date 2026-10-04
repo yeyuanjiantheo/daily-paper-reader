@@ -1,0 +1,3119 @@
+Title: On the Pricing of American Options under Stochastic Local Volatility and Stochastic Correlation via the RBSDE Framework
+
+URL Source: https://arxiv.org/pdf/2610.01187v1
+
+Published Time: Fri, 02 Oct 2026 01:09:02 GMT
+
+Number of Pages: 32
+
+Markdown Content:
+# On the Pricing of American Options under Stochastic Local Volatility and Stochastic Correlation via the RBSDE Framework 
+
+L. Teng ∗
+
+Applied and Computational Mathematics University of Wuppertal Wuppertal, Germany October 2, 2026 
+
+Abstract 
+
+In this work, we study the pricing of American options under stochastic local volatility (SLV) models extended by including stochastic correlation driven by an additional stochastic process. We generalize the class of SLV models by incorporating a flexible stochastic correlation structure. To price options within these extended models, we derive the correspond-ing reflected forward-backward stochastic differential equations (RBSDEs) and employ data-driven numerical methods to solve them for both pricing and hedging purposes. The RBSDE framework enables the modelling of the future evolution of the option price. Furthermore, we conduct a con-vergence analysis of the proposed numerical method and present numer-ical experiments that illustrate the performance of the extended models, as well as the accuracy and efficiency of the RBSDE-based approach. 
+
+Keywords: Stochastic local volatility, Stochastic correlation, American op-tions, Reflected forward-backward stochastic differential equations (RBSDEs) 
+
+## 1 Introduction 
+
+Local volatility (LV) models were proposed in Dupire (1994); Derman and Kani (1994) for an exact and fast fit to the implied volatility surface of European option prices with the Dupire’s formula. However, it has been pointed out in Hagen et al. (2002) that these self-consistent and arbitrage-free models predict the wrong dynamics of the implied volatility curve, leading to unstable hedges of exotic options. An alternative class of parametric models are stochastic volatil-ity (SV) models, e.g. Heston (1993); Hull and White (1987), which can provide 
+
+> ∗
+
+Email: teng@math.uni-wuppertal.de 
+
+1arXiv:2610.01187v1 [q-fin.CP] 1 Oct 2026 a more realistic term structure for implied volatility surface, in particular future smiles. Stochastic local volatility (SLV) models can be constructed by combing desirable features from both LV models and SV models, the well-known example is the stochastic Alpha Beta Rho (SABR) model Hagen et al. (2002). Despite those features of the SLV models, it is quite challenging to compute option prices and hedging quantities due to the correlated Brownian motions and the nonlinear local volatility structure in the price process. In the literature so far, several Monte Carlo simulation methods have been proposed; see, e.g., Cai et al. (2017); Chen et al. (2012); Leitao et al. (2017) and references therein. Another class of methods is to use asymptotic expansion techniques Antonov et al. (2013); Armstrong et al. (2018); Hagen et al. (2002) and many others. The performance of the pricing using these methods is not consistent while varying all parameters, e.g., it is well known that the expansion of implied volatility in Hagen et al. (2002) is less accurate for a large maturity, or when the options are deep in or out of the money. This is one of the reasons why a double layer continuous-time Markov chain (CTMC) approximation method is proposed in Cui et al. (2018), in which the pricing of American options is also considered. This CTMC approximation method is more general and applicable for many SLV models with an arbitrary correlation structure. In Cui et al. (2017), a transform-based method is proposed to price swaps and options related to dis-cretely sampled realized variance under a general class of stochastic volatility models with jumps, where a CTMC weak approximation scheme is utilized for the variance process. To the best of our knowledge, SLV models in the existing literature typically assume constant correlations. However, there is extensive empirical evidence Driessen et al. (2009); Teng et al. (2016a,b,c, 2018), and references therein, including that correlations between financial variables - such as between asset returns or between asset prices and their volatilities - are inherently stochastic. Clearly, assuming constant correlations may lead to misestimation and introduce correlation risk. In this paper, we propose an extension of standard SLV models extended by incorporating a flexible stochastic correlation structure, resulting in what we refer to as stochastic correlation local volatility (SCLV) models. For pricing options European-style options under the SCLV framework - which leads to a three-dimensional problem even for a single underlying asset - methods such as Monte Carlo simulation (in combination with backward dynamic programming) or Fourier transform techniques may be applicable. However, these methods are not well-suited for pricing American-style options, due to the early exercise feature and the increased model complexity. For instance, the commonly used double-layer CTMC approximation would need to be extended to a triple-layer structure to accommodate the stochastic correlation, which poses significant computational challenges. Moreover, deriving hedge parameters with respect to the local volatility, stochastic correlation, and asset price is generally non-trivial within these frameworks. Therefore, to address these challenges, we employ an RBSDE-based ap-proach. This framework provides a natural and flexible methodology for han-2dling early-exercise features and the multidimensional structure of the SCLV model. Importantly, the RBSDE formulation in our approach not only facili-tates the computation of option prices and their sensitivities, but also enables modelling of the future evolution of option prices in a dynamic and consistent manner. Research on the pricing of high-dimensional American options remains an active area in the literature; see, for example, Lelong (2018); Redmann (2023); Yang and Li (2024b). In particular, several state-of-the-art deep learning-based approaches have been proposed. A deep learning method for optimal stop-ping problems was first introduced in the pioneering work Becker et al. (2019), while approaches based on deep neural networks (DNNs) for computing stop-ping boundaries were first studied in Reppen et al. (2025), see also Soner and Tissot-Daguette (2025). Many other related contributions, such as Bayraktar et al. (2024); Becker et al. (2021); Dong (2024); Hur´ e et al. (2020); Reppen et al. (2023); Yang and Li (2024a), can be employed for pricing American op-tions under the SCLV models. The deep primal-dual algorithm introduced in the recent work Yang and Li (2024a) provides both lower and upper bounds for American option prices and is therefore naturally chosen as the benchmark for our approach. We summarize the main contributions of this work as follows: 1. We extend classical SLV models by introducing a flexible stochastic correla-tion structure, governed by a suitable stochastic process, resulting in the SCLV model. This generalization enables effective hedging of correlation risk. Within this framework, we derive the RBSDE pricing and hedging formulas (with re-spect to the asset price, local volatility, and correlation) for American options. 2. The proposed RBSDE framework serves as a general and flexible valuation methodology for SCLV models. The proposed RBSDE algorithm achieves high numerical accuracy, as demonstrated through comparisons with the state-of-the-art methods. In addition, we provide a rigorous convergence analysis to support its reliability. Beyond valuation, the RBSDE framework also enables the modelling of the future evolution of the option prices and hedging strategies, making it a powerful tool for both pricing and risk management. 3. To the best of our knowledge, pricing and delta hedging of American options under combined stochastic local volatility and stochastic correlation have not been previously studied. Our results therefore establish important benchmarks for future research in this area. In the next section, we start with extension of the SLV models by including a stochastic correlation structure, aiming to develop the SCLV models. In Sec-tion 3 we introduce the RBSDEs for pricing American-type options in the SCLV models. Section 4 is devoted to introduction to the XGBoost regression-based scheme including error analysis. The applications of the developed RBSDE pricing framework to the classical SABR and Heston stochastic local volatility (HSLV) models extended with stochastic correlation structure are addressed in Section 5. In Section 6, we provide a set of numerical experiments for Amer-ican options to illustrate the accuracy and efficiency of the proposed RBSDE approach. Finally, Section 7 concludes this work. 32 Extension of general stochastic local volatility model with stochastic correlation 
+
+Throughout the paper, we assume that (Ω , F, P ; {F t}0≤t≤T ) is a complete, fil-tered probability space. In this space, the standard d-dimensional Brownian motions Wt with a finite terminal time T are defined, which generates the fil-tration {F t}0≤t≤T , i.e., Ft = σ{Ws, 0 ≤ s ≤ t}. And the usual hypotheses should be satisfied. We denote the set of all Ft-adapted and square integrable processes in Rd with L2 = L2(0 , T ; Rd).
+
+By combing desirable features from SV models and LV models one obtains the following general class of SLV models 
+
+ dν t = aν (t, ν t) dt + bν (t, ν t) dW νt ,dS t = as(t, S t, ν t) dt + α(νt)β(St) dW st , (1) where W νt and W st are correlated with a constant correlation coefficient ρ ∈
+
+(−1, 1) , i.e., d < W ν , W s >t= ρ dt. Instead of using constant correlation we extend the SLV models (1) by incorporating stochastic correlation between W νt
+
+and W st , as 
+
+dρ t = aρ(t, ρ t) dt + bρ(t, ρ t) dW ρt ,dν t = aν (t, ν t) dt + bν (t, ν t) dW νt ,dS t = as(t, S t, ν t, ρ t) dt + α(νt)β(St) dW st ,
+
+(2) where d < W ν , W s >t= Rνs (ρt) dt. This symbolic notation means that 
+
+E[W νt W st ] = E
+
+Z t
+
+> 0
+
+Rsν (ρs) ds 
+
+
+
+, (3) we refer to Teng et al. (2016a,c) for its construction. Furthermore, we let d < W ρ, W ν >t= Rρν (ρt) dt, and W ρt and W st are thus correlated in a way which can be interpreted with Rρν (ρt) and Rνs (ρt). For this reason, we assume that 
+
+d < W ρ, W s >t= Rρs (Rρν (ρt), Rνs (ρt)) dt. And we assume that Rρν (·), Rνs (·) : (−1, 1) → (−1, 1) and Rρs (·, ·) : ( −1, 1) × (−1, 1) → (−1, 1) , they are defined such that the family of correlation matrices 
+
+Rt =
+
+
+
+1 Rρν (ρt) Rρs (Rρν (ρt), Rνs (ρt)) 
+
+Rρν (ρt) 1 Rνs (ρt)
+
+Rρs (Rρν (ρt), Rνs (ρt)) Rνs (ρt) 1
+
+ , t ≥ 0,
+
+(4) is positive semi-definite. For the processes ρt and νt, we assume that aρ(t, ρ t), b ρ(t, ρ t)and aν (t, ν t), b ν (t, ν t) are L2-measurable in ( t, ν ) ∈ [0 , T ] × R≥0 and ( t, ρ ) ∈
+
+[0 , T ] × (−1, 1) , respectively. And there exist positive constants C1 
+
+> ρ
+
+, C 2 
+
+> ρ
+
+and 
+
+C1 
+
+> ν
+
+, C 1 
+
+> ν
+
+such that 
+
+|aρ(t, ρ 1)|2 + |bρ(t, ρ 1)|2 ≤ C1 
+
+> ρ
+
+(1 + ρ21),
+
+|aν (t, ν 1)|2 + |bν (t, ν 1)|2 ≤ C1 
+
+> ν
+
+(1 + ν21 ),
+
+|aρ(t, ρ 1) − aρ(t, ρ 2)| + |bν (t, ρ 1) − bρ(t, ρ 2)| ≤ C2 
+
+> ρ
+
+|ρ1 − ρ2|,
+
+|aν (t, ν 1) − aν (t, ν 2)| + |bν (t, ν 1) − bν (t, ν 2)| ≤ C2 
+
+> ν
+
+|ν1 − ν2|,
+
+(5) 4for any two values ρ1, ρ 2 ∈ (−1, 1) , and any two values ν1, ν 2 ∈ R≥0. These conditions guarantee that there exist unique solutions for the processes νt and 
+
+ρt. For the underlying asset process St, we assume that as(·, ·, ·, ·) : R≥0 × R≥0 ×
+
+R≥0 × (−1, 1) → R, α (·) : R≥0 → R≥0 and β(·) : R≥0 → R≥0 are continuously differentiable and defined such that (2) has a unique solution. The model class (2) is called stochastic correlation and local volatility (SCLV) throughout this paper. A simple and common choice of correlation structure is to set that Rρν (ρt) ≡
+
+0, Rνs (ρt) ≡ ρt and Rρs (0 , ρ t) ≡ ρρs , where ρρs is a constant in ( −1, 1). The family of correlation matrices reduces thus to 
+
+ 1 0 ρρs 
+
+0 1 ρt
+
+ρρs ρt 1
+
+ , (6) which is positive semi-definite for ρ2 
+
+> ρs
+
++ ρ2 
+
+> t
+
+≤ 1 and t ≥ 0. In this work we consider a more general correlation structure by setting 
+
+Rρν (ρt) ≡ ρρν , Rνs (ρt) ≡ ρt and Rρs (ρρν , ρ t) ≡ ρρν ρt, (7) where ρρν is a constant in ( −1, 1) . This correlation structure corresponds the family of correlation matrices as 
+
+ 1 ρρν ρρν ρt
+
+ρρν 1 ρt
+
+ρρν ρt ρt 1
+
+ . (8) The positive semi-definiteness of (8) can be guaranteed if it holds that 1 − ρ2 
+
+> ρν
+
+− (ρρν ρt)2 − ρ2 
+
+> t
+
++ 2 ρρν ρρν ρtρt = (1 − ρ2 
+
+> t
+
+)(1 − ρ2 
+
+> ρν
+
+) ≥ 0, (9) which is true as long as ρρν , ρ t ∈ (−1, 1) . A similar correlation structure is discussed in Higgins (2014). With the aid of Cholesky-decomposition one can reformulate (2) as 
+
+
+
+dρ t = aρ(t, ρ t) dt + bρ(t, ρ t) d ˜W ρt ,dν t = aν (t, ν t) dt + bν (t, ν t)
+
+
+
+ρρν d ˜W ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+d ˜W νt
+
+
+
+,dS t = as(t, S t, ν t, ρ t) dt + α(νt)β(St)
+
+
+
+ρρν ρt d ˜W ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt d ˜W νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+d ˜W st
+
+
+
+,
+
+(10) where the Brownian motions ˜W ρt , ˜W νt and ˜W st are independent. The model class (10) consolidates and integrates many various SLV models in the literature extended with stochastic correlation. We refer to Cui et al. (2018) for a com-prehensive overview of SLV models in Table 1. Furthermore, a variety of SCPs are summarized in Table 1. Note that it holds κρ, σ ρ > 0 and ρ0, μ ρ ∈ (−1, 1) for all the SCPs in Table 1.      
+
+> 1This SCP is called bounded Jacobi process, and reduces to the SCP in the first row by setting ρ=−1 and ρ= 1 .
+
+5Table 1: Some SCPs in the literature 
+
+aρ(t, ρ t) bρ(t, ρ t) ρt ∈ Parameter restriction 
+
+κρ(μρ − ρt) σρ
+
+p(1 − ρ2 
+
+> t
+
+) (−1, 1) κρ ≥ σ2
+
+> ρ
+> 1±μρ
+
+van Emmerich (2007) 
+
+κρ(μρ − ρt) σρ
+
+q
+
+(ρ − ρt)( ρt − ρ)1 (ρ, ρ )1 ≥ ρ ≥ ρ ≥ − 1 and ρ > κ ρμρ > ρ κρμρ − κρρ > σ2 
+
+> ρ
+> 2( ρ−ρ)
+
+and κρρ − κρμρ > σ2
+
+> ρ
+> 2( ρ−ρ)
+
+Ma (2009) (1 − ρ2 
+
+> t
+
+)( κρ(μρ− σρ(1 − ρ2 
+
+> t
+
+) (−1, 1) No. artanh( ρt)) − σ2
+
+> ρ
+
+ρt) Teng et al. (2016c) 
+
+κρ(1 − ρ2 
+
+> t
+
+)( μρ − ρt) σρ(1 − ρ2 
+
+> t
+
+) (−1, 1) No. Teng et al. (2016a) 
+
+κρ(μρ − ρt) σρ
+
+pρt(1 − ρt) (0 , 1) κρμρ > σ 2
+
+> ρ
+
+/2 and κρ(1 − μρ) > σ 2
+
+> ρ
+
+/2Driessen et al. (2016) 
+
+## 3 Reflected Forward Backward Stochastic Dif-ferential Equations for pricing 
+
+The decoupled reflected forward-backward stochastic differential equations (RB-SDEs) for pricing American options exhibit the form of Karoui et al. (1997b) 
+
+
+
+dX t = a(t, X t) dt + b(t, X t) dW t, X0 = x0,
+
+−dY t = f (t, X t, Y t, Z t) dt − Zt dW t + dL t,YT = g(XT ), Y t ≥ g(Xt) for t < T and R T 
+
+> 0
+
+(Yt − g(Xt)) dL t = 0 ,
+
+(11) where a : [0 , T ]×Rd → Rd, b : [0 , T ]×Rd → Rd×d, f : [0 , T ]×Rd×R×Rd → R are continuous. f is called the driver function or generator of the RBSDE, and g is a known payoff function. Lt is an adapted non-decreasing process, this external force keeps Yt staying above the lower barrier process g(Xt). Furthermore, the process f (t, X t, Y t, Z t) is Ft-adapted, and g(XT ) is FT -measurable. A triplet of processes ( Yt, Z t, L t) ∈ R × Rd × R is the solution of the RBSDE (11) if it is 
+
+Ft-adapted, square integrable and satisfies (11) as 
+
+Yt = g(XT ) + 
+
+Z Tt
+
+f (s, X s, Y s, Z s) ds −
+
+Z Tt
+
+Zs dW s + LT − Lt, t ∈ [0 , T ]. (12) These solutions exist uniquely under Lipschitz conditions, see Karoui et al. (1997a). Suppose that the terminal value YT is of the form g(Xt,x T ), where Xt,x T
+
+denotes the solution of dX t in (11) starting from x at time t, the same notation applies to ( Y t,x T , Z t,x T ) and Lt,x T . Note that Lt,x t = 0 , and for t ≤ bt ≤ T, the solution ( Y t,x  
+
+> bt
+
+, Z t,x  
+
+> bt
+
+) of the RBSDE (11) can be represented as 
+
+Y t,x  
+
+> bt
+
+= u(bt, X t,x  
+
+> bt
+
+), Zt,x  
+
+> bt
+
+= b⊤(bt, X t,x  
+
+> bt
+
+)∇u(bt, X t,x  
+
+> bt
+
+),
+
+6∀t ∈ [0 , T ), where 1(·) is an indicator function, and u is solution of the obstacle problem for the semi-linear parabolic PDE of the form Karoui et al. (1997a) max 
+
+
+
+∂u ∂t +
+
+> n
+
+X
+
+> i
+
+ai∂iu + 12
+
+> n
+
+X
+
+> i,j
+
+(bb T )i,j ∂2 
+
+> i,j
+
+u
+
+| {z }
+
+> := Lu
+
++f (t, x, u, (∇u)b), g (x) − u
+
+ = 0 (13) with the terminal condition u(T, x ) = g(x). In turn, suppose that ( Y, Z, L ) is the solution of RBSDE, u(t, x ) = Y t,x t is a viscosity solution to the obstacle problem. For the model in (10), Xt in (11) is given by ( ρt, ν t, S t)⊤ . Given the payoff function of a financial derivative, g(·), Y t represents the value of the derivative, typically referred to as V (t, ρ t, ν t, S t). And 
+
+Zt =
+
+
+
+(bρ + bν ρρν + αβρ ρν ρt) ∂V ∂ρ ,
+
+
+
+bν
+
+q
+
+1 − ρ2 
+
+> ρν
+
++ αβ 
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt
+
+ ∂V ∂ν , αβ p1 − ρt
+
+∂V ∂S 
+
+
+
+(14) which presents the hedging strategies with respect to correlation, volatility and spot price, respectively. For pricing American options in the SCLV model (10), we assume that the correlation risk can be eliminated by including a risk premium, i.e., the price of correlation risk, defined as λρ. Accordingly, the drift of the correlation process 
+
+ρt in (10) is adjusted to aρ(t, ρ t) − λρρt, ensuring that ρt evolves under a risk-neutral measure. A similar adjustment is made for the volatility process νt, using a volatility risk premium λν . It is important to note that there is no unique way to specify the parameters λρ and λν , since the market does not provide tradable assets for directly hedging correlation risk or volatility risk. To formalize this modelling choice, we define the set of all equivalent local martingale measures by 
+
+{Qλ ∼ P | dW Qλ 
+
+> t
+
+= dW t + λ dt and λ = ( λS , λ ν , λ ρ) admissible },
+
+where λ denotes the vector of market prices of risks for the underlying asset, volatility, and correlation, respectively. We assume that λ is progressively mea-surable and satisfies Novikov’s condition. Our framework selects one specific measure Qλ from this family such that the resulting RBSDE admit a unique solution. Under the chosen measure Qλ, the spot price process St evolves with a risk-neutral drift rS t, where r denotes the risk-free interest rate. We start with the derivation of pricing RBSDEs for American options in the SCLV model (10). To be more specific, we use the following variant of (10) 
+
+
+
+dρ t = aρ(t, ρ t) dt + bρ(t, ρ t) dW ρt ,dν t = aν (t, ν t) dt + bν (t, ν t)
+
+
+
+ρρν dW ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+dW νt
+
+
+
+,dS t = as(t, S t) dt + α(νt)β(St)
+
+
+
+ρρν ρt dW ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt dW νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+dW st
+
+
+
+,
+
+(15) 7where W ρt , W νt and W st are independent. In the following proposition, we present the pricing RBSDEs for American options using the SCLV model as defined in (15). 
+
+Proposition 3.1. Suppose that V (t, ρ t, ν t, S t), t ∈ [0 , T ] is the price of an American option with the payoff function g(·), and valuated in (15) . Then 
+
+V (t, ρ t, ν t, S t) can be obtained by solving the RBSDE 
+
+
+
+dX t := 
+
+
+
+dρ t
+
+dν t
+
+dS t
+
+ =
+
+
+
+aρ(t, ρ t)
+
+aν (t, ν t)
+
+as(t, S t)
+
+ dt +
+
+
+
+bρ(t, ρ t) 0 0
+
+ρρν bν (t, ν t)
+
+q
+
+1 − ρ2 
+
+> ρν
+
+bν (t, ν t) 0
+
+ρρν α(νt)β(St)ρt
+
+q
+
+1 − ρ2 
+
+> ρν
+
+α(νt)β(St)ρt α(νt)β(St)p1 − ρ2
+
+> t
+
+ dW t,
+
+−dY t = f (t, X t, Y t, Z t) dt − Zt dW t + dL t,YT = g(ST ), Y t ≥ g(St) for t < T and R T 
+
+> 0
+
+(Yt − g(Xt)) dL t = 0 ,
+
+(16) 
+
+where Wt = ( W ρt , W νt , W st )⊤ , V (t, ρ t, ν t, S t) = Yt, Z t = ( Z1,t , Z 2,t , Z 3,t ) with 
+
+Z1,t = bρ(t, ρ t) ∂V ∂ρ + bν (t, ν t)ρρν 
+
+∂V ∂ν + α(νt)β(St)ρρν ρt
+
+∂V ∂S ,Z2,t = bν (t, ν t)
+
+q
+
+1 − ρ2
+
+> ρν
+
+∂V ∂ν + α(νt)β(St)
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt
+
+∂V ∂S ,Z3,t = α(νt)β(St)
+
+q
+
+1 − ρ2
+
+> t
+
+∂V ∂S ,
+
+(17) 
+
+Lt =
+
+
+
+Lg + f + λρρt
+
+∂ V ∂ρ + λν νt
+
+∂ V ∂ν + ( as(t, S t) − rS t) ∂ V ∂S 
+
+−
+
+1{Yt=g(St)},
+
+(18) 
+
+and 
+
+f (t, X t, Y t, Z t) = − rY t − λρρt
+
+bρ(t, ρ t) Z1,t −
+
+ λν νt
+
+bν (t, ν t)
+
+q
+
+1 − ρ2
+
+> ρν
+
+− λρρtρρν 
+
+bρ(t, ρ t)
+
+q
+
+1 − ρ2
+
+> ρν
+
+ Z2,t 
+
+− as(t, S t) − rS t
+
+α(νt)β(St)p1 − ρ2
+
+> t
+
+− λν νtρt
+
+bν (t, ν t)p1 − ρ2
+
+> t
+
+!
+
+Z3,t .
+
+(19) 
+
+Proof. Given the aforementioned assumptions, the SCLV model (15) can be reformulated under the risk-neutral measure as 
+
+
+
+dρ t = ( aρ(t, ρ t) − λρρt) dt + bρ(t, ρ t) dW ∗ρt ,dν t = ( aν (t, ν t) − λν νt) dt + bν (t, ν t)
+
+
+
+ρρν dW ∗ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+dW ∗νt
+
+
+
+,dS t = rS t dt + α(νt)β(St)
+
+
+
+ρρν ρt dW ∗ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt dW ∗νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+dW ∗st
+
+
+
+,
+
+(20) 8where the Brownian motions W ∗ρt , W ∗νt and W ∗st under the risk-neural measure are independent. Let V (t, ρ t, ν t, S t) be the value of an American option within the model (20) with a payoff function g(·), which can be represented as the solution of the obstacle problem max 
+
+ ∂V ∂t + LV − rV, g − V
+
+
+
+= 0 with the terminal condition V (T, ρ T , ν T , S T ) = g(ST ), where 
+
+LV :=( aρ(t, ρ t) − λρρt) ∂ V ∂ρ + ( aν (t, ν t) − λν νt) ∂ V ∂ν + rS t
+
+∂ V ∂S + 12 b2
+
+> ρ
+
+(t, ρ t) ∂2V∂ρ 2
+
++ 12 b2 
+
+> ν
+
+(t, ν t) ∂2V∂ν 2 + 12 α2(νt)β2(St) ∂2V∂S 2 + ρρν bρ(t, ρ t)bν (t, ν t) ∂2V∂ρ∂ν 
+
++ ρρν bρ(t, ρ t)ρtα(νt)β(St) ∂2V∂ρ∂S + bν (t, ν t)ρtα(νt)β(St) ∂2V∂ν∂S .
+
+(21) It can be shown that V satisfies the following partial differential equation (PDE) 
+
+∂ V ∂t + LV − rV + ( Lg − rg )−1{g(S)= V (t,ρ,ν,S )} = 0 , (22) where L is defined in (21). Let Yt be an adapted process and Yt = V (t, ρ t, ν t, S t),
+
+where ρt, ν t and St are given in (15). Applying Itˆ o lemma one obtains 
+
+dY t =
+
+ ∂ V ∂t + aρ(t, ρ t) ∂ V ∂ρ + aν (t, ν t) ∂ V ∂ν + as(t, S t) ∂ V ∂S + 12 b2
+
+> ρ
+
+(t, ρ t) ∂2V∂ρ 2 + 12 b2 
+
+> ν
+
+(t, ν t) ∂2V∂ν 2
+
++ 12 α2(νt)β2(St) ∂2V∂S 2 + ρρν bρ(t, ρ t)bν (t, ν t) ∂2V∂ρ∂ν + ρρν bρ(t, ρ t)ρtα(νt)β(St) ∂2V∂ρ∂S 
+
++bν (t, ν t)ρtα(νt)β(St) ∂2V∂ν∂S 
+
+
+
+dt +
+
+
+
+bρ(t, ρ t) ∂ V ∂ρ + ρρν bν (t, ν t) ∂ V ∂ν + ρρν α(νt)β(St)ρt
+
+∂ V ∂S 
+
+
+
+dW ρt
+
++
+
+q
+
+1 − ρ2 
+
+> ρν
+
+bν (t, ν t) ∂ V ∂ν +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+α(νt)β(St)ρt
+
+∂ V ∂S 
+
+
+
+dW νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+α(νt)β(St) ∂ V ∂S dW St .
+
+(23) We compare the coefficient of dt in the latter equation to the PDE (22) and rewrite it as 
+
+−dY t =
+
+
+
+−rY t − λρρt
+
+∂ V ∂ρ − λν νt
+
+∂ V ∂ν − (as(t, S t) − rS t) ∂ V ∂S 
+
+
+
+dt + ( Lg − rg )−1{g(St)= V (t,ρ t,ν t,S t)}dt 
+
++
+
+
+
+bρ(t, ρ t) ∂ V ∂ρ + ρρν bν (t, ν t) ∂ V ∂ν + ρρν α(νt)β(St)ρt
+
+∂ V ∂S 
+
+
+
+dW ρt
+
++
+
+q
+
+1 − ρ2 
+
+> ρν
+
+bν (t, ν t) ∂ V ∂ν +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+α(νt)β(St)ρt
+
+∂ V ∂S 
+
+
+
+dW νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+α(νt)β(St) ∂ V ∂S dW St .
+
+(24) By defining the non-decreasing c` adl` ag process Lt := ( Lg−rg )−1{g(St)= V (t,ρ t,ν t,S t)},
+
+setting Z1,t , Z 2,t and Z3,t equal to the values given in (17) and rewriting 
+
+f (t, X t, Y t, Z t) := −rY t − λρρt
+
+∂ V ∂ρ − λν νt
+
+∂ V ∂ν − (as(t, S t) − rS t) ∂ V ∂S (25) 9with respect to Z1,t , Z 2,t and Z3,t , we complete the proof. 
+
+Remark 3.1. The RBSDE in (24) is obtained through a derivation from the model presented in (15) , considering the historical, real-world P-measure. In this context, it becomes evident that there is no necessity to seek the risk-neutral measure for the spot price dynamic for pricing when employing the RBSDE ap-proach. Assume that the model in (15) is already under the risk-neutral measure, the corresponding RBSDE thus reads 
+
+− dY t = −rY t dt + dL t +
+
+
+
+bρ(t, ρ t) ∂ V ∂ρ s + ρρν bν (t, ν t) ∂ V ∂ν + ρρν α(νt)β(St)ρt
+
+∂ V ∂S 
+
+
+
+dW ρt
+
++
+
+q
+
+1 − ρ2 
+
+> ρν
+
+bν (t, ν t) ∂ V ∂ν +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+α(νt)β(St)ρt
+
+∂ V ∂S 
+
+
+
+dW νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+α(νt)β(St) ∂ V ∂S dW St ,
+
+(26) 
+
+which is a special case of (24) where λρ = λν = 0 and as(t, S t) = rS t.
+
+## 4 Regression-based numerical schemes 
+
+For the previously developed RBSDE pricing framework, we construct a gradient boosting-based backward approximation algorithm. The main idea is to first dis-cretize the time integrands using, for example, the general theta-discretization method Zhao et al. (2009, 2012), and then approximate the resulting condi-tional expectations via regression-based techniques. While related regression-based algorithms for standard BSDEs have been proposed in Teng (2021, 2022), the numerical treatment of RBSDEs considered here is fundamentally different due to the presence of the reflection mechanism and the associated obstacle constraint. Consequently, both the semi-discrete and fully discrete schemes de-veloped in the following section require a different construction from those for standard BSDEs. Moreover, the convergence analysis for the RBSDE schemes is new and substantially more challenging, as it must explicitly account for the additional errors induced by the reflection and obstacle approximation. We therefore provide a dedicated rigorous convergence analysis for the proposed RBSDE discretizations. 
+
+4.1 The Semi-discrete scheme 
+
+We introduce the time partition for the time interval [0 , T ]∆t = {ti|ti ∈ [0 , T ], i = 0 , 1, · · · , N T , t i < t i+1 , t 0 = 0 , t NT = T }. (27) Let ∆ ti = ti+1 − ti be the time step, and denote the maximum time step with ∆t. We need to firstly discretize the forward SDE in (11) 
+
+Xt = x0 +
+
+Z t
+
+> 0
+
+a(s, X s) ds +
+
+Z t
+
+> 0
+
+b(s, X s) dW s, (28) 10 suppose that discretization is such that 
+
+E
+
+
+
+max 
+
+> ti
+
+Xti − X∆t
+
+> ti
+> 2
+
+
+
+= O(∆ t)for the discretized process X∆t 
+
+> ti
+
+. In cases where the process Xt follows a known distribution, this distribution can be used to generate high-quality samples on the grid ∆ t; otherwise, the Euler scheme may be employed. For the backward process in (11), we represent its solution in (12) as 
+
+Yi = Yi+1 +
+
+Z ti+1 
+
+> ti
+
+f (s, X s, Y s, Z s) ds −
+
+Z ti+1 
+
+> ti
+
+Zs dW s + Li+1 − Li, (29) where Yi := Yti and Yi+1 := Yti+1 , the same notation is used for the other variables. For (29) without reflections, we multiply both sides by ∆ Wi+1 := 
+
+Wti+1 − Wti and take the conditional expectation Ei[·] := E[·|F ti ], yielding 
+
+Ei[Yi+1 ∆Wi+1 ] = ∆ tiZi + RZi , (30) where RZi denotes the discretization error. Similarly, by taking the conditional expectation of (29) without reflections we define 
+
+eYi = Ei[Yi+1 ] + ∆ tif (ti, X i, eYi, Z i) + R eYi , (31) with discretization error denoted by R eYi . Next, by comparing the result with the barrier imposed by the reflection condition, we define 
+
+Yi = max { eYi, g (Xi)}. (32) The equations (29),(30) and (31) lead to a time discrete approximation ( Y ∆t , Z ∆t )of ( Y, Z ) using following semi-discrete scheme: 
+
+Semi-discrete RBSDE Scheme 
+
+Y ∆t 
+
+> NT
+
+= g(X∆t 
+
+> NT
+
+), (33) 
+
+For i = NT − 1, · · · , 0 : 
+
+Z∆t 
+
+> i
+
+= 1∆ti
+
+Ei[Y ∆t
+
+> i+1
+
+∆Wi+1 ], (34) 
+
+eY ∆t 
+
+> i
+
+= Ei[Y ∆t
+
+> i+1
+
+] + ∆ tif (ti, X ∆t 
+
+> i
+
+, eY ∆t 
+
+> i
+
+, Z ∆t 
+
+> i
+
+), (35) 
+
+Y ∆t 
+
+> i
+
+= max 
+
+ eY ∆t 
+
+> i
+
+, g (X∆t 
+
+> i
+
+)
+
+
+
+. (36) Note that (35) is implicit and thus iterative methods such as Picard iteration may be applied. A similar discretization of RBSDE is considered in Ma and Zhang (2005), where a rigorous convergence rate analysis is provided. This 11 convergence result is further recovered in Bouchard and Chassagneux (2008), which shows that max    
+
+> i=0 ,··· ,N T−1
+
+E Yi − Y ∆t
+
+> i
+> 2
+
+= O(∆ t 12 ) (37) under assumption (H1): g ∈ C1 
+
+> b
+
+with L-Lipschitz derivatives, and max    
+
+> i=0 ,··· ,N T−1
+
+E Yi − Y ∆t
+
+> i
+> 2
+
+= O(∆ t) (38) under assumption (H2): b ∈ C1 
+
+> b
+
+with L-Lipschitz derivatives, and g ∈ C2 
+
+> b
+
+with 
+
+L-Lipschitz first and second derivatives. Furthermore, it holds that 
+
+E
+
+"NT −1X
+
+> i=0
+
+Z ti+1 
+
+> ti
+
+Zt − Z∆t
+
+> i
+> 2
+
+dt 
+
+#
+
+= O(∆ t 12 ). (39) We direct the reader to Bouchard and Chassagneux (2008) for a detailed analysis of the time-discrete approximation scheme presented above. 
+
+4.2 Fully discrete scheme 
+
+The fully discrete scheme results from the computation of conditional expecta-tions within the semi-discrete scheme, and is expressed as follows: 
+
+Fully discrete RBSDE Scheme 
+
+byNT ,M = g(bxNT ,M),
+
+For i = NT − 1, · · · , 0 , M = 1 , · · · , M :
+
+bzi, M = Ebxi, M
+
+> i
+
+ 1∆ti
+
+bY ∆t
+
+> i+1
+
+∆Wi+1 
+
+
+
+,
+
+beyi, M = Ebxi, M
+
+> i
+
+h bY ∆t
+
+> i+1
+
+i
+
++ ∆ tif (bxi, M, beyi, M, bzi, M),
+
+byi, M = max 
+
+beyi, M, g (bxi, M)
+
+
+
+.
+
+In the fully discrete scheme above, bY ∆t 
+
+> i+1
+
+denote a random variable whose distribution is represented by the samples byi+1 ,M, M = 1 , · · · , M. 
+
+Non-parameteric regression As mentioned in the preceding section, we ap-ply a regression-based method to compute the conditional expectation. Specif-ically, we employ the eXtreme Gradient Boosting (XGBoost) regression al-gorithm Chen and Guestrin (2016), a machine learning technique known for its high predictive performance. More precisely, the XGBoost non-parametric 12 regression approach is used to estimate conditional expectations of the form 
+
+E[Y |X = x] based on the model 
+
+Y = η(X) + ϵ, (40) where ϵ has zero mean, bounded variance, and is independent of X. It then follows that 
+
+E[Y |X = x] = η(x). (41) To approximate this conditional expectation, our goal in regression is to con-struct an estimator of the function, bη(x). In non-parametric regression, we do not assume a specific functional form for η. Instead, bη is represented by an XGBoost regressor. Suppose we have a dataset, ( bxM, byM), M = 1 , · · · , M, 
+
+sampled from ( X, Y ). We split the data into training and test sets and fit the model, namely, XGBoost regressor. on the training data. The fitted regressor can then be used to predict E[Y |X = x] both in-sample and out-of-sample. The use of the XGBoost algorithm for approximating conditional expecta-tions in the context of BSDEs has been described in detail in Teng (2022). We adopt this method for the conditional expectations in the fully discrete RBSDE scheme, which is more challenging. We assume that the process ( X∆t 
+
+> i
+
+)i=0 ,··· ,N t
+
+is Markovian, there thus exist deterministic functions such that 
+
+eY ∆t 
+
+> i
+
+= y∆t 
+
+> i
+
+(X∆t 
+
+> i
+
+) and Z∆t 
+
+> i
+
+= z∆t 
+
+> i
+
+(X∆t 
+
+> i
+
+), (42) where eY ∆t 
+
+> i
+
+and Z∆t 
+
+> i
+
+are defined in (35) and (34), respectively, in the semi-discrete RBSDE scheme. In the fully discrete RBSDE scheme, Ebxi, M 
+
+> i
+
+[Si+1 ]denotes the predicted conditional expectation E[Si+1 |X = bxi, M], obtained using the XGBoost model fitted to the dataset of Si+1 , denoted by bSi+1 ,M, where 
+
+M = 1 , · · · , M, and M is the sample size. The variable Si+1 can be either 
+
+> 1∆ti
+
+bY ∆t
+
+> i+1
+
+∆Wi+1 or bY ∆t
+
+> i+1
+
+, for i = NT − 1, · · · , 0.
+
+Taking Si+1 = 1∆ti
+
+bY ∆t
+
+> i+1
+
+∆Wi+1 and its sample bSi+1 ,M := 1∆ti byi+1 ,M∆ bwi+1 ,M
+
+as an example, we start at time T by fitting the regressor bRzNT −1(x) to ap-proximate the conditional expectation E
+
+h
+
+SNT |X∆t  
+
+> NT−1
+
+= x
+
+i
+
+using the dataset 
+
+bxNT −1,M, bSNT ,M
+
+
+
+. This implies that the function z∆tNT −1(x) defined in (42) is estimated and represented by the regressor, i.e., 
+
+z∆t 
+
+> NT−1
+
+(x) ≈ bRzNT −1(x), (43) which can be used to predict the conditional expectation EbxNT −1,M  
+
+> NT−1
+
+[SNT ] both in-sample and out-of-sample. The predicted values of EbxNT −1,M  
+
+> NT−1
+
+[SNT ] are de-noted by bzNT −1,M, which can be interpreted as the generated sample values of 
+
+Z∆t 
+
+> NT−1
+
+. Recursively, proceeding backward in time, the dataset bzNT −1,M (and also byNT −1,M) is used to construct the dataset bzNT −2,M corresponding to the random variables Z∆t  
+
+> NT−2
+
+at time tNT −2. At the initial time t = 0 , we are given a fix initial value x0 for X, i.e., this dataset is deterministic. 13 For the i-th step, we define the approximation errors as 
+
+RZi
+
+xgb := 1
+
+M
+
+> M
+
+X
+
+> M=1
+
+bzi, M − z∆t 
+
+> i
+
+(bxi, M)
+
+2
+
+. (44) Note that bSi+1 ,M = z∆t 
+
+> i
+
+(bxi, M) + ϵzi, M, where the noise term ϵzi has zero mean and a bounded constant variance V ar zi . Hence, the expression in (44) can be reformulated as 
+
+RZi
+
+xgb = 1
+
+M
+
+> M
+
+X
+
+> M=1
+
+
+
+ϵzi, M −
+
+ bSi+1 ,M − bzi, M
+
+ 2
+
+(45) 
+
+≤ 2V ar zi + 2
+
+M
+
+> M
+
+X
+
+> M=1
+
+ bSi+1 ,M − bzi, M
+
+2
+
+, (46) where the second term represents the XGBoost regression error, which will be analyzed in the sequel. Similarly, for the case Si+1 = bY ∆t 
+
+> i+1
+
+and bSi+1 ,M = y∆t 
+
+> i
+
+(bxi, M)+ ϵyi, M, where y∆t (·)is defined in (42) and the noise term ϵyi has zero mean and a bounded constant variance V ar yi , we define 
+
+RYi
+
+xgb := 1
+
+M
+
+> M
+
+X
+
+> M=1
+
+byi, M − y∆t 
+
+> i
+
+(bxi, M)
+
+2
+
+, (47) where the predicted values are obtained from the XGBoost regressor. We then deduce the bound 
+
+RYi
+
+xgb ≤ 2V ar yi + 2
+
+M
+
+> M
+
+X
+
+> M=1
+
+ bSi+1 ,M − byi, M
+
+2
+
+, (48) under the assumption that errors from the iterative method can be neglected by choosing a sufficiently large number of Picard iterations. 
+
+Regularized learning objective For notational simplicity, we omit the time-step index, e.g., we write bxM instead of bxi, M. Suppose we are given a dataset with M samples 
+
+D =
+
+n
+
+(bxM, bSM)| |D| = M
+
+o
+
+.
+
+We continue to use the approximation for the Z-component as an example. A tree ensemble model consisting of K regression trees can then be constructed to predict the output 
+
+bzM = η(bxM) = 
+
+> K
+
+X
+
+> k=1
+
+efk(bxM), efk ∈ S ,
+
+14 where S := { ef (x) = ωq(x), q : R → bT , ω ∈ R bT } is the space of regression trees, and q denotes the structure of each tree, mapping an input x to the corresponding leaf index, and ωj represents the score associated with the j-th leaf. Each efk corresponds to an independent tree structure q and leaf weights 
+
+ω. The total number of leaves is denoted by bT . 
+
+To train the model, we minimize the mean squared error (MSE) 
+
+L(bzM, bSM) = 1
+
+M
+
+> M
+
+X
+
+> M=1
+
+(bzM − bSM)2 (49) for regression. For a regularized objective we define the regularization term as Ω( ef ) = γ bT + 12 λ ∥w∥2 = γ bT + 12 λ
+
+> bT
+
+X
+
+> j=1
+
+w2 
+
+> j
+
+,
+
+where γ and λ are positive regularization parameters, and wj denotes the score on the j-th leaf. This regularization term controls the complexity of the model and helps prevent overfitting. The fully regularized objective is then given by 
+
+L(η) = 
+
+> M
+
+X
+
+> M=1
+
+L(bzM, bSM) + 
+
+> K
+
+X
+
+> k=1
+
+Ω( fk), (50) which needs to be minimized. Here, L serves as the loss function that quantifies the discrepancy between the predictions and targets. 
+
+Gradient Tree Boosting In XGBoost, gradient descent is employed to min-imize (50). Accordingly, we minimize the following objective by sequentially adding functions efk in an iterative algorithm 
+
+L(k) =
+
+> M
+
+X
+
+> M=1
+
+L( bSM, bzk
+
+> M
+
+) + 
+
+> k
+
+X
+
+> j=1
+
+Ω( efj )=
+
+> M
+
+X
+
+> M=1
+
+L( bSM, bz(k−1)  
+
+> M
+
++ efk(bxM)) + Ω( efk),
+
+(51) where bzk 
+
+> M
+
+= Pkj=1 efj (xM), and k = 1 , · · · , K. That is, (50) is minimized by greedily adding efk. To this end, a second-order approximation of (51) is com-puted as 
+
+L(k) ≈
+
+> M
+
+X
+
+> M=1
+
+
+
+L( bSM, bz(k−1)  
+
+> M
+
+) + gM efk(bxM) + 12 hM ef 2 
+
+> k
+
+(bxM)
+
+
+
++ Ω( efk),
+
+where gM = ∂bz(k−1) L( bSM, bz(k−1) ) and hM = ∂2 
+
+> bz(k−1)
+
+L( bSM, bz(k−1) ) denote the first- and second-order gradients, respectively. By removing constant terms, one 15 obtains the simplified objective at the k-th step 
+
+eL(k) =
+
+> M
+
+X
+
+> M=1
+
+
+
+gM efk(bxM) + 12 hM ef 2 
+
+> k
+
+(bxM)
+
+
+
++ Ω( efk), (52) which must be optimized by determining a suitable efk.
+
+Next, we show how to construct the tree efk that minimizes this objective. We first define a tree as 
+
+efk(bx) = wq(bx), w ∈ R bT ,
+
+and introduce Ij = {M| q(bxM) = j} as the instance set of leaf j, which con-tains the indices of data points mapped to the j-th leaf. Then, (52) can be reformulated as 
+
+eL(k) =
+
+> M
+
+X
+
+> M=1
+
+
+
+gM efk(bxM) + 12 hM ef 2 
+
+> k
+
+(bxM)
+
+
+
++ γ bT + 12 λ
+
+> bT
+
+X
+
+> j=1
+
+w2
+
+> j
+
+=
+
+> bT
+
+X
+
+> j=1
+
+ X
+
+> M∈ Ij
+
+gM
+
+ wj + 12
+
+ X
+
+> M∈ Ij
+
+hM + λ
+
+ w2
+
+> j
+
+ + γ bT . 
+
+For a fixed q(bx), the optimal optimal wj for each leaf j can be computed explic-itly as 
+
+w∗ 
+
+> j
+
+= −
+
+P 
+
+> M∈ Ij
+
+gM
+
+P 
+
+> M∈ Ij
+
+hM + λ ,
+
+which leads to the corresponding optimal value of the objective 
+
+eL(k)(q) = − 12
+
+> bT
+
+X
+
+> j=1
+
+(P 
+
+> M∈ Ij
+
+gM)2
+
+P 
+
+> M∈ Ij
+
+hM + λ + γ bT . (53) This value can serve as a scoring function to evaluate the quality of a given tree structure q. Due to the high computational cost, it is infeasible to exhaustively enumerate all possible tree structures q. A greedy algorithm, proposed in Chen and Guestrin (2016), recursively identifies best splitting points until a specified maximum depth is reached. We denote the instance sets of the left and right child nodes after a split by IL and IR, respectively, with I = IL ∪ IR. The loss reduction after the split is given by 
+
+Lgain = 12
+
+(P 
+
+> M∈ IL
+
+gM)2
+
+P 
+
+> M∈ IL
+
+hM + λ + (P 
+
+> M∈ IR
+
+gM)2
+
+P 
+
+> M∈ IR
+
+hM + λ − (P 
+
+> M∈ I
+
+gM)2
+
+P 
+
+> M∈ I
+
+hM + λ
+
+!
+
+− γ, 
+
+(54) where λ is the regularization parameter. This reduction is used to evaluate can-didate splits. Based on the gain, nodes with negative loss reduction are pruned. We have now introduced the mathematical formulation underlying XGBoost. 16 For additional techniques implemented to further prevent overfitting and to improve computational efficiency, we refer the reader to Chen and Guestrin (2016). With the loss functions introduced above, the errors of approximation conditional expectations in (46) and (48) can be further reformulated as 
+
+RZi
+
+xgb ≤ 2V ar zi + 2 bLmin (bqzi ) and RYi
+
+xgb ≤ 2V ar yi + 2 bLmin (bqyi ), (55) where bLmin (·) is defined in (53), and bq· 
+
+> i
+
+denotes the tree structure that achieves the minimal error at the i-th time step. The time complexity of XGBoost is provided in Chen and Guestrin (2016) as 
+
+O
+
+
+
+K ed|samples | + |samples | log B
+
+
+
+,
+
+where ed denotes the maximum depth of the tree, K is the total number of trees, and |samples | is the number of training samples. The parameter B refers to the maximum number of rows in each block; a column block structure is used in the XGBoost algorithm to enable efficient parallel learning. Therefore, we can straightforwardly deduce the complexity of our scheme O
+
+
+
+K edM dN T + M dN T log B
+
+
+
+.
+
+4.3 Convergence analysis 
+
+Assumption (H3): Assumption (H2) holds. Suppose that X0 is F0-measurable with E[|X0|2] < ∞, and that a and b are L2-measurable in ( t, x ) ∈ [0 , T ] × Rd,
+
+are linear growth bounded and uniformly Lipschitz continuous, i.e., there exist positive constants K and L such that 
+
+|a(t, x )|2 ≤ K(1 + |x|2), |b(t, x )|2 ≤ K(1 + |x|2),
+
+|a(t, x ) − a(t, y )| ≤ L|x − y|, |b(t, x ) − b(t, y )| ≤ L|x − y|
+
+with x, y ∈ Rd.
+
+The forward process Xt is numerically approximated, when it can not be simulated based on its distribution. For notational convenience, we omit the dependency of Xi = X∆t 
+
+> i
+
+on the time grid ∆ t, and the dependency of the local and global errors on the state of Xi. For the implicit schemes we will apply Picard iterations which converges with the Lipschitz assumptions on the driver, and for any initial guess when ∆ ti is small enough. In the following analysis, we consider the equidistant time discretization. The deterministic functions y∆t 
+
+> i
+
+(·) and z∆t 
+
+> i
+
+(·) in (42) are approximated by the regressors bRyi (·)and bRzi (·), respectively (see also (43)). We define beY 
+
+> ∆t
+> i
+
+:= bRyi (X∆t 
+
+> i
+
+), bY ∆t 
+
+> i
+
+:= max 
+
+ beY 
+
+> ∆t
+> i
+
+, g (X∆t 
+
+> i
+
+)
+
+
+
+and bZ∆t 
+
+> i
+
+:= bRzi (X∆t 
+
+> i
+
+), and introduce the corresponding approximation errors as 
+
+bϵYi := Y ∆t 
+
+> i
+
+− bY ∆t 
+
+> i
+
+, bϵZi := Z∆t 
+
+> i
+
+− bZ∆t 
+
+> i
+
+, beϵYi
+
+:= eY ∆t 
+
+> i
+
+− beY 
+
+> ∆t
+> i
+
+, (56) 17 where Z∆t 
+
+> i
+
+, eY ∆t 
+
+> i
+
+and Y ∆t 
+
+> i
+
+are defined in (34), (35) and (36), respectively, in the semi-discrete scheme. As introduced earlier, beY 
+
+> ∆t
+> i
+
+and bZ∆t 
+
+> i
+
+denote random vari-ables whose distributions are represented by the generated samples by XGBoost regressors. Thus, we define the global errors as 
+
+ϵYi := Yi − bY ∆t 
+
+> i
+
+, ϵ Zi := Zi − bZ∆t 
+
+> i
+
+, eϵYi := eYi − beY 
+
+> ∆t
+> i
+
+, (57) where eYi and Yi are defined in (31) and (32), respectively. 
+
+Theorem 4.1. Under Assumption (H3), and noting that E[bϵYNT ] = 0 due to the known terminal condition, we obtain 
+
+E[|ϵYi |2] + eC∆tE [|ϵZi |2] ≤ O (∆ t) + C
+
+> NT
+
+X
+
+> j=i+1
+
+ NT
+
+T V ar Y 
+
+> j
+
++ TNT
+
+V ar Z
+
+> j
+
+
+
+, (58) 
+
+for all 0 ≤ i ≤ NT − 1 and 0 < ∆t < 1, where the constant eC ∈  0, 12d
+
+ , and the constant C depends on T, L, and d. The quantities V ar Y 
+
+> j
+
+and V ar Z 
+
+> j
+
+represent bounded constants. Proof. For the Z-component (0 ≤ i ≤ NT − 1) , we consider 
+
+bϵZi = 1∆t Ei[Y ∆t
+
+> i+1
+
+∆Wi+1 ] − 1∆t Ebxi 
+
+> i
+
+[ bY ∆t
+
+> i+1
+
+∆Wi+1 ] = 1∆t Ei[bϵYi+1 ∆Wi+1 ] + RZi
+
+xgb ,
+
+(59) where Ebxi 
+
+> i
+
+[ bS] denotes the approximation of Ei[S] obtained using an XGBoost regressor trained on the dataset ( bxi, M, bSM), M = 1 , · · · , M. Consequently, 
+
+Ebxi 
+
+> i
+
+[ bY ∆t
+
+> i+1
+
+∆Wi+1 ] = Ei[Y ∆t
+
+> i+1
+
+∆Wi+1 ] + RZi
+
+xgb , where RZi
+
+xgb is the approxima-tion error introduced by the XGBoost model and defined in (44). By applying Cauchy-Schwarz inequality, we estimate Ei[bϵYi+1 ∆Wi+1 ] in the Frobenius norm as 
+
+Ei[bϵYi+1 ∆Wi+1 ] 2 = Ei[( bϵYi+1 − Ei[bϵYi+1 ])∆ Wi+1 ] 2
+
+≤ d∆t  Ei[|bϵYi+1 |2] − | Ei[bϵYi+1 ]|2 ,
+
+which can then be substituted into (59) to yield 
+
+|bϵZi |2 ≤ 2d
+
+∆t
+
+ Ei[|bϵYi+1 |2] − | Ei[bϵYi+1 ]|2 + 2 |RZi
+
+xgb |2. (60) For the eY -component, we consider 
+
+|beϵYi
+
+| ≤ eY ∆t 
+
+> i
+
+− beY 
+
+> ∆t
+> i
+
+= Ei[Y ∆t
+
+> i+1
+
+] + f (ti, X ∆t 
+
+> i
+
+, eY ∆t 
+
+> i
+
+, Z ∆t 
+
+> i
+
+) − Ebxi 
+
+> i
+
+[ bY ∆t
+
+> i+1
+
+] − f (ti, X ∆t 
+
+> i
+
+, beY 
+
+> ∆t
+> i
+
+, bZ∆t 
+
+> i
+
+) ,
+
+≤ Ei[bϵYi+1 ] + ∆ tL (beϵYi
+
++ bϵZi ) + RYi
+
+xgb ,
+
+18 where RYi
+
+xgb given in (48). Applying Young’s inequality, we estimate 
+
+|beϵYi
+
+|2 ≤ (1 + γ∆t) Ei[bϵYi+1 ] 2 + (1 + 1
+
+γ∆t ) ∆tL (beϵYi
+
++ bϵZi ) + RYi
+
+xgb 
+
+> 2
+
+.
+
+≤ (1 + γ∆t) Ei[bϵYi+1 ] 2 + 3 L2∆t2|beϵYi
+
+|2 + 3 L2∆t2|bϵZi |2 + 3 |RYi
+
+xgb |2
+
++ 1
+
+γ∆t
+
+
+
+3L2∆t2|beϵYi
+
+|2 + 3 L2∆t2|bϵZi |2 + 3 |RYi
+
+xgb |2
+
+,
+
+for some γ > 0 to be chosen later. Consequently, by collecting coefficients, we obtain 
+
+
+
+1 − 3L2∆t2 − 3L2∆tγ
+
+
+
+|beϵYi
+
+|2 ≤ (1 + γ∆t) Ei[bϵYi+1 ] 2 + 3 L2∆t2|bϵZi |2 + 3 |RYi
+
+xgb |2
+
++ 1
+
+γ∆t
+
+
+
+3L2∆t2|bϵZi |2 + 3 |RYi
+
+xgb |2
+
+.
+
+Since 
+
+|bϵYi | = max 
+
+ eY ∆t 
+
+> i
+
+, g (X∆t 
+
+> i
+
+)
+
+
+
+− max 
+
+ beY 
+
+> ∆t
+> i
+
+, g (X∆t 
+
+> i
+
+)
+
+
+
+≤ eY ∆t 
+
+> i
+
+− beY 
+
+> ∆t
+> i
+
+= |bbϵYi
+
+|,
+
+|beϵYi
+
+| can be replaced by |bϵYi |, leading to 
+
+
+
+1 − 3L2∆t2 − 3L2∆tγ
+
+
+
+|bϵYi |2 ≤ (1 + γ∆t) Ei[bϵYi+1 ] 2 +
+
+
+
+3L2∆t2 + 3L2∆tγ
+
+
+
+|bϵZi |2
+
++
+
+ 3
+
+γ∆t + 3 
+
+
+
+|RYi
+
+xgb |2.
+
+(61) Using (60) and (61), we compute 
+
+
+
+1 − 3L2∆t2 − 3L2∆tγ
+
+
+
+|bϵYi |2 +
+
+ ∆t
+
+2d − 3L2∆t2 − 3L2∆tγ
+
+
+
+|bϵZi |2 ≤ (1 + γ∆t) Ei[bϵYi+1 ] 2
+
++
+
+ 3
+
+γ∆t + 3 
+
+
+
+|RYi
+
+xgb |2 +  Ei[|bϵYi+1 |2] − | Ei[bϵYi+1 ]|2 + ∆t
+
+2d |RZi
+
+xgb |2.
+
+We choose γ ≥ 6dL 2 so that 12d − 2L2 
+
+> γ
+
+≥ 0. Hence, there exist generic constants 
+
+bC with 0 < bC < 12d , depending only on L, γ, and d, such that the inequality can be written as 
+
+
+
+1 − bC∆t
+
+
+
+|bϵYi |2 + ∆ t eC
+
+
+
+1 − bC∆t
+
+
+
+|bϵZi |2 ≤ (1 + bC∆t)Ei[|bϵYi+1 |2]+
+
+ 3
+
+γ∆t + 3 
+
+
+
+|RYi
+
+xgb |2 + ∆t
+
+2d |RZi
+
+xgb |2.
+
+19 By induction and taking expectations E[·] on both sides, we obtain 
+
+E[|bϵYi |2] + ∆ t eCE [|bϵZi |2] ≤ 1 + bC∆t
+
+1 − bC∆t
+
+!NT −i
+
+E[|bϵYNT |2]+
+
+> NT
+
+X
+
+> j=i+1
+
+ 11 − bC∆t
+
+j−i  3 + 3 γ∆tγ∆t
+
+
+
+|RYj
+
+xgb |2 + ∆t
+
+2d |RZj
+
+xgb |2
+
+
+
+≤ exp( bCT )
+
+> NT
+
+X
+
+> j=i+1
+
+ 3 + 3 γ∆tγ∆t
+
+
+
+|RYj
+
+xgb |2 + ∆t
+
+2d |RZj
+
+xgb |2
+
+
+
+.
+
+Based on (55), we define 
+
+V ar Z 
+
+> j
+
+:= (2 V ar zi + 2 bLmin (bqzi )) 2 and V ar Y 
+
+> j
+
+:= (2 V ar yi + 2 bLmin (bqyi )) 2,
+
+and use these quantities to rewrite the inequality as 
+
+E[|bϵYi |2] + ∆ t eCE [|bϵZi |2] ≤ C
+
+> NT
+
+X
+
+> j=i+1
+
+ NT
+
+T V ar Y 
+
+> j
+
++ TNT
+
+V ar Z
+
+> j
+
+
+
+,
+
+where C depends on L, γ, d, and T. Finally, incorporating the known discretiza-tion errors defined in (38) and (39), we complete the proof. 
+
+## 5 Applications of RBSDE approach to SCLV models 
+
+As examples, we consider the classical SABR and Heston stochastic local volatil-ity (HSLV) models extended by incorporating a stochastic correlation structure, which belong to our SCLV model class defined in (10). 
+
+5.1 Extension of the classical SABR model 
+
+The classical SABR model reads Hagen et al. (2002) 
+
+ dν t = σν νt dW νt ,dS t = νtSβt dW st , (62) where W νt and W st are allowed to be correlated with a constant correlation coefficient, ν0, σ ν > 0 and 0 ≤ β < 1. We extend (62) by including stochastic correlation driven by Teng et al. (2016a) 
+
+dρ t = κρ(μρ − ρt)(1 − ρ2 
+
+> t
+
+) dt + σρ(1 − ρ2 
+
+> t
+
+) dW ρt , (63) see also Table 1. The extended SABR model can be derived as 
+
+
+
+dρ t = κρ(μρ − ρt)(1 − ρ2 
+
+> t
+
+) dt + σρ(1 − ρ2 
+
+> t
+
+) d ˜W ρt ,dν t = σν νt
+
+
+
+ρρν d ˜W ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+d ˜W νt
+
+
+
+,dS t = νtSβt
+
+
+
+ρρν ρt d ˜W ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt d ˜W νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+d ˜W st
+
+
+
+,
+
+(64) 20 which belongs to the class of SCLV models presented in (10), and is referred to as the Stochastic Alpha Beta Stochastic Rho (SABSR) model in this work. 
+
+Corollary 5.1. Suppose that an option with payoff function g(St) is valuated in 
+
+(64) , which can be exercised at any time before the maturity T, the corresponding pricing RBSDE can be derived as 
+
+
+
+dX t := 
+
+dρ t
+
+dν t
+
+dS t
+
+ =
+
+κρ(μρ − ρt)(1 − ρ2 
+
+> t
+
+)00
+
+ dt +
+
+
+
+σρ(1 − ρ2 
+
+> t
+
+) 0 0
+
+ρρν σν νt
+
+q
+
+1 − ρ2 
+
+> ρν
+
+σν νt 0
+
+ρρν νtSβt ρt
+
+q
+
+1 − ρ2 
+
+> ρν
+
+νtSβt ρt νtSβt
+
+p1 − ρ2
+
+> t
+
+ dW t,
+
+−dY t = f (t, X t, Y t, Z t) dt − Zt dW t + dL t,YT = g(ST ), Y t ≥ g(St) for t < T and R T 
+
+> 0
+
+(Yt − g(Xt)) dL t = 0 ,
+
+(65) 
+
+with 
+
+f (t, X t, Y t, Z t) = − rY t − λρρt
+
+σρ(1 − ρ2 
+
+> t
+
+) Z1,t −
+
+ λν
+
+σν
+
+q
+
+1 − ρ2
+
+> ρν
+
+− λρρtρρν 
+
+σρ(1 − ρ2 
+
+> t
+
+)
+
+q
+
+1 − ρ2
+
+> ρν
+
+ Z2,t 
+
++ rνtSβ−1
+
+> t
+
+p1 − ρ2
+
+> t
+
++ λν ρt
+
+σν
+
+p1 − ρ2
+
+> t
+
+!
+
+Z3,t .
+
+(66) 
+
+where Wt = ( W ρt , W νt , W st )⊤ .
+
+Proof. The proof can be executed straightforwardly done by setting aρ(t, ρ t) = 
+
+κρ(μρ−ρt)(1 −ρ2 
+
+> t
+
+), b ρ(t, ρ t) = σρ(1 −ρ2 
+
+> t
+
+), a ν (t, ν t) = 0 , b ν (t, ν t) = σν νt, a s(t, S t) = 0, α (νt) = νt and β(St) = Sβt into the RBSDE given in (16). 
+
+5.2 Extension of the Heston SLV model 
+
+The HSLV model proposed in Van Der Stoep et al. (2014) is given by 
+
+ dν t = κν (μν − νt) dt + σν
+
+√νt dW νt ,dS t = μsSt dt + √νtSβt dW st , (67) where W νt and W st are allowed to be correlated with a constant correlation co-efficient, ν0, κ ν , μ ν , σ ν > 0, 2κν μν > σ 2 
+
+> ν
+
+and 0 ≤ β < 1. Incorporating stochastic correlation allows us to extend (67) into a SCLV model, presented as 
+
+
+
+dρ t = κρ(μρ − ρt)(1 − ρ2 
+
+> t
+
+) dt + σρ(1 − ρ2 
+
+> t
+
+) d ˜W ρt ,dν t = κν (μν − νt) dt + σν
+
+√νt
+
+
+
+ρρν d ˜W ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+d ˜W νt
+
+
+
+,dS t = μsSt dt + √νtSβt
+
+
+
+ρρν ρt d ˜W ρt +
+
+q
+
+1 − ρ2 
+
+> ρν
+
+ρt d ˜W νt +
+
+q
+
+1 − ρ2 
+
+> t
+
+d ˜W st
+
+
+
+,
+
+(68) which is referred to as the Heston stochastic correlation local volatility (HSCLV) model. 21 Corollary 5.2. Suppose that an option with payoff function g(St) is valuated in 
+
+(68) , which can be exercised at any time before the maturity T, the corresponding pricing RBSDE can be derived as 
+
+
+
+dX t := 
+
+
+
+dρ t
+
+dν t
+
+dS t
+
+ =
+
+
+
+κρ(μρ − ρt)(1 − ρ2 
+
+> t
+
+)
+
+κν (μν − νt)
+
+μsSt
+
+ dt +
+
+
+
+σρ(1 − ρ2 
+
+> t
+
+) 0 0
+
+ρρν σν νt
+
+q
+
+1 − ρ2 
+
+> ρν
+
+σν νt 0
+
+ρρν νtSβt ρt
+
+q
+
+1 − ρ2 
+
+> ρν
+
+νtSβt ρt νtSβt
+
+p1 − ρ2
+
+> t
+
+ dW t,
+
+−dY t = f (t, X t, Y t, Z t) dt − Zt dW t + dL t,YT = g(ST ), Y t ≥ g(St) for t < T and R T 
+
+> 0
+
+(Yt − g(Xt)) dL t = 0 ,
+
+(69) 
+
+with 
+
+f (t, X t, Y t, Z t) = − rY t − λρρt
+
+σρ(1 − ρ2 
+
+> t
+
+) Z1,t −
+
+ λν
+
+√νt
+
+σν
+
+q
+
+1 − ρ2
+
+> ρν
+
+− λρρtρρν 
+
+σρ(1 − ρ2 
+
+> t
+
+)
+
+q
+
+1 − ρ2
+
+> ρν
+
+ Z2,t 
+
+− μs − r
+
+√νtSβ−1
+
+> t
+
+p1 − ρ2
+
+> t
+
+− λν
+
+√νtρt
+
+σν
+
+p1 − ρ2
+
+> t
+
+!
+
+Z3,t .
+
+(70) 
+
+where Wt = ( W ρt , W νt , W st )⊤ .
+
+Proof. The proof can be executed straightforwardly done by setting aρ(t, ρ t) = 
+
+κρ(μρ − ρt)(1 − ρ2 
+
+> t
+
+), b ρ(t, ρ t) = σρ(1 − ρ2 
+
+> t
+
+), a ν (t, ν t) = κν (μν − νt), b ν (t, ν t) = 
+
+σν
+
+√νt, a s(t, S t) = μsSt, α (νt) = √νt and β(St) = Sβt into the RBSDE given in (16). 
+
+## 6 Numerical experiments 
+
+In this section, we present numerical results pertaining to the pricing of Amer-ican options contracts within the SCLV models. The intention is to illustrate the applicability of the proposed RBSDE approach and its efficiency, and to see the role of stochastic correlation on pricing and hedging. In all numerical exper-iments, we employ the following XGBoost parameter settings unless otherwise specified: the maximum tree depth is set to ed = 2; the learning rate to η = 0 .9(with a low tree depth and a large learning rate chosen to expedite computation when possible), datasets of size M are split into training and test sets with a ration of 3 : 1 , the number of trees is set to be 150 , and the “Early Stopping” technique is applied with early stopping rounds set to 1 . For all remaining parameters, default values are employed. We perform 10 Picard iterations to solve the implicit equation for Y -component. As indicated in Teng (2022), comparable accuracy levels can be attained across a range of standard learning rates (i.e., between 0 and 1) by adjusting the number of trees for general problems. Nevertheless, challenging problems 22 necessitate a smaller learning rate. In Teng (2022), the number of trees is deter-mined through manual comparison of training and test curves, and this value is applied consistently across all time steps. In contrast to this methodology, we employ “Early Stopping” to automatically determine the specific number of trees at each time step. In the case of a standard BSDE (i.e., dX t = dW t), there is an absence of forward discretization error. Moreover, our SCLV models are formulated using decoupled forward BSDEs, where the underlying processes Xt are forward SDEs. These forward processes need to be numerically simulated, e.g., with the Euler-Maruyama scheme, when their analytical solutions are unavailable. The algorithms are executed independently ten times, and the average value is computed for approximation. Different seeds are used for each simulation. We denote the approximations with numerical scheme by ( Y ∆t 
+
+> 0
+
+, Z∆t 
+
+> 0
+
+), where 
+
+Z∆t 
+
+> 0
+
+= ( Z∆t 
+
+> 1,0
+
+, Z ∆t 
+
+> 2,0
+
+, · · · , Z ∆t
+
+> d, 0
+
+), and the approximations of delta-hedgings ∂V ∂S by 
+
+∆∆t
+
+> d, 0
+
+. The approximated prices bY ∆t 
+
+> 0
+
+:= 110 
+
+P10  
+
+> k=1
+
+Y ∆t 
+
+> 0,k
+
+and delta-hedgings b∆∆t 
+
+> d, 0
+
+=
+
+bZ∆t
+
+> d, 0
+
+/α (ν0)β(S0)p1 − ρ20 with bZ∆t 
+
+> d, 0
+
+:= 110 
+
+P10  
+
+> k=1
+
+Z∆t 
+
+> d, 0,k
+
+will be reported for all the examples, as well as their empirical standard deviations 
+
+r
+
+> 19
+
+P10  
+
+> k=1
+
+bY ∆t 
+
+> 0
+
+− Y ∆t
+
+> 0,k
+> 2
+
+and 
+
+r
+
+> 19
+
+P10  
+
+> k=1
+
+b∆∆t 
+
+> d, 0
+
+− ∆∆t
+
+> d, 0,k
+> 2
+
+, where ∆∆t 
+
+> d, 0,k
+
+= Z∆t
+
+> d, 0,k
+
+/α (ν0)β(S0)p1 − ρ20. The dynamic of underlying asset price, denoted by dS t, are specified as the d-th (last) forward component in our pricing models. Consequently, delta-hedging consis-tently carries the subscript d. Although our approximations of bZ1,0, bZ2,0 · · · , bZd−1,0
+
+are also accurate, obtaining sufficiently precise approximations for other hedg-ings, such as ∂V ∂ν and ∂V ∂ρ , poses challenges due to ill-conditioned systems of equations, as illustrated in (17). As a result, we limit our discussion only to delta-hedgings in this paper, and deferring the analysis and treatment of these ill-conditioned systems to future research. All experiments are conducted in Python with an Intel(R) Core(TM) i5 − 8500 CPU @ 3 .00GHz and 15 GB RAM. 
+
+6.1 Numerical Example: American options with the SABR and SABSR models 
+
+In this section, we assess our RBSDE scheme by pricing American options under the classical SABR model defined in (62), as well as under the SABSR model - an extension of the SABR framework that incorporates stochastic correlation as specified in (64). 
+
+6.1.1 American options with the SABR model 
+
+We begin with the classical SABR model, whose corresponding pricing RBSDE can be readily obtained from the SABSR pricing RBSDE in (65) by replacing the stochastic correlation with a constant correlation. For the SABR model, 23 several effective numerical methods are available, including the exact simula-tion scheme of Cai et al. (2017) and the CTMC method of Cui et al. (2018). In particular, the CTMC method yields highly accurate approximations with rel-atively low computational cost. To assess the accuracy of our RBSDE scheme, we employ the parameter values reported in Table 4 of Sec.4.2.3 in Cui et al. (2018). Following Gobet and Lemor (2005), we also apply a logarithmic trans-formation to St to mitigate the insufficient smoothness of the payoff function. The convergence results are presented in Table 2, with NT set to 100 , 200 and 400 .
+
+Table 2: American put options. Option parameters: S0 = 1 .1, T = 1 , β =0.7, ν 0 = 0 .2, σ ν = 0 .08 , r = 0 . Constant correlation: −0.4. RBSDE parameters: 
+
+M = 100000 . CTMC row is reported in Cui et al. (2018).                                                                                                                                                              
+
+> KNT1.00 1.02 1.04 1.06 1.08 1.10 1.12 1.14 1.16 1.18 1.20 CTMC 0.0424 0.0494 0.0572 0.0658 0.0751 0.0851 0.0959 0.1074 0.1196 0.1326 0.1461
+> 100
+> bY00.0403 0.0470 0.0547 0.0630 0.0721 0.0821 0.0929 0.1044 0.1167 0.1297 0.1435 (Std.Dev.) 2.91E-04 3.37E-04 3.83E-04 3.89E-04 4.09E-04 4.28E-04 4.19E-04 4.30E-04 4.55E-04 3.98E-04 4.75E-04
+> b∆∆t
+> 3,0−0.2564 −0.2892 −0.3267 −0.3619 −0.3971 −0.4387 −0.4765 −0.5154 −0.5540 −0.5921 −0.6241 (Std. Dev.) 3.99E-03 6.84E-03 7.57E-03 7.27E-03 7.94E-03 9.50E-03 8.31E-03 1.15E-02 1.00E-02 1.32E-02 1.29E-02 Average running time 23 seconds 200
+> bY00.0413 0.0482 0.0559 0.0643 0.0735 0.0835 0.0943 0.1059 0.1181 0.1313 0.1450 (Std.Dev.) 1.84E-04 2.24E-04 2.27E-04 2.49E-04 3.13E-04 2.72E-04 3.78E-04 3.70E-04 3.63E-04 3.29E-04 3.88E-04
+> b∆∆t
+> 3,0−0.2376 −0.2683 −0.3038 −0.3390 −0.3742 −0.4097 −0.4484 −0.4847 −0.5204 −0.5581 −0.5923 (Std. Dev.) 9.25E-03 1.21E-02 1.20E-02 1.59E-02 1.72E-02 1.96E-02 2.32E-02 2.62E-02 2.89E-02 2.90E-02 3.36E-02 Average running time 45 seconds 400
+> bY00.0425 0.0496 0.0573 0.0657 0.0750 0.0850 0.0958 0.1073 0.1195 0.1326 0.1464
+> (Std.Dev.) 2.87E-04 2.67E-04 3.29E-04 2.83E-04 3.92E-04 3.66E-04 3.80E-04 3.65E-04 3.71E-04 3.81E-04 2.76E-04
+> b∆∆t
+> 3,0−0.2214 −0.2507 −0.2868 −0.3228 −0.3605 −0.3981 −0.4345 −0.4752 −0.5132 −0.5502 −0.5846 (Std. Dev.) 7.48E-03 9.34E-03 1.00E-02 1.08E-02 1.24E-02 1.35E-02 1.66E-02 1.79E-02 2.27E-02 2.22E-02 2.60E-02 Average running time 126 seconds
+
+We observe that the results are overall quite promising, particularly as the approximated prices already attain a level of accuracy comparable to the CTMC approximation in Cui et al. (2018) when NT = 100 . As mentioned before, the reported approximations of delta-hedging ∂V ∂S in Table 2 are computed with 
+
+bZd, 0/ν 0Sβ
+
+0 . In this example, we set M = 100000 to expedite computations. The mean execution time for each run in our approach varies with the values of 
+
+NT , but remains nearly same for repeated runs with the same NT . Table 2 also reports the approximate execution times corresponding to each value of NT . The comparison to the benchmark demonstrates that the proposed RBSDE scheme can attain a quite high accuracy with stable convergence. 
+
+6.1.2 American options under the SABSR model 
+
+In this section we evaluate American options in the SABSR model, and ana-lyze the role of stochastic correlation in pricing and hedging. Examining the influence of stochastic correlation on American options pricing is both signifi-cant interesting and novel in the literature. Specially, we set ρ0 = −0.4, μ ρ =
+
+−0.4, σ ρ = 0 .5, ρ ρν = 0 , ensuring that the SCP initiates at −0.4 and maintains a long-term mean of −0.4. The impact of stochastic correlation is demonstrated by comparing prices and delta-hedgings in Table 3. These variances arise solely from differing values of κρ, which dictates the speed at which the SCP reverts to its long-term mean of −0.4. Noting that the CTMC method cannot be directly 24 applied to the SABSR model, which requires substantial reformulation - the ex-isting literature offers very few highly accurate classical numerical approaches. Recently, many deep learning-based algorithms have been developed for pricing American options, and some of these can be adopted for valuation under the SABSR framework. In particular, the deep primal-dual BSDE (DPDB) algo-rithm proposed in the recent work Yang and Li (2024a) provides both lower and upper bounds for American option prices, accompanied by confidence in-tervals, making it a suitable benchmark for our study. In Table 3, we also report the DPDB approximations together with the corresponding 95% confidence in-tervals for the lower and upper bounds. The results of our RBSDE scheme Table 3: American put options. Option parameters: S0 = 1 .1, T = 1 , β =0.7, ν 0 = 0 .2, σ ν = 0 .08 , r = 0 . SCP: ρ0 = −0.4, μ ρ = −0.4, σ ρ = 0 .5, ρ ρν = 0 .
+
+RBSDE parameters: NT = 400 , M = 100000 . The average running time of our scheme is approximately 210 seconds for the given parameter setting, and the training time of DPDB scheme is about 637 seconds.                                                                                                                                                                                                                                                   
+
+> Kκρ1.00 1.02 1.04 1.06 1.08 1.10 1.12 1.14 1.16 1.18 1.20 0.1
+> bY00.0440 0.0510 0.0587 0.0671 0.0763 0.0862 0.0969 0.1084 0.1207 0.1337 0.1473
+> (Std.Dev.) 3.08E-04 2.78E-04 2.16E-04 2.84E-04 2.28E-04 4.41E-04 3.42E-04 2.58E-04 3.73E-04 3.67E-04 4.13E-04 DPDB 0.0419 0.0488 0.0569 0.0653 0.0745 0.0842 0.0953 0.1064 0.1187 0.1317 0.1447 95% CI bounds [0.0418 ,0.0485 ][0.0488 ,0.0551 ][0.0569 ,0.0635 ][0.0652 ,0.0719 ][0.0744 ,0.0816 ][0.0841 ,0.0920 ][0.0952 ,0.1028 ][0.1063 ,0.1142 ][0.1187 ,0.1269 ][0.1315 ,0.1407 ][0.1445 ,0.1538 ]
+> b∆∆t
+> 3,0−0.2681 −0.3012 −0.3345 −0.3692 −0.4044 −0.4389 −0.4735 −0.5113 −0.5398 −0.5761 −0.6077 (Std.Dev.) 1.50E-02 1.71E-02 2.05E-02 2.46E-02 2.64E-02 3.36E-02 3.63E-02 3.72E-02 4.32E-02 4.85E-02 5.35E-02 2.0
+> bY00.0441 0.0509 0.0585 0.0669 0.0762 0.0861 0.0967 0.1083 0.1205 0.1335 0.1472
+> (Std.Dev.) 3.05E-04 2.56E-04 3.09E-04 2.78E-04 3.63E-04 3.43E-04 2.71E-04 3.30E-04 3.86E-04 4.58E-04 5.46E-04 DBDP 0.0422 0.0491 0.0568 0.0651 0.0739 0.0844 0.0952 0.1064 0.1186 0.1312 0.1449 95% CI bounds [0.0421 ,0.0461 ][0.0491 ,0.0529 ][0.0568 ,0.0608 ][0.0650 ,0.0700 ][0.0738 ,0.0794 ][0.0841 ,0.0894 ][0.0952 ,0.1005 ][0.1064 ,0.1119 ][0.1184 ,0.1240 ][0.1313 ,0.1372 ][0.1448 ,0.1514 ]
+> b∆∆t
+> 3,0−0.2687 −0.2991 −0.3328 −0.3660 −0.4018 −0.4384 −0.4725 −0.5063 −0.5410 −0.5732 −0.6049 (Std.Dev.) 1.57E-02 1.80E-02 1.96E-02 2.46E-02 2.64E-02 3.28E-02 3.58E-02 4.17E-02 4.38E-02 5.01E-02 5.49E-02 20
+> bY00.0433 0.0501 0.0577 0.0660 0.0752 0.0851 0.0959 0.1074 0.1195 0.1326 0.1463
+> (Std.Dev.) 3.48E-04 3.83E-04 4.97E-04 3.49E-04 3.77E-04 3.41E-04 3.50E-04 4.34E-04 4.15E-04 3.62E-04 3.82E-04 DBDP 0.0419 0.0490 0.0564 0.0652 0.0744 0.0844 0.0953 0.1061 0.1182 0.1307 0.1455 95% CI bounds [0.0419 ,0.0450 ][0.0489 ,0.0522 ][0.0564 ,0.0598 ][0.0652 ,0.0685 ][0.0744 ,0.0775 ][0.0843 ,0.0878 ][0.0951 ,0.0990 ][0.1058 ,0.1102 ][0.1182 ,0.1217 ][0.1305 ,0.1354 ][0.1452 ,0.1491 ]
+> b∆∆t
+> 3,0−0.2624 −0.2945 −0.3286 −0.3624 −0.3975 −0.4342 −0.4691 −0.5046 −0.5407 −0.5753 −0.6031 (Std. Dev.) 1.50E-02 1.78E-02 1.91E-02 2.41E-02 2.83E-02 3.05E-02 3.52E-02 3.76E-02 4.21E-02 4.78E-02 5.43E-02
+
+within the SABSR model are quite promising; we observe that all of our ap-proximations fall within the corresponding confidence intervals. Furthermore, our computational time (approximately 210 seconds) is substantially lower than the training time of DPDB (approximately 637 seconds). To elucidate the im-pact of stochastic correlation, Fig.1 visually presents the disparities in price and delta-hedging between the results outlined in Table 2 and 3 for NT = 400 . Since the SCPs are parameterized to initialize and maintain a correlation value −0.4,
+
+consistent with the constant correlation value utilized in Sec.6.1.1. The mag-nitude of differences in price and delta-hedging differences decreases with the increasing mean reversion speed κρ, as displayed in Figure 1. Consequently, the approximations with κρ = 20 (highest reversion speed) are expected to closely resemble those obtained with the constant correlation value, as depicted in Fig. 1. The advantage of the RBSDE approach is that it allows us to capture the fu-ture evolution of the option price, which is particularly useful for tasks such as computing Value at Risk. To illustrate this, we display in Fig. 2a the price evolution over the entire time domain by averaging the price data at each time point. For improved visualization, we set relatively large values for the spot and strike prices, namely S0 = 100 and K = 110. All other parameters are chosen 25 1.000 1.025 1.050 1.075 1.100 1.125 1.150 1.175 1.200 Strike K 
+
+> 1.50
+> 1.25
+> 1.00
+> 0.75
+> 0.50
+> 0.25
+> 0.00 Price Diff 1e 3
+> = 0.1
+> = 2.0
+> = 20
+
+(a) The price differences. 1.000 1.025 1.050 1.075 1.100 1.125 1.150 1.175 1.200 Strike K  
+
+> 2.0 2.5 3.0 3.5 4.0 4.5 5.0 Delta-Hedging Diff 1e 2
+> = 0.1
+> = 2.0
+> = 20
+
+(b) The delta-hedging differences. 
+
+Figure 1: The impact of the speed of mean reversion κρ on both the prices and delta-hedgings of American put options within the SABSR model. as in Table 3, with κρ = 2, except that we vary β. In addition, the distribution of the log-price data at t = 12 is shown in Fig. 2b. 0.0 0.2 0.4 0.6 0.8 1.0 Time to maturity 10.00 10.02 10.04 10.06 10.08 10.10 10.12 10.14 American put price 
+
+> = 0.1
+> = 0.3
+> = 0.5
+
+(a) Price evolution. 8 10 12 14 16 American put value at t=1/2 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00 Density = 0.1  
+
+> = 0.3
+> = 0.5
+
+(b) The log-price at t = 12 .
+
+Figure 2: Future evolution of the American put option price under the SABSR model for varying β. S 0 = 100 , K = 110 , and all remaining parameter values follow those reported in Table 3, with κρ = 2 .
+
+6.2 Numerical Example: Heston SLV Model with Stochas-tic Correlation 
+
+The SCLV model examined in this section, as detailed in Sec.5.2, is an exten-sion of the Heston SLV (HSLV) model that incorporates stochastic correlation, referred to as the HSCLV model. Different to the SABSR model, both the local volatility and underlying asset processes have nonzero drift terms in the HSCLV model. 26 6.2.1 American options under the HSLV model 
+
+We revisit the valuation of American put options under the HSLV model using our RBSDE-based approach. Once again, we compare our approximations with those obtained using the CTMC method, as presented in Table 4. The results Table 4: American put options. Option parameters: S0 = 10 , T = 1 , β =0.7, ν 0 = 0 .04 , κ ν = 4 , μ ν = 0 .035 , σ ν = 0 .15 , r = 0 .03 . Constant correlation is 
+
+ρ = −0.75 . RBSDE parameters: M = 200000 , μ s = 0 .03 .KNT 7.0 8.0 9.0 10 .0 11 .0 12 .0 13 .010 CTMC 0.0002 0.0044 0.0473 0.2813 0.9999 1.9999 2.9999                                                                                        
+
+> bY00.0002 0.0036 0.0444 0.2721 0.9999 1.9999 2.9999 (Std.Dev.) (2 .24E-05) (1 .13E-04) (4 .86E-04) (1 .01E-03) (0 .00E-00) (4 .68E-16) (4 .68E-16)
+> b∆∆t
+> 3,0−0.0001 −0.0073 −0.0859 −0.3939 −0.9445 −0.9852 −0.9832 (Std. Dev.) (1 .66E-04) (2 .42E-04) (3 .60E-03) (5 .25E-03) (1 .61E-02) (2 .93E-02) (4 .36E-02) Average running time 6 seconds 20
+> bY00.0002 0.0041 0.0462 0.2776 0.9999 1.9999 2.9999 (Std.Dev.) (1 .77E-05) (7 .63E-05) (2 .88E-04) (1 .05E-03) (0 .00E-00) (4 .68E-16) (4 .68E-16)
+> b∆∆t
+> 3,0−0.0001 −0.0081 −0.0886 −0.3893 −0.9666 −0.9854 −0.9808 (Std. Dev.) (7 .27E-05) (1 .71E-04) (3 .27E-03) (6 .60E-03) (1 .36E-02) (2 .78E-02) (4 .19E-02) Average running time 11 seconds 30
+> bY00.0002 0.0046 0.0474 0.2811 0.9999 1.9999 2.9999
+> (Std.Dev.) (4 .41E-05) (1 .07E-04) (6 .13E-04) (1 .32E-03) (0 .00E-00) (4 .68E-16) (4 .68E-16)
+> b∆∆t
+> 3,0−0.0000 −0.0091 −0.0897 −0.3851 −0.9725 −0.9794 −0.9702 (Std. Dev.) (3 .99E-05) (1 .93E-04) (2 .96E-03) (5 .75E-03) (1 .81E-02) (3 .42E-02) (5 .14E-02) Average running time 16 seconds
+
+further demonstrate the high accuracy of our RBSDE scheme for pricing within the HSLV framework. 
+
+6.2.2 American options under the HSCLV model 
+
+Finally, we examine the evaluation of American options using the HSCLV model. For the SCP, we set ρ0 = −0.75 , mean reversion speed κρ = 2 .0, volatility 
+
+σρ = 0 .1, and correlation between the SCP and the volatility process ρρν = 0 .
+
+We then vary the long-term mean μρ. In other words, the SCP is initialized with the same values but is allowed to converge to different long-term mean values while maintaining the same mean-reversion speed. The results are reported in Table 5, along with the corresponding DBDP approximations. The same con-clusion can be drawn as in the SABSR example. In particular, for the case with NT = 30 , our computational time is approximately 35 seconds, compared with 639 seconds required for training DPDB scheme. It is noteworthy that the impact of stochastic correlation almost disappears for deep in-the-money options with the given parameter values. This phenomenon is illustrated in Fig. 3. We may conclude that stochastic correlation plays a minor role when other parameters have dominant values in determining the option value. For a better visualization in Fig. 4, we set relatively large values for the spot and strike prices, namely S0 = 100 and K = 105 . All other parameters are chosen as in Table 5, with μρ = −0.2, except that we vary β. In addition, the distribution of the log-price data at t = 12 is reported in Fig. 4b. 27 Table 5: American put options. Option parameters: S0 = 10 , T = 1 , β =0.7, ν 0 = 0 .04 , κ ν = 4 , μ ν = 0 .035 , σ ν = 0 .15 , r = 0 .03 . SCP: ρ0 = −0.75 , κ ρ =2.0, σ ρ = 0 .1, ρ ρν = 0 . RBSDE parameters: M = 200000 , N T = 30 , μ s = 0 .03 .
+
+The average running time of our scheme is approximately 35 seconds for the given parameter setting, and the training time of DPDB scheme is about 639 seconds. 
+
+Kμρ 7.0 8.0 9.0 10 .0 11 .0 12 .0 13 .0
+
+−0.2
+
+bY0 0.0001 0.0040 0.0452 0.2794 0.9999 1.9999 2.9999 (Std.Dev.) (1 .78E-05) (1 .53E-04) (5 .59E-04) (1 .09E-03) (0 .00E-00) (4 .68E-16) (4 .68E-16) DPDB 0.0001 0.0035 0.0440 0.2776 0.9937 1.9928 2.9921 95% CI bounds [0 .0001 , 0.0011] [0 .0034 , 0.0062] [0 .0438 , 0.0475] [0 .2769 , 0.2814] [0 .9937 , 1.0002] [1 .9926 , 2.0000] [2 .9920 , 3.0001] 
+
+b∆∆t 
+
+> 3,0
+
+−0.0002 −0.0093 −0.0893 −0.3946 −0.9817 −0.9995 −0.9996 (Std. Dev.) (5 .69E-05) (4 .48E-04) (2 .89E-03) (5 .97E-03) (2 .06E-02) (3 .76E-02) (5 .52E-02) 0
+
+bY0 0.0001 0.0037 0.0440 0.2786 0.9999 1.9999 2.9999 (Std.Dev.) (1 .94E-05) (1 .25E-04) (4 .10E-04) (1 .04E-03) (0 .00E-00) (4 .68E-16) (4 .68E-16) DPDB 0.0001 0.0031 0.0427 0.2767 0.9939 1.9929 2.9919 95% CI bounds [0 .0001 , 0.0010] [0 .0031 , 0.0058] [0 .0425 , 0.0462] [0 .2763 , 0.2802] [0 .9937 , 1.0002] [1 .9928 , 2.0000] [2 .9917 , 3.0002] 
+
+b∆∆t 
+
+> 3,0
+
+−0.0002 −0.0089 −0.0888 −0.3977 −0.9812 −0.9999 −0.9998 (Std. Dev.) (6 .67E-05) (3 .43E-04) (2 .59E-03) (6 .70E-03) (2 .01E-02) (3 .74E-02) (5 .49E-02) 0.75 
+
+bY0 0.0000 0.0028 0.0395 0.2755 0.9999 1.9999 2.9999 (Std.Dev.) (9 .36E-06) (1 .23E-04) (2 .91E-04) (8 .50E-04) (0 .00E-00) (4 .68E-16) (4 .68E-16) DPDB 0.0000 0.0021 0.0382 0.2740 0.9939 1.9928 2.9921 95% CI bounds [0 .0000 , 0.0008] [0 .0021 , 0.0044] [0 .0380 , 0.0419] [0 .2734 , 0.2763] [0 .9938 , 1.0002] [1 .9926 , 2.0000] [2 .9920 , 3.0002] 
+
+b∆∆t 
+
+> 3,0
+
+−0.0000 −0.0074 −0.0838 −0.4014 −0.9795 −0.9998 −0.9996 (Std. Dev.) (3 .12E-05) (3 .02E-04) (1 .67E-03) (6 .55E-03) (2 .07E-02) (3 .73E-02) (5 .49E-02) 7 8 9 10 11 12 13 Strike K  
+
+> 012345678Price Diff 1e 3
+> =0.2
+> = 0
+> = 0.75
+
+(a) The price differences. 7 8 9 10 11 12 13 Strike K   
+
+> 0.5
+> 0.0 0.5 1.0 1.5 2.0 2.5 3.0 Delta-Hedging Diff 1e 2
+> =0.2
+> = 0
+> = 0.75
+
+(b) The delta-hedging differences. 
+
+Figure 3: The impact of the long-term mean of SCP μρ on both the prices and delta-hedgings of American put options within the HSCLV model. 
+
+## 7 Conclusion 
+
+One method to hedge correlation risk is to incorporate stochastic correlation into pricing and hedging strategies. This work studies the pricing of American options under SLV models, extended by introducing stochastic correlation driven by a stochastic process, referred to as the SCLV models. The SLV models already pose significant challenges for standard pricing techniques, and these challenges are further compounded in the SCLV framework. To address these challenges, we propose an RBSDE–based approach for pric-ing and hedging American options under stochastic correlation, volatility, and spot price dynamics. A key advantage of the RBSDE methodology is that it also enables computation of the future evolution of the option price. To solve 28 0.0 0.2 0.4 0.6 0.8 1.0 Time to maturity 2.0 2.5 3.0 3.5 4.0 4.5 5.0 American put price 
+
+> = 0.1
+> = 0.6
+> = 0.7
+
+(a) Price evolution. 0.0 2.5 5.0 7.5 10.0 12.5 15.0 17.5 20.0 American put price 0.00 0.25 0.50 0.75 1.00 1.25 1.50 1.75 2.00 Density = 0.1  
+
+> = 0.6
+> = 0.7
+
+(b) The log price at t = 12 .
+
+Figure 4: Future evolution of American put option price under the HSCLV model for varying β. S 0 = 100 , K = 105 , and all remaining parameter values follow those reported in Table 5, with μρ = −0.2.
+
+the resulting RBSDEs, we develop a numerical algorithm based on XGBoost regression. The SABSR and HSCLV models are analyzed in detail for the pric-ing and hedging of American options. Comparisons with state-of-the-art deep learning methods demonstrate the effectiveness of the RBSDE approach, the high accuracy of the regression-based algorithm, and the significant impact of stochastic correlation on both pricing and delta-hedging. Future research directions include addressing the challenges posed by ill-conditioned systems of equations, with the goal of obtaining robust numerical approximations for hedging under stochastic volatility and correlation. More-over, there is a growing need for faster numerical methods for solving RBSDEs, particularly to enable efficient calibration of SCLV models. 
+
+## Acknowledgement(s) 
+
+We gratefully acknowledge the authors of Hur´ e et al. (2020) and Yang and Li (2024a) for making their code available. No competing interest was reported by the authors(s). 
+
+## Funding 
+
+The work was funded by the Deutsche Forschungsgemeinschaft (DFG, German Research Foundation)- Project No. [581639701]. 
+
+## References 
+
+A. Antonov, M. Konikov, and M. Spector , SABR spreads its wing , Risk, 26 (2013), pp. 58–63. 29 A. Armstrong, M. Forde, M. Lorig, and H. Zhang , Small-time asymp-totics for a general local stochastic volatility model with a jump-to-default: Curvature and the heat kernel expansion , SIAM J. Financial Math., 8 (2018), pp. 82–113. 
+
+E. Bayraktar, Q. Feng, and Z. Zhang , Deep signature algorithm for multi-dimensional path-dependent options , SIAM J. Fin. Math., 15 (2024), pp. 194– 214. 
+
+S. Becker, P. Cheridito, and A. Jentzen , Deep optimal stopping , J. Mach. Learn. Res., 20 (2019), pp. 1–25. 
+
+S. Becker, P. Cheridito, A. Jentzen, and T. Welti , Solving high-dimensional optimal stopping problems using deep learning , European J. Appl. Math., 32 (2021), pp. 470–514. 
+
+B. Bouchard and J. F. Chassagneux , Discrete-time approximation for continuously and discretely reflected bsdes , Stoch. Proc. Appl., 118 (2008), pp. 2269–2293. 
+
+N. Cai, Y. Song, and N. Chen , Exact simulation of the SABR model , Oper. Res., 65 (2017), pp. 931–951. 
+
+B. Chen, C. W. Oosterlee, and H. V. der Weide , A low-bias simulation scheme for the SABR stochastic volatility model , Int. J. Theor. Appl. Finance, 15 (2012). 
+
+T. Chen and C. Guestrin , XGBoost: a scalable tree boosting system , in Pro-ceedings of the 22nd ACM SIGKDD international conference on knowledge discovery and data mining, San Francisco California, USA, 2016. 
+
+Z. Cui, J. Kirkby, and D. Nguyen , A general framework for discretely sam-pled realized variance derivatives in stochastic volatility models with jumps ,Eur. J. Oper. Res., 262 (2017), pp. 381–400. 
+
+Z. Cui, J. Kirkby, and D. Nguyen , A general valuation framework for SABR and stochastic local volatility models , SIAM J. Financial Math., 9 (2018), pp. 520–563. 
+
+E. Derman and I. Kani , Riding on a smile , Risk, (1994). 
+
+Y. Dong , Randomized optimal stopping problem in continuous time and rein-forcement learning algorithm , SIAM J. Control Optim., 62 (2024), pp. 1590– 1614. 
+
+J. Driessen, P. Maenhout, and G. Vikov , The price of correlation risk: Evidence from equity , J. Finance, 64 (2009), pp. 18–20. 
+
+J. Driessen, P. Maenhout, and G. Vikov , Option-implied correlations and the price of correlation risk . Working paper, ssrn.2166829, 2016. 30 B. Dupire , Pricing with a smile , Risk, (1994), pp. 18–20. 
+
+E. Gobet and J. P. Lemor , Numerical simulation of BSDEs using empirical regression methods:theory and practice , in Proceedings of the Fifth Collo-quium on BSDEs, Shanghai, USA, 2005. 
+
+P. S. Hagen, D. Kumar, A. Lesniewski, and D. E. Woodward , Managing smile risk , Wilmott Magazine, 1 (2002), pp. 84–108. 
+
+S. L. Heston , A closed-form solution for options with stochastic volatility with applications to bond and currency options , Rev. Fin. Stud., 6 (1993), pp. 327– 343. 
+
+M. Higgins , Stochastic spot/volatility correlation in stochastic volatility models and barrier option pricing . Working paper, arXiv:1404.4028, 2014. 
+
+J. Hull and A. White , The pricing of options on assets with stochastic volatil-ities , J. Finance, 42 (1987), pp. 281–300. 
+
+C. Hur´ e, H. Pham, and X. Warin , Deep backward schemes for high-dimensional nonlinear pdes , Math. Comput., 89 (2020), pp. 1547–1579. 
+
+N. E. Karoui, C. Kapoudjan, E. Pardoux, S. Peng, and M. C. Quenez ,
+
+Reflected solutions of backward stochastic differential equations and related obstacle problems for pdes , Ann. Probab., 25 (1997), pp. 702–737. 
+
+N. E. Karoui, E. Pardoux, and M. C. Quenez , Reflected backward sdes and american options , in Numerical Methods in Finance, Cambridge University Press, 1997, pp. 215–231. 
+
+´A. Leitao, L. Grzelak, and C. W. Oosterlee , On a one time-step Monte Carlo simulation approach of the SABR model: Application to european op-tions , Appl. Math. Comput., 293 (2017), pp. 461–479. 
+
+J. Lelong , Dual pricing of american options by wiener chaos expansion , SIAM J. Financial Math., 9 (2018), pp. 493–519. 
+
+J. Ma , Pricing foreign equity options with stochastic correlation and volatility ,Ann. Econ. Fin., 10 (2009), pp. 303–327. 
+
+J. Ma and J. Zhang , Representations and regularities for solutions to bsdes with reflections , Stoch. Proc. Appl., 115 (2005), pp. 539–569. 
+
+M. Redmann , Solving High-Dimensional Optimal Stopping Problems Using Op-timization Based Model Order Reduction , Appl. Math. Finance, 29 (2023), pp. 110–140. 
+
+A. M. Reppen, H. M. Soner, and V. Tissot-Daguette , Deep stochastic optimization in finance , Digit Finance, 5 (2023), pp. 91–111. 31 A. M. Reppen, H. M. Soner, and V. Tissot-Daguette , Neural optimal stopping boundary , Math. Finance, 35 (2025), pp. 441–469. 
+
+H. M. Soner and V. Tissot-Daguette , Stopping times of boundaries: re-laxation and continuity , SIAM J. Control Optim., 63 (2025), pp. 2835–2855. 
+
+L. Teng , A review of tree-based approaches to solve forward-backward stochastic differential equations , J. Comput. Finance, 25 (2021), pp. 125–159. 
+
+L. Teng , Gradient boosting-based numerical methods for high-dimensional back-ward stochastic differential equations , Appl. Math. Comput., 426 (2022). 
+
+L. Teng, M. Ehrhardt, and M. G¨ unther , Modelling stochastic correlation ,J. Math. Industry, 6 (2016), pp. 1–18. 
+
+L. Teng, M. Ehrhardt, and M. G¨ unther , On the Heston model with stochastic correlation , Int. J. Theor. Appl. Finan., 19 (2016), p. 16500333. 
+
+L. Teng, M. Ehrhardt, and M. G¨ unther , Quanto pricing in stochastic correlation models , Int. J. Theor. Appl. Finan., 21 (2018), p. 1850038. 
+
+L. Teng, C. Van Emmerich, M. Ehrhardt, and M. G¨ unther , A versatile approach for stochastic correlation using hyperbolic functions , Int. J. Comput. Math., 93 (2016), pp. 524–539. 
+
+A. W. Van Der Stoep, L. A. Grzelak, and C. W. Oosterlee , The Heston stochastic-local volatility model: efficient Monte Carlo simulation , Int. J. Theor. Appl. Finance, 17 (2014). 
+
+C. van Emmerich , A square root process for modelling correlation , phd thesis, University of Wuppertal, 2007. 
+
+J. Yang and G. Li , A deep primal-dual bsde method for optimal stopping problems . Working paper, arXiv:2409.06937, 2024. 
+
+J. Yang and G. Li , Gradient-enhanced sparse hermite polynomial expansions for pricing and hedging high-dimensional american options , SIAM J. Financial Math., 16 (2024), pp. 959–987. 
+
+W. Zhao, Y. Li, and G. Zhang , A generalized θ-scheme for solving backward stochastic differential equations , Discrete Continuous Dyn. Syst. Ser. B, 17 (2012), pp. 1585–1603. 
+
+W. Zhao, J. Wang, and S. Peng , Error estimates of the θ-scheme for back-ward stochastic differential equations , Discrete Continuous Dyn. Syst. Ser. B, 12 (2009), pp. 905–925. 32

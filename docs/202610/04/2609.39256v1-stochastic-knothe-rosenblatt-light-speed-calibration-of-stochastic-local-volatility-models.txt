@@ -1,0 +1,2034 @@
+Title: Stochastic Knothe-Rosenblatt: Light-speed Calibration of Stochastic Local Volatility Models
+
+URL Source: https://arxiv.org/pdf/2609.39256v1
+
+Published Time: Thu, 01 Oct 2026 01:14:11 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+# Stochastic Knothe–Rosenblatt: Light-speed Calibration of Stochastic Local Volatility Models 
+
+## M. Beiglb¨ ock, M. Hasenbichler, G. Pammer 
+
+Abstract 
+
+European option smiles determine the risk-neutral marginal laws of an asset, but not their intertemporal cou-pling, which is decisive for many applications. The Bass martingale construction selects, among all calibrated martingales, the one closest to Bachelier dynamics; it permits fast calibration at discrete maturities and recovers the Dupire local-volatility (LV) model as the maturity grid is refined. This article develops a modular calibration overlay for existing stochastic and path-dependent volatility models. We recursively construct a martingale that matches all prescribed marginals exactly while remaining as close as possible, in an adapted Knothe–Rosenblatt sense, to the reference dynamics. As with the Bass LV model, each calibration step is amenable to an efficient Martingale Sinkhorn algorithm. We develop the theoretical foundations, numerical implementation and consider convergence to the SLV model. We also benchmark the method for Heston and Bergomi finite-factor path-dependent volatility dynamics and develop the multi-asset extension. 
+
+Keywords: Bass martingale; martingale Sinkhorn algorithm; calibration; stochastic local volatility; Dupire local volatility; martingale optimal transport; weak optimal transport; adapted Wasserstein distance; Knothe–Rosenblatt coupling. 
+
+MSC2020 subject classifications: Primary 60G42, 49Q22, 91G20; secondary 60G44, 91G60. 
+
+# 1 Introduction 
+
+## 1.1 Outline 
+
+Optimal transport provides variational tools for model calibration when the risk-neutral marginal laws μ0, . . . , μ n of the asset price are available at finitely many maturities 0 = T0 < T 1 < . . . < T n [10, 12, 25, 26, 29, 38, 44, 48, 50]. A prominent example is the Bass LV model [20]. It solves the Bachelier minimal distortion calibration problem inf   
+
+> dXt=σXtdBt,X ti∼μi
+
+E
+
+h Z Tn
+
+> 0
+
+|σXt − σBach |2 dt
+
+i
+
+, (Bass-MDC) and is closest to the Bachelier model, subject to the marginal constraints. Crucially, (Bass-MDC) can be separated into 
+
+n independent martingale transport problems, which allows for efficient numerics based on the Martingale Sinkhorn algorithm [20]. For many applications, however, one would like to calibrate relative to richer reference models. 
+
+Challenge (MDC). Given a reference model R, possibly driven by stochastic factors, construct a model X
+
+1. that exactly reproduces the prescribed marginals μ0, . . . , μ n, and 2. matches the dynamics of the reference model R as closely as possible. To obtain a numerically feasible approach to this challenge, a tempting simplification is to mimic R on each interval [Ti, T i+1 ] and then concatenate the corresponding solutions. However, this effectively enforces stepwise Markovianity. In the regular diffusion setting, any continuous strong Markov martingale limit with the prescribed marginals is the Dupire LV model [22], just as for the much simpler Bass model; cf. [41, 42]. To preserve the reference dynamics while retaining tractable computation, we pursue the following alternative. 
+
+Stochastic Knothe–Rosenblatt approach to MDC. We propose a Stochastic Knothe–Rosenblatt (SKR) con-struction, which builds the calibrated model forward in time. Its modular design allows quant desks to retain their existing stochastic volatility models as references and add SKR as an exact calibration overlay. At each maturity, we retain the joint law of the calibrated model and the reference for the next calibration step. This preserves the dependence structure while reducing the optimization to single-period problems. These are solved using a fast and robust Martingale Sinkhorn algorithm that is simple to implement [32, 33]. We develop the theoretical foundations and benchmark the method for Heston, Bergomi, and finite-factor path-dependent volatility dynamics. Under the regularity assumptions stated in the online supplement [17], the SKR model approaches the SLV model associated with the same reference model R as the maturity grid becomes finer. In particular, the SKR construction provides an efficient and stable numerical scheme for SLV models, in the same way that the Bass construction does for the Dupire LV model.  
+
+> Funding. MB gratefully acknowledges financial support from FWF through P34743, P35197, and FW506064 and from OeNB through AB1898311. All authors are grateful to Valentin Tissot-Daguette for many insightful discussions and recommendations.
+
+1arXiv:2609.39256v1 [q-fin.PR] 30 Sep 2026 1.2 Existence and uniqueness of SKR 
+
+Let E be a Polish space and let R = ( Y, L ) be a Markov process on R × E. Throughout we assume that for every starting point r ∈ R × E, the first coordinate Y is a square integrable martingale, with Law( Yt | Rs = r) continuous for s < t . Let δx0 = μ0 ≤c . . . ≤c μn and assume that all marginals have finite second moment. Suppose that calibration has reached Ti. The state passed to the next step is κi := Law( XTi , L Ti ); its first marginal is the prescribed law μi. Starting from κi, we calibrate to the next marginal μi+1 by choosing the dynamics of X as close as possible to the dynamics of Y . We formulate this as minimizing the squared difference of the volatilities of X
+
+and Y :
+
+Vi(κi, μ i+1 ) := min  
+
+> X∈A (κi,μ i+1 )
+
+E[[ X − Y ]Ti+1 − [X − Y ]Ti ], (Bridge) where A(κi, μ i+1 ) consists of square-integrable ( Ft)-martingales X satisfying XTi = YTi and XTi+1 ∼ μi+1 . We work with the usual augmentation ( Ft) of the natural filtration generated by R = ( Y, L ), started with law κi at Ti, and assume that R is Markov with respect to this filtration. Thus, for each Ti the reference process is started in κi. The bridge starts from the same random state as the reference process and minimizes the quadratic variation accumulated by X − Y over [ Ti, T i+1 ]. 1
+
+The joint evolution of the optimizer X and the reference model then determines κi+1 = Law( XTi+1 , L Ti+1 ), which serves as the initial condition for the next step. By constructing κi sequentially from the preceding state, our ap-proach follows the Knothe–Rosenblatt paradigm from classical transport: building complex couplings through tractable conditional transports [14, 18]. 
+
+LT0
+
+XT0
+
+> ∼
+
+μ0
+
+LT1
+
+XT1
+
+> ∼
+
+μ1
+
+LT2
+
+XT2
+
+> ∼
+
+μ2
+
+LTn
+
+XTn
+
+> ∼
+
+μn
+
+dR
+
+(Bridge) dR
+
+(Bridge) 
+
+Figure 1: Minimal Distortion Calibration via Stochastic Knothe–Rosenblatt. At each maturity, the propagated state has law 
+
+κi = Law( XTi , L Ti ), whose first marginal is μi.
+
+To solve (Bridge), a key observation is that this dynamic problem admits an equivalent static formulation as a 
+
+weak martingale optimal transport (WMOT) problem [13, 19]. Unlike in classical martingale transport, where the cost is assigned to a pair of points ( x, y ), WMOT costs may depend on x and the terminal law of a bridge started at x.Under the above assumptions and the regularity conditions specified in Section 2 for each calibration interval, we obtain 
+
+Theorem 1.1 (Existence and uniqueness of the SKR construction) . The one-period optimizers exist and are unique in law. The stochastic Knothe–Rosenblatt model exists and is unique in law. 
+
+## 1.3 Bass-structure 
+
+Fix one calibration interval and rescale it to [0 , 1]. Let μ, ν be probabilities on R with finite second moments, μ ≤c ν,where ( μ, ν ) is irreducible, i.e. the call potentials cμ, cν satisfy that I := {cμ < c ν } is an interval and μ(I) = 1. Let κ
+
+be a probability on R × E with first marginal μ and for r ∈ R × E, let 
+
+γr := Law( Y1 | R0 = r)be the conditional terminal law of the reference martingale. We assume that γr is continuous for every r and that the map r 7 → γr is W2 continuous. Starting the reference process ( Y, L ) in κ, the unit interval bridge problem is to find the martingale X solving inf  
+
+> X:X0=Y0,X 1∼ν
+
+E[X − Y ]1. (1) We will give a structural characterization in the spirit of Bass martingales. To this end we introduce some notation. Given a function g : R → [−∞ , ∞] and a probability γ on R we denote the ‘reflected’ convolution by g ⋆ γ (a) := R g(a + y) dγ (y). If g is increasing and γ is atom-free, then g ⋆ γ is increasing and continuous on the interval where it is finite. We use ( g ⋆ γ )−1 to denote an inverse of g ⋆ γ .
+
+Definition 1.2 (R-Bass martingale) . A martingale X is called an R-Bass martingale if for some increasing g : R →
+
+[−∞ , ∞] and A := a(R0) := ( g ⋆ γ R0 )−1(X0)
+
+Xt = Eg(A + Y1) σ(A, R s : 0 ≤ s ≤ t) = E[g(A + Y1) | A, R t], 0 ≤ t ≤ 1. (2)                            
+
+> 1When Xand Ycan be represented as Itˆ o processes d Xt=σXtdWt, d Yt=σYtdWt, the optimization objective can also be written in the form E
+> h
+> [X−Y]Ti+1 −[X−Y]Ti
+> i
+> =E
+> h RTi+1
+> Ti|σXt−σYt|2dt
+> i
+> ,as in (Bass-MDC). However, the formulation in (Bridge) is technically more convenient, in particular in view of applications to non-continuous models.
+
+2The second equality follows from the Markov property of the reference process and the fact that A = a(R0) is measurable at the initial time. We briefly comment on Definition 1.2. First, note that the martingale condition X0 = E[X1|X0, L 0] = E[X1|R0]amounts to 
+
+X0 = E[g(a(R0) + Y1)|R0] ⇐⇒ x0 = ( g ⋆ γ r0 )( a(r0)) , κ -a.s. This explains the choice a(r0) = ( g ⋆ γ r0 )−1(x0). In the definition of R-Bass martingales we tacitly assume that (g ⋆ γ r0 )−1(x0) exists κ-a.s. While the inverse used here is not necessarily unique, it is straightforward to see that 
+
+g(A + Y1) does not depend on the specific choice of the inverse. We observe also that shifting the function g to the right by a constant c amounts to adding c to the respective A.This degree of freedom will be used to normalize the shifts. 
+
+Theorem 1.3 (Bass characterization) . Under the standing assumptions, an admissible martingale X from κ to ν
+
+solves the unit interval bridge problem (1) if and only if it is an R-Bass martingale.                                             
+
+> A+Y0A+Y1
+> L0
+> ℓ
+> Law( A+Y0|L0=ℓ)
+> ρa
+> Y-dynamics
+> X0X1
+> L0
+> ℓκ
+> Law( X0|L0=ℓ)
+> νX-dynamics
+> gA= g ⋆ γ R0
+> −1(X0)Figure 2: An R-Bass martingale. The reference model is started in κand shifted by A=a(R0); the increasing map gcarries the shifted terminal law ρaonto ν, and Xt=E[g(A+Y1)|A, R t] is the resulting martingale. The shift is pinned down by the martingale condition X0= ( g ⋆ γ R0)( A). Each fibre over the latent axis carries the conditional law of the initial value given L0;the paths are started on the front fibre L0=ℓ.
+
+In the case where R is Brownian motion, the construction underlying our one-period steps goes back to Bass [9], who transported a Gaussian law onto a prescribed one by a monotone map in order to solve the Skorokhod embed-ding problem. While Bass was only concerned with the deterministic starting case, Bass martingales between general marginals were introduced by Backhoff-Veraguas–Beiglb¨ ock–Huesmann–K¨ allblad [6] and Guo–Loeper–Wang [26]. Ex-tensions beyond the Brownian case are considered in [2, 3, 15, 20, 33, 49]. The R-Bass martingales of Definition 1.2 continue this line of thought: we replace the Brownian increment by the conditional increment of a general Markovian reference model, and it is precisely this flexibility which allows the calibrated model to inherit the dynamics of R.
+
+## 1.4 The Martingale Sinkhorn algorithm 
+
+The structural characterization of optimal bridges in Theorem 1.3 forms the basis for a particularly simple, yet powerful numerical algorithm, which we introduce below. For this it is useful to define for a shift a : R × E → R, the shifted reference terminal law 
+
+ρa := 
+
+Z
+
+(a(r) + · )#γr κ(d r) = Law( a(R0) + Y1). (3) The initial and terminal constraints of an R-Bass martingale can then be expressed concisely in terms of a and g.
+
+Terminal marginal constraint. g#(ρa) = ν.
+
+Martingale constraint. x = ( g ⋆ γ r )( a(r)) for κ-a.e. r = ( x, ℓ ).
+
+This observation suggests a natural fixed-point algorithm. Starting from a shift a0 : R × E → R, perform the following two updates. 
+
+Terminal-marginal update. Let gk be the increasing transport from ρak to ν, i.e. gk := F −1 
+
+> ν
+
+◦ Fρak ,
+
+Martingale update. For κ-a.e. r = ( x, ℓ ), set ak+1 (x, ℓ ) = ( gk ⋆ γ (x,ℓ ))−1(x). Thus the first update enforces the terminal marginal and the second enforces the martingale constraint. 3Law( A + Y0, R 0) ρa = Law( A + Y1)
+
+κ = Law( X0, L 0) ν = Law( X1) 
+
+> unknown
+
+r 7 →  a(r) + · 
+
+> #
+
+γr
+
+> reference dynamics
+
+R-Bass martingale X
+
+> (2)
+
+A =  g ⋆ γ R0
+
+−1(X0)
+
+> martingale condition
+
+g
+
+> terminal marginal
+
+Figure 3: The Bass diagram behind Definition 1.2, in the notation of Figure 2. The prescribed data are the marginals κ and 
+
+ν; the unknown is the shift a, equivalently the initial law of the shifted reference process. The martingale condition determines 
+
+A from the initial state, running the reference dynamics from A + Y0 produces ρa, and the increasing map g carries ρa onto ν.Composing the three outer arrows gives the R-Bass martingale along the bottom. 
+
+In Theorem 4.1 below we prove convergence of the Martingale Sinkhorn algorithm to the R-Bass martingale in the case where ( μ, ν ) is strictly irreducible and ν is compactly supported, under the additional reference assumptions and normalizations stated there. In numerical experiments, we observe linear convergence for generic reference processes. For the classical Brownian Bass construction the above fixed point scheme was introduced by Conze–Henry-Labord` ere [20] who demonstrate its striking numerical properties for the approximation of the (Bass) LV model. In the Brownian case, linear convergence was proved by Acciaio–Marini–Pammer [4], and a measure-preserving, multidimensional variant is given in [32]. In the case where the reference dynamics are Brownian, the iterative scheme above reduces precisely to the Conze–Henry-Labord` ere [20] algorithm. 
+
+## 1.5 An instantaneous calibration principle — from SKR to SLV 
+
+Since local volatility is well known to generate unrealistic forward smiles and spot-volatility dynamics, it is common practice to superimpose a leverage function or leverage adjustment on a stochastic volatility reference, which leads to stochastic local volatility (SLV) models. Their calibration amounts to a McKean–Vlasov equation whose well-posedness and numerics are somewhat delicate, see [1, 21, 28, 30, 36, 37]. The present SKR construction addresses the same calibration task, but replaces the McKean–Vlasov equation by a sequence of 1-d WMOT problems. 5.0 10 .0 15 .0Local floor [%] 110 .00 115 .00 120 .00 125 .00 130 .00 Price 
+
+Reverse Cliquet Bass LV Dupire LV Heston SKR Heston SLV 
+
+Valuation Time [s] Model Price MC SE Calibration Pricing Total 
+
+Bass LV 113 .987 0.038 0.079 0.018 0.097 
+
+Dupire LV 113 .879 0.038 0.005 4.290 4.295 
+
+Heston SKR 122 .000 0.039 0.197 0.076 0.273 
+
+Heston SLV 122 .139 0.039 18 .802 6.976 25.778 
+
+Figure 4: Comparison of Bass LV with Dupire LV and Heston SKR with Heston SLV for the reverse cliquet of Section 6.2. All models use the SPX-based ESSVI targets of Section 6.1, with identical reference parameters for the two Heston models. The plot varies the loss cap L; the table reports prices, Monte Carlo standard errors, and timings at L = 7 .5% for 10 5 pricing paths. 2
+
+There is a simple probabilistic heuristic which suggests convergence of SKR to SLV. We start by interpreting SLV as the instantaneously least-distorting Markovian calibration. Consider a diffusion reference d Yt = σR(t, Y t, L t)d Wt
+
+with an autonomous factor L, and suppose that a smooth family of target marginals ( μt) is prescribed. Write σDup 
+
+for the corresponding Dupire diffusion coefficient, i.e., the volatility depending only on time and state for which the local-volatility martingale d Zt = σDup (t, Z t)d Bt has Law( Zt) = μt.At a fixed time, retain the joint law of ( Xt, L t) and ask how to modify the reference volatility as little as possible while matching the prescribed marginal evolution. For calibrated dynamics d Xt = a(t, X t, L t)d Wt, the latter requires 
+
+E[a(t, X t, L t)2 | Xt = x] = σDup (t, x )2. (4) 
+
+> 2Dupire local volatility is computed analytically, without numerical calibration, from five ESSVI smiles at 0 .25, 0 .5, 1, 2, and 3 years (SPX, 23 June 2020 [23]). Heston SLV is calibrated to this local-volatility target using 250 000 particles. The ESSVI surface calibration from raw quotes is excluded from the timings. We use QuantLib’s C++ implementations of Dupire LV and Heston SLV with 64 time steps per year, and our C++ implementations of Bass LV and Heston SKR. Computations were performed on an Intel Core i5-12500 processor with 32 GiB RAM under Debian 13.
+
+4Among coefficients satisfying (4), the conditional mean-square distortion E[|a(t, x, L t) − σR(t, x, L t)|2 | Xt = x] is minimized by 
+
+a(t, x, l ) = λ(t, x )σR(t, x, l ), λ(t, x ) = σDup (t, x )
+
+pE[σR(t, X t, L t)2 | Xt = x] ; (5) this is a consequence of Cauchy–Schwarz. Thus the least-distorting instantaneous adjustment rescales the ref-erence volatility by a factor λ depending only on time and price. This is precisely the SLV structure d Xt =
+
+λ(t, X t)σR(t, X t, L t)d Wt.
+
+SKR implements the same principle over finite calibration intervals. Each bridge in (Bridge) compares the cali-brated and reference martingale increments, starting from the same price and factor state. Over a short interval, their mean-square difference is governed, to leading order, by the difference of their instantaneous volatilities. Matching the next marginal imposes the variance constraint (4) to first order. The optimal bridge should therefore select the leverage adjustment (5). The leverage in (5) depends on the distribution of the factor L conditional on the current calibrated price. By propagating the joint law of ( XTi , L Ti ), SKR carries this information forward to the next calibration step. This suggests viewing SKR as a variational time discretization of SLV, with exact calibration at every grid point. We develop this heuristic in Section 5 and establish convergence under regularity assumptions in the online supplement [17]. 
+
+## 1.6 Multi-asset calibration with SKR 
+
+The SKR construction extends to several assets while retaining the scalar structure of the calibration problems. We consider a Markov reference model R = ( Y, L ) on Rd × E, whose price coordinates Y = ( Y 1, . . . , Y d) form a square integrable martingale. The calibration data consist of the single-asset marginal laws XjTi ∼ μji , where 
+
+δxj
+
+> 0
+
+= μj 
+
+> 0
+
+≤c · · · ≤ c μjn have finite second moments. These constraints leave the inter-asset dependence undetermined; the reference model provides the dynamics against which the joint calibration is compared. As in the single-asset construction, we propagate the full joint state law κi := Law( X1 
+
+> Ti
+
+, . . . , X dTi , L Ti ). To describe one calibration step, rescale the interval to [0 , 1], write κ = κi and νj = μji+1 , and start the reference process with 
+
+R0 ∼ κ. The bridge problem becomes inf   
+
+> X:X0=Y0,X j
+> 1∼νj
+
+E
+
+h dX
+
+> j=1
+
+[Xj − Y j ]1
+
+i
+
+, (6) with the same martingale and filtration requirements as in the single-asset case. The reason the preceding theory applies is that, for fixed κ, both the distortion objective and the terminal con-straints separate across assets. For asset j, we use the single-asset construction with the remaining reference price coordinates included in the latent state. In particular, its conditional reference laws are taken given the full state 
+
+r = ( x1, . . . , x d, ℓ ). The resulting scalar optimizers can all be realized on the same reference process, so they simulta-neously attain the minimum of the sum in (6). More explicitly, put γjr := Law( Y j 
+
+> 1
+
+| R0 = r). Under the assumptions of the single-asset Bass characterization, imposed coordinatewise, the unique optimizer has the representation 
+
+Xjt = E
+
+h
+
+gj  aj (R0) + Y j
+
+> 1
+
+ Ft
+
+i
+
+, aj (r) = ( gj ⋆ γ jr )−1(xj ), j = 1 , . . . , d, (7) where ( Ft) is the reference filtration and the increasing maps gj : R → [−∞ , ∞] enforce the terminal laws νj . The shifts aj enforce the martingale constraints and may depend on all components of the initial state. For fixed incoming state law, the Martingale Sinkhorn iteration therefore applies separately to each coordinate, using the kernels γjr . The coordinate updates can be performed in parallel, and no d-dimensional transport problem needs to be solved. The precise formulation and the existence and uniqueness result are given in Section 3. 
+
+## 1.7 Closely related literature 
+
+SLV models combine the exact fit of local volatility with the richer dynamics of stochastic volatility models. Early constructions include those of Jex–Henderson–Wang [34], Lipton [39], and Ren–Madan–Qian [46]. The leverage relation connects Dupire’s local volatility formula [22] with the mimicking theorem of Gy¨ ongy [31]. Guyon–Henry-Labord` ere [28, 30] developed a particle method for the resulting conditional McKean–Vlasov problem. Its well-posedness is delicate; rigorous results in restricted settings include [1, 36, 37]. A variational approach to calibration was developed by Guo–Loeper–Wang, first for local volatility [26] and subsequently for local-stochastic volatility [27]; see also Guo–Loeper [25] for path-dependent calibration. The Bass construction goes back to Bass [9], who used a monotone transform of Brownian motion to solve the Skorokhod embedding problem. The Bass LV model for general initial laws was introduced independently in [6] and in the work of Loeper and Guo–Loeper–Wang [26, 40], through probabilistic and PDE approaches to the martin-gale Benamou–Brenier problem. Conze and Henry-Labord` ere [20] proposed the fixed-point scheme which makes its calibration particularly efficient. Acciaio–Marini–Pammer [4] proved existence and uniqueness of the fixed point, up to translation, and geometric convergence under suitable assumptions. The Martingale Sinkhorn formulation and 5its extension to higher dimensions are developed by Hasenbichler–Joseph–Loeper–Obl´ oj–Pammer [32]. The relation between increasingly fine Bass interpolations and the Dupire model is studied in [4, 12]. Closer to the present work are extensions of the Brownian reference. Conze–Henry-Labord` ere [20] already discuss non-Brownian kernels for a single Bass step, in a setting different from our bridge problem. Geometric Bass martingales and their change-of-numeraire representation are studied in [7, 15], while Tschiderer [49] introduced q-Bass martingales, replacing the Gaussian reference law by a more general measure. Acciaio–Antonio [2, 3] established existence first in the semidiscrete setting and then for general one-dimensional irreducible marginals with absolutely continuous reference law, together with stability and convergence results under additional assumptions. 
+
+# 2 The bridge problem as a weak martingale transport problem 
+
+As in the introduction, we rescale the calibration interval to [0 , 1]. The reference process R = ( Y, L ) has initial law 
+
+κ ∈ P 2(R × E), whose first marginal we denote by μ := pr X 
+
+> #
+
+κ. We work with the usual augmentation ( Ft) of the natural filtration generated by R, and assume that R is Markov with respect to this filtration. For a prescribed 
+
+ν ∈ P 2(R), the class A(κ, ν ) consists of square-integrable ( Ft)-martingales X satisfying X0 = Y0 and X1 ∼ ν.For r = ( x, ℓ ) ∈ R × E, write γr := Law( Y1 | R0 = r) for the conditional terminal law of the reference process. We work under the following assumptions on the conditional reference laws: (A1) ( ρ, r ) 7 → W 2(ρ, γ r ) is lower semicontinuous on P2(R) × (R × E). (A2) RR z2 γr (d z) κ(d r) < ∞, and ¯ γr = x for κ-a.e. r = ( x, ℓ ). (A3) γr is atomless for κ-a.e. r.Since X0 = Y0, integration by parts shows that the bridge problem is equivalent to 
+
+P (κ, ν ) := sup 
+
+> X∈A (κ,ν )
+
+E[X1Y1]. (8) To obtain a static formulation, consider an admissible bridge X and set π := Law( R0, X 1), with disintegration 
+
+π(d r, dy) = κ(d r)πr (d y). The martingale property implies 
+
+Z
+
+y π r (d y) = x for κ-a.e. r = ( x, ℓ ). (9) Thus π belongs to M(κ, ν ), the set of couplings in Cpl( κ, ν ) satisfying the martingale property (9). Conditionally on R0 = r, the pair ( X1, Y 1) is a coupling of πr and γr leading us to consider the maximal covariance MCov( ρ, γ ) := sup 
+
+> q∈Cpl( ρ,γ )
+
+Z
+
+yz q (d y, dz).
+
+Adapting the dynamic-to-static reduction used for the martingale Benamou–Brenier problem in [6], we obtain the following static formulation of the bridge problem. 
+
+Theorem 2.1 (Existence and uniqueness for the primal problem) . Suppose that (A1) , (A2) and (A3) hold, and let 
+
+μ ≤cvx ν. Then 
+
+P (κ, ν ) = max 
+
+> π∈M (κ,ν )
+
+Z
+
+MCov( πr , γ r ) κ(d r). (wBridge) 
+
+Moreover, both the dynamic and static problems admit optimizers. The optimizer of (wBridge) is unique, and the optimizer of (8) is unique in law. 
+
+The maximization problem on the right-hand side of (wBridge) fits into the weak optimal transport framework of [24]. More specifically, it falls within the extended weak martingale optimal transport framework of [35, Section 2.1], with ℓ as the additional information parameter. 
+
+Proof. Conditioning on R0 and using the definition of MCov yields 
+
+P (κ, ν ) ≤ sup 
+
+> π∈M (κ,ν )
+
+Z
+
+MCov( πr , γ r ) κ(d r). (10) The static objective equals C − 12
+
+R W22 (πr , γ r ) κ(d r), where C < ∞ is independent of π by (A2). Since ( r, ρ ) 7 →W22 (ρ, γ r ) is nonnegative, jointly lower semicontinuous by (A1), and convex in ρ, its integral is W2-lower semicontinuous by [5, Proposition 2.8]. Thus the objective is upper semicontinuous on the nonempty W2-compact set M(κ, ν ) and admits a maximizer ˆ π.By (A3), the conditional monotone couplings can be realized on the reference probability space by setting 
+
+X1 := F −1ˆπR0
+
+ FγR0 (Y1), Xt := E[X1 | F t],
+
+6where Fρ and F −1 
+
+> ρ
+
+denote the distribution and quantile functions of ρ. The barycenter constraint gives X0 = Y0, while 
+
+X1 ∼ ν, so X ∈ A (κ, ν ). By construction, 
+
+E[X1Y1] = 
+
+Z
+
+MCov(ˆ πr , γ r ) κ(d r).
+
+Hence equality holds in (10), and both problems are attained. By (A3), strict concavity of ρ 7 → MCov( ρ, γ r ) gives uniqueness of ˆ π. Any dynamic optimizer X must satisfy Law( R0, X 1) = ˆ π, and its conditional terminal coupling must attain MCov(ˆ πr , γ r ). This is the unique monotone coupling, so X1 is uniquely determined, up to null sets, as a function of ( R0, Y 1). Since Xt = E[X1 | F t], the optimizer is unique, and in particular unique in law. In particular, applying Theorem 2.1 to every bridge between maturities establishes Theorem 1.1, the existence and uniqueness of the SKR model. We next characterize optimal bridges as R-Bass martingales through the dual problem, following the approach of [8] for the martingale Benamou–Brenier problem. Under the assumptions below, this gives a concrete representation of the optimal bridge in terms of a single convex dual potential ψ, with generating function g = ∂xψ∗. Here, ψ∗
+
+denotes the convex conjugate of ψ. This representation provides the basis for the martingale Sinkhorn algorithm and its convergence analysis. Here and below, the inverse in Definition 1.2 denotes a measurable choice of a finite shift a(r) satisfying ( g ⋆ γr )( a(r)) = x for κ-a.e. r = ( x, ℓ ). We require g(a(R0) + Y1) ∈ L2; in particular, the convolution at a(r) is absolutely convergent for κ-a.e. r.To derive the dual problem, first let ψ ∈ L1(ν) be proper, convex and lower semicontinuous. For r = ( x, ℓ ), set (ψ∗ ⋆ γ r )( a) := 
+
+Z
+
+ψ∗(a + z) γr (d z), ψC (r) := ( ψ∗ ⋆ γ r )∗(x).
+
+Fenchel’s inequality, together with the barycenter constraint R y π r (d y) = x, yields MCov( πr , γ r ) ≤
+
+Z
+
+ψ dπr − ψC (r).
+
+Consequently, sup 
+
+> π∈M (κ,ν )
+
+Z
+
+MCov( πr , γ r ) κ(d r) ≤
+
+Z
+
+ψ dν −
+
+Z
+
+ψC dκ. 
+
+Taking the infimum over such ψ gives the associated dual problem. However, a limiting potential obtained from a minimizing sequence need not belong to L1(ν), so the difference R ψ dν − R ψC dκ may no longer be well defined. We therefore use the generalized-integral construction of Beiglb¨ ock and Juillet [10, Appendix A.3], further developed by Beiglb¨ ock, Nutz and Touzi [11, Section 4]: instead of evaluating the two integrals separately, we integrate the conditional difference. Write Iν := int co(supp ν). A dual potential is a proper, convex and lower semicontinuous function ψ that is finite on Iν and equal to + ∞ outside ¯Iν . We refer to this domain restriction as the support convention . Adapting the relaxed dual functional in [8, Proposition 4.2] to the present setting, we define, for an irreducible pair ( μ, ν ), a dual potential 
+
+ψ and π ∈ M (κ, ν ), 
+
+E(ψ) := 
+
+Z Z
+
+ψ dπr − ψC (r)
+
+
+
+κ(d r). (11) Lemma 2.4 shows that E(ψ) is well-defined and independent of the choice of π ∈ M (κ, ν ). For ψ ∈ L1(ν), it reduces to R ψ dν − R ψC dκ.
+
+Theorem 2.2 (Duality and characterization of R-Bass martingales) . Suppose that (A1) , (A2) and (A3) hold, and let 
+
+(μ, ν ) be irreducible. Then 
+
+P (κ, ν ) = min   
+
+> ψdual potential
+
+E(ψ). (dBridge) 
+
+A martingale X ∈ A (κ, ν ) solves (8) if and only if it is an R-Bass martingale. Moreover, suppose that supp γr is either R or [0 , ∞) for κ-a.e. r. Then the dual minimizer is unique up to addition of an affine function on Iν .
+
+In particular, under these assumptions, to every ( κ, ν ) there is at most one R-Bass martingale X ∈ A (κ, ν ). To show Theorem 2.2, we begin by identifying the value of the static problem with the dual problem over integrable convex potentials. 
+
+Lemma 2.3 (No duality gap) . Suppose that (A1) and (A2) hold and that μ ≤cvx ν. Then 
+
+sup 
+
+> π∈M (κ,ν )
+
+Z
+
+MCov( πr , γ r ) κ(d r) = inf   
+
+> v∈L1(ν)
+> vcvx ,lsc
+
+nZ
+
+v dν −
+
+Z
+
+vC dκ
+
+o
+
+. (12) 7Proof. For a Gaussian reference law, this dual representation was established in [8, Sections 3–4]. We adapt that argument to the conditional reference laws γr .The cost C(r, ρ ) := 12 W22 (ρ, γ r ) when ¯ ρ = x, and + ∞ otherwise, is nonnegative, jointly lower semicontinuous and convex in ρ. For such costs, [5, Theorem 1.3] identifies the primal value with a dual over continuous test functions. After cancelling the second-moment terms, this gives sup 
+
+> π∈M (κ,ν )
+
+Z
+
+MCov( πr , γ r ) κ(d r) = inf 
+
+> v
+
+nZ
+
+v dν −
+
+Z
+
+vr (x) κ(d r)
+
+o
+
+, vr (z) := inf 
+
+> ρ∈P 2(R)¯ρ=z
+
+nZ
+
+v dρ − MCov( ρ, γ r )
+
+o
+
+,
+
+where v is continuous and satisfies c + 12 | · | 2 ≤ v ≤ a + b| · | 2 for some a, b, c ∈ R.The argument of Pramenkovi´ c [45, Theorem 3.2] shows that, for weak costs decreasing in convex order, replacing a dual potential by its convex envelope cannot worsen the dual objective. Since MCov( ·, γ r ) is increasing in convex order, this argument allows us to restrict the infimum to convex v.It remains to identify vr . The calculation in the proof of [16, Proposition 5.6] removes the barycenter constraint by conjugation and yields, under our quadratic bounds, 
+
+v∗ 
+
+> r
+
+(a) = 
+
+Z
+
+v∗(a + y) γr (d y) = ( v∗ ⋆ γ r )( a).
+
+The quadratic bounds make vr finite, while mixing competitors gives convexity. Thus Fenchel–Moreau yields vr =(v∗ ⋆ γ r )∗ and hence vr (x) = vC (r). Finally, Fenchel’s inequality gives weak duality for every convex lower semicontinuous v ∈ L1(ν), so enlarging the class of potentials leaves the value unchanged. In the irreducible case used below, setting v = + ∞ outside ¯Iν preserves R v dν and can only increase vC , so the support convention also leaves the infimum unchanged. The preceding lemma identifies the static value with the dual problem over ν-integrable convex potentials. To pass to the relaxed dual problem, we first verify that the functional E is well defined and does not depend on the coupling 
+
+π used in its definition. 
+
+Lemma 2.4. Suppose that (μ, ν ) is irreducible and that (A2) holds. Let v : R → R ∪ { +∞} be proper, convex and lower semicontinuous with Iν = int dom( v). Then E(v) ∈ [0 , ∞] is well defined and is independent of the choice of 
+
+π ∈ M (κ, ν ). Moreover, E is invariant under addition of affine functions. Proof. Let π ∈ M (κ, ν ). For κ-a.e. r = ( x, ℓ ), we have ( v∗ ⋆ γ r )∗(x) ≤ v(x) − x2. By Jensen’s inequality, 
+
+Z
+
+v(y) πr (d y) − (v∗ ⋆ γ r )∗(x) ≥ x2,
+
+and so E(v) ∈ [0 , ∞]. Moreover, define χ(d x, dy) := R πx,ℓ (d y) κ(d x, dℓ), which is a martingale coupling of ( μ, ν ). Then 
+
+E(v) = 
+
+Z Z
+
+v(y) πx,ℓ (d y) − v(x)
+
+
+
+κ(d x, dℓ) + 
+
+Z  v(x) − vC (x, ℓ ) κ(d x, dℓ)=
+
+Z Z
+
+v(y) χx(d y) − v(x)
+
+
+
+μ(d x) + 
+
+Z  v(x) − vC (x, ℓ ) κ(d x, dℓ).
+
+[10, Lemma A.15] asserts that the first integral depends only on v and the marginals ( μ, ν ), but not on the particular coupling χ. Since the second integral is independent of π as well, E(v) is independent of the choice π ∈ M (κ, ν ). Finally, let c(x) := kx + d for some k, d ∈ R. Then ( v + c)∗(y) = v∗(y − k) − d, and hence (( v + c)∗ ⋆ γ r )( y) = ( v∗ ⋆ γ r )( y − k) − d. 
+
+Taking conjugates gives (( v + c)∗ ⋆ γ r )∗(x) = ( v∗ ⋆ γ r )∗(x) + kx + d = vC (r) + c(x).
+
+Since ¯ πr = x, we therefore obtain 
+
+Z
+
+(v + c) d πr − (v + c)C (r) = 
+
+Z
+
+v dπr − vC (r),
+
+for κ-a.e. r = ( x, ℓ ). Integrating with respect to κ yields E(v + c) = E(v). To obtain a dual optimizer, we will pass to a locally uniform limit of normalized convex potentials on Iν . The next lemma shows that E is lower semicontinuous with respect to such sequences. 
+
+Lemma 2.5. Suppose that (μ, ν ) is irreducible and that (A2) holds. Let ˆψ and ( ˆψn)n∈N be dual potentials with 
+
+ˆψ, ˆψn ≥ 0 and ˆψ(¯ μ) = ˆψn(¯ μ) = 0 for every n. Suppose that ˆψn → ˆψ locally uniformly on Iν . Then 
+
+E( ˆψ) ≤ lim inf  
+
+> n→∞
+
+E( ˆψn).
+
+8Proof. Fix r = ( x, ℓ ) with x ∈ Iν , γr ∈ P 2(R) and ¯ γr = x, as holds for κ-a.e. r. We first show that lim sup 
+
+> n→∞
+
+( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗(x) ≤ ( ˆψ∗ ⋆ γ r )∗(x).
+
+Pass to a subsequence along which the limsup is attained as a limit. If this limit is −∞ , there is nothing to show. Otherwise, ( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗(x) is bounded below for all sufficiently large n.Choose δ > 0 such that [ x − δ, x + δ] ⊂ Iν . Since ( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗(z) ≤ ˆψn(z) − xz for every z ∈ Iν , ( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗ is uniformly bounded above on [ x − δ, x + δ]. Let an such that ( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗(x) ≤ anx − ( ˆψ∗ 
+
+> n
+
+⋆ γ r )( an) + 1 
+
+> n
+
+for every n ∈ N.Since ( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗(z) ≥ anz − ( ˆψ∗ 
+
+> n
+
+⋆ γ r )( an) for every z ∈ Iν , the sequence ( an)n∈N is bounded. Passing to a further subsequence, let an → a. Then, for every z and every y ∈ Iν ,lim inf 
+
+> n→∞
+
+ˆψ∗
+
+> n
+
+(an + z) ≥ lim inf 
+
+> n→∞
+
+ (an + z)y − ˆψn(y) = ( a + z)y − ˆψ(y),
+
+and so lim inf n→∞ ˆψ∗
+
+> n
+
+(an + z) ≥ ˆψ∗(a + z). Moreover, ˆψ∗
+
+> n
+
+(y) ≥ y ¯μ, and therefore Fatou’s lemma gives 
+
+Z
+
+ˆψ∗(a + y) γr (d y) ≤ lim inf 
+
+> n→∞
+
+Z
+
+ˆψ∗
+
+> n
+
+(an + y) γr (d y).
+
+Consequently, lim sup 
+
+> n→∞
+
+( ˆψ∗ 
+
+> n
+
+⋆ γ r )∗(x) ≤ ax −
+
+Z
+
+ˆψ∗(a + y) γr (d y) ≤ ( ˆψ∗ ⋆ γ r )∗(x).
+
+Let π ∈ M (κ, ν ). By convexity and lower semicontinuity, ˆψ(y) ≤ lim inf n ˆψn(y) also at the endpoints of Iν .Applying Fatou’s lemma two more times then yields 
+
+E( ˆψ) = 
+
+Z Z
+
+ˆψ dπx,ℓ − ( ˆψ∗ ⋆ γ r )∗(x)
+
+
+
+κ(d x, dℓ) ≤ lim inf  
+
+> n→∞
+
+E( ˆψn).
+
+The following elementary lemma will be used for showing uniqueness of the dual optimizer. 
+
+Lemma 2.6. Let γ ∈ P (R) be atomless and suppose that supp γ is an interval. Let ψ, v : R → R ∪ { +∞} be proper, convex and lower semicontinuous. Suppose that, for some a, b ∈ R and ρ ∈ P (R),
+
+ ∂xψ∗(a + ·)
+
+> #
+
+γ =  ∂xv∗(b + ·)
+
+> #
+
+γ = ρ. 
+
+Then ψ − v is affine on Iρ := int co(supp ρ).Proof. Set ψa := ψ − a id and vb := v − b id, so that ψ∗ 
+
+> a
+
+= ψ∗(a + ·) and v∗ 
+
+> b
+
+= v∗(b + ·). Since γ is atomless, the monotone transport from γ to ρ is γ-a.e. unique [43]. Hence ∂xψ∗ 
+
+> a
+
+= ∂xv∗ 
+
+> b
+
+, γ-a.e. As J := supp γ is an interval, every set of full γ-measure is dense in J. Monotonicity of the derivatives of convex functions therefore yields ψ∗ 
+
+> a
+
+= v∗ 
+
+> b
+
++ c on int J for some c ∈ R.Now fix y ∈ Iρ. Then ρ(( −∞ , y )) > 0 and ρ(( y, ∞)) > 0. Since ρ = ( ∂xψ∗
+
+> a
+
+)#γ, monotonicity of ∂ψ ∗ 
+
+> a
+
+yields some 
+
+z ∈ int J such that y ∈ ∂ψ ∗
+
+> a
+
+(z). As ψ∗ 
+
+> a
+
+= v∗ 
+
+> b
+
++ c on int J, also y ∈ ∂v ∗ 
+
+> b
+
+(z). Fenchel equality therefore gives 
+
+ψa(y) + ψ∗
+
+> a
+
+(z) = yz = vb(y) + v∗ 
+
+> b
+
+(z),
+
+and hence ψa(y) − vb(y) = −c. Thus ψ(y) − v(y) = ( a − b)y − c for every y ∈ Iρ.The shift in the R-Bass representation will be obtained from the subgradient of ( ψ∗ ⋆ γ r )∗. Whenever supp γr is either R or [0 , ∞) for κ-a.e. r, this subgradient is in fact a singleton on the relevant interval, as shown next. 
+
+Lemma 2.7. Let γ ∈ P 1(R) have support either R or [0 , ∞), and let ψ : R → R ∪ { +∞} be proper, convex and lower semicontinuous. Suppose that (ψ∗ ⋆ γ )∗ is proper. Then (ψ∗ ⋆ γ )∗(z) ≤ ψ(z) − z¯γ for every z ∈ R and, in particular, 
+
+dom ψ ⊂ dom( ψ∗ ⋆ γ )∗. Moreover, (ψ∗ ⋆ γ )∗ is differentiable on int dom ψ.Proof. Since ( ψ∗ ⋆ γ )∗ is proper, so is ψ∗ ⋆ γ . For every a ∈ R, Jensen’s inequality gives ( ψ∗ ⋆ γ )( a) ≥ ψ∗(a + ¯ γ). Taking convex conjugates yields ( ψ∗ ⋆ γ )∗(z) ≤ ψ(z) − z¯γ for every z ∈ R. In particular, dom ψ ⊂ dom( ψ∗ ⋆ γ )∗.Suppose that ( ψ∗ ⋆ γ )∗ is not differentiable at some x ∈ int dom ψ, and choose a1 < a 2 in ∂(ψ∗ ⋆ γ )∗(x). By Fenchel–Moreau, (ψ∗ ⋆ γ )( a1) − a1x = −(ψ∗ ⋆ γ )∗(x) = ( ψ∗ ⋆ γ )( a2) − a2x. 
+
+Since a 7 → (ψ∗ ⋆ γ )( a) − ax is convex and attains its minimum at both a1 and a2, it is constant on [ a1, a 2]. Thus there exists b ∈ R such that (ψ∗ ⋆ γ )( a) = xa + b, a ∈ [a1, a 2]. (13) In particular, Z
+
+ψ∗ a1 + a2
+
+2 + z
+
+
+
+γ(d z) = 
+
+Z  12 ψ∗(a1 + z) + 12 ψ∗(a2 + z)
+
+
+
+γ(d z).
+
+9By convexity, equality holds pointwise for γ-a.e. z, and hence ψ∗ is affine on [ a1 + z, a 2 + z] for every such z.Set J := a1 + supp γ. The set of such z is dense in supp γ, so the interiors of these intervals cover int J. The affine representations agree on overlaps, and therefore ψ∗ is affine on int J and, by lower semicontinuity, on J. Write 
+
+ψ∗(u) = su + d for u ∈ J. Since J is unbounded above, Fenchel–Moreau gives ψ(y) ≥ sup u∈J {u(y − s) − d} = + ∞ for every y > s . Hence sup dom ψ ≤ s. On the other hand, for every u ∈ int J, we have s ∈ ∂ψ ∗(u) and hence u ∈ ∂ψ (s), so s ∈ dom ψ. It follows that s = sup dom ψ.Since x ∈ int dom ψ, we have x < s . Moreover, a + supp γ ⊂ J for every a ∈ [a1, a 2], so (ψ∗ ⋆ γ )( a) = 
+
+Z
+
+ψ∗(a + z) γ(d z) = sa + s¯γ + d, a ∈ [a1, a 2].
+
+Comparing with (13) gives s = x, a contradiction. We now turn to the proof of Theorem 2.2. We first prove attainment of the relaxed dual problem and show that a dual optimizer ψ generates, through g = ∂xψ∗, an R-Bass martingale attaining the static value. The same structure also yields the converse: if an admissible R-Bass martingale is generated by an increasing function g, then the corresponding convex potential ψ with g = ∂xψ∗ is a dual optimizer. 
+
+Proof of Theorem 2.2. By Theorem 2.1, there exists ˆ π ∈ M (κ, ν ) attaining the static problem. Together with Lemma 2.3, this gives 
+
+P (κ, ν ) = 
+
+Z
+
+MCov(ˆ πr , γ r ) κ(d r) = inf   
+
+> v∈L1(ν)
+> vcvx ,lsc
+
+E(v). (14) We first prove dual attainment in (dBridge). Let ( ψn)n∈N be a minimizing sequence in (14), chosen according to the support convention. Since E is invariant under addition of affine functions by Lemma 2.4, we may normalize it as follows: Choose sn ∈ ∂ψ n(¯ μ) and set cn(x) := ψ∗
+
+> n
+
+(sn) − snx as well as ˆψn := ψn + cn. Then ˆψn ≥ 0, ˆψn(¯ μ) = 0, and 
+
+E( ˆψn) = E(ψn). To extract a converging subsequence, we use that ( μ, ν ) is irreducible. By [32, Proposition 3.3], there exists a martingale coupling π′ of ( μ, ν ) whose conditional laws charge every open set charged by ν. We regard it as an element of M(κ, ν ) by setting π′ 
+
+> x,ℓ
+
+:= π′
+
+> x
+
+. Since ( ˆψ∗ 
+
+> n
+
+⋆ γ x,ℓ )∗(x) ≤ ˆψn(x) − x2, Lemma 2.4 gives 0 ≤ sup 
+
+> n
+
+Z Z
+
+ˆψn dπ′ 
+
+> x
+
+− ˆψn(x)
+
+
+
+μ(d x) ≤ sup 
+
+> n
+
+E( ˆψn) −
+
+Z
+
+x2 μ(d x) < ∞. (15) The tightness result [32, Lemma 3.9] states that normalized proper, convex and lower semicontinuous functions satis-fying this bound are locally bounded on Iν . After passing to a subsequence, we therefore obtain a dual potential ψ
+
+such that ˆψn → ψ locally uniformly on Iν . By Lemma 2.5, 
+
+E(ψ) ≤ lim inf  
+
+> n→∞
+
+E( ˆψn) = 
+
+Z
+
+MCov(ˆ πr , γ r ) κ(d r).
+
+Conversely, Fenchel’s inequality gives MCov(ˆ πr , γ r ) ≤ R ψ dˆ πr − ψC (r), and hence the reverse inequality after integra-tion. Thus ψ attains (dBridge), and moreover MCov(ˆ πr , γ r ) = 
+
+Z
+
+ψ dˆ πr − (ψ∗ ⋆ γ r )∗(x) (16) for κ-a.e. r = ( x, ℓ ). We next use (16) to construct the optimal R-Bass martingale. Since x ∈ Iν ⊂ int dom ψ, the subdifferential 
+
+∂(ψ∗ ⋆ γ r )∗(x) is nonempty. Choose measurably a(r) ∈ ∂(ψ∗ ⋆ γ r )∗(x). Fenchel equality gives MCov(ˆ πr , γ r ) = 
+
+Z  ψ(y) − a(r)y ˆπr (d y) + 
+
+Z
+
+ψ∗(a(r) + z) γr (d z).
+
+Hence ψ − a(r) id is a dual optimizer of MCov(ˆ πr , γ r ). Let g be the left derivative of ψ∗ on J := int dom ψ∗, extended monotonically to R by the values −∞ and + ∞ to the left and right of J, respectively. The preceding equality implies that ψ∗(a(r) + z) is finite for γr -a.e. z. By (A3), a(r) + z therefore belongs to J and avoids the countable set of nondifferentiability points of ψ∗ for γr -a.e. z. Equality in the preceding covariance duality thus yields, for κ-a.e. r,
+
+ g(a(r) + ·)
+
+> #
+
+γr = ˆ πr . (17) Set A := a(R0) and Xt := E[g(A + Y1) | A, R t]. By (17), Law( R0, X 1) = ˆ π and g(A + Y1) ∈ L2. Since R y ˆπr (d y) = x,we have X0 = Y0 a.s., and X1 ∼ ν. Thus X ∈ A (κ, ν ) and is an R-Bass martingale. Moreover, Law( X1, Y 1 | R0 = r)is the monotone coupling of ˆ πr and γr , and hence 
+
+E[X1Y1] = 
+
+Z
+
+MCov(ˆ πr , γ r ) κ(d r) = P (κ, ν ).
+
+10 In particular, X attains (8). Conversely, let X ∈ A (κ, ν ) be an R-Bass martingale, generated by g and A = a(R0), and set π := Law( R0, X 1). Let h be the lower semicontinuous convex extension of a primitive of g on J := int {g ∈ R}, with h = + ∞ outside ¯J.By (A3) and finiteness of g(A + Y1), J is nonempty and a(r) + z ∈ J for γr -a.e. z, for κ-a.e. r. Writing y = g(a(r) + z), we have y ∈ ∂h (a(r) + z) and hence 
+
+h∗(y) + h(a(r) + z) = ( a(r) + z)y. 
+
+In particular, h∗ is finite ν-a.e., and hence on Iν . Define ψ to agree with h∗ on ¯Iν and to equal + ∞ elsewhere. Then 
+
+ψ is a dual potential. Since y ∈ ¯Iν almost surely, the preceding equality implies ψ∗(a(r) + z) = h(a(r) + z) and 
+
+ψ(y) + ψ∗(a(r) + z) = ( a(r) + z)y, y ∈ ∂ψ ∗(a(r) + z). (18) Fix r = ( x, ℓ ) outside a κ-null set. The product ( a(r) + z)y is γr -integrable by the conditional second-moment bounds. Since ψ and ψ∗ admit affine lower bounds, (18) shows that both terms on its left-hand side are integrable. Integrating the subgradient inequality and using R y π r (d y) = x gives 
+
+x ∈ ∂(ψ∗ ⋆ γ r )( a(r)) , ψC (r) = a(r)x −
+
+Z
+
+ψ∗(a(r) + z) γr (d z).
+
+Moreover, the increasing map z 7 → g(a(r) + z) induces the monotone coupling of γr and πr . Integrating (18) therefore yields MCov( πr , γ r ) = 
+
+Z
+
+ψ dπr − ψC (r).
+
+By Lemma 2.4, we may evaluate E(ψ) using this particular π. Hence 
+
+Z
+
+MCov( πr , γ r ) κ(d r) = E(ψ).
+
+Since the static and dual values coincide, ψ is a dual minimizer and π is the static maximizer. Finally, conditionally on R0 = r, the pair ( X1, Y 1) is precisely the monotone coupling above, and therefore 
+
+E[X1Y1] = 
+
+Z
+
+MCov( πr , γ r ) κ(d r) = P (κ, ν ).
+
+Thus X attains (8). It remains to prove uniqueness of the dual minimizer under the additional assumption that supp γr is either R
+
+or [0 , ∞). Let v be another minimizer of (dBridge). By Lemma 2.7, b(r) := ∂x(v∗ ⋆ γ r )∗(x) is well defined for 
+
+κ-a.e. r = ( x, ℓ ). As above,  ∂xv∗(b(r) + ·)
+
+> #
+
+γr = ˆ πr =  ∂xψ∗(a(r) + ·)
+
+> #
+
+γr .
+
+By Lemma 2.6, ψ − v is affine on Ir := int co(supp ˆ πr ). Fix y ∈ Iν . Irreducibility gives 0 <
+
+Z
+
+|z − y| ν(d z) −
+
+Z
+
+|z − y| μ(d z) = 
+
+Z Z
+
+|z − y| ˆπx,ℓ (d z) − | x − y|
+
+
+
+κ(d x, dℓ).
+
+The integrand is nonnegative by Jensen’s inequality, so it is strictly positive on a set of positive κ-measure. For every such r, ˆ πr (−∞ , y ) > 0 and ˆ πr (y, ∞) > 0 as otherwise z 7 → | z − y| is affine on its support and Jensen’s inequality is an equality. Therefore y ∈ Ir for some r, and thus every y ∈ Iν has a neighbourhood on which ψ − v is affine. Since Iν
+
+is an interval, ψ − v is affine on Iν . By convexity and lower semicontinuity, this identifies the two dual optimizers on co supp( ν) up to addition of an affine function. 
+
+# 3 Multi-asset calibration with SKR 
+
+Let R = ( Y, L ) be a reference process on Rd × E, Markov with respect to the reference filtration ( Ft), whose price coordinates Y = ( Y 1, . . . , Y d) form a square-integrable martingale. We fix one calibration interval, rescale it to [0 , 1], and start R with law κ ∈ P 2(Rd × E). As in the single-asset case, ( Ft) is the usual augmentation of the natural filtration generated by R. Write μj := pr Xj 
+
+> #
+
+κ and let ν1, . . . , ν d ∈ P 2(R) be the prescribed terminal marginals. The class A(κ, ν 1, . . . , ν d) consists of square-integrable Rd-valued martingales X on the same filtered probability space as R, satisfying X0 = Y0 and Xj 
+
+> 1
+
+∼ νj for every j = 1 , . . . , d . We emphasize that only the 1-dimensional terminal marginals are prescribed, but not the joint law of X1. As before, minimizing E[Pdj=1 [Xj − Y j ]1] is equivalent to 
+
+P (κ, ν 1, . . . , ν d) := sup 
+
+> X∈A (κ,ν 1,...,ν d)
+
+E[X1 · Y1]. (multi-Bridge) For r = ( x1, . . . , x d, ℓ ) ∈ Rd × E, write 
+
+γr := Law( Y1 | R0 = r), γjr := Law( Y j 
+
+> 1
+
+| R0 = r).
+
+11 Thus the reference law and its one-dimensional projections are conditioned on the full initial state. For an admissible bridge X, the coupling πj := Law( R0, X j 
+
+> 1
+
+) has disintegration πj (d r, dy) = κ(d r)πjr (d y) with 
+
+Z
+
+y π jr (d y) = xj for κ-a.e. r.We denote by Mj (κ, ν j ) the set of couplings in Cpl( κ, ν j ) satisfying this martingale property. For fixed κ, both the objective and the terminal constraints separate across assets. We therefore apply the single-asset construction to each coordinate, including the remaining reference price coordinates in the latent state, to obtain the following result. 
+
+Theorem 3.1 (Existence and uniqueness for the primal problem) . Suppose that (A1) , (A2) and (A3) hold coordi-natewise, and that μj ≤cvx νj for every j = 1 , . . . , d . Then 
+
+P (κ, ν 1, . . . , ν d) = 
+
+> d
+
+X
+
+> j=1
+
+max    
+
+> πj∈M j(κ,ν j)
+
+Z
+
+MCov( πjr , γ jr ) κ(d r). (multi-wBridge) 
+
+Every single-asset problem admits a unique optimizer ˆπj . The dynamic problem admits an optimizer, which is unique in law. Proof. Apply Theorem 2.1 to each single-asset problem, and denote its unique static optimizer by ˆ πj . Each coordinate of an admissible multi-asset bridge is admissible for the corresponding single-asset problem, so 
+
+P (κ, ν 1, . . . , ν d) ≤
+
+> d
+
+X
+
+> j=1
+
+Z
+
+MCov(ˆ πjr , γ jr ) κ(d r). (19) On the common filtered probability space, define 
+
+T jr := F −1ˆπjr
+
+◦ Fγjr , Xjt := E[T jR0 (Y j 
+
+> 1
+
+) | F t], j = 1 , . . . , d. 
+
+By (A3), Law( Xj 
+
+> 1
+
+| R0 = r) = ˆ πjr . The barycenter constraints give X0 = Y0, and each coordinate has terminal law νj
+
+and attains its single-asset problem. Thus X = ( X1, . . . , X d) is admissible and attains the bound in (19). Finally, let ˜X be another optimizer. It must attain every single-asset optimum, so Law( R0, ˜Xj 
+
+> 1
+
+) = ˆ πj for every j.Its conditional terminal coupling with Y j 
+
+> 1
+
+must also be optimal. By (A3), this is the unique monotone coupling, and hence ˜Xj 
+
+> 1
+
+= T jR0 (Y j 
+
+> 1
+
+) = Xj 
+
+> 1
+
+a.s., j = 1 , . . . , d. 
+
+Since X and ˜X are martingales with respect to the same filtration, their c` adl` ag versions are indistinguishable. Hence, the optimizer is unique in law. We next characterize optimal bridges as multi-R-Bass martingales through the coordinatewise dual problems. Write Iνj := int co(supp νj ). A dual potential for νj is a proper, convex and lower semicontinuous function v that is finite on Iνj and equal to + ∞ outside ¯Iνj . For such a potential, set (v∗ ⋆ γ jr )( a) := 
+
+Z
+
+v∗(a + z) γjr (d z), vC,j (r) := ( v∗ ⋆ γ jr )∗(xj ).
+
+For an irreducible pair ( μj , ν j ), the corresponding relaxed objective is 
+
+Ej (v) := 
+
+Z Z
+
+v dπjr − vC,j (r)
+
+
+
+κ(d r), πj ∈ M j (κ, ν j ).
+
+By Lemma 2.4, Ej (v) is well-defined, independent of πj and invariant under addition of affine functions. 
+
+Definition 3.2 (Multi-R-Bass martingale) . An admissible martingale X ∈ A (κ, ν 1, . . . , ν d) is called a multi-R-Bass martingale , or a separable R-Bass martingale , if there exist increasing functions g1, . . . , g d : R → [−∞ , ∞] and measurable shifts aj : Rd × E → R such that (gj ⋆ γ jr )( aj (r)) = xj for κ-a.e. r,and, writing Aj := aj (R0) and A := ( A1, . . . , A d), we have 
+
+Xjt = E[gj (Aj + Y j 
+
+> 1
+
+) | F t] = E[gj (Aj + Y j 
+
+> 1
+
+) | A, R t], 0 ≤ t ≤ 1, (20) for every j = 1 , . . . , d .The shifts enforce the martingale property. As in the single-asset case, we write aj (r) = ( gj ⋆ γ jr )−1(xj ), where the inverse denotes a measurable choice of the inverse. The L2 condition ensures that the convolution at this shift is absolutely convergent for κ-a.e. r. The second equality in (20) follows from the Markov property of the reference process. Although each generating function gj is one-dimensional, its shift aj may depend on all components of the initial state. 12 Theorem 3.3 (Duality and characterization of multi-R-Bass martingales) . Suppose that (A1) , (A2) and (A3) hold coordinatewise, and that (μj , ν j ) is irreducible for every j = 1 , . . . , d . Then 
+
+P (κ, ν 1, . . . , ν d) = 
+
+> d
+
+X
+
+> j=1
+
+min   
+
+> vjdual potential
+
+Ej (vj ). (multi-dBridge) 
+
+An admissible martingale solves (multi-Bridge) if and only if it is a multi-R-Bass martingale. Moreover, suppose that supp γjr is either R or [0 , ∞) for κ-a.e. r and every j. Then each dual minimizer is unique up to addition of an affine function on Iνj .Proof. Apply Theorem 2.2 to each single-asset problem, and denote its static and dual optimizers by ˆ πj and ψj .Together with Theorem 3.1, this gives 
+
+P (κ, ν 1, . . . , ν d) = 
+
+> d
+
+X
+
+> j=1
+
+Z
+
+MCov(ˆ πjr , γ jr ) κ(d r) = 
+
+> d
+
+X
+
+> j=1
+
+Ej (ψj ).
+
+This proves (multi-dBridge). Let aj be the shifts obtained in the single-asset construction and set A := ( a1(R0), . . . , a d(R0)). On the common filtered probability space, define 
+
+Xjt := E[∂x(ψj )∗(Aj + Y j 
+
+> 1
+
+) | F t], j = 1 , . . . , d. 
+
+Each coordinate has terminal law νj and attains its single-asset problem. Thus X = ( X1, . . . , X d) is admissible and attains the bound in (19). The Markov property gives the representation (20), with gj = ∂x(ψj )∗.An admissible bridge attains this bound precisely when each coordinate attains its single-asset optimum. The single-asset Bass characterization therefore gives the claimed equivalence. Under the additional support assumption, uniqueness of each dual minimizer follows from Theorem 2.2. We observe that the optimizer has joint conditional terminal law Law( X1 | R0 = r) = ( Gr )#γr , Gr (z1, . . . , z d) :=  g1(a1(r) + z1), . . . , g d(ad(r) + zd).
+
+Thus the single-asset reduction does not impose independence and the assets are coupled through the reference process. 
+
+Coordinatewise martingale Sinkhorn iteration. For fixed κ, the martingale Sinkhorn iteration applies sepa-rately to each coordinate. For a shift aj : Rd × E → R, define 
+
+ρaj
+
+:= 
+
+Z
+
+(aj (r) + · )#γjr κ(d r) = Law( aj (R0) + Y j 
+
+> 1
+
+). (21) Starting from shifts a10, . . . , a d 
+
+> 0
+
+∈ L2(κ), the coordinate updates, whenever well defined, are 
+
+gjk := F −1 
+
+> νj
+
+◦ Fρajk
+
+,ajk+1 (r) := ( gjk ⋆ γ jr )−1(xj ), j = 1 , . . . , d. 
+
+The first update chooses the increasing transport to νj ; the second enforces the martingale constraint. The coordinate updates can be performed in parallel, using the kernels γjr conditioned on the full initial state, and no d-dimensional transport problem needs to be solved. The additional assumptions and normalizations for convergence are given in Section 4 and apply asset-wise. 
+
+Calibration across maturities. For maturities 0 = T0 < T 1 < · · · < T n, prescribe marginal laws in P2(R) satisfying 
+
+δxj
+
+> 0
+
+= μj 
+
+> 0
+
+≤cvx · · · ≤ cvx μjn, j = 1 , . . . , d. 
+
+After calibration up to Ti, restart the reference dynamics from the full joint state law 
+
+κi := Law( XTi , L Ti ).
+
+On [ Ti, T i+1 ], solve the multi-bridge problem with starting law κi and terminal marginals μ1
+
+> i+1
+
+, . . . , μ di+1 . The joint evolution of the calibrated bridge and the reference latent process determines κi+1 = Law( XTi+1 , L Ti+1 ), which supplies the initial state law for the next step. 13 4 Convergence of the Martingale Sinkhorn algorithm 
+
+We next study convergence of the Martingale Sinkhorn algorithm. Throughout this section, we assume that μ ≤cvx ν
+
+and that ( μ, ν ) is irreducible. In addition to (A1), (A2) and (A3), we impose the following assumptions: (A4) For κ-a.e. r, supp γr is either R or [0 , ∞). (A5) supp ν is compact, and supp μ ⊂ Iν = int co supp( ν). Assumption (A5) gives the uniform bounds on the shifts needed in the convergence proof. For related estimates without compact support in the Brownian case, see [32]. For an irreducible pair ( μ, ν ), the additional condition supp μ ⊂ Iν ,equivalently co supp μ ⊂ Iν , is often referred to as strict irreducibility .The iteration is as follows. 
+
+Algorithm 1 Martingale Sinkhorn algorithm  
+
+> 1:
+
+Choose an initial shift a0 ∈ L2(κ) with E[a0(R0)] = 0.  
+
+> 2:
+
+for i = 1 , 2, . . . do  
+
+> 3:
+
+Terminal-marginal update: 
+
+Set ρi := Law  ai−1(R0) + Y1
+
+, and choose a dual potential ψi, satisfying the support convention above, such that ( ∂xψ∗ 
+
+> i
+
+)#ρi = ν.Normalize by ψi ← ψi − R (ψ∗ 
+
+> i
+
+⋆ γ r )∗(¯ μ) κ(d r).  
+
+> 4:
+
+Martingale update: 
+
+For r = ( x, ℓ ), set ai(r) := ∂x(ψ∗ 
+
+> i
+
+⋆ γ r )∗(x). Normalize by ai(r) ← ai(r) − E[ai(R0)].  
+
+> 5:
+
+end for 
+
+The terminal-marginal update enforces the prescribed terminal law. In one dimension it is simply the monotone rearrangement from ρi to ν:
+
+∂xψ∗ 
+
+> i
+
+= F −1 
+
+> ν
+
+◦ Fρi .
+
+Here we use F −1 
+
+> ν
+
+(0) := min supp ν and F −1 
+
+> ν
+
+(1) := max supp ν. In particular, if supp ρi is bounded below, the rearrangement is extended constantly by min supp ν below that support. Thus this step is explicit once ρi is known. The potential ψi itself is determined only up to an additive constant. Since the implementation uses only ∂xψ∗ 
+
+> i
+
+, this constant has no effect on the iteration; the normalization in Algorithm 1 merely fixes a convenient representative. The martingale update then restores the martingale constraint. Write 
+
+bi(r) := ∂x(ψ∗ 
+
+> i
+
+⋆ γ r )∗(x), ci := 
+
+Z
+
+bi dκ, ai = bi − ci.
+
+Before centering the shift, Fenchel–Moreau gives, for κ-a.e. r = ( x, ℓ ), 
+
+x =
+
+Z
+
+∂xψ∗ 
+
+> i
+
+(bi(r) + z) γr (d z),
+
+so the conditional law of ∂xψ∗ 
+
+> i
+
+(bi(r) + Y1) given R0 = r has barycenter x.The conditional laws depend on the shift and the potential through the map 
+
+z 7 −→ ∂xψ∗ 
+
+> i
+
+(bi(r) + z).
+
+Replacing bi by ai = bi − ci subtracts ci from the argument of this map. We compensate by replacing ψi with ˜ψi(y) := ψi(y) − ci(y − ¯μ),
+
+which gives ∂x ˜ψ∗ 
+
+> i
+
+(u) = ∂xψ∗ 
+
+> i
+
+(u + ci). The two changes therefore cancel, leaving the conditional laws unchanged. The dual value is also unchanged because the correction to ψi is affine; see Lemma 2.4. We are allowed to center the shifts because the dual objective is invariant under addition of affine functions. Indeed, if c(y) = sy + d, then ( ψ + c)∗(z) = ψ∗(z − s) − d; see Lemma 2.4 and the proof thereof. Thus the potential paired with the centered shift is ˜ψi(y) := ψi(y) − ci(y − ¯μ), since 
+
+∂x ˜ψ∗ 
+
+> i
+
+(ai(r) + z) = ∂xψ∗ 
+
+> i
+
+(bi(r) + z).
+
+The pairs ( ˜ψi, a i) and ( ψi, b i) therefore represent the same conditional laws, and affine invariance gives E( ˜ψi) = E(ψi). The algorithm retains ψi as the terminal-marginal potential and uses the centered shift ai in the next iteration. The main result of this section is the convergence of these iterates to the solution of the dual problem (dBridge). 14 Theorem 4.1 (Convergence of the Martingale Sinkhorn algorithm) . Let (μ, ν ) be irreducible. Suppose further that 
+
+(A1) , (A2) , (A3) , (A4) and (A5) hold. Then E(ψi) ↓ P (κ, ν ), and the potentials (ψi)i generated by Algorithm 1 converge locally uniformly on Iν to a dual minimizer of (dBridge) .
+
+By Theorem 2.2, the dual minimizer is unique up to addition of an affine function. The normalizations in Algo-rithm 1 select a unique limiting representative, as shown in the proof below. We denote this normalized dual minimizer by ψ. Setting 
+
+g := ∂xψ∗, a(r) := ∂x(ψ∗ ⋆ γ r )∗(x), r = ( x, ℓ ),
+
+this yields the R-Bass martingale Xt = Eg(a(R0) + Y1) | a(R0), R t
+
+, and hence the unique optimal bridge in law; see Theorem 2.1. The main mechanism behind the convergence proof is the following observation: each Martingale Sinkhorn iteration strictly decreases E unless the current potential already attains (dBridge). Before proving this, we record the regularity properties of the iterates that will be used throughout the argument. 
+
+Lemma 4.2 (Regularity of the iterates) . Suppose that the assumptions of Theorem 4.1 hold. Let 
+
+L := max {| y| : y ∈ supp ν}, m(r) := 
+
+Z
+
+|y| γr (d y), ¯m := 
+
+Z
+
+m(r) κ(d r).
+
+Then ψ∗ 
+
+> i
+
+is L-Lipschitz for every i, and for u ∈ Iν and κ-a.e. r,
+
+(ψ∗ 
+
+> i
+
+⋆ γ r )∗(u) − ψi(u) ≤ Lm (r). (22) 
+
+Moreover, there exist a compact set K ⊂ Iν and δ > 0, independent of i, such that for κ-a.e. r,
+
+|ai(r)| ≤ 1
+
+δ
+
+
+
+4 sup 
+
+> u∈K
+
+|ψi(u)| + 2 L(m(r) + ¯ m)
+
+
+
+. (23) 
+
+Consequently, ai ∈ L2(κ), ρi+1 ∈ P 2(R) is atomless, and ψi ∈ L1(ν), ψCi ∈ L1(κ), and ψ∗ 
+
+> i
+
+, ψ ∗ 
+
+> i+1
+
+∈ L1(ρi+1 ). In particular, E(ψi) < ∞.Proof. By the support convention, dom ψi ⊂ co supp ν ⊂ [−L, L ], so the conjugate ψ∗ 
+
+> i
+
+is L-Lipschitz. Hence, for every 
+
+a ∈ R and κ-a.e. r,
+
+(ψ∗ 
+
+> i
+
+⋆ γ r )( a) − ψ∗ 
+
+> i
+
+(a) ≤ Lm (r).
+
+Taking conjugates gives (22). Since supp μ is a compact subset of Iν , choose δ > 0 such that K := supp μ+[ −δ, δ ] ⊂ Iν .Set Mi := sup u∈K |ψi(u)|. By (22), 
+
+(ψ∗ 
+
+> i
+
+⋆ γ r )∗(u) ≤ Mi + Lm (r), u ∈ K. 
+
+In particular, taking u = x shows that ψCi ∈ L1(κ). The shift ˜ ai(r) := ∂x(ψ∗ 
+
+> i
+
+⋆ γ r )∗(x) before normalization is well defined by Lemma 2.7. The subgradient inequality at x ± δ gives 
+
+δ|˜ai(r)| ≤ 2Mi + 2 Lm (r).
+
+Since ai(r) = ˜ ai(r) − R ˜ai(e) κ(d e) we obtain 
+
+δ|ai(r)| ≤ 4Mi + 2 L m(r) + ¯ m,
+
+which is (23). By Jensen’s inequality and (A2), m ∈ L2(κ), and hence ai ∈ L2(κ). It follows that ρi+1 = Law( ai(R0) + 
+
+Y1) ∈ P 2(R). Moreover, ρi+1 ({z}) = R γr ({z − ai(r)}) κ(d r) = 0, so ρi+1 is atomless. Since ψ∗ 
+
+> j
+
+is L-Lipschitz, 
+
+|ψ∗ 
+
+> j
+
+(z)| ≤ | ψ∗ 
+
+> j
+
+(0) | + L|z|,
+
+and therefore ψ∗ 
+
+> i
+
+, ψ ∗ 
+
+> i+1
+
+∈ L1(ρi+1 ). By construction, ( ∂xψ∗
+
+> i+1
+
+)#ρi+1 = ν, and Fenchel–Moreau yields 
+
+Z
+
+|ψi+1 | dν =
+
+Z
+
+z∂ xψ∗
+
+> i+1
+
+(z) − ψ∗
+
+> i+1
+
+(z) ρi+1 (d z) ≤ L
+
+Z
+
+|z| ρi+1 (d z) + 
+
+Z
+
+|ψ∗
+
+> i+1
+
+| dρi+1 < ∞.
+
+Since a0 ∈ L2(κ), the same argument applies to ρ1 = Law( a0(R0) + Y1) and gives ψ1 ∈ L1(ν). Thus ψi ∈ L1(ν) for every i. Together with ψCi ∈ L1(κ), this also shows that E(ψi) < ∞.
+
+Lemma 4.3 (Strict descent) . Under the assumptions of Theorem 4.1, E(ψi+1 ) ≤ E (ψi) for every i ∈ N. Moreover, equality holds if and only if ψi attains (dBridge) .
+
+15 Proof. We follow the argument of [32, Lemma 3.5]. Fix i ∈ N. By Lemma 4.2, all integrals below are finite. Set 
+
+ci := 
+
+Z
+
+∂x(ψ∗ 
+
+> i
+
+⋆ γ r )∗(x) κ(d r), ˜ψi(y) := ψi(y) − ci(y − ¯μ).
+
+By construction of the normalized shift, ai(r) = ∂x( ˜ψ∗ 
+
+> i
+
+⋆ γ r )∗(x) for κ-a.e. r = ( x, ℓ ), while affine invariance yields 
+
+E( ˜ψi) = E(ψi). Hence Fenchel–Moreau and the definition of ρi+1 give 
+
+E(ψi) = 
+
+Z
+
+˜ψi dν +
+
+Z
+
+˜ψ∗ 
+
+> i
+
+dρi+1 
+
+| {z }
+
+(I) 
+
+−
+
+Z
+
+xa i(r) κ(d r)
+
+| {z }
+
+(II) 
+
+.
+
+Since ( ∂xψ∗
+
+> i+1
+
+)#ρi+1 = ν,(I) ≥ MCov( ν, ρ i+1 ) = 
+
+Z
+
+ψi+1 dν +
+
+Z
+
+ψ∗ 
+
+> i+1
+
+dρi+1 . (24) Moreover, Fenchel’s inequality gives (II) ≤
+
+Z 
+
+(ψ∗ 
+
+> i+1
+
+⋆ γ r )( ai(r)) + ( ψ∗ 
+
+> i+1
+
+⋆ γ r )∗(x)
+
+
+
+κ(d r). (25) Because R ψ∗ 
+
+> i+1
+
+dρi+1 = R (ψ∗ 
+
+> i+1
+
+⋆ γ r )( ai(r)) κ(d r), combining (24) and (25) yields 
+
+E(ψi) ≥ E (ψi+1 ).
+
+Suppose that equality holds. Then equality holds in (24), so ˜ψi also attains the dual problem for MCov( ν, ρ i+1 ). Since ρi+1 is atomless, ( ∂x ˜ψ∗ 
+
+> i
+
+)#ρi+1 = ν. On the other hand, by the definition of ai and Lemma 4.2, 
+
+x = ∂x( ˜ψ∗ 
+
+> i
+
+⋆ γ r )( ai(r)) = 
+
+Z
+
+∂x ˜ψ∗ 
+
+> i
+
+(ai(r) + z) γr (d z)for κ-a.e. r = ( x, ℓ ). Thus ∂x ˜ψ∗ 
+
+> i
+
+and ai generate an admissible R-Bass martingale, and Theorem 2.2 shows that ˜ψi
+
+attains (dBridge). Since E( ˜ψi) = E(ψi), ψi attains (dBridge) too. Conversely, if ψi attains (dBridge), then 
+
+P (κ, ν ) = E(ψi) ≥ E (ψi+1 ) ≥ P (κ, ν ),
+
+and hence equality holds. We now prove convergence. The bound on the dual values ( E(ψi)) i gives local boundedness of the normalized potentials ( ψi)i, while the difference between successive dual values controls their Fenchel gaps. This will identify every accumulation point of ( ψi)i as a dual optimizer. 
+
+Proof of Theorem 4.1. The proof has three steps. We first obtain relative compactness of the iterates. We then use the vanishing descent gaps to identify every accumulation point as the appropriately normalized dual minimizer. Finally, we pass to the limit in the dual objective. By Lemma 4.3, ( E(ψi)) i∈N is decreasing and bounded below by P (κ, ν ). Hence 
+
+E(ψi) − E (ψi+1 ) −→ 0. (26) We first prove relative compactness. Choose pi ∈ ∂ψ i(¯ μ) and set φi(y) := ψi(y) − ψi(¯ μ) − pi(y − ¯μ). Then φi ≥ 0and φi(¯ μ) = 0. By [32, Proposition 3.3], there exists a martingale coupling π′ of ( μ, ν ) whose conditional laws π′
+
+> x
+
+charge every open set charged by ν. Since affine functions cancel from the corresponding Jensen gap, 0 ≤
+
+Z Z
+
+φi dπ′ 
+
+> x
+
+− φi(x)
+
+
+
+μ(d x) = 
+
+Z
+
+ψi dν −
+
+Z
+
+ψi dμ ≤ E (ψi) −
+
+Z
+
+x2 μ(d x).
+
+The right-hand side is uniformly bounded by Lemma 4.3. The compactness result [32, Lemma 3.9] states that normalized convex functions satisfying such a uniform Jensen-gap bound are locally bounded on Iν . Hence ( φi)i is locally bounded there. Retain the notation L, m, ¯m from Lemma 4.2. By (22) and the additive normalization in Algorithm 1, |ψi(¯ μ)| ≤ L ¯m.Moreover, applying (23) to the affine representatives φi, which induce the same normalized shifts ai, gives 
+
+|ai(r)| ≤ C(1 + m(r)) (27) for some C > 0, all i, and κ-a.e. r. Thus the second moments of ( ρi)i are uniformly bounded. It remains to control pi. Choose y− < ¯μ < y + with ν(( −∞ , y −]) > 0 and ν([ y+, ∞)) > 0. Since ( ∂xψ∗ 
+
+> i
+
+)#ρi = ν
+
+and ¯ μ ∈ ∂ψ ∗ 
+
+> i
+
+(pi), monotonicity gives 
+
+ρi(( −∞ , p i]) ≥ ν(( −∞ , y −]) , ρi([ pi, ∞)) ≥ ν([ y+, ∞)) .
+
+16 The uniform second-moment bound on ρi therefore implies sup i |pi| < ∞. Hence ( ψi)i is locally bounded on Iν , and convexity gives local equicontinuity. It is therefore relatively compact for locally uniform convergence. The same estimates also give a uniform linear-growth bound 
+
+|ψ∗ 
+
+> i
+
+(z)| ≤ C + L|z|, i ∈ N, z ∈ R. (28) Let ψik → ψ locally uniformly on Iν . We extend ψ lower semicontinuously to ¯Iν and set it equal to + ∞ elsewhere. By [47, Theorem 7.17], this implies epi-convergence on R; convex conjugation preserves epi-convergence by [47, The-orem 11.34]. Since ψ∗ is finite on R, another application of [47, Theorem 7.17] yields ψ∗ 
+
+> ik
+
+→ ψ∗ locally uniformly on 
+
+R.As in the proof of Lemma 4.3, write 
+
+bi(r) := ∂x(ψ∗ 
+
+> i
+
+⋆ γ r )∗(x), ci := 
+
+Z
+
+bi(r) κ(d r), ai = bi − ci.
+
+The subgradient estimate in the proof of Lemma 4.2, together with the local bounds above, gives |bi(r)| ≤ C(1+ m(r)). By (28), dominated convergence gives local uniform convergence ψ∗ 
+
+> ik
+
+⋆ γ r → ψ∗ ⋆ γ r for κ-a.e. r. Conjugation therefore gives locally uniform convergence of ( ψ∗ 
+
+> ik
+
+⋆ γ r )∗ to ( ψ∗ ⋆ γ r )∗ on Iν . Hence Lemma 2.7 and [47, Exercise 12.40(b)] give 
+
+bik (r) −→ b(r) := ∂x(ψ∗ ⋆ γ r )∗(x).
+
+Dominated convergence therefore yields cik → c := R b dκ and aik → a := b − c in L2(κ). Consequently, with ρ := Law( a(R0) + Y1), W2(ρik +1 , ρ ) → 0. The law ρ is atomless. Set ˜ψi(y) := ψi(y) − ci(y − ¯μ) and ˜ψ(y) := ψ(y) − c(y − ¯μ). Then ˜ψik → ˜ψ locally uniformly and a(r) = ∂x( ˜ψ∗ ⋆ γ r )∗(x). We now identify the limit using the two nonnegative gaps in the proof of Lemma 4.3. Denote by Gi the gap in (24) and by Hi the Fenchel gap in (25). That proof gives 
+
+E(ψi) − E (ψi+1 ) = Gi + Hi, Gi, H i ≥ 0.
+
+Hence (26) implies Gi, H i → 0. Let χk ∈ Cpl( ν, ρ ik +1 ) attain MCov( ν, ρ ik +1 ). Passing to a further subsequence, assume χk → χ ∈ Cpl( ν, ρ )weakly. Since 
+
+Gik =
+
+Z   ˜ψik (x) + ˜ψ∗ 
+
+> ik
+
+(y) − xy  χk(d x, dy),
+
+epi-convergence and Fatou’s lemma, applied to the nonnegative Fenchel gaps on a Skorokhod representation of the weakly convergent couplings, imply ˜ψ(x) + ˜ψ∗(y) = xy for χ-a.e. ( x, y ). Since ρ is atomless, ( ∂x ˜ψ∗)#ρ = ν. On the other hand, the definition of a and the regularity established in Lemma 4.2 give, for κ-a.e. r = ( x, ℓ ), 
+
+x = ∂x( ˜ψ∗ ⋆ γ r )( a(r)) = 
+
+Z
+
+∂x ˜ψ∗(a(r) + z) γr (d z).
+
+Thus ∂x ˜ψ∗ and a generate an admissible R-Bass martingale. By Theorem 2.2, ˜ψ, and hence ψ, attains (dBridge). It remains only to identify the affine representative. We claim that ci → 0. Indeed, from any subsequence we may pass further so that ψi → u and ψi+1 → v locally uniformly on Iν . Along this subsequence, the preceding argument gives ai → a κ -a.e. and in L2(κ), with R a dκ = 0. The same argument applies to ψi+1 and gives locally uniform convergence of the convolutions and their conjugates. Since Hi → 0, Fatou’s lemma applied to its nonnegative integrand yields 0 ≤
+
+Z 
+
+(v∗ ⋆ γ r )( a(r)) + ( v∗ ⋆ γ r )∗(x) − xa (r)
+
+
+
+κ(d r) ≤ lim inf  
+
+> i
+
+Hi = 0 .
+
+Hence Fenchel equality and Lemma 2.7 give a(r) = ∂x(v∗ ⋆ γ r )∗(x) for κ-a.e. r = ( x, ℓ ). The convergence of the raw shifts in L2(κ) therefore implies ci+1 → R a dκ = 0 along this subsequence. Since the original subsequence was arbitrary, ci+1 → 0, and thus ci → 0. Thus every accumulation point ψ satisfies 
+
+Z
+
+(ψ∗ ⋆ γ r )∗(¯ μ) κ(d r) = 0 ,
+
+Z
+
+∂x(ψ∗ ⋆ γ r )∗(x) κ(d r) = 0 .
+
+The first identity follows from the normalization in Algorithm 1 and dominated convergence, while the second is 
+
+c = 0. By Theorem 2.2, dual minimizers differ only by an affine function, and these two conditions fix one affine normalization. Hence all accumulation points coincide, so ( ψi)i converges locally uniformly on Iν .Finally, let ψ denote this limit. Since ci → 0, the preceding argument gives ai → a in L2(κ) and ρi+1 → ρ in W2,where a(r) = ∂x(ψ∗ ⋆ γ r )∗(x) and ρ = Law( a(R0) + Y1). Moreover, ˜ψ∗ 
+
+> i
+
+→ ψ∗ locally uniformly on R, with a uniform linear-growth bound inherited from (28). Consequently, 
+
+Z
+
+˜ψ∗ 
+
+> i
+
+dρi+1 −→ 
+
+Z
+
+ψ∗ dρ. 
+
+17 Since ( ∂xψ∗)#ρ = ν, Fenchel–Moreau and the same growth bound give ψ ∈ L1(ν) and 
+
+Z
+
+ψ dν +
+
+Z
+
+ψ∗ dρ = MCov( ν, ρ ).
+
+As R ˜ψi dν = R ψi dν, the definition of Gi gives 
+
+Z
+
+ψi dν = MCov( ν, ρ i+1 ) −
+
+Z
+
+˜ψ∗ 
+
+> i
+
+dρi+1 + Gi −→ 
+
+Z
+
+ψ dν, 
+
+using continuity of maximal covariance in W2 and Gi → 0. Moreover, (22), local uniform convergence on the compact set supp μ ⊂ Iν , and dominated convergence give 
+
+Z
+
+(ψ∗ 
+
+> i
+
+⋆ γ r )∗(x) κ(d r) −→ 
+
+Z
+
+(ψ∗ ⋆ γ r )∗(x) κ(d r).
+
+Therefore E(ψi) ↓ E (ψ) = P (κ, ν ). 
+
+# 5 Comparison with SLV models 
+
+We explain formally how the Bass structure of a short SKR bridge leads to the instantaneous calibration princi-ple described in the introduction. Let ( μt)0≤t≤T be a smooth family of target marginals, and write σDup for the corresponding Dupire diffusion coefficient. Consider a diffusion reference dYt = σR(t, Y t, L t) d Wt,
+
+with an autonomous factor L. For h = T /N , let Xh be the SKR model calibrated at the maturities tj = jh . The factor and Brownian drivers are retained throughout the construction. 
+
+A short Bass bridge. Fix a calibration interval [ t, t + h] and write x = Xht , l = Lt, and Et = E[· | F t]. On this interval the reference price is restarted at x:
+
+Y t,h t = x, dY t,h s = σR(s, Y t,h s , L s) d Ws.
+
+Its increment Mt,h = Y t,h t+h − x has conditional mean zero and, to first order, is given by σR(t, x, l )( Wt+h − Wt). Let Gt,h be the increasing Bass map for this bridge. For the following informal calculation, assume that the map is smooth and invertible, with the spatial bounds needed for the short-time expansions below. Write ξt,h = G−1 
+
+> t,h
+
+and 
+
+kt,h = ξ′
+
+> t,h
+
+. The terminal value of the bridge can then be written as 
+
+Xht+h = Gt,h 
+
+ ξt,h (x) + bt,h (x, l ) + Mt,h 
+
+, Et[Xht+h] = x. (29) Here the shift bt,h is chosen to preserve the conditional mean. The reference fluctuations are of order √h. Applying the curved map Gt,h changes their conditional mean by order 
+
+h, which is compensated by the centering shift. The leading random fluctuation is therefore determined by the slope of Gt,h . Since G′
+
+> t,h
+
+(ξt,h (x)) = 1 /k t,h (x), linearization of (29) suggests 
+
+Xht+h − Xht ≃ σR(t, X ht , L t)
+
+kt,h (Xht ) (Wt+h − Wt). (30) Thus the reciprocal inverse Bass slope plays the role of a leverage function. 
+
+Identification of the leverage. The bridge reproduces the next prescribed marginal exactly. To first order, this imposes the conditional variance constraint (4). Hence, if the joint laws and inverse slopes admit a sufficiently regular limit, (30) gives 
+
+E[σR(t, x, L t)2 | Xt = x]
+
+k(t, x )2 = σDup (t, x )2.
+
+Consequently, the candidate limiting dynamics are dXt = λ(t, X t)σR(t, X t, L t) d Wt, λ(t, x ) = 1
+
+k(t, x ) = σDup (t, x )
+
+pE[σR(t, x, L t)2 | Xt = x] . (31) This is the SLV prescription (5). The reference volatility is evaluated at the calibrated price because each bridge starts there. Propagating the joint law of price and factor supplies the conditional distribution needed to update the leverage. 18 Accumulation of the errors. The martingale condition also explains why a local approximation can be useful over many steps. Once a smooth SLV target X is specified, put f (t, x, l ) = λ(t, x )σR(t, x, l ) and consider the endpoint errors 
+
+ϵj = Xhtj+1 − Xhtj − f (tj , X htj , L tj )( Wtj+1 − Wtj ).
+
+Each error has conditional mean zero given Ftj . Errors from different intervals are therefore orthogonal: 
+
+E 
+
+> N−1
+
+X
+
+> j=0
+
+ϵj
+
+> 2
+
+= 
+
+> N−1
+
+X
+
+> j=0
+
+E|ϵj |2. (32) Moreover, within each interval the Bass interpolation is the conditional expectation of its terminal value. Endpoint estimates consequently control the intervening paths as well. Together with stability of the target dynamics, these observations reduce convergence to quantitative estimates for the centered bridge endpoints. The online supplement [17] carries out this program for a specified SLV target with one autonomous real factor and constant correlation in ( −1, 1). It compares the exact bridges with smooth centered maps whose inverse slopes are 1 /λ (tj , ·), and controls the difference through quantitative calibration. Under the coefficient and regular-start assumptions stated in [17, Section A.1], [17, Theorem A.1] yields 
+
+E sup 
+
+> 0≤t≤T
+
+|Xht − Xt|2 ≤ CT h. 
+
+This gives strong order one half on the common Brownian drivers. The general factor result requires the stated regular initial joint density. When the reference price coefficient is independent of the factor, [17, Corollary A.4] gives the same rate for any square-integrable initial pair, including a deterministic initial price. 
+
+# 6 Numerical experiments 
+
+We compare Bass LV with the Heston, 3 /2, and one-factor Bergomi SKR models, all calibrated to the same European option prices. We report the vanilla fits and the prices of three-year reverse cliquets and memory autocallables with quarterly observations. 
+
+## 6.1 Vanilla calibration 
+
+We fit European call prices corresponding to the SPX smiles of 23 June 2020 reported by Farkas, Ferrari and Ulrych [23], at maturities ( T1, . . . , T 5) = (0 .25 , 0.5, 1, 2, 3) years. We work with forward-normalized prices Xt = St/F t.
+
+Reference calibration. We first fit the Heston, 3 /2, and one-factor Bergomi reference models to these vanilla prices, obtaining the parameters in Table 1. For Bergomi, the price volatility is √Vt, where 
+
+Vt = ξ0(t) exp 
+
+
+
+ηZ t − η2
+
+4κ
+
+ 1 − e−2κt 
+
+, (33) with d Zt = −κZ t dt + d Bt and Z0 = 0. The correlation between the price and volatility drivers is ρ. The initial forward variance ξ0 is constant on each interval listed in Table 1. Its levels are obtained from successive differences of the total variance implied by log-contract prices, divided by the corresponding interval lengths. This curve is fixed when fitting the remaining Bergomi parameters.                                        
+
+> Heston 3/2Bergomi-1F
+> κ1.2484 κ0.3600 κ2.4971
+> θ0.0988 θ5.0050 η3.6191
+> η1.1175 η7.6870 ρ−0.8796
+> ρ−0.8038 ρ−1.0000
+> v00.1020 v00.0877
+> t[years] [0 ,0.25) [0 .25 ,0.5) [0 .5,1) [1 ,2) [2 ,3]
+> ξ0(t)0.10209961 0.11963007 0.09081965 0.08462666 0.08383247 Table 1: Fitted reference parameters and the piecewise-constant initial forward-variance curve for Bergomi. Forward-variance levels are annualized variances.
+
+19 Marginal calibration. With the reference parameters fixed, we apply Algorithm 1 successively between cali-bration maturities, alternating the terminal-marginal and martingale updates. At each maturity, the joint law 
+
+κi = Law( XTi , L Ti ) is passed to the next calibration interval. Values at intermediate observation dates are obtained from the conditional-expectation representation (2). Only the five stated maturities impose marginal constraints. Figure 5 reports the repriced calls in implied-volatility terms. All four models closely reproduce the target smiles over the displayed strike ranges. −0.60 −0.40 −0.20 0.00 0.20 0.40 
+
+k = log( K/F )15 .020 .025 .030 .035 .040 .0Implied volatility [%] Bass LV 
+
+0.25 Y 0.5 Y 1 Y 2 Y 3 Y 0.25 Y 0.5 Y 1 Y 2 Y 3 Y −0.60 −0.40 −0.20 0.00 0.20 0.40 
+
+k = log( K/F )15 .020 .025 .030 .035 .040 .0Implied volatility [%] Heston SKR 
+
+0.25 Y 0.5 Y 1 Y 2 Y 3 Y 0.25 Y 0.5 Y 1 Y 2 Y 3 Y −0.60 −0.40 −0.20 0.00 0.20 0.40 
+
+k = log( K/F )15 .020 .025 .030 .035 .040 .0Implied volatility [%] 3/2 SKR 
+
+0.25 Y 0.5 Y 1 Y 2 Y 3 Y 0.25 Y 0.5 Y 1 Y 2 Y 3 Y −0.60 −0.40 −0.20 0.00 0.20 0.40 
+
+k = log( K/F )15 .020 .025 .030 .035 .040 .0Implied volatility [%] Bergomi-1F SKR 
+
+0.25 Y 0.5 Y 1 Y 2 Y 3 Y 0.25 Y 0.5 Y 1 Y 2 Y 3 Y 
+
+Figure 5: Fit of Bass LV and the three SKR models to the SPX implied-volatility smiles. Black dashed curves show the ESSVI targets; coloured curves with markers show implied volatilities recovered from Monte Carlo option prices under the calibrated models. Within each panel, darker to lighter shades indicate maturities 0 .25, 0 .5, 1, 2, and 3 years. Shading denotes pointwise 95% Monte Carlo confidence bands. 
+
+For both products below, we take S0 = 1, a constant interest rate r = 2%, and no dividends, with discount factor 
+
+D(t) = e−rt . All product prices use 10 5 Monte Carlo paths per model. Table 2 reports reference path simulation and fixed-point iteration separately, together with the pricing times for both products. 
+
+Calibration [s] Pricing [s] Model Reference simulation Fixed-point iteration Cliquet Autocall Bass LV 0.0011 0.0801 0.0220 0.0219 Heston SKR 0.0334 0.1626 0.0757 0.0756 3/2 SKR 0.1421 0.1952 0.0753 0.0753 Bergomi-1F SKR 0.0313 0.9204 1.0074 1.0073 Table 2: Calibration and pricing times using 10 5 paths. 3Pricing reuses the reference paths generated during calibration. Each product’s pricing time includes evaluating the model price process at the observation dates and averaging the discounted payoffs. 
+
+> 3Computations were performed on an Intel Core i5-12500 processor with 32 GiB RAM under Debian 13.
+
+20 6.2 Reverse cliquets 
+
+We consider a three-year reverse cliquet with notional N = 100 and quarterly observation dates tj = j/ 4, j = 0 , . . . , 12. Writing Rj = Stj /S tj−1 − 1, its terminal payoff is Πcliq  
+
+> T
+
+= N
+
+h
+
+1 + 
+
+
+
+C0 −
+
+> 12
+
+X
+
+> j=1
+
+min {(−Rj )+, L }
+
++i
+
+, T = t12 , (34) where C0 is the aggregate coupon budget and L > 0 is the local loss cap, corresponding to a local return floor of −L.The price is D(T )E[Π cliq  
+
+> T
+
+]. Table 3 reports prices and Monte Carlo standard errors for C0 = 50% and L = 7 .5%.                   
+
+> Model Price MC SE Bass LV 113 .987 0.038 Heston SKR 122 .000 0.039 3/2 SKR 116 .991 0.035 Bergomi-1F SKR 120 .144 0.036 Table 3: Three-year quarterly reverse cliquet with N= 100, C0= 50%, and L= 7 .5%. MC SE denotes the Monte Carlo standard error.
+
+Figure 6 varies L at fixed C0 = 50%. Each quarterly deduction is a put spread on Rj with strikes 0 and −L, so the comparison tests the downside part of the forward smile. Raising L increases deductions in quarters whose loss exceeds the cap and hence lowers the price. Once 12 L > C 0, the aggregate coupon floor also makes the price sensitive to how losses accumulate across quarters. At L = 7 .5%, the SKR models generate fewer negative quarters and lower expected clipped losses than Bass LV. The reduction in expected clipped losses explains their higher prices; the smaller aggregate-floor contribution partly offsets this effect. 5.0 10 .0 15 .0Local floor [%] 110 .00 115 .00 120 .00 125 .00 130 .00 Price 
+
+Reverse Cliquet Bass LV Heston SKR 3/2 SKR Bergomi-1F SKR       
+
+> Figure 6: Local-floor sensitivity of the three-year quarterly reverse cliquet under Bass LV and the three SKR models, with
+> N= 100 and C0= 50%. The horizontal axis shows the loss cap L, corresponding to the return floor −L.
+
+## 6.3 Memory autocallables 
+
+We consider memory autocallables with the same notional, maturity, and quarterly observations, and a quarterly coupon rate c = 5%. While the note remains outstanding, the coupon N c and all previously unpaid coupons are paid at an observation if Stj ≥ bS 0, where b is the coupon barrier. The note redeems at par at the first quarterly observation before maturity for which Stj ≥ S0, including any coupon due on that date. The protection barrier bP = 60% is tested only at maturity; any coupons still unpaid then expire. Let τ be the redemption date, equal to T if the note is not called, and let Cj , j = 1 , . . . , 12, be the coupon payment at tj , including arrears. Writing sT = ST /S 0, the discounted payoff is Πac = X 
+
+> tj≤τ
+
+D(tj )Cj + N D (τ ) − N D (T )(1 − sT )1{τ =T, s T <b P}. (35) The final term is the capital loss for notes surviving to maturity below the protection barrier. The price is E[Π ac ]. Table 4 reports results for b = 60%. 21 Model Price MC SE Bass LV 104 .899 0.069 Heston SKR 106 .834 0.070 3/2 SKR 106 .444 0.066 Bergomi-1F SKR 106 .800 0.067 Table 4: Three-year quarterly memory autocallable with N = 100, coupon 5%, coupon barrier 60%, autocall barrier 100%, and terminal protection barrier 60%. Autocalling is possible from the first quarterly observation. MC SE denotes the Monte Carlo standard error. 
+
+Figure 7 varies b while keeping the autocall and protection barriers fixed. This isolates coupon-payment and recovery risk: raising b delays coupon payments or leaves more coupons unpaid at maturity. The sensitivity depends on reaching bS 0 while the note remains outstanding, particularly after missed coupons; varying b changes neither the redemption date nor the principal payoff on a given path. Across models, price levels additionally depend on call times and terminal downside on uncalled paths. At b = 60%, the higher SKR prices reflect larger expected discounted coupon receipts and smaller expected discounted capital losses, which outweigh the effect of later principal repayment. 50 .0 60 .0 70 .0 80 .0 90 .0Coupon barrier [%] 102 .00 103 .00 104 .00 105 .00 106 .00 107 .00 108 .00 Price      
+
+> Memory Autocall Bass LV Heston SKR 3/2 SKR Bergomi-1F SKR
+> Figure 7: Coupon-barrier sensitivity of the three-year quarterly memory autocallable under Bass LV and the three SKR models, with N= 100 and quarterly coupon c= 5%. The autocall and terminal protection barriers are 100% and 60% of S0, respectively. Shading denotes pointwise 95% Monte Carlo confidence bands.
+
+# References 
+
+[1] Fr´ ed´ eric Abergel and R´ emi Tachet. A nonlinear partial integro-differential equation from mathematical finance. 
+
+Discrete and Continuous Dynamical Systems. Series A , 27(3):907–917, 2010. doi: 10.3934/dcds.2010.27.907. [2] Beatrice Acciaio and Antonio Marini. Existence of q-bass martingales in the semidiscrete setting, 2026. URL 
+
+https://arxiv.org/abs/2607.15872 .[3] Beatrice Acciaio and Antonio Marini. Fixed points for the q-bass martingale: Existence, stability, and convergence, 2026. URL https://arxiv.org/abs/2609.07351 .[4] Beatrice Acciaio, Antonio Marini, and Gudmund Pammer. Calibration of the Bass local volatility model. SIAM Journal on Financial Mathematics , 16(3):803–833, 2025. [5] Julio Backhoff-Veraguas, Mathias Beiglb¨ ock, and Gudmund Pammer. Existence, duality, and cyclical monotonic-ity for weak transport costs. Calculus of Variations and Partial Differential Equations , 58(6):203, 2019. [6] Julio Backhoff-Veraguas, Mathias Beiglb¨ ock, Martin Huesmann, and Sigrid K¨ allblad. Martingale Benamou-Brenier: A probabilistic perspective. Ann. Probab. , 48(5):2258–2289, 2020. [7] Julio Backhoff-Veraguas, Gregoire Loeper, and Jan Obl´ oj. Geometric martingale Benamou–Brenier transport and geometric Bass martingales. Proceedings of the American Mathematical Society , 2025. [8] Julio Backhoff-Veraguas, Mathias Beiglb¨ ock, Walter Schachermayer, and Bertram Tschiderer. Existence of Bass martingales and the martingale Benamou–Brenier problem in Rd. The Annals of Probability , 54(5):2216–2263, 2026. doi: 10.1214/25-AOP1800. [9] Richard F. Bass. Skorokhod imbedding via stochastic integrals. In S´ eminaire de Probabilit´ es XVII 1981/82 ,volume 986 of Lecture Notes in Mathematics , pages 221–224. Springer, Berlin, 1983. doi: 10.1007/BFb0068318. 22 [10] Mathias Beiglb¨ ock and Nicolas Juillet. On a problem of optimal transport under marginal martingale constraints. 
+
+The Annals of Probability , 44(1):42–106, 2016. [11] Mathias Beiglb¨ ock, Marcel Nutz, and Nizar Touzi. Complete duality for martingale optimal transport on the line. 
+
+The Annals of Probability , 45(5):3038–3074, 2017. doi: 10.1214/16-AOP1131. [12] Mathias Beiglb¨ ock, Gudmund Pammer, and Walter Schachermayer. From Bachelier to Dupire via optimal trans-port. Finance and Stochastics , 26(1):59–84, 2022. [13] Mathias Beiglb¨ ock, Benjamin Jourdain, William Margheriti, and Gudmund Pammer. Stability of the weak martingale optimal transport problem. The Annals of Applied Probability , 33(6B):5382–5412, 2023. [14] Mathias Beiglb¨ ock, Gudmund Pammer, and Alexander Posch. The Knothe-Rosenblatt distance and its induced topology. arXiv preprint arXiv:2312.16515 , 2023. [15] Mathias Beiglb¨ ock, Gudmund Pammer, and Lorenz Riess. Change of numeraire for weak martingale transport. 
+
+arXiv preprint arXiv:2406.07523 , 2024. [16] Mathias Beiglb¨ ock, Gudmund Pammer, Lorenz Riess, and Stefan Schrott. The fundamental theorem of weak optimal transport. arXiv preprint arXiv:2501.16316 , 2025. [17] Mathias Beiglb¨ ock, Manuel Hasenbichler, and Gudmund Pammer. Supplementary material to “stochastic knothe– rosenblatt: Light-speed calibration of stochastic local volatility models”. Online supplementary material, 2026. URL https://www.mat.univie.ac.at/~mathias/SKR_supplement_v1.pdf . Version 1, 29 September 2026. [18] Guillaume Carlier, Alfred Galichon, and Filippo Santambrogio. From Knothe’s transport to Brenier’s map and a continuation method for optimal transport. SIAM Journal on Mathematical Analysis , 41(6):2554–2576, 2010. [19] Guillaume Carlier, Hugo Malamut, and Maxime Sylvestre. Weak optimal transport with moment constraints: constraint qualification, dual attainment and entropic regularization. arXiv preprint arXiv:2511.16211 , 2025. [20] Antoine Conze and Pierre Henry-Labordere. Bass construction with multi-marginals: Lightspeed computation in a new local volatility model. SSRN Electronic Journal , 2021. [21] Andrei Cozma, Matthieu Mariapragassam, and Christoph Reisinger. Calibration of a hybrid local-stochastic volatility stochastic rates model with a control variate particle method. SIAM Journal on Financial Mathematics ,10(1):181–213, 2019. [22] Bruno Dupire. Pricing with a smile. Risk , 7(1):18–20, 1994. [23] Walter Farkas, Francesco Ferrari, and Urban Ulrych. Pricing autocallables under local-stochastic volatility. Fron-tiers of Mathematical Finance , 1(4):575–610, 2022. [24] Nathael Gozlan, Cyril Roberto, Paul-Marie Samson, and Prasad Tetali. Kantorovich duality for general transport costs and applications. J. Funct. Anal. , 273(11):3327–3405, 2017. [25] Ivan Guo and Gr´ egoire Loeper. Path dependent optimal transport and model calibration on exotic derivatives. 
+
+The Annals of Applied Probability , 31(3):1232–1263, 2021. [26] Ivan Guo, Gr´ egoire Loeper, and Shiyi Wang. Local volatility calibration by optimal transport. In 2017 MATRIX Annals , pages 51–64. Springer, 2019. [27] Ivan Guo, Gr´ egoire Loeper, and Shiyi Wang. Calibration of local-stochastic volatility models by optimal transport. 
+
+Mathematical Finance , 32(1):46–77, 2022. [28] J. Guyon and P. Henry-Labord` ere. Nonlinear option pricing. CRC Press , 2013. [29] Julien Guyon. Dispersion-constrained martingale Schr¨ odinger problems and the exact joint S&P 500/VIX smile calibration puzzle. Finance and Stochastics , 28(1):27–79, 2024. [30] Julien Guyon and Pierre Henry-Labordere. The smile calibration problem solved. Available at SSRN 1885032 ,2011. [31] Istv´ an Gy¨ ongy. Mimicking the one-dimensional marginal distributions of processes having an Itˆ o differential. 
+
+Probability Theory and Related Fields , 71:501–516, 1986. doi: 10.1007/BF00699039. [32] Manuel Hasenbichler, Benjamin Joseph, Gregoire Loeper, Jan Obloj, and Gudmund Pammer. The martingale Sinkhorn algorithm. arXiv preprint arXiv:2310.13797v5 , 2026. [33] Manuel Hasenbichler, Gudmund Pammer, and Stefan Thonhauser. A weak transport approach to the Schr¨ odinger– Bass bridge. arXiv preprint arXiv:2604.02312 , 2026. 23 [34] Mark Jex, Robert Henderson, and David Wang. Pricing exotics under the smile. Risk , pages 72–75, November 1999. [35] Benjamin Jourdain and Gudmund Pammer. An extension of martingale transport and stability in robust finance. 
+
+Electronic Journal of Probability , 29(57):1–30, 2024. doi: 10.1214/24-EJP1114. [36] Benjamin Jourdain and Alexandre Zhou. Existence of a calibrated regime switching local volatility model. Math-ematical Finance , 30(2):501–546, 2020. [37] Daniel Lacker, Mykhaylo Shkolnikov, and Jiacheng Zhang. Inverting the markovian projection, with an application to local stochastic volatility models. The Annals of Probability , 48(5), 2020. [38] Bryan Liang, Marcel Nutz, Shunan Sheng, and Valentin Tissot-Daguette. Bid–ask martingale optimal transport. 
+
+arXiv preprint arXiv:2603.24605 , 2026. [39] Alexander Lipton. The vol smile problem. Risk , 15(2):61–65, 2002. [40] Gregoire Loeper. Option pricing with linear market impact and nonlinear Black-Scholes equations. Ann. Appl. Probab. , 28(5):2664–2726, 2018. ISSN 1050-5164,2168-8737. doi: 10.1214/17-AAP1367. URL https://doi.org/ 10.1214/17-AAP1367 .[41] George Lowther. Fitting martingales to given marginals. arXiv preprint arXiv:0808.2319 , 2008. [42] George Lowther. Limits of one-dimensional diffusions. The Annals of Probability , 37(1):78–106, 2009. [43] Robert J. McCann. Existence and uniqueness of monotone measure-preserving maps. Duke Mathematical Journal ,80(2):309–323, 1995. [44] Marcel Nutz, Johannes Wiesel, and Long Zhao. Martingale Schr¨ odinger bridges and optimal semistatic portfolios. 
+
+Finance and Stochastics , 27(1):233–254, 2023. [45] Filip Pramenkovi´ c. Weak optimal transport: When is the dual potential convex? arXiv preprint arXiv:2507.07200 ,2025. URL https://arxiv.org/abs/2507.07200 .[46] Yong Ren, Dilip Madan, and M. Qian. Calibrating and pricing with embedded local volatility models. Risk , pages 138–143, September 2007. [47] R. Tyrrell Rockafellar and Roger J.-B. Wets. Variational Analysis , volume 317 of Grundlehren der mathematischen Wissenschaften . Springer, Berlin, 1998. [48] Xiaolu Tan and Nizar Touzi. Optimal transportation under controlled stochastic dynamics. The Annals of Probability , 41(5):3201–3240, 2013. [49] Bertram Tschiderer. q-bass martingales. arXiv preprint arXiv:2402.05669 , 2024. [50] ShengQuan Zhou. Markov-functional models with local drift. arXiv preprint arXiv:2411.15053 , 2024. 24

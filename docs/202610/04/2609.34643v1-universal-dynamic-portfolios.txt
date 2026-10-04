@@ -1,0 +1,5398 @@
+Title: Universal Dynamic Portfolios
+
+URL Source: https://arxiv.org/pdf/2609.34643v1
+
+Published Time: Tue, 29 Sep 2026 03:20:54 GMT
+
+Number of Pages: 55
+
+Markdown Content:
+# Universal Dynamic Portfolios 
+
+Yu-Jie Zhang yujiez7@cs.washington.edu 
+
+University of Washington 
+
+Yu-Xiang Wang yuxiangw@ucsd.edu 
+
+University of California, San Diego 
+
+Peng Zhao zhaop@lamda.nju.edu.cn 
+
+State Key Laboratory for Novel Software Technology, Nanjing University School of Artificial Intelligence, Nanjing University 
+
+Kevin Jamieson jamieson@cs.washington.edu 
+
+University of Washington 
+
+## Abstract 
+
+Cover’s Universal Portfolio (Cover, 1991) matches the performance of the best constant rebalanced portfolio in hindsight. We generalize this framework to compete with an arbitrary comparator sequence u1, . . . , uT , leading to a dynamic regret minimization problem for the log loss where existing methods break down due to potentially unbounded gradients. The log loss is exp-concave, a curvature property that classically yields fast rates for static regret, yet we show that this advantage generally disappears in the dynamic setting. In particular, a linear-loss-type √T P T
+
+dependence is unavoidable, where PT = PTt=2 ∥ut − ut−1∥1 is the standard path length. This limitation stems from the coarse nature of PT , which obscures finer spatial and temporal structure of the comparator sequence. We therefore introduce two structure-aware measures—the Jensen–Shannon distance for spatial structure and the JS q-path length for temporal structure—under which faster rates are attainable when the comparator sequence has favorable structure. To achieve sharp bounds for both measures simultaneously, we develop Universal Dynamic Portfolio, a parameter-free method that combines a new Dirichlet Hedge algorithm with a fixed-share update, while retaining a near-optimal PT guarantee in the worst case. Finally, under an additional bounded-gradient assumption, we show that OPS admits the faster T 1/3P 2/3 
+
+> T
+
+dynamic regret rate over all comparator sequences. We attain this rate with a tractable proper algorithm that applies more broadly to general online exp-concave optimization over arbitrary compact convex domains. 
+
+## 1. Introduction 
+
+Online portfolio selection (OPS), which studies how to sequentially allocate wealth among a set of assets to maximize cumulative returns, is a textbook motivating example in online learning (Hazan, 2016). Cover (1991) introduced the problem as a distribution-free model for sequential investment and proposed the seminal  
+
+> ©Y.-J. Zhang, Y.-X. Wang, P. Zhao & K. Jamieson. arXiv:2609.34643v1 [cs.LG] 28 Sep 2026 Universal Dynamic Portfolios
+
+Universal Portfolio algorithm. Since then, OPS has attracted substantial interest from the online learning community because it can be formulated as an online convex optimization problem with Cover’s logarithmic loss. The rich curvature of this loss can be exploited to obtain fast learning guarantees, making OPS one of the central testbeds for understanding the role of loss curvature in both algorithm design and regret analysis (Agarwal et al., 2006; Van Erven et al., 2020; Luo et al., 2018; Zimmert et al., 2022; Mhammedi and Rakhlin, 2022; J´ ez´ equel et al., 2025). Most existing OPS studies focus on static regret, which compares the learner’s cumulative loss with that of the best single portfolio in hindsight. In OPS, this benchmark is known as the best constant rebalanced portfolio (CRP), which allocates wealth according to fixed proportions. Many methods, including the classical Universal Portfolio algorithm, achieve the minimax-optimal O(d log T ) static regret (Cover, 1991; Ordentlich and Cover, 1998). In its dependence on T , this logarithmic rate improves upon the √T rate typical of general convex losses with bounded gradients. However, in a continuously evolving and possibly adversarial market, such a constant comparator may be restrictive because it cannot adapt to market changes. This motivates us to extend the OPS framework to allow time-varying comparators. This non-stationary extension is naturally captured by the notion of dynamic regret in online convex optimization. To formalize this objective, let ℓt(w) = − ln( w⊤xt)denote Cover’s loss, where w ∈ ∆d is the learner’s portfolio and xt ∈ Rd 
+
+> +
+
+is the market return. The dynamic regret (Herbster and Warmuth, 2001; Zinkevich, 2003; Zhang et al., 2018) measures the gap between the learner’s cumulative loss and that of a time-varying comparator sequence {ut}Tt=1 by D-Reg T ({ut}Tt=1 ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut). (1) The above measure is often referred to as universal dynamic regret because it seeks guarantees that hold uniformly over all comparator sequences and adapt to their complexity. Dynamic regret reduces to the classical notion of (static) regret by setting 
+
+ut = w∗ = arg min w∈∆d
+
+PTt=1 ℓt(w). Meanwhile, it offers greater flexibility by allowing the comparator sequence ut to adapt to the underlying environment, rather than being tied to a single realized return. For instance, when the market return xt is sampled from a time-varying distribution Dt, a natural choice is ut = arg min w∈∆d Ext∼D t [ℓt(w)] .
+
+Compared with the minimizer w⋆t = arg min w∈∆d ℓt(w) at each round, this avoids chasing noise from a single observation. 
+
+1.1. Related Work and Research Question 
+
+Although non-stationary online learning has been extensively studied over the past decades (Herbster and Warmuth, 1998; Hazan and Seshadhri, 2009; Cesa-Bianchi et al., 2012; Gy¨ orgy and Szepesv´ ari, 2016; Zhang et al., 2018; Zhao et al., 2020, 2021; Wei and Luo, 2021; Zhang et al., 2023; Qian et al., 2024; Zhao et al., 2024, 2025; 
+
+> 2Universal Dynamic Portfolios
+
+Jacobsen et al., 2025), dynamic regret for OPS remains surprisingly underexplored. The only closely related result is due to Singer (1997), who proposed a method that competes with comparators switching among N fixed portfolios. This guarantee covers only a restricted form of dynamic regret because ut is confined to a finite set and cannot evolve continuously over time. The most well-developed results on dynamic regret minimization in the online convex optimization literature measure nonstationarity through the path length 
+
+PT =
+
+> T
+
+X
+
+> t=2
+
+∥ut − ut−1∥1,
+
+which quantifies the cumulative variation of the comparator sequence. For gen-eral convex losses with bounded gradients, Ader (Zhang et al., 2018) achieves the 
+
+O(GpT (1 + PT )) dynamic-regret guarantee, where G is the upper bound on the gradient norm. Since Cover’s logarithmic loss can have unbounded gradients, this result does not apply directly to OPS, leaving unresolved even the attainability of the canonical √T P T -type dynamic-regret guarantee without a gradient bound. More importantly, Cover’s logarithmic loss is known to be exp-concave, a curvature property that yields logarithmic regret against a static benchmark. This rate is substantially faster than the √T -type static regret typical of general convex losses, motivating us to seek an analogous acceleration for dynamic comparators. The literature offers a partial clue. Under bounded gradients, Baby and Wang (2021) and Zhang et al. (2025) establish that exp-concavity is also beneficial in the dynamic setting, improving the dynamic regret to T 1/3P 2/3 
+
+> T
+
+. Neither result, however, resolves the case of OPS. The bounded-gradient condition is restrictive for Cover’s loss, and even under this condition, the algorithms are not compatible with the geometry of portfolio selection: the method of Baby and Wang (2021) may predict outside the simplex, whereas that of Zhang et al. (2025) requires a projection over distributions that is computationally prohibitive. Taken together, these gaps lead us to ask: 
+
+What is the achievable dynamic regret rate for OPS? 
+
+In fact, we believe resolving this question would also clarify the role of loss curvature in dynamic regret minimization for non-stationary online learning. 
+
+1.2. Our Results 
+
+In this paper, we develop algorithms and matching lower bounds that characterize the dynamic regret achievable for OPS against arbitrary comparator sequences. We first settle the minimax rate under the classical L1-path length, showing that the fast rates typical of exp-concave losses are unattainable. This limitation arises because L1-path length ignores where the movement occurs and how it evolves over time, even though both can substantially affect tracking difficulty. This motivates refined guarantees that adapt to the spatial and temporal structure of the comparator sequence. Our main results are summarized in Table 1 and detailed below. 
+
+> 3
+
+Universal Dynamic Portfolios 
+
+Table 1: Summary of dynamic regret bounds under different complexity measures. Here, Jt = p(KL( ut∥¯ut) + KL( ut−1∥¯ut)) /2 denotes the Jensen–Shannon (JS) distance between consecutive comparators, where ¯ ut = ( ut−1 + ut)/2 is their midpoint. The notation eO(·) hides logarithmic factors.                                                         
+
+> Measure Upper bounds Lower bounds
+> L1-path length
+> PT=PTt=2 ∥ut−ut−1∥1
+> eO d+√dT P T
+> 
+> (Section 3.1) Ω max {dlog T, min {T, √dT P T}} 
+> (Section 3.1) JS-path length
+> PJS
+> T=PTt=2 Jt
+> eO d(1 + T13(PJS
+> T)23)
+> (Section 3.2) Ω max {dlog T, min {T, d 23T13(PJS
+> T)23}} 
+> (Section 3.2) JS q-path length
+> PJS
+> T,q =PTt=2 Jqt,q∈[0 ,1]
+> eO d(1 + Tqq+2 (PJS
+> T,q )2
+> q+2 )
+> (Section 3.3) —
+
+• Minimax Rate under the Standard Path Length. We establish an Ω  max d log T, √dT P T } lower bound for OPS. This rules out the favorable 
+
+T 1/3P 2/3 
+
+> T
+
+dependence uniformly over arbitrary comparator sequences, despite the exp-concavity of Cover’s loss. We complement this lower bound with a black-box reduction from interval regret to dynamic regret, showing that any algorithm with an O(d log T ) interval regret guarantee achieves O  max {d log T, √dT P T log T }
+
+dynamic regret,thereby matching the lower bound up to logarithmic factors. 
+
+• Spatial Adaptivity through the Jensen-Shannon Distance. We provide an algorithm that adapts to the spatial structure of the comparator sequence and achieves eO d(1 + T 1/3(P JS  
+
+> T
+
+)2/3) dynamic regret. Here, P JS  
+
+> T
+
+= PTt=2 Jt
+
+is the path length based on the Jensen–Shannon (JS) distance, where Jt =p(KL( ut∥¯ut) + KL( ut−1∥¯ut)) /2 and ¯ ut = ( ut−1 + ut)/2. The resulting bound yields a faster rate for interior comparators while recovering the worst-case 
+
+T 1/2P 1/2 
+
+> T
+
+dependence for arbitrary comparator sequences. A corresponding lower bound matches its dependence on T and P JS  
+
+> T
+
+, up to logarithmic factors. 
+
+• Temporal Adaptivity through JS q-Path Length. We further show that comparator sequences with the same JS-path length can differ in tracking difficulty because of their temporal structure. We capture this structure using the JS q-path length P JS  
+
+> T,q
+
+= PTt=2 Jqt for q ∈ [0 , 1], with the endpoint convention 
+
+J0 
+
+> t
+
+= 1{Jt > 0}, and establish a eO(d + dT q/ (q+2) (P JS 
+
+> T,q
+
+)2/(q+2) ) dynamic regret bound that holds simultaneously for all q ∈ [0 , 1]. The endpoint q = 1 recovers the T 1/3(P JS  
+
+> T
+
+)2/3 rate, whereas q = 0 yields O(d(1 + ST ) log( dT )), where ST is the number of comparator switches. Intermediate values of q interpolate between 
+
+4Universal Dynamic Portfolios 
+
+these endpoints, allowing the regret bound to adapt more finely to the temporal structure of comparator variation. We achieve all of the above upper bounds with a single algorithm by equipping Cover’s Universal Portfolio algorithm with fixed-share updates. Despite the simplicity of this modification, proving these guarantees requires a novel mixability-based analysis that uses a Dirichlet comparator to accommodate both the unbounded log loss and the simplex constraint. Section 3.4 outlines the main technical ideas. 
+
+Toward General OXO. Under an additional bounded-gradient assumption, we show that a fast rate of eO dG (1+ T 1/3P 2/3 
+
+> T
+
+) is attainable for all comparator sequences. Existing methods achieving this rate either require improper learning or lack a computationally tractable implementation (Baby and Wang, 2021; Zhang et al., 2025), whereas our method is both proper and computationally tractable. Beyond OPS, our approach extends to general online exp-concave optimization over arbitrary compact convex domains, providing a tractable affirmative answer to the question raised by Baby and Wang (2021) of whether strongly adaptive methods can achieve optimal dynamic regret in the proper learning setting. We establish this guarantee via a new two-layer mixability argument, which is detailed in Section 4.2. 
+
+Organization. The rest of the paper is organized as follows. Section 2 introduces the problem setup and additional related work. Section 3 presents minimax-optimal regret bounds and spatially and temporally adaptive guarantees for OPS without a gradient bound. Section 4 develops a computationally tractable proper method for general OXO under bounded gradients. Finally, Section 5 concludes the paper. 
+
+## 2. Problem Setup and Related Work 
+
+2.1. Notation and Setup 
+
+For a positive integer n, let [ n] = {1, . . . , n }. We write Rd 
+
+> +
+
+for the nonnegative orthant and ∆ d = w ∈ Rd 
+
+> +
+
+: Pdi=1 wi = 1 for the ( d − 1)-dimensional probability simplex. Online portfolio selection proceeds over T rounds of interaction between the learner and the market. At each round t ∈ [T ], the learner starts with wealth St−1 and distributes it across d assets according to a probability vector wt ∈ ∆d. The market then reveals the non-negative price relative vector xt ∈ Rd
+
+> +
+
+, where each component 
+
+xt,i ≥ 0 represents the relative return of asset i. The learner’s wealth is updated as 
+
+St = St−1
+
+Pdi=1 wt,i · xt,i . After T rounds, the learner’s wealth is ST = S0 · QTt=1 (w⊤ 
+
+> t
+
+xt). For OPS in non-stationary environments, our goal is to minimize the dynamic regret (1) with the log loss ℓt(w) = − ln( w⊤xt): 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) = − ln 
+
+QTt=1 w⊤ 
+
+> t
+
+xt
+
+QTt=1 u⊤ 
+
+> t
+
+xt
+
+,
+
+> 5Universal Dynamic Portfolios
+
+which is equivalent to maximizing the logarithmic ratio of the learner’s cumulative wealth to that of the time-varying investment strategy u1, . . . , uT ∈ ∆d.For the OPS results in Section 3, we only assume max i∈[d] xt,i > 0 for every t ∈ [T ], which merely excludes degenerate rounds where every portfolio incurs infinite loss. This minimal assumption is what makes the problem technically challenging: the log-loss gradients ∇ℓt(w) = −xt/(w⊤xt) can be unbounded, since the denominator 
+
+w⊤xt may approach zero near the boundary. Standard online convex optimization techniques rely on a uniform gradient bound, which is available only under further restrictions such as bounded return ratios or a domain clipped away from the simplex boundary (Helmbold et al., 1998; Agarwal et al., 2006). Neither restriction is imposed for these results; Section 4 separately considers bounded gradients. 
+
+2.2. Related Work Static Regret for OPS. Under the nonzero-return condition stated above, Universal Portfolio (Cover and Ordentlich, 1996) achieves the minimax-optimal O(d log T ) static regret. The method requires integrating over the simplex to generate predictions, which can be implemented in polynomial time using log-concave sampling techniques (Kalai and Vempala, 2002). More recent work develops more efficient algorithms under the same condition (Orseau et al., 2017; Luo et al., 2018; Zimmert et al., 2022; Mhammedi and Rakhlin, 2022; J´ ez´ equel et al., 2025). Two Pareto-optimal results in terms of regret and computational efficiency are VB-FTRL (J´ ez´ equel et al., 2025), which achieves O(d log T ) regret with O(d2T ) computational cost per round, and AdaMix+DONS (Mhammedi and Rakhlin, 2022), which attains an O(d2 log 5 T ) regret bound with O(d3 log 2 T ) per-round complexity. With bounded gradients, Exponential Gradient (Helmbold et al., 1998) achieves O(G√T ) regret, while Online Newton Step (Agarwal et al., 2006) attains O(dG log T ) regret with O(d3) cost per round. 
+
+Dynamic Regret for Curved Losses. There are two lines of research that achieve an O(G max {log T, T 1/3P 2/3 
+
+> T
+
+}) dynamic regret for non-stationary OXO (Baby and Wang, 2021; Zhang et al., 2025). Since these methods are primarily designed for general OXO purposes, their regret bounds typically scale with a bound on the gradient norm. However, setting aside the gradient-bound issue, these results still do not directly apply to OPS due to the restrictions imposed by domain constraints. 
+
+• Reduction-based analysis. An important research line for non-stationary OXO starts from Baby and Wang (2021) and is followed by Baby and Wang (2022a,b). Under certain domain conditions, they provide a reduction from the interval regret bound (Hazan and Seshadhri, 2009), which guarantees a static regret bound on each interval, to a fast-rate dynamic regret bound. A key component of their analysis is a precise characterization of the optimal time-varying sequence 
+
+{u∗ 
+
+> t
+
+}Tt=1 via KKT conditions and shows that {u∗ 
+
+> t
+
+}Tt=1 can be tracked by a piecewise-stationary sequence with M = O(T 1/3P 2/3 
+
+> T
+
+) switches. The initial work (Baby 
+
+> 6Universal Dynamic Portfolios
+
+and Wang, 2021) requires improper learning, allowing the algorithm to predict in an extended box-constrained domain in order to obtain a sufficiently strong piecewise-stationary approximation. Later, Baby and Wang (2022a) show that proper learning can be achieved when the domain is exactly a box. This restriction to box constraints is intrinsic to the KKT-based analysis, as it only imposes coordinate-wise constraints on the optimal sequence. It remains unclear how to extend these analyses to the simplex or more general domains, which would introduce additional coupling constraints and complicate the analysis. 
+
+• Mixability-based analysis. Recently, Zhang et al. (2025) showed that continuous exponential weights with a fixed-share update achieve fast-rate dynamic regret via mixability (Vovk, 1998), which lifts the analysis from pointwise predictors to distributional comparators. While this framework provides additional flexibility, its analysis relies on Gaussian comparators, which are incompatible with the simplex constraint. To enforce the domain constraint, the method requires an information projection onto a set of Gaussian mixture models with potentially infinitely many components, with bounded component means and variances, which makes the procedure computationally intractable. Our work instead uses Dirichlet comparators, which naturally respect the simplex and allow the analysis to accommodate unbounded log-loss gradients. Further details are provided in Section 3.2. 
+
+## 3. Dynamic Regret for Online Portfolio Selection 
+
+This section characterizes the achievable dynamic regret rates for OPS. We first establish the minimax-optimal rate in terms of the commonly used norm-based path length. Our minimax analysis reveals that the standard path length can obscure fine-grained spatial and temporal differences among comparator sequences. Building on this insight, we establish guarantees in terms of the Jensen–Shannon distance that adapt to the spatial structure of comparator movements, together with a family of 
+
+q-order guarantees that further adapt to their temporal distribution. 
+
+3.1. Minimax Rate under the Standard Path Length 
+
+We begin by establishing a lower bound that captures the worst-case difficulty of OPS over the full range of the standard path-length budget. 
+
+Theorem 1 Consider the OPS problem with d ≥ 2 assets and T > 2d. For any online algorithm and any C ∈ [0 , T ], there exists a comparator sequence u1, . . . , uT ∈ ∆d and 
+
+x1, . . . , xT ∈ Rd 
+
+> +
+
+such that 
+
+PT ≤ C and D-Reg T ({ut}Tt=1 ) ≥ Ω
+
+
+
+max 
+
+n
+
+d log T, min 
+
+n
+
+T, √dT C 
+
+oo 
+
+.
+
+> 7Universal Dynamic Portfolios
+
+Theorem 1 reveals a sharp contrast between stationary and genuinely non-stationary OPS. When C = 0, our result recovers the standard Θ( d log T ) minimax rate for competing with a static comparator. Once the comparator variation becomes nontrivial, the dynamic term scales as √dT C for C ≲ T /d , recovering the same √T C dependence as in general convex dynamic regret. Thus, the exp-concavity of Cover’s loss alone does not guarantee the favorable T 1/3C2/3 dependence uniformly over arbitrary comparator sequences, although such a fast rate is achievable for other curved losses, such as squared loss on bounded domains. The proof of Theorem 1 is provided in Appendix B.1 via a reduction to the sequential probability assignment (SPA) problem. The static term follows from the classical minimax lower bound for competing with the best constant rebalanced portfolio (Ordentlich and Cover, 1998). For the dynamic term, we restrict attention to the Kelly market with return vectors xt ∈ { ei}di=1 , where ei denotes the i-th standard basis vector in Rd. Under this restriction, the OPS problem reduces to multi-class SPA under logarithmic loss (Cesa-Bianchi and Lugosi, 2006, Chapter 9.1). To establish the lower bound, we partition the horizon into K blocks and construct a piecewise-stationary environment. In each block, the optimal comparator lies near the boundary of the simplex: most of its mass is placed on the d-th asset, while each of the first d − 1 assets independently receives either a small probability mass or zero. The learner must identify a new set of rare active assets in each block, incurring Ω( d)regret per block and hence Ω( dK ) regret in total. Meanwhile, the near-boundary construction ensures that adjacent blockwise comparators differ by only O(dK/T ), yielding PT = O(dK 2/T ). Choosing K = Θ(min {T /d, pT C/d }) therefore gives Ω( dK ) = Ω(min {T, √dT C }) while ensuring PT ≤ C.
+
+Matching Upper Bound via a Black-Box Reduction. Classical online learning methods, such as online gradient descent, typically assume that gradients are bounded by G > 0. Since gradients in OPS need not be bounded, it was previously unknown whether even the √T P T dependence could be achieved. We close this gap through a black-box reduction from interval regret, obtaining a G-free dynamic regret guarantee that matches the preceding lower bound up to logarithmic factors. 
+
+Lemma 2 For the OPS problem, assume there exists an online algorithm A that, for any interval I ⊆ [T ], attains the interval-regret guarantee 
+
+X
+
+> t∈I
+
+ℓt(wt) − min 
+
+> w∈∆d
+
+X
+
+> t∈I
+
+ℓt(w) ≤ B(T ), (2) 
+
+where B : N → (0 , ∞) is a function. Then, for every comparator sequence u1, . . . , uT ∈
+
+∆d, the dynamic regret of A satisfies 
+
+D-Reg T ({ut}Tt=1 ) = O
+
+
+
+B(T ) + pB(T )T P T
+
+
+
+,
+
+where PT = PTt=2 ∥ut − ut−1∥1 is the path length defined in terms of the L1 norm. 
+
+> 8Universal Dynamic Portfolios
+
+Lemma 2 provides a black-box reduction from interval regret (Hazan and Seshadhri, 2009) to dynamic regret for the OPS problem. A key advantage of this guarantee is that it does not require a bounded gradient norm, provided that the algorithms are chosen appropriately. For OPS, such algorithms can be constructed with B(T ) = O(d log T ). For example, one may run the FLH (Hazan and Seshadhri, 2009) algorithm with Universal Portfolio (Cover, 1991) or VB-FTRL (J´ ez´ equel et al., 2025) as the base learner. In this case, the resulting dynamic regret matches the optimal rate up to logarithmic factors. The proof is provided in Appendix B.2. We note that reduction-based arguments are widely used in the dynamic regret minimization literature (Cutkosky, 2020; Baby and Wang, 2021). The main distinction in our setting is that the loss functions in OPS do not admit a uniform Lipschitz constant. In contrast, existing analyses in OCO typically rely on a bounded gradient norm to relate the instantaneous loss difference to the path length, e.g., ℓt(u) − ℓt(v) ≤
+
+G∥u − v∥. Nevertheless, we show this issue can be overcome by a direct treatment of the log loss. 
+
+3.2. Spatial Adaptivity through the Jensen–Shannon Distance 
+
+The standard L1-path lengths or L2-path lengths quantify the variation of the com-parator sequence but are insensitive to their locations inside the simplex. This matters in OPS because the logarithmic loss has nonuniform geometry. Specifically, the hard instance constructed for the lower bound relies on a comparator sequence that stays near the boundary of the simplex, while an analogous sequence in the interior does not exhibit the same hardness. A guarantee based on PT can only reflect the worst-case difficulty and cannot distinguish easier comparator sequences in the interior. To this end, we introduce a path length based on the Jensen–Shannon distance 
+
+P JS  
+
+> T
+
+:= 
+
+> T
+
+X
+
+> t=2
+
+JS( ut, ut−1) = 
+
+> T
+
+X
+
+> t=2
+
+r12KL ( ut ∥ ¯ut) + 12KL ( ut−1 ∥ ¯ut), (3) where ¯ ut := ( ut + ut−1)/2 and KL( p∥q) := Pdi=1 pi log( pi/q i) denotes the Kullback– Leibler divergence. Its coordinate-wise logarithmic ratios align P JS  
+
+> T
+
+with the geometry of the log loss, making it sensitive to the local geometry of each comparator transition. 
+
+A Simple and Nearly Optimal Algorithm. Using the JS distance to measure comparator variation, we develop Algorithm 1, whose regret bound adapts to the local geometry of comparator transitions and, in particular, implies a rate faster than √T P T for interior comparator sequences. Algorithm 1 is a fixed-share variant of Cover’s Universal Portfolio (Cover, 1991). It maintains a distribution over the simplex and updates it with exponential weights. After each update, the algorithm mixes in a small fraction of the uniform Dirichlet distribution, replenishing probability mass across the simplex and allowing the learner to shift toward newly favorable portfolios as the environment changes. Algorithm 1 enjoys the following dynamic regret guarantee. 
+
+> 9
+
+Universal Dynamic Portfolios 
+
+Algorithm 1 Universal Dynamic Portfolio 
+
+Input: Fixed-share parameter μt = 1 /t . 
+
+> 1:
+
+Initialize ˜P1 = P1 = Dir( α1) as a Dirichlet distribution with parameters α1 = 1. 
+
+> 2:
+
+for t = 1 , 2, . . . , T do  
+
+> 3:
+
+The learner submits the prediction wt = Eu∼Pt [u] and then observes xt ∈ Rd
+
+> +
+
+. 
+
+> 4:
+
+The learner updates the distributions by ˜Pt+1 (u) ∝ Pt(u) exp( −ℓt(u)) , ∀u ∈ ∆d, (4) 
+
+Pt+1 (u) = (1 − μt+1 ) ˜Pt+1 (u) + μt+1 Dir( α1). (5)  
+
+> 5:
+
+end for Theorem 3 Algorithm 1 with μt = 1 /t ensures 
+
+D-Reg T ({ut}Tt=1 ) ≤ O
+
+
+
+d
+
+
+
+T 13
+
+ P JS 
+
+> T
+
+23   ln( dT )23 + ln( dT )
+
+ 
+
+,
+
+for any comparator sequence u1, . . . , uT ∈ ∆d.
+
+Notably, Algorithm 1 achieves this guarantee without parameter tuning or prior knowledge of P JS  
+
+> T
+
+or T . The following lower bound, proved in Appendix C.3, shows that the dependence on T and P JS  
+
+> T
+
+is nearly optimal. 
+
+Theorem 4 Consider the OPS problem with d ≥ 2 assets and T > 4d. For any online algorithm and any C ∈ [0 , T ], there exist a comparator sequence u1, . . . , uT ∈ ∆d
+
+satisfying P JS  
+
+> T
+
+≤ C and market vectors x1, . . . , xT ∈ Rd 
+
+> +
+
+such that 
+
+D-Reg T ({ut}Tt=1 ) ≥ Ω
+
+
+
+max 
+
+
+
+d log 
+
+
+
+1 + Td
+
+
+
+, min 
+
+n
+
+T, d 23 T 13 C 23
+
+o 
+
+.
+
+Theorem 3 also yields a refined guarantee in terms of the standard L1-path length 
+
+PT , with an explicit dependence on the margin of the comparator sequence from the boundary. Specifically, let α(u1: T ) := min t∈[T ],i ∈[d] ut,i > 0 denote the minimum margin to the boundary. Since P JS  
+
+> T
+
+≤  α(u1: T )−1/2PT , Theorem 3 implies D-Reg T ({ut}Tt=1 ) ≤ O 
+
+
+
+d
+
+ α(u1: T )− 13 T 13 P 23 
+
+> T
+
+(ln( dT )) 23 + ln( dT )
+
+ 
+
+.
+
+This reveals a form of spatial adaptivity that is invisible to the standard path length alone: for the same PT , the regret guarantee improves as the comparator sequence moves farther into the interior of the simplex. The resulting T 1/3P 2/3 
+
+> T
+
+-type dependence for the interior comparators improves over the worst-case √T P T dependence. The direct P JS  
+
+> T
+
+-based guarantee is sharper still, since it accounts for each comparator variation according to its local position in the simplex rather than through the minimum margin of the entire sequence. 
+
+10 Universal Dynamic Portfolios 
+
+Recovering the Minimax-Optimal Dependence on T and PT . The guarantee above also recovers the minimax-optimal √T P T dependence for comparator sequences on the boundary. For each ut ∈ ∆d, consider its smoothed counterpart ˜ ut = (1 −
+
+β)ut + ( β/d )1. As shown in Appendix C.4, D-Reg T ({ut}Tt=1 ) ≤ D-Reg T ({˜ut}Tt=1 ) + 
+
+T ln(1 /(1 − β)). Applying the bound above to the interior sequence {˜ut}Tt=1 and balancing β yields the claimed √T P T dependence up to logarithmic factors. 
+
+Corollary 5 Suppose d, T ≥ 2. Let B ≥ 1 and let A be an online algorithm guaranteeing, for every comparator sequence u1, . . . , uT ∈ ri(∆ d),
+
+D-Reg T ({ut}Tt=1 ) ≤ O 
+
+
+
+dBT 13
+
+ P JS 
+
+> T
+
+23 + d ln( dT )
+
+
+
+,
+
+where ri(∆ d) denotes the relative interior of ∆d. Then A also guarantees, for any comparator sequence u1, . . . , uT ∈ ∆d,
+
+D-Reg T ({ut}Tt=1 ) ≤ O 
+
+
+
+dB 34
+
+pT P T + d ln( dT )
+
+
+
+,
+
+Applying Corollary 5 to Theorem 3 with B = (ln( dT )) 2/3 yields an ˜O d(√T P T +1) 
+
+regret bound for arbitrary comparator sequences, matching the lower bound in terms of T and PT .
+
+Equivalent Implementation and Interval-Regret Guarantee. Following the same arguments in Adamskiy et al. (2016); Zhang et al. (2025), one can show Algo-rithm 1 is equivalent to running the FLH algorithm with Universal Portfolio as the base learner. Therefore, our method naturally enjoys the interval regret guarantee, which also implies a bound on the switching regret. 
+
+Proposition 6 For any interval I = [ r, s ] ⊆ [T ] and any comparator u ∈ ∆d,Algorithm 1 with μt = 1 /t ensures 
+
+X
+
+> t∈I
+
+ℓt(wt) − X
+
+> t∈I
+
+ℓt(u) ≤ O  d ln( dT ).
+
+Furthermore, let ST = PTt=2 1{ut̸ = ut−1}. Then the dynamic regret of Algorithm 1 is bounded by O d(ST + 1) ln( dT ).
+
+3.3. Temporal Adaptivity through JS q-Path Length 
+
+The JS-path length captures the spatial geometry of comparator movements, but sequences with the same total JS variation can admit different regret guarantees depending on how that variation is distributed over time. For example, comparators with ST switches admit O(d(ST + 1) ln( dT )) dynamic regret (Proposition 6) even when 
+
+P JS  
+
+> T
+
+= Θ( ST ), whereas the worst-case regret under the same path-length budget is Ω( T 1/3S2/3 
+
+> T
+
+) (Theorem 4). We therefore introduce a family of measures that interpolates 
+
+11 Universal Dynamic Portfolios 
+
+between the JS-path length and the switching number. Specifically, for q ∈ [0 , 1] and a comparator sequence in ∆ d, we define the JS q-path length as 
+
+P JS  
+
+> T,q
+
+:= 
+
+> T
+
+X
+
+> t=2
+
+JS( ut, ut−1)q. (6) The JS q-path length interpolates between two familiar quantities. At q = 0, it reduces to the switching number ST under the convention 0 0 = 0, and at q = 1 it recovers the JS-path length P JS  
+
+> T
+
+of the preceding subsection. The following theorem shows that Algorithm 1 simultaneously achieves the corresponding dynamic regret guarantee for every order q ∈ [0 , 1]. 
+
+Theorem 7 Let d, T ≥ 2. Algorithm 1 with μt = 1 /t simultaneously guarantees, for every q ∈ [0 , 1] ,
+
+D-Reg T ({ut}Tt=1 ) ≤ O 
+
+
+
+d
+
+
+
+T qq+2 
+
+ P JS 
+
+> T,q
+
+ 2 
+
+> q+2
+
+ ln( dT ) 2 
+
+> q+2
+
++ ln( dT )
+
+ 
+
+for every comparator sequence u1, . . . , uT ∈ ∆d.
+
+The guarantee holds simultaneously for all q ∈ [0 , 1] because neither q nor P JS  
+
+> T,q
+
+is an input to the algorithm. Consequently, one may take the best of these bounds in hindsight. The choices q = 1 and q = 0 recover the T 1/3(P JS  
+
+> T
+
+)2/3 dependence of Theo-rem 3 and the O d(ST + 1) ln( dT ) switching guarantee of Proposition 6. Interestingly, for every q > 1, the q = 1 guarantee already yields the T 1−2/(3 q)(P JS 
+
+> T,q
+
+)2/(3 q) dependence via H¨ older’s inequality P JS  
+
+> T, 1
+
+≤ T 1−1/q (P JS 
+
+> T,q
+
+)1/q , matching the leading dependence on the horizon and variation budget in minimax online forecasting (Baby and Wang, 2019).  
+
+> t
+> [ut]1
+> 1/23/41T
+
+An Intermediate-Order Example. The two endpoints do not exhaust the benefits of Theorem 7. The following example shows how an intermediate order can exploit com-parator movements whose magnitudes decay over time. We consider a two-asset market and define ut = (1 /2+ zt, 1/2−zt), where zt = 14 (1 − 1/t ). For this path, P JS  
+
+> T, 1
+
+= Θ(1), so choosing q = 1 gives eO(T 1/3). At the other endpoint, P JS  
+
+> T, 0
+
+= ST = T − 1, so choosing q = 0 gives eO(T ). When q = 1 /2, we have P JS  
+
+> T, 1/2
+
+= Θ(ln T ), yielding a bound of eO(T 1/5), which is substantially better than those at the two endpoints. Appendix D.2 provides the calculations. 
+
+3.4. Proof Sketch of Theorem 7 
+
+Our analysis is based on the notion of mixability, which was first used to analyze the prediction with expert advice problem (Vovk, 1998) and has proven useful for achieving fast rates in both stochastic learning and online learning (Vovk, 2001; van Erven et al., 2015; Foster et al., 2018). Recently, Zhang et al. (2025) used this notion to obtain fast-rate dynamic regret bounds. However, their analysis does not directly 
+
+12 Universal Dynamic Portfolios 
+
+extend to OPS when the log-loss gradients are unbounded. We provide a more detailed discussion after briefly sketching the proof of Theorem 7 below. The complete proof is provided in Appendix D.1. 
+
+Proof Sketch of Theorem 7. The starting point of our analysis is that Cover’s loss for OPS is 1-mixable over the simplex ∆ d for any xt ∈ Rd
+
+> +
+
+, in the sense that for any dis-tribution Pt over ∆ d and wt = Eu∼Pt [u], we have ℓt(wt) = − ln  Eu∼Pt [exp( −ℓt(u))] ,which implies the following variational identity. 
+
+Lemma 8 For any distribution Qt with supp( Qt) ⊆ supp( Pt), it holds that 
+
+ℓt(wt) = Eu∼Qt [ℓt(u)] + KL( Qt ∥ Pt) − KL( Qt ∥ ˜Pt+1 ),
+
+where ˜Pt+1 (u) ∝ Pt(u) exp( −ℓt(u)) for all u ∈ supp( Pt).
+
+By the update rules (4) and (5), we have Pt+1 = (1 − μt+1 ) ˜Pt+1 + μt+1 Dir( 1). Telescoping over T iterations and upper-bounding the discrepancy between Pt+1 and ˜Pt+1 due to the fixed-share update yield 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) ≤
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [ℓt(u)] + 
+
+> T
+
+X
+
+> t=2
+
+Z
+
+> u∈∆d
+
+(Qt(u) − Qt−1(u)) ln 1
+
+Pt(u) du
+
++ KL( QT ∥P1) + 1 + ln T. 
+
+To accommodate the simplex constraint, we choose the comparator Qt = Dir( 1 + γut)as a Dirichlet distribution, where γ > 0 is a free parameter in the analysis and ut is the comparator sequence. The Dirichlet comparator naturally respects the simplex constraint and allows us to control the expected log loss without any bounded-gradient assumption. By a careful analysis exploiting the structure of the Dirichlet distribution, we can show that 
+
+
+
+> T
+
+X
+
+> t=1
+
+EQt [ℓt(u)] ≤
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) + T ln 
+
+
+
+1 + dγ
+
+
+
+,
+
+> T
+
+X
+
+> t=2
+
+Z
+
+> u∈∆d
+
+(Qt(u) − Qt−1(u)) ln 1
+
+Pt(u)du ≲ d ln( dT )γq/ 2P JS 
+
+> T,q
+
+.
+
+The first inequality follows from reparameterizing the Dirichlet distribution by several Gamma distributions. For the second inequality, Lemma 17 gives 
+
+Z
+
+> ∆d
+
+|Qt(u) − Qt−1(u)| du ≤ min 
+
+n
+
+2, 2p2γ JS( ut, ut−1)
+
+o
+
+≤ 2(2 γ)q/ 2 JS( ut, ut−1)q,
+
+13 Universal Dynamic Portfolios 
+
+where the last inequality follows from min {1, a } ≤ aq for a > 0 and q ∈ [0 , 1], with the endpoint convention above when ut = ut−1.Combining these bounds and accounting for the endpoint term yields D-Reg T ({ut}Tt=1 ) ≲ T ln 
+
+
+
+1 + dγ
+
+
+
++ d ln( dT )γq/ 2P JS  
+
+> T,q
+
++ d ln(1 + γ) + ln T. 
+
+Choosing γ = min Θ (T / (P JS  
+
+> T,q
+
+ln( dT ))) 2/(q+2) , T yields the claimed bound. Since 
+
+γ only specifies the comparator distributions used in the analysis, Algorithm 1 requires no prior knowledge of q or P JS 
+
+> T,q
+
+. □
+
+Remark 9 (Comparison with Zhang et al. (2025)) Related mixability-based arguments were also employed by Zhang et al. (2025), where a Gaussian comparator distribution was adopted for analytical convenience. However, since Gaussian distri-butions have full support on Rd, this choice is not directly applicable to constrained domains. To handle general constraints, Zhang et al. (2025) proposed learning with a quadratic surrogate loss that extends the domain to Rd, which requires a bounded gradient. Moreover, when updating with the surrogate loss, the mean of the learned distribution Pt+1 may lie outside the constraint set. To address this issue, they project 
+
+Pt onto a family of Gaussian mixture models with possibly infinitely many components and bounded component means and variances, which is generally computationally intractable. By contrast, we adopt a Dirichlet comparator to naturally accommodate the simplex constraint and the unbounded loss. 
+
+## 4. Tractable Fast Rates for General OXO 
+
+This section studies OPS under an additional bounded-gradient assumption and establishes fast-rate dynamic regret bounds for all comparator sequences. In fact, we consider the more general setting of online exp-concave optimization over an arbitrary compact convex domain W under the following assumptions: 
+
+Assumption 1 For any t ∈ [T ], the loss ℓt : W → R is κ-exp-concave over W.
+
+Assumption 2 The domain W is compact and convex with sup u,w∈W ∥u−w∥1 ≤ 2.1
+
+Assumption 3 For any t ∈ [T ] and some G > 1, we have sup w∈W ∥∇ ℓt(w)∥∞ ≤ G.
+
+OPS satisfies Assumptions 1 and 2 since Cover’s loss is 1-exp-concave and the simplex has ℓ1 diameter at most 2. The gradient bound can be satisfied under several natural conditions (Helmbold et al., 1998; Agarwal et al., 2006). For example, one may assume that the ratio of returns is bounded by G, that is, max i∈[d] xt,i / min i∈[d] xt,i ≤ G
+
+for every t ∈ [T ], or restrict the portfolio domain to W = {w ∈ ∆d : min i∈[d] wi ≥ 1/G }
+
+(with G ≥ d). Beyond OPS, other examples of online exp-concave optimization include logistic regression and least-squares regression, to which our method can be applied.     
+
+> 1. Without loss of generality, we use the ℓ1norm to match the OPS setting and set the domain diameter bound to 2. The analysis also extends to ℓ2geometry and general bounded convex domains.
+
+14 Universal Dynamic Portfolios 
+
+Algorithm 2 Follow-the-Leading-History 
+
+Input: Loss parameter η = 15 min {1/(2 G), κ } and fixed-share parameter μt = 1 /t . 
+
+> 1:
+
+Initialize P1 = N (u0, I d) as a Gaussian distribution with mean u0 ∈ W . 
+
+> 2:
+
+Initialize a pool with base-learners H1 = {B 1}, where B1 is the initial base-learner with the distribution P1,1 = P1 and weight p1,1 = 1.  
+
+> 3:
+
+for t = 1 , 2, . . . , T do  
+
+> 4:
+
+The learner submits the prediction wt = Eu∼Pt [u] = P 
+
+> Bi∈H t
+
+pt,i wt,i , observes the loss ℓt, and constructs the surrogate loss in (10).  
+
+> 5:
+
+Update the distribution of each base learner Bi ∈ H t by 
+
+(
+
+P ′
+
+> t+1 ,i
+
+(u) ∝ Pt,i (u) · e−η ˜ℓt(u), ∀u ∈ Rd
+
+Pt+1 ,i = arg min Q∈W KL  Q ∥ P ′
+
+> t+1 ,i
+
+, (7) where W = {Q : Eu∼Q[u] ∈ W} is the set of distributions with means in W. 
+
+> 6:
+
+Update the weight for each base learner Bi ∈ H t by ˜pt+1 ,i ∝ pt,i · Eu∼Pt,i [exp( −η ˜ℓt(u))] . (8)  
+
+> 7:
+
+Initialize a new base-learner Bt+1 with the distribution Pt+1 ,t +1 = N (u0, I d) and update the weight for existing base-learner by 
+
+pt+1 ,i =
+
+(
+
+(1 − μt+1 ) · ˜pt+1 ,i for Bi ∈ H t
+
+μt+1 for Bi = Bt+1 . (9)  
+
+> 8:
+
+Update the pool Ht+1 = Ht ∪ {B t+1 } and obtain Pt+1 (u) = P 
+
+> Bi∈H t+1
+
+pt+1 ,i ·
+
+Pt+1 ,i (u). 
+
+> 9:
+
+end for 4.1. Proposed Method 
+
+Our algorithm is summarized in Algorithm 2. Instead of learning directly with the original loss, we employ the following surrogate loss: ˜ℓt(w) = g⊤ 
+
+> t
+
+(w − wt) + η ∥w − wt∥2
+
+> gtg⊤
+> t
+
+. (10) Here, gt = ∇ℓt(wt) denotes the gradient of the loss function. For a κ-exp-concave loss over the domain W, Hazan (2016, Lemma 4.3) shows that the regret under the original loss can be upper bounded by that under the surrogate loss: ℓt(wt) − ℓt(ut) ≤
+
+˜ℓt(wt)− ˜ℓt(ut) for any ut ∈ W , provided that η ≤ 14 min {(max w∈W |g⊤ 
+
+> t
+
+(w −wt)|)−1, κ }.This choice of a quadratic surrogate loss is standard in online learning for obtaining efficient updates. In our setting, its quadratic form also allows us to work with Gaussian distributions, which simplify the regret analysis. 
+
+15 Universal Dynamic Portfolios 
+
+Our method follows the FLH framework (Hazan and Seshadhri, 2009), with multiple base learners started at different times and a meta-learner that aggregates their predictions. 
+
+• Base-learners : At each iteration t = i, we initialize a new base learner Bi and add it to the expert pool Ht. The base-learner is initialized with a Gaussian distribution Pt,i = N (u0, I d), where u0 ∈ W can be any point in the feasible domain. The distribution of each base learner Bi is updated using exponential weights with respect to the surrogate loss, followed by the projection in line 5 of Algorithm 2. Since the surrogate loss ˜ℓt is quadratic, van der Hoeven et al. (2018, Theorem 5) show that the resulting distribution Pt,i = N (wt,i , H −1 
+
+> t,i
+
+) remains Gaussian, with its mean and covariance updated via an ONS-type rule. An explicit update formula is provided in (53) in Appendix E. 
+
+• Meta-learner : We also maintain a meta-learner that assigns a weight pt,i to each base learner Bi ∈ H t to aggregate their predictions. Specifically, the weights are updated based on their historical performance (line 6), with a fixed-share step that incorporates the new base learner (line 7). The final prediction is obtained by taking the weighted average of the base learners’ predictions (line 4). One slight difference between Algorithm 2 and standard FLH is that line 6 updates the weights using the expectation term ˜ pt+1 ,i ∝ pt,i Eu∼Pt,i [e−η ˜ℓt(u)], whereas the classical update is ˜ pt+1 ,i ∝ pt,i e−η ˜ℓt(wt,i ). This difference is important for our analysis, as it allows us to align Algorithm 2 with exponential-weights updates over distributions. We also note that the update in line 6 admits a closed-form expression, since Pt,i is Gaussian and ˜ℓt is a quadratic function. We have the following guarantee, whose proof is provided in Appendix E. 
+
+Theorem 10 Under Assumptions 1, 2, and 3 and T ≥ 2, Algorithm 2 with μt = 1 /t 
+
+and η = 15 min {1/(2 G), κ } ensures 
+
+D-Reg T ({ut}Tt=1 ) ≤ O 
+
+ dη
+
+
+
+ln( dT ) + T 13 P 23 
+
+> T
+
+(ln( T d )) 23
+
+
+
+,
+
+for any sequence u1, . . . , uT ∈ W , where PT = PTt=2 ∥ut − ut−1∥1 is the path length and η−1 = 5 max {2G, κ −1}.
+
+Remark 11 (Relation to FLH-ONS) Our algorithm is a variant of FLH (Hazan and Seshadhri, 2009) with ONS (Hazan et al., 2007) as its base learner. Although FLH-ONS has well-established guarantees on interval regret, previous reductions to nearly optimal dynamic regret for exp-concave losses either require improper learning, which is infeasible in OPS, or are restricted to box-constrained domains (Baby and Wang, 2021, 2022a). Our dynamic regret guarantee holds for arbitrary compact convex domains while remaining proper and computationally tractable. 
+
+> 16
+
+Universal Dynamic Portfolios 
+
+4.2. Two-layer Mixability-based Analysis 
+
+This section sketches the proof of Theorem 10 using a mixability-based argument. Zhang et al. (2025) also used mixability to obtain nearly optimal dynamic regret for OXO, but their method is computationally intractable, as it requires projecting the full Gaussian mixture. We first explain why their analysis does not directly apply to our algorithm and then present the key ideas behind our two-layer analysis. 
+
+Limitations of Previous Attempts. Zhang et al. (2025) showed that although the surrogate loss is not mixable in general, mixability-based analysis still applies when the mean of each component Pt,i in the Gaussian mixture Pt lies in the feasible domain, yielding the variational formulation: ˜ℓt(wt) ≤ Eu∼Qt [˜ℓt(u)] + 1
+
+η KL( Qt ∥ Pt) − 1
+
+η KL( Qt ∥ P ′
+
+> t+1
+
+), (11) where P ′
+
+> t+1
+
+(u) ∝ Pt(u) exp( −η ˜ℓt(u)), which remains a Gaussian mixture model. How-ever, the exponential weights update does not guarantee that the component means of P ′ 
+
+> t+1
+
+stay within the decision domain, and thus one cannot set Pt+1 = P ′ 
+
+> t+1
+
+to tele-scope the KL terms over T rounds. To overcome this issue, Zhang et al. (2025) project P ′ 
+
+> t+1
+
+onto a set M of Gaussian mixtures with component means in W
+
+and bounded covariances, which ensures a KL–Pythagorean inequality such that KL ( Q ∥ Pt+1 ) ≤ KL  Q ∥ P ′
+
+> t+1
+
+ for any Q ∈ M with EQ[u] ∈ W . This allows telescop-ing and yields 
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(wt) ≲
+
+> T
+
+X
+
+> t=1
+
+EQt [˜ℓt(u)] + 1
+
+η
+
+> T
+
+X
+
+> t=2
+
+ KL( Qt∥Pt) − KL( Qt−1∥Pt). (12) Here, ≲ suppresses additive initialization and logarithmic terms. By choosing Qt =
+
+N (ut, σ 2Id) and selecting σ properly, the above inequality leads to the desired fast rate bound. This analysis does not apply to Algorithm 2, since our method projects each component P ′ 
+
+> t+1 ,i
+
+into the domain separately to gain computational efficiency, and such componentwise projections do not in general satisfy the required KL–Pythagorean guarantee for Pt+1 and P ′
+
+> t+1
+
+.
+
+Our Analysis. We overcome the projection issue by exploiting the two-layer structure, rather than applying mixability at the level of the aggregated distribution. Specifically, for the comparator distributions Qt with EQt [u] ∈ W and qt ∈ ∆|H t|, we have ˜ℓt(wt) ≤ Eu∼Qt [˜ℓt(u)] + 1
+
+η
+
+ X
+
+> Bi∈H t
+
+qt,i KL ( Qt ∥ Pt,i ) + KL ( qt ∥ pt)
+
+
+
+− 1
+
+η
+
+ X
+
+> Bi∈H t
+
+qt,i KL ( Qt ∥ Pt+1 ,i ) + KL ( qt ∥ ˜pt+1 )
+
+
+
+. (13) 
+
+17 Universal Dynamic Portfolios 
+
+The above variational-form bound can be viewed as a two-layer counterpart of (11), providing the flexibility to choose the comparators qt and Qt for the meta-learner and the base-learner, respectively. We note that componentwise projections can be performed safely under (13), since the KL divergence is defined in terms of the individual distributions rather than the aggregated one. The next question is how to choose qt and Qt. To make the bound as tight as possible, we choose qt = arg min q∈∆|H t|
+
+P 
+
+> Bi∈H t
+
+qiKL ( Qt ∥ Pt,i ) + KL ( q ∥ pt), whose optimal value attains a closed-form formula Vt(Qt) = − ln ( Ept [exp( −KL ( Qt ∥ Pt,i ))]). After a sequence of algebraic manipulations, the bound admits a telescoping structure as in (12). 
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(wt) ≲
+
+> T
+
+X
+
+> t=1
+
+EQt [˜ℓt(u)] + 1
+
+η
+
+> T
+
+X
+
+> t=2
+
+(Vt(Qt) − Vt(Qt−1)) . (14) By specifying Qt = N (ut, σ 2Id) as a Gaussian distribution, we can further show that 
+
+> T
+
+X
+
+> t=1
+
+EQt [˜ℓt(u)] ≤
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(ut) + ηdG 2T σ 2,
+
+> T
+
+X
+
+> t=2
+
+(Vt(Qt) − Vt(Qt−1)) ≲ dP T log( dT )
+
+σ + dP T σ2.
+
+The first inequality follows from the quadratic formulation of the surrogate loss function, and the second inequality is obtained by showing that the gradient of Vt(Qt)with respect to ut can be upper bounded by O(d log( dT )/σ + dσ 2). We can obtain the desired bound by setting σ = eΘ P 1/3 
+
+> T
+
+T −1/3 since PT ≤ 2T .
+
+## 5. Conclusion 
+
+We establish nearly matching upper and lower bounds for dynamic regret in non-stationary OPS under the standard L1-path length. Universal Dynamic Portfolio achieves the upper bound and finer guarantees based on the JS-path length and the JS q-path length, adapting to the spatial and temporal structure of comparator sequences without parameter tuning or bounded-gradient assumptions. Under bounded gradients, we also develop an efficient proper method with fast dynamic regret for OPS and general online exp-concave optimization over compact convex domains with tractable metric projections. Future work includes developing more computationally efficient algorithms that retain the refined OPS guarantees, and reducing the number of active base learners. 
+
+## Acknowledgments and AI-use Statement 
+
+KJ and YZ were supported in part by a Singapore National Research Foundation AI Visiting Professorship award and NSF TRIPODS II DMS-2023166. 
+
+18 Universal Dynamic Portfolios 
+
+The authors developed the main research ideas, technical results, and theoretical developments in this work before January 2026. During subsequent extensions of the work from July to September 2026, GPT-6 Astra was used to assist in exploring proof strategies for the lower bounds, particularly the multidimensional constructions, and in developing the illustrative example for the JS q-path length results. GPT-5.6 and GPT-6 were also used during manuscript preparation for language editing, grammar checking, and polishing. The authors have carefully checked all AI-assisted mathematical arguments and take full responsibility for the content of the paper. 
+
+## References 
+
+Dmitry Adamskiy, Wouter M. Koolen, Alexey V. Chernov, and Vladimir Vovk. A closer look at adaptive regret. Journal of Machine Learning Research , 17:23:1–23:21, 2016. Amit Agarwal, Elad Hazan, Satyen Kale, and Robert E. Schapire. Algorithms for portfolio management based on the newton method. In Proceedings of the Twenty-Third International Conference (ICML) , volume 148, pages 9–16, 2006. Dheeraj Baby and Yu-Xiang Wang. Online forecasting of total-variation-bounded sequences. In Advances in Neural Information Processing Systems 32 (NeurIPS) ,2019. Dheeraj Baby and Yu-Xiang Wang. Optimal dynamic regret in exp-concave online learning. In Proceedings of the 34th Conference on Learning Theory (COLT) , pages 359–409, 2021. Dheeraj Baby and Yu-Xiang Wang. Optimal dynamic regret in proper online learning with strongly convex losses and beyond. In Proceedings of the 25th International Conference on Artificial Intelligence and Statistics (AISTATS) , pages 1805–1845, 2022a. Dheeraj Baby and Yu-Xiang Wang. Optimal dynamic regret in LQR control. In 
+
+Advances in Neural Information Processing Systems 35 (NeurIPS) , pages 24879– 24892, 2022b. Nicol‘o Cesa-Bianchi and G´ abor Lugosi. Prediction, Learning, and Games . Cambridge University Press, 2006. Nicol` o Cesa-Bianchi, Pierre Gaillard, G´ abor Lugosi, and Gilles Stoltz. Mirror descent meets fixed share (and feels no regret). In Advances in Neural Information Processing Systems 25 (NIPS) , pages 989–997, 2012. Thomas M. Cover. Universal portfolios. Mathematical Finance , 1(1):1–29, 1991. 
+
+> 19 Universal Dynamic Portfolios
+
+Thomas M Cover and Erik Ordentlich. Universal portfolios with side information. 
+
+IEEE Transactions on Information Theory , 42(2):348–363, 1996. Ashok Cutkosky. Parameter-free, dynamic, and strongly-adaptive online learning. In 
+
+Proceedings of the 37th International Conference on Machine Learning (ICML) ,pages 2250–2259, 2020. Dylan J. Foster, Satyen Kale, Haipeng Luo, Mehryar Mohri, and Karthik Sridharan. Logistic regression: The importance of being improper. In Proceedings of the 31st Conference on Learning Theory (COLT) , pages 167–208, 2018. Andr´ as Gy¨ orgy and Csaba Szepesv´ ari. Shifting regret, mirror descent, and matrices. In Proceedings of the 33nd International Conference on Machine Learning (ICML) ,pages 2943–2951, 2016. Elad Hazan. Introduction to Online Convex Optimization. Foundations and Trends in Optimization , 2(3–4):157–325, 2016. Elad Hazan and C. Seshadhri. Efficient learning algorithms for changing environments. In Proceedings of the 26th International Conference on Machine Learning (ICML) ,pages 393–400, 2009. Elad Hazan, Amit Agarwal, and Satyen Kale. Logarithmic regret algorithms for online convex optimization. Machine Learning , 69(2–3):169–192, 2007. David P Helmbold, Robert E Schapire, Yoram Singer, and Manfred K Warmuth. On-line portfolio selection using multiplicative updates. Mathematical Finance , 8 (4):325–347, 1998. Mark Herbster and Manfred K. Warmuth. Tracking the best expert. Machine Learning ,32(2):151–178, 1998. Mark Herbster and Manfred K. Warmuth. Tracking the best linear predictor. Journal of Machine Learning Research , 1:281–309, 2001. Andrew Jacobsen, Alessandro Rudi, Francesco Orabona, and Nicol` o Cesa-Bianchi. Dy-namic regret reduces to kernelized static regret. In Advances in Neural Information Processing Systems 38 (NeurIPS) , 2025. R´ emi J´ ez´ equel, Dmitrii Ostrovskii, and Pierre Gaillard. Efficient and near-optimal online portfolio selection. Mathematics of Operations Research , 0(0), 2025. Adam Kalai and Santosh S. Vempala. Efficient algorithms for universal portfolios. 
+
+Journal of Machine Learning Research , 3:423–440, 2002. 
+
+> 20 Universal Dynamic Portfolios
+
+Haipeng Luo, Chen-Yu Wei, and Kai Zheng. Efficient online portfolio with logarithmic regret. In Advances in Neural Information Processing Systems 31 (NeurIPS) , pages 8245–8255, 2018. Zakaria Mhammedi and Alexander Rakhlin. Damped online Newton step for portfolio selection. In Proceedings of the Conference on Learning Theory (COLT) , pages 5561–5595, 2022. Erik Ordentlich and Thomas M. Cover. The cost of achieving the best portfolio in hindsight. Mathematics of Operations Research , 23(4):960–982, 1998. Laurent Orseau, Tor Lattimore, and Shane Legg. Soft-bayes: Prod for mixtures of experts with log-loss. In Proceedings of the International Conference on Algorithmic Learning Theory (ALT) , pages 372–399, 2017. Yu-Yang Qian, Peng Zhao, Yu-Jie Zhang Masashi Sugiyama, and Zhi-Hua Zhou. Efficient non-stationary online learning by wavelets with applications to online distribution shift adaptation. In Proceedings of the 41st International Conference on Machine Learning (ICML) , pages 41383–41415, 2024. Yoram Singer. Switching portfolios. International Journal of Neural Systems , 08(04): 445–455, 1997. Dirk van der Hoeven, Tim van Erven, and Wojciech Kotlowski. The many faces of exponential weights in online learning. In Proceedings of the 31st Conference on Learning Theory (COLT) , pages 2067–2092, 2018. Tim van Erven and Wouter M. Koolen. Metagrad: Multiple learning rates in online learning. In Advances in Neural Information Processing Systems 29 (NIPS) , pages 3666–3674, 2016. Tim van Erven, Peter D. Gr¨ unwald, Nishant A. Mehta, Mark D. Reid, and Robert C. Williamson. Fast rates in statistical and online learning. Journal of Machine Learning Research , 16:1793–1861, 2015. Tim Van Erven, Dirk Van der Hoeven, Wojciech Kotlowski, and Wouter M. Koolen. Open problem: Fast and optimal online portfolio selection. In Proceedings of the 33rd Conference on Learning Theory (COLT) , pages 3864–3869, 2020. Vladimir Vovk. A game of prediction with expert advice. Journal of Computer and System Sciences , 56(2):153–173, 1998. Vladimir Vovk. Competitive on-line statistics. International Statistical Review , 69(2): 213–248, 2001. 
+
+> 21 Universal Dynamic Portfolios
+
+Chen-Yu Wei and Haipeng Luo. Non-stationary reinforcement learning without prior knowledge: an optimal black-box approach. In Proceedings of the 34th Conference on Learning Theory (COLT) , pages 4300–4354, 2021. Lijun Zhang, Shiyin Lu, and Zhi-Hua Zhou. Adaptive online learning in dynamic environments. In Advances in Neural Information Processing Systems 31 (NeurIPS) ,pages 1330–1340, 2018. Yu-Jie Zhang, Zhen-Yu Zhang, Peng Zhao, and Masashi Sugiyama. Adapting to continuous covariate shift via online density ratio estimation. In Advances in Neural Information Processing Systems 36 (NeurIPS) , pages 29074–29113, 2023. Yu-Jie Zhang, Peng Zhao, and Masashi Sugiyama. Non-stationary online learning for curved losses: Improved dynamic regret via mixability. In Proceedings of the 42nd International Conference on Machine Learning (ICML) , 2025. Peng Zhao, Yu-Jie Zhang, Lijun Zhang, and Zhi-Hua Zhou. Dynamic regret of convex and smooth functions. In Advances in Neural Information Processing Systems 33 (NeurIPS) , pages 12510–12520, 2020. Peng Zhao, Guanghui Wang, Lijun Zhang, and Zhi-Hua Zhou. Bandit convex opti-mization in non-stationary environments. Journal of Machine Learning Research ,22(125):1–45, 2021. Peng Zhao, Yu-Jie Zhang, Lijun Zhang, and Zhi-Hua Zhou. Adaptivity and non-stationarity: Problem-dependent dynamic regret for online convex optimization. 
+
+Journal of Machine Learning Research , 25(98):1–52, 2024. Peng Zhao, Yan-Feng Xie, Lijun Zhang, and Zhi-Hua Zhou. Efficient methods for non-stationary online learning. Journal of Machine Learning Research , 26(208): 1–66, 2025. Julian Zimmert, Naman Agarwal, and Satyen Kale. Pushing the efficiency-regret pareto frontier for online learning of portfolios and quantum states. In Proceedings of the Conference on Learning Theory (COLT) , pages 182–226, 2022. Martin Zinkevich. Online convex programming and generalized infinitesimal gradient ascent. In Proceedings of the 20th International Conference on Machine Learning (ICML) , pages 928–936, 2003. 
+
+> 22
+
+Universal Dynamic Portfolios 
+
+## Appendix A. Properties of the Dirichlet Distribution 
+
+In this section, we present some useful properties of the Dirichlet distribution that will be used in our analysis. 
+
+Definition 12 (Dirichlet Distribution) A random vector w ∈ ∆d is said to follow a Dirichlet distribution with parameter vector α = ( α1, . . . , α d) ∈ Rd
+
+> +
+
+, denoted by 
+
+w ∼ Dir( α), if its probability density function is 
+
+p(w | α) = Γ
+
+Pdi=1 αi
+
+Qdi=1 Γ( αi)
+
+> d
+
+Y
+
+> i=1
+
+wαi−1 
+
+> i
+
+, w ∈ ∆d.
+
+where Γ( α) = R ∞ 
+
+> 0
+
+tα−1e−tdt is the Gamma function. 
+
+Property 13 (Properties of Dirichlet Distribution) Let w ∼ Dir( α) and α0 =Pdi=1 αi. Then, 
+
+• The mean of the random vector is given by Ew∼Dir( α)[w] = α/α 0.
+
+• The covariance matrix is Cov[ w] = 1 
+
+> α20(α0+1)
+
+(α0diag( α) − αα ⊤).
+
+• Dirichlet distribution belongs to the exponential family with natural parameter 
+
+η = α − 1 and log-partition function A(η) = Pdi=1 ln Γ( αi) − ln Γ( α0).
+
+• The KL divergence between two Dirichlet distributions Dir( α) and Dir( β) is given by 
+
+KL(Dir( α)∥Dir( β)) = ln Γ( α0)Γ( β0) −
+
+> d
+
+X
+
+> i=1
+
+ln Γ( αi)Γ( βi) +
+
+> d
+
+X
+
+> i=1
+
+(αi − βi) ( ψ(αi) − ψ(α0)) ,
+
+where ψ(α) = ddα ln Γ( α) is the digamma function. 
+
+• The differential Shannon entropy of Dir( α) is 
+
+H(Dir( α)) = ln 
+
+Qdi=1 Γ( αi)Γ( α0)
+
+!
+
++ ( α0 − d)ψ(α0) −
+
+> d
+
+X
+
+> i=1
+
+(αi − 1) ψ(αi).
+
+Property 14 (Properties of Gamma Function) Let Γ( α) = R ∞ 
+
+> 0
+
+tα−1e−tdt be the Gamma function and ψ(α) = ddα ln Γ( α) be the digamma function. Then, for any 
+
+α > 0, we have 
+
+• Γ( α + 1) = αΓ( α) and ψ(α + 1) = ψ(α) + 1 /α .
+
+• ln( α) − 1 
+
+> α
+
+≤ ψ(α) ≤ ln( α) − 12α .
+
+23 Universal Dynamic Portfolios 
+
+Lemma 15 Let P = Dir( 1 + γu), Q = Dir( 1 + γei) and P1 = Dir( 1). Then, 
+
+KL( P ∥ P1) ≤ KL ( Q ∥ P1) for any u ∈ ∆d, i ∈ [d] and γ > 0.
+
+Proof of Lemma 15 By definition of the KL divergence between two Dirichlet distributions, we have KL ( P ∥ P1) = ln Γ( d + γ)Γ( d) − γψ (d + γ) + 
+
+> d
+
+X
+
+> i=1
+
+(γu iψ(1 + γu i) − ln Γ(1 + γu i)) .
+
+Let G(u) = Pdi=1 g(ui) where g(u) = γuψ (1 + γu ) − ln Γ(1 + γu ). According to Lemma 18, one can show that G(u) is a convex function over the simplex. Then, we have G(u) = G(Pdj=1 uj ej ) ≤ Pdj=1 uj G(ej ) ≤ G(ei) for any i ∈ [d], where the last inequality holds because G(u) is invariant under permutations of the coordinates. Then, we complete the proof by showing KL ( P ∥ P1) = ln Γ( d + γ)Γ( d) − γψ (d + γ) + G(u)
+
+≤ ln Γ( d + γ)Γ( d) − γψ (d + γ) + G(ei) = KL ( Q ∥ P1) .
+
+## Appendix B. Omitted Proofs for Section 3.1 
+
+B.1. Proof of Theorem 1 Proof of Theorem 1 We focus on the minimax regret for the d-asset OPS problem: 
+
+WT (UC ) = inf 
+
+> f1: T
+
+sup  
+
+> x1,..., xT∈Rd
+> +
+
+sup  
+
+> u1: T∈U C
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut)
+
+!
+
+,
+
+where the infimum is taken over the algorithm’s online prediction rules f1: T , and wt is the algorithm’s prediction based only on past observations x1, . . . , xt−1. To make the dependence explicit, we will also write wt = ft(x1: t−1), where x1: t−1 = ( x1, . . . , xt−1)and ft : Rd×(t−1) + → ∆d is a measurable online prediction rule determined by the algorithm. For any sequence u1: T = ( u1, . . . , uT ), we define 
+
+UC =
+
+(
+
+u1: T ∈ ∆Td
+
+> T
+
+X
+
+> t=2
+
+∥ut − ut−1∥1 ≤ C
+
+)
+
+as the set of all comparator sequences whose L1-path length is at most C.
+
+24 Universal Dynamic Portfolios 
+
+Reduction to SPA. For any C ∈ [0 , T ], we derive a lower bound on the value 
+
+WT (UC ) by reducing the OPS problem to the sequential probability assignment (SPA) problem (Cesa-Bianchi and Lugosi, 2006, Chapter 9.1). Specifically, we consider the Kelly market vector setting, where xt ∈ { e1, . . . , ed} for all t ∈ [T ], and ei denotes the 
+
+i-th standard basis vector. We encode the market outcomes by defining yt = i when 
+
+xt = ei, and introduce the multi-class log loss 
+
+ℓlog (w, y ) = − log[ w]y, w ∈ ∆d, y ∈ [d],
+
+where [ w]y denotes the y-th coordinate of w. It is straightforward to verify that 
+
+ℓt(w) = ℓlog (w, y t) when xt = eyt . Consequently, letting Y = [ d], we obtain 
+
+WT (UC ) ≥ V T (UC ) := inf 
+
+> f1: T
+
+sup  
+
+> y1,...,y T∈Y
+
+sup  
+
+> u1: T∈U C
+> T
+
+X
+
+> t=1
+
+ℓlog (wt, y t) −
+
+> T
+
+X
+
+> t=1
+
+ℓlog (ut, y t)
+
+!
+
+.
+
+Throughout the proof, the dimension d is fixed and the asymptotic notation is with respect to T .
+
+Hard Example Construction. To lower bound the dynamic term in the minimax regret VT (UC ), we first restrict attention to the main regime C ∈ [2( d − 1) /T, T / (2( d −
+
+1))]. In this regime, we construct an environment in which the time horizon is partitioned into consecutive intervals of length 
+
+L =
+
+d − 1
+
+ϵ
+
+
+
+with ϵ =
+
+r(d − 1) C
+
+2T .
+
+This choice ensures ( d − 1) /T ≤ ϵ ≤ 1/2 and hence L ≤ T . The corner cases will be handled at the end of the proof. We further let K = ⌊T /L ⌋ denote the number of intervals. The first K − 1 intervals each have length L, while the final interval has length T − (K − 1) L ∈ [L, 2L − 1]. We will also use Ik = [ sk, e k] to denote the k-th interval for k ∈ [K], with start time sk and end time ek.For each block k ∈ [K], we consider a collection of environments indexed by a binary vector 
+
+Ik = [ Ik, 1, . . . , I k,d −1] ∈ { 0, 1}d−1.
+
+The coordinates of Ik are drawn independently and uniformly at random, i.e., Ik,j ∼
+
+Bern(1 /2) independently for every j ∈ [d − 1] and k ∈ [K]. There are in total 2 d−1
+
+possible realizations of the environment index Ik for each block k. On each interval 
+
+Ik, the labels are generated according to a static probability distribution eut ∈ ∆d that depends on the index Ik. Specifically, for any t ∈ I k, we set eut as [eut]j = ϵd − 1Ik,j for all j ∈ [d − 1] and [eut]d = 1 − ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+Ik,j .
+
+25 Universal Dynamic Portfolios 
+
+In the above, the first d − 1 dimensions are associated with the environment index coordinate-wise, while the d-th dimension is a common asset. Since ϵ ≤ 1/2, we have [eut]d ≥ 1 − ϵ ≥ 1/2, and hence the above vector is a valid portfolio in ∆ d. The label is then generated according to yt ∼ Cat( eut), where Cat( eut) denotes the categorical distribution with probability mass function eut.For any realization of the environment indices {Ik}Kk=1 , the cumulative path length of the comparator sequence eu1: T is bounded by 
+
+> T
+
+X
+
+> t=2
+
+∥eut − eut−1∥1 =
+
+> K
+
+X
+
+> k=2
+
+ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+|Ik,j − Ik−1,j | + ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+Ik,j −
+
+> d−1
+
+X
+
+> j=1
+
+Ik−1,j 
+
+!
+
+≤
+
+> K
+
+X
+
+> k=2
+
+2ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+|Ik,j − Ik−1,j | ≤ 2ϵ(K − 1) ≤ 2T ϵ 2
+
+d − 1 = C, 
+
+where the last inequality follows from K ≤ T /L ≤ T ϵ/ (d − 1). The above displayed inequality indicates that eu1: T ∈ U C . Then, the minimax regret VT (UC ) can be further lower bounded by 
+
+VT (UC ) ≥ inf 
+
+> f1: T
+
+EI1: K
+
+"
+
+Ey1: T
+
+" TX
+
+> t=1
+
+ℓlog (wt, y t) −
+
+> T
+
+X
+
+> t=1
+
+ℓlog (eut, y t) I1: K
+
+## 
+
+= inf 
+
+> f1: T
+
+EI1: K
+
+"
+
+Ey1: T
+
+"
+
+log 
+
+> T
+
+Y
+
+> t=1
+
+[eut]yt
+
+[wt]yt
+
+!
+
+I1: K
+
+## 
+
+= inf 
+
+> f1: T
+
+EI1: K
+
+"
+
+Ey1: T
+
+"
+
+log 
+
+> T
+
+Y
+
+> t=1
+
+[eut]yt
+
+[ft(y1: t−1)] yt
+
+!
+
+I1: K
+
+## 
+
+= inf 
+
+> f1: T
+
+EI1: K
+
+
+
+Ey1: T
+
+
+
+log 
+
+ eq(y1: T | I1: K )
+
+p(y1: T )
+
+
+
+I1: K
+
+ 
+
+.
+
+The first inequality follows from the fact that eu1: T ∈ U C for every realization of the environment indices I1: K . The first equality follows from the definition of the log loss. Under the restriction xt = eyt , we use ft(y1: t−1) as shorthand for ft(ey1 , . . . , eyt−1 ). In the last equality, we define the joint mass function 
+
+p(y1: T ) = 
+
+> T
+
+Y
+
+> t=1
+
+[ft(y1: t−1)] yt ,
+
+where ft : Yt−1 → ∆d is the online prediction rule at time t. We note that the online prediction rule ft is deterministic given y1, . . . , y t−1, and hence p is fully determined by the online algorithm and is independent of the randomness in I1: K . Similarly, conditional on the environment indices I1: K , we define the joint probability mass function of the label sequence y1: T as 
+
+eq(y1: T | I1: K ) = Pr ( Y1: T = y1: T | I1: K ) = 
+
+> T
+
+Y
+
+> t=1
+
+[eut]yt .
+
+26 Universal Dynamic Portfolios 
+
+With a slight abuse of notation, we use eqY1: T |I1: K to denote the corresponding conditional distribution and pY1: T to denote the distribution induced by p(y1: T ). One can check that p(y1: T ) is a valid probability mass function and, for every realization of I1: K ,
+
+eq(y1: T | I1: K ) is a valid conditional probability mass function. In particular, 
+
+X 
+
+> y1: T∈Y T
+
+p(y1: T ) = X  
+
+> y1: T−1∈Y T−1
+
+p(y1: T −1) = · · · = X
+
+> y1∈Y
+
+p(y1) = 1 .
+
+Furthermore, since yt ∼ Cat( eut) conditional on I1, . . . , IK , the conditional distribu-tion of the sequence y1: T given I1: K has probability mass function eq(y1: T | I1: K ). Then, we have 
+
+EI1: K
+
+
+
+Ey1: T
+
+
+
+log 
+
+ eq(y1: T | I1: K )
+
+p(y1: T )
+
+
+
+I1: K
+
+ 
+
+= EI1: K
+
+KL( eqY1: T |I1: K ∥pY1: T ) .
+
+Then, the minimax regret can be further lower bounded by 
+
+VT (UC ) ≥ inf 
+
+> f1: T
+
+EI1: K
+
+KL( eqY1: T |I1: K ∥pY1: T )
+
+= EI1: K
+
+KL( eqY1: T |I1: K ∥¯qY1: T ) + inf 
+
+> f1: T
+
+EI1: K
+
+ X 
+
+> y1: T∈Y T
+
+eq(y1: T | I1: K ) log ¯q(y1: T )
+
+p(y1: T )
+
+
+
+= EI1: K
+
+KL( eqY1: T |I1: K ∥¯qY1: T ) + inf 
+
+> f1: T
+
+X 
+
+> y1: T∈Y T
+
+EI1: K [eq(y1: T | I1: K )] log ¯q(y1: T )
+
+p(y1: T )= EI1: K
+
+KL( eqY1: T |I1: K ∥¯qY1: T ) + inf 
+
+> f1: T
+
+KL(¯ qY1: T ∥pY1: T )
+
+≥ EI1: K
+
+KL( eqY1: T |I1: K ∥¯qY1: T ) ,
+
+where ¯ q(y1: T ) = Pr( Y1: T = y1: T ) = EI1: K [eq(y1: T | I1: K )] is the marginal probability mass function of the label sequence obtained by averaging over the environment indices. With the same abuse of notation, we use ¯ qY1: T to denote the corresponding marginal distribution. The penultimate equality holds because both probability mass functions ¯q and p are independent of I1: K .Then, let yIk = {yt}t∈I k be the sequence of labels on interval Ik, and define its conditional probability mass function by 
+
+eqk(yIk | Ik) = Pr ( YIk = yIk | Ik) = Y
+
+> t∈I k
+
+[eut]yt .
+
+With a slight abuse of notation, we use eqYIk |Ik to denote the corresponding conditional distribution. Conditional on I1: K = ( I1, . . . , IK ), the label sequences on different intervals are independent. Therefore, the conditional probability mass function of the full label sequence factorizes as eq(y1: T | I1: K ) = QKk=1 eqk(yIk | Ik). Using the 
+
+27 Universal Dynamic Portfolios 
+
+independence of the environment indices I1, . . . , IK , we further have ¯q(y1: T ) = EI1: K [eq(y1: T | I1: K )] = EI1: K
+
+" KY
+
+> k=1
+
+eqk(yIk | Ik)
+
+#
+
+=
+
+> K
+
+Y
+
+> k=1
+
+EIk [eqk(yIk | Ik)] = 
+
+> K
+
+Y
+
+> k=1
+
+¯qk(yIk ),
+
+where we define the marginal probability mass function on block k as ¯ qk(yIk ) = Pr( YIk = yIk ) = EIk [eqk(yIk | Ik)] and use ¯ qYIk to denote the corresponding marginal distribution. The minimax regret can be further bounded by 
+
+VT (UC ) ≥ EI1: K
+
+" KX
+
+> k=1
+
+KL( eqYIk |Ik ∥¯qYIk )
+
+#
+
+=
+
+> K
+
+X
+
+> k=1
+
+EIk
+
+h
+
+KL( eqYIk |Ik ∥¯qYIk )
+
+i
+
+, (15) where the blockwise decomposition follows from the additivity of the KL divergence for product distributions, and the equality holds because the conditional distribution 
+
+eqYIk |Ik depends only on Ik.We next analyze the KL divergence contributed by each block. For every j ∈ [d−1], define 
+
+Zk,j = 1
+
+(X
+
+> t∈I k
+
+1{Yt = j} ≥ 1
+
+)
+
+,
+
+and write Zk = ( Zk, 1, . . . , Z k,d −1). Thus, Zk,j indicates whether label j is observed at least once on block k. Since Zk is a deterministic function of YIk , we have 
+
+EIk
+
+h
+
+KL( eqYIk |Ik ∥¯qYIk )
+
+i
+
+= I ( Ik; YIk ) ≥ I ( Ik; Zk) ≥
+
+> d−1
+
+X
+
+> j=1
+
+I ( Ik,j ; Zk,j ) , (16) where I( ·; ·) denotes mutual information. The first equality follows from I( X; Y ) = 
+
+EX [KL( PY |X ∥PY )] by taking X = Ik and Y = YIk . The first inequality follows from the data-processing inequality. The last inequality follows from the independence of the coordinates of Ik and the fact that conditioning reduces entropy, since H(Ik |
+
+Zk) ≤ Pd−1 
+
+> j=1
+
+H(Ik,j | Zk) ≤ Pd−1 
+
+> j=1
+
+H(Ik,j | Zk,j ). We next analyze the information contributed by each coordinate. Conditional on 
+
+Ik,j = 0, label j has zero probability, and hence Zk,j = 0 almost surely. Conditional on Ik,j = 1, label j is generated with probability ϵ/ (d − 1) at every round. We have 
+
+pk := Pr( Zk,j = 1 | Ik,j = 1) = 1 −
+
+
+
+1 − ϵd − 1
+
+|I k |
+
+≥ 1 − e−1,
+
+where the last inequality holds because |I k| ≥ L ≥ (d − 1) /ϵ .
+
+28 Universal Dynamic Portfolios 
+
+Since Ik,j ∼ Bern(1 /2), we have Pr( Zk,j = 1) = pk/2 and H(Ik,j ) = log 2. Moreover, conditional on Zk,j = 1, the environment coordinate Ik,j must be equal to one, and hence H(Ik,j | Zk,j = 1) = 0. Since H(Ik,j | Zk,j = 0) ≤ log 2, we obtain I ( Ik,j ; Zk,j ) = H(Ik,j ) − H(Ik,j | Zk,j )
+
+≥ log 2 − Pr( Zk,j = 0) log 2 = Pr( Zk,j = 1) log 2 = pk
+
+2 log 2 ≥ 1 − e−1
+
+2 log 2 .
+
+Combining the above inequalities, the KL divergence contributed by each block satisfies 
+
+EIk
+
+h
+
+KL( eqYIk |Ik ∥¯qYIk )
+
+i
+
+≥ (d − 1)(1 − e−1)2 log 2 .
+
+Then, we can conclude that 
+
+VT (UC ) ≥ (d − 1)(1 − e−1)2 K log 2 .
+
+It remains to lower bound the number of intervals K. Since ϵ ≤ 1/2, we have 
+
+L = ⌈(d − 1) /ϵ ⌉ ≤ 2( d − 1) /ϵ . Moreover, ϵ ≥ (d − 1) /T implies L ≤ T . Therefore, 
+
+K =
+
+TL
+
+
+
+≥ T
+
+2L ≥ T ϵ 
+
+4( d − 1) .
+
+It follows that, in the main regime, 
+
+VT (UC ) ≥ 1 − e−1
+
+8 T ϵ log 2 = (1 − e−1) log 2 8√2
+
+p(d − 1) T C. (17) 
+
+Hanlding Corner Cases. It remains to handle the values of C outside the main regime. If C < 2( d − 1) /T , we use the same construction with ϵ0 = ( d − 1) /T . In this case, 
+
+L = T and K = 1, so that the comparator sequence is constant and has zero path length. The same one-block analysis gives 
+
+VT (UC ) ≥ (d − 1)(1 − e−1)2 log 2 = Ω( d).
+
+Moreover, since C < 2( d−1) /T , we have √dT C < p2d(d − 1) = O(d). Therefore, the above one-block lower bound already dominates the desired dynamic term. Combining this one-block estimate with (17), we obtain the required Ω( √dT C ) lower bound for every C ≤ T / (2( d − 1)). If C > T / (2( d − 1)), we apply the preceding construction with the smaller budget 
+
+C0 = T / (2( d−1)). Since UC0 ⊆ U C , the same lower bound continues to hold. Moreover, applying (17) with C0 gives 
+
+VT (UC ) ≥ V T (UC0 ) = Ω 
+
+p (d − 1) T C 0
+
+
+
+= Ω( T ).
+
+29 Universal Dynamic Portfolios 
+
+Combining these cases, we obtain 
+
+VT (UC ) ≥ Ω
+
+
+
+min 
+
+n
+
+T, √dT C 
+
+o 
+
+. (18) On the other hand, since any fixed comparator is also contained by UC , the standard lower bound for sequential probability assignment(Cesa-Bianchi and Lugosi, 2006, Chapter 9.1) shows that VT (UC ) = Ω( d log T ) for C = 0, which leads to the lower bound of VT (UC ) ≥ Ω
+
+
+
+max 
+
+n
+
+d log T, min 
+
+n
+
+T, √dT C 
+
+oo 
+
+, which completes the proof. 
+
+B.2. Proof of Lemma 2 Proof of Lemma 2 For any interval I = [ s, e ] ⊆ [T ], let wI = arg min w∈∆d
+
+P 
+
+> t∈I
+
+ℓt(w)be the optimal fixed prediction on interval I. Then, for any sequence {ut}t∈I , we have 
+
+X
+
+> t∈I
+
+ℓt(wI ) − X
+
+> t∈I
+
+ℓt(ut) = X
+
+> t∈I
+
+log 
+
+ u⊤ 
+
+> t
+
+xt
+
+w⊤I xt
+
+
+
+= log 
+
+ Q  
+
+> t∈I
+
+u⊤ 
+
+> t
+
+xt
+
+Q 
+
+> t∈I
+
+w⊤I xt
+
+
+
+. (19) Let zmax  
+
+> i
+
+= max t∈I {ut,i }, and define zmax = [ zmax 1 , . . . , z max  
+
+> d
+
+]⊤ together with its nor-malized version ¯ u = zmax /∥zmax ∥1. Since xt ∈ Rd
+
+> +
+
+, we can further upper bound (19) by log 
+
+ Q  
+
+> t∈I
+
+u⊤ 
+
+> t
+
+xt
+
+Q 
+
+> t∈I
+
+w⊤I xt
+
+
+
+≤ log 
+
+Q  
+
+> t∈I
+
+z⊤
+
+> max
+
+xt
+
+Q 
+
+> t∈I
+
+w⊤I xt
+
+
+
+= log 
+
+ Q  
+
+> t∈I
+
+¯u⊤xt
+
+Q 
+
+> t∈I
+
+w⊤I xt
+
+
+
++ |I| log ∥zmax ∥1
+
+≤ |I| log ∥zmax ∥1, (20) where the last inequality holds because wI minimizes the cumulative loss over the interval I. For each coordinate of zmax , we have zmax  
+
+> i
+
+≤ us,i + Pet=s+1 [ut,i − ut−1,i ]+,which implies 
+
+∥zmax ∥1 ≤
+
+> d
+
+X
+
+> i=1
+
+us,i +
+
+> e
+
+X
+
+> t=s+1
+> d
+
+X
+
+> i=1
+
+[ut,i − ut−1,i ]+
+
+= 1 + 12
+
+> e
+
+X
+
+> t=s+1
+
+∥ut − ut−1∥1 = 1 + 12PI , (21) where PI = Pet=s+1 ∥ut −ut−1∥1. The equality uses the simplex identity that Pdi=1 [vi]+
+
+equals 12 ∥v∥1 whenever Pdi=1 vi = 0, applied to v = ut − ut−1.
+
+30 Universal Dynamic Portfolios 
+
+Combining (19), (20), and (21) with condition (2), we obtain that for any interval 
+
+I ⊆ [T ], 
+
+X
+
+> t∈I
+
+ℓt(wt) − X
+
+> t∈I
+
+ℓt(ut) ≤ B(T ) + |I| log 
+
+
+
+1 + PI
+
+2
+
+
+
+≤ B(T ) + |I| PI
+
+2 . (22) We now construct a partition into consecutive maximal blocks. Set s1 = 1. Given the start sm, let em be the largest index e ∈ { sm, . . . , T } for which the product (e − sm + 1) P[sm,e ] is at most B(T ). Such an index always exists because P[sm,s m] = 0. If em < T , set sm+1 = em + 1 and continue; otherwise stop. This produces a partition 
+
+{I m = [ sm, e m]}Mm=1 of [ T ], and every block satisfies |I m|PIm ≤ B(T ). Therefore, (22) gives 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) = 
+
+> M
+
+X
+
+> m=1
+
+X
+
+> t∈I m
+
+ℓt(wt) − X
+
+> t∈I m
+
+ℓt(ut)
+
+!
+
+≤ 32M B (T ). (23) If M = 1, (23) already gives the required bound D-Reg T ({ut}Tt=1 ) ≤ 32 B(T ). Henceforth, assume M > 1. It remains to bound M . Write Lm = |I m|. For every nonfinal block, maximality implies that the product ( Lm +1) P[sm,e m+1] exceeds B(T ) for 
+
+m = 1 , . . . , M − 1. The increments in P[sm,e m+1] are indexed by t = sm + 1 , . . . , e m + 1. Those in the next extended block begin at t = sm+1 + 1 = em + 2, so the sets of increments are disjoint. Consequently, the sum PM −1 
+
+> m=1
+
+P[sm,e m+1] is at most PT .Moreover, since every Lm ≥ 1, PM −1 
+
+> m=1
+
+(Lm + 1) is at most 2 PM −1 
+
+> m=1
+
+Lm, which is at most 2 T . Taking square roots in the nonfinal-block inequality and summing gives the first line below. Cauchy–Schwarz and the two preceding sum bounds then yield (M − 1) pB(T ) < 
+
+> M−1
+
+X
+
+> m=1
+
+q
+
+(Lm + 1) P[sm,e m+1] 
+
+≤
+
+vuut M −1X
+
+> m=1
+
+(Lm + 1) 
+
+! M −1X
+
+> m=1
+
+P[sm,e m+1] 
+
+!
+
+≤ p2T P T .
+
+Thus M ≤ 1 + p2T P T /B (T ). Substitution into (23) shows that D-Reg T ({ut}Tt=1 ) is at most 32 B(T ) + 3√2
+
+pB(T )T P T , which is O
+
+
+
+B(T ) + pB(T )T P T
+
+
+
+, this completes the proof. 
+
+## Appendix C. Omitted Proofs for Section 3.2 
+
+This section presents the omitted proofs of Theorems 3 and 4. We first establish several auxiliary lemmas and then present the main proofs. 
+
+31 Universal Dynamic Portfolios 
+
+C.1. Useful Lemmas Lemma 8 For any distribution Qt with supp( Qt) ⊆ supp( Pt), it holds that 
+
+ℓt(wt) = Eu∼Qt [ℓt(u)] + KL( Qt ∥ Pt) − KL( Qt ∥ ˜Pt+1 ),
+
+where ˜Pt+1 (u) ∝ Pt(u) exp( −ℓt(u)) for all u ∈ supp( Pt).
+
+Proof of Lemma 8 This lemma holds by an exact identity for distributions defined over ∆ d. Let Zt = Ew∼Pt [exp( −ℓt(w))], we have KL ( Qt ∥ Pt) − KL 
+
+
+
+Qt ∥ ˜Pt+1 
+
+
+
+= Eu∼Qt
+
+"
+
+ln ˜Pt+1 (u)
+
+Pt(u)
+
+!# 
+
+= Eu∼Qt
+
+
+
+ln 
+
+exp( −ℓt(u)) 
+
+Zt
+
+ 
+
+= − Eu∼Qt [ℓt(u)] − ln Zt
+
+= − Eu∼Qt [ℓt(u)] + ℓt(wt),
+
+where the second equality follows from ˜Pt+1 (u) = Pt(u) exp( −ℓt(u)) /Z t.
+
+Lemma 16 Let Pt be the distribution updated by Algorithm 1 with μt = 1 /t . Then, 
+
+ln Pt(u) ≤ (d − 1) ln( T + 1) + d(ln d + 1) for all t ∈ [T ] and u ∈ ∆d.
+
+Proof of Lemma 16 According to the EW and fixed-share update steps in Algo-rithm 1, for any w ∈ ∆d, we have 
+
+Pt+1 (w) = (1 − μt+1 ) ˜Pt+1 (w) + μt+1 P1(w) = (1 − μt+1 )e−ℓt(w)
+
+Eu∼Pt [e−ℓt(u)] Pt(w) + μt+1 P1(w).
+
+Unrolling this recursion shows that Pt+1 is a convex combination of posterior distribu-tions initialized at the different restart times. Specifically, define 
+
+Pt+1 ,i (w) = 1
+
+Wt+1 ,i 
+
+P1(w)e− Pts=i ℓs(w) for all i ≤ t + 1 , (24) where Wt+1 ,i = Eu∼P1 [e− Pts=i ℓs(u)] is the normalization factor and the empty sum is zero when i = t + 1. An induction on t gives nonnegative weights αt+1 ,1, . . . , α t+1 ,t +1 
+
+that sum to one and satisfy 
+
+Pt+1 (w) = 
+
+> t+1
+
+X
+
+> i=1
+
+αt+1 ,i Pt+1 ,i (w) ≤ max  
+
+> i∈[t+1]
+
+Pt+1 ,i (w). (25) For i = t + 1, we have Pt+1 ,t +1 (w) = P1(w) for all w ∈ ∆d and ln Pt+1 ,t +1 (w) = ln Γ( d) since P1 is a uniform distribution on ∆ d. Then, to prove the lemma it is 
+
+32 Universal Dynamic Portfolios 
+
+sufficient to upper bound ln Pt+1 ,i (w) for all i ∈ [t] and w ∈ ∆d. According to the definition (24), the distribution Pt+1 ,i (w) ∝ Pt,i (w) · exp( −ℓt(w)) for all i ≤ t. Then, we have ln Pt+1 ,i (w) = ln Pt,i (w) − ln( Eu∼Pt,i [e−ℓt(u)]) − ℓt(w)= ln P1(w) −
+
+> t
+
+X
+
+> s=i
+
+ln( Eu∼Ps,i [e−ℓs(u)]) −
+
+> t
+
+X
+
+> s=i
+
+ℓs(w)= ln P1(w) + 
+
+> t
+
+X
+
+> s=i
+
+Eu∼Q[ℓs(u)] −
+
+> t
+
+X
+
+> s=i
+
+ℓs(w)+ KL ( Q ∥ P1) − KL ( Q ∥ Pt+1 ,i ) . (26) for any distribution Q over ∆ d whose support is contained in that of P1. The second equality is due to the recursive definition of Pt,i . Let 
+
+wt+1 ,i  
+
+> ∗
+
+= arg max 
+
+> w∈∆d
+
+ln Pt+1 ,i (w), Qt+1 ,i  
+
+> ∗
+
+= Dir( 1 + T wt+1 ,i  
+
+> ∗
+
+).
+
+Then, the same arguments used to upper bound term (a) in the proof of Theorem 3 yield tX
+
+> s=i
+
+Eu∼Qt+1 ,i  
+
+> ∗
+
+[ℓs(u)] −
+
+> t
+
+X
+
+> s=i
+
+ℓs(wt+1 ,i  
+
+> ∗
+
+) ≤ T ln 
+
+
+
+1 + dT
+
+
+
+≤ d. 
+
+Besides, based on Lemma 15, we have KL( Qt+1 ,i  
+
+> ∗
+
+∥ P1) ≤ (d − 1) ln(1 + T ). Plugging the above inequalities into (26) with the fact that ln P1(w) = ln Γ( d) yields ln Pt+1 ,i (w) ≤ ln Γ( d) + d + ( d − 1) ln(1 + T )
+
+≤ (d − 1) ln(1 + T ) + d(ln d + 1) for any w ∈ ∆d and i ∈ [t]. Finally, (25) gives 
+
+Pt+1 (w) ≤ max  
+
+> i∈[t+1]
+
+Pt+1 ,i (w),
+
+which completes the proof. 
+
+Lemma 17 Let γ > 0 and Qu = Dir( 1 + γu) for u ∈ ∆d. Then, for any u, v ∈ ∆d,
+
+Z
+
+> ∆d
+
+|Qu(w) − Qv(w)|dw ≤ min 
+
+n
+
+2, 2p2γ JS( u, v)
+
+o
+
+.
+
+Proof of Lemma 17 For u, v ∈ ∆d, let m = ( u + v)/2. We have 
+
+∥Qu − Qv∥1 ≤ p2KL( Qm∥Qu) + p2KL( Qm∥Qv)= p2BF (γu∥γm) + p2BF (γv∥γm), (27) 
+
+33 Universal Dynamic Portfolios 
+
+where the first line follows from the triangle and Pinsker inequalities, and the second follows from van der Hoeven et al. (2018, Lemma 10) since Dirichlet distributions form an exponential family. Here BF (a∥b) = F (a) − F (b) − ⟨∇ F (b), a − b⟩ is the Bregman divergence induced by the Dirichlet log-partition function 
+
+F (z) = 
+
+> d
+
+X
+
+> i=1
+
+ln Γ(1 + zi) − ln Γ d +
+
+> d
+
+X
+
+> i=1
+
+zi
+
+!
+
+.
+
+We next bound BF by the KL divergence. Let ψ denote the digamma function. Since the trigamma function satisfies ψ′(1 + x) ≤ 1/x for x > 0, the function 
+
+h(x) = x ln x − ln Γ(1 + x) is convex on (0 , ∞). The first-order convexity inequality 
+
+h(a) ≥ h(b) + h′(b)( a − b) indicates that ln Γ(1 + a)Γ(1 + b) − (a − b)ψ(1 + b) ≤ a ln ab − a + b (28) for any a, b > 0. With the convention 0 ln 0 = 0, both sides are continuous in a
+
+at zero, so the inequality also holds for a = 0. Since mi = 0 implies ui = vi = 0, such coordinates contribute zero to BF (γu∥γm). We therefore only need to consider coordinates with mi > 0. Applying (28) coordinatewise, we obtain 
+
+BF (γu∥γm) = X
+
+> i:mi>0
+
+
+
+ln Γ(1 + γu i)Γ(1 + γm i) − γ(ui − mi)ψ(1 + γm i)
+
+
+
+≤ γ X
+
+> i:mi>0
+
+
+
+ui ln ui
+
+mi
+
+− ui + mi
+
+
+
+= γKL( u∥m),
+
+where the first and last equalities use Pdi=1 ui = Pdi=1 mi = 1. The same argument applies to v.Substituting the above displayed inequality into (27) and applying the Cauchy-Schwarz inequality yields 
+
+∥Qu − Qv∥1 ≤ p2γKL( u∥m) + p2γKL( v∥m)
+
+≤ 2
+
+q
+
+γ KL( u∥m) + KL( v∥m)
+
+= 2 p2γ JS( u, v).
+
+Finally, we complete the proof by noting that ∥Qu − Qv∥1 ≤ 2 for any u, v ∈ ∆d.
+
+> 34
+
+Universal Dynamic Portfolios 
+
+C.2. Proof of Theorem 3 Proof of Theorem 3 Let P1 = Dir( 1). According to the definition of the loss function ℓt(w) = − ln( w⊤xt) and the prediction wt = Ew∼Pt [w], we have 
+
+ℓt(wt) = − ln ( Ew∼Pt [exp( −ℓt(w))]) = Ew∼Qt [ℓt(w)] + KL ( Qt ∥ Pt) − KL 
+
+
+
+Qt ∥ ˜Pt+1 
+
+
+
+= Ew∼Qt [ℓt(w)] + KL ( Qt ∥ Pt) − KL ( Qt ∥ Pt+1 ) + Ew∼Qt
+
+"
+
+ln ˜Pt+1 (w)
+
+Pt+1 (w)
+
+#
+
+≤ Ew∼Qt [ℓt(w)] + KL ( Qt ∥ Pt) − KL ( Qt ∥ Pt+1 ) + ln 11 − μt+1 
+
+where ˜Pt+1 (w) ∝ Pt(w) exp( −ℓt(w)) for all w ∈ ∆d. In the above, the last inequality holds since Pt+1 (w) = (1 −μt+1 ) ˜Pt+1 (w)+ μt+1 P1(w) for all w ∈ ∆d and t ≥ 1. We can further upper bound the term ln(1 /(1 − μt+1 )) ≤ 1/t by the setting μt+1 = 1 /(1 + t). Taking the sum from t = 1 to T rounds and rearranging the terms yields 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) ≤
+
+> T
+
+X
+
+> t=1
+
+Ew∼Qt [ℓt(w)] 
+
+| {z }
+
+> term (a)
+
++
+
+> T
+
+X
+
+> t=2
+
+(KL ( Qt ∥ Pt) − KL ( Qt−1 ∥ Pt)) 
+
+| {z }
+
+> term (b)
+
++ KL ( Q1 ∥ P1)
+
+| {z }
+
+> term (c)
+
++(1 + ln T ).
+
+The next step is to choose Qt to make the bound tight. Here, we use the Dirichlet distribution Qt = Dir( 1 + γut), where γ > 0 is a parameter to be tuned later and ut
+
+is the time-varying comparator sequence. Next, we bound the three terms separately. 
+
+Bounding term (a). For each round t ∈ [T ], the return vector xt has at least one nonzero entry. For simplicity, we assume that the first ¯dt entries of xt are nonzero. Besides, for each dimension i ∈ [d], let {Zt,i }di=1 be independent random variables with Zt,i ∼ Gamma(1 + γu t,i , 1), and define Zt, 0 = Pdi=1 Zt,i ∼ Gamma( d + γ, 1). It is known that the random vector ( Zt, 1/Z t, 0, . . . , Z t,d /Z t, 0) follows the Dirichlet 
+
+35 Universal Dynamic Portfolios 
+
+distribution Dir( 1 + γut). We have 
+
+term (a) =
+
+> T
+
+X
+
+> t=1
+
+EZt, 1,...,Z t,d 
+
+"
+
+− ln 
+
+> d
+
+X
+
+> i=1
+
+xt,i Zt,i 
+
+Zt, 0
+
+!# 
+
+=
+
+> T
+
+X
+
+> t=1
+
+EZt, 0 [ln( Zt, 0)] + 
+
+> T
+
+X
+
+> t=1
+
+EZt, 1,...,Z t,d 
+
+"
+
+− ln 
+
+> d
+
+X
+
+> i=1
+
+xt,i Zt,i 
+
+!# 
+
+=
+
+> T
+
+X
+
+> t=1
+
+ψ(d + γ) + 
+
+> T
+
+X
+
+> t=1
+
+EZt, 1,...,Z t,d 
+
+"
+
+− ln 
+
+> ¯dt
+
+X
+
+> i=1
+
+xt,i Zt,i 
+
+!# 
+
+≤
+
+> T
+
+X
+
+> t=1
+
+ψ(d + γ) + 
+
+> T
+
+X
+
+> t=1
+
+EZt, 1,...,Z t,d 
+
+"
+
+−
+
+> ¯dt
+
+X
+
+> i=1
+
+pt,i ln( xt,i Zt,i /p t,i )
+
+#
+
+=
+
+> T
+
+X
+
+> t=1
+
+ψ(d + γ) −
+
+> T
+
+X
+
+> t=1
+> ¯dt
+
+X
+
+> i=1
+
+pt,i 
+
+  ln xt,i + ψ(1 + γu t,i ) −
+
+> ¯dt
+
+X
+
+> i=1
+
+pt,i ln( pt,i )
+
+!
+
+.
+
+(29) In the third line, we use the identity E[ln( Zt, 0)] = ψ(d + γ) for Zt, 0 ∼ Gamma( d + γ, 1), and note that Pdi=1 xt,i Zt,i = P ¯dt 
+
+> i=1
+
+xt,i Zt,i since the remaining entries are zero. For the fourth line, since xt,i Zt,i > 0 for all i ∈ [ ¯dt] and t ∈ [T ], we apply the inequality ln 
+
+P ¯dt 
+
+> i=1
+
+ai
+
+
+
+≥ P ¯dt 
+
+> i=1
+
+pi ln 
+
+ai
+
+> pi
+
+
+
+, which holds for all ai > 0 and any probability vector 
+
+p = ( p1, . . . , p ¯dt ) ∈ ri(∆ ¯dt ), where ri(∆ ¯dt ) denotes the relative interior of the simplex ∆ ¯dt .Then, we can tune the probability vector pt to make the bound (29) tight. The goal is to solve the optimization problem 
+
+V ∗ 
+
+> t
+
+= max   
+
+> pt∈ri(∆ ¯dt)¯dt
+
+X
+
+> i=1
+
+pt,i 
+
+  ln xt,i + ψ(1 + γu t,i ) −
+
+> ¯dt
+
+X
+
+> i=1
+
+pt,i ln( pt,i ),
+
+36 Universal Dynamic Portfolios 
+
+which has the closed-form solution by V ∗ 
+
+> t
+
+= ln 
+
+P ¯dt 
+
+> i=1
+
+xt,i exp( ψ(1 + γu t,i )) 
+
+
+
+achieved at p∗ 
+
+> t,i
+
+∝ xt,i exp( ψ(1 + γu t,i )). Plugging the optimal solution back to (29) yields 
+
+term (a) ≤
+
+> T
+
+X
+
+> t=1
+
+ψ(d + γ) −
+
+> T
+
+X
+
+> t=1
+
+ln 
+
+> ¯dt
+
+X
+
+> i=1
+
+xt,i exp( ψ(1 + γu t,i )) 
+
+!
+
+≤
+
+> T
+
+X
+
+> t=1
+
+ψ(d + γ) −
+
+> T
+
+X
+
+> t=1
+
+ln γ
+
+> ¯dt
+
+X
+
+> i=1
+
+xt,i ut,i 
+
+!
+
+=
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) + T (ψ(d + γ) − ln γ)
+
+≤
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) + T ln 
+
+
+
+1 + dγ
+
+
+
+where the second line holds since ψ(1 + x) ≥ ln x for all x > 0. The second inequality also holds for the case ut,i = 0 since exp( ψ(1)) > 0. The third line follows from the fact that only the first ¯dt entries of xt are nonzero. The last inequality holds since 
+
+ψ(x) ≤ ln( x) for all x > 0. 
+
+Bounding term (b): As for term (b), we have 
+
+term (b) =
+
+> T
+
+X
+
+> t=2
+
+(KL ( Qt ∥ Pt) − KL ( Qt−1 ∥ Pt)) =
+
+> T
+
+X
+
+> t=2
+
+Ew∼Qt
+
+
+
+ln Qt(w)
+
+Pt(w)
+
+
+
+− Ew∼Qt−1
+
+
+
+ln Qt−1(w)
+
+Pt(w)
+
+
+
+=
+
+> T
+
+X
+
+> t=2
+
+(H(Qt−1) − H(Qt)) + 
+
+> T
+
+X
+
+> t=2
+
+Ew∼Qt−1 [ln Pt(w)] − Ew∼Qt [ln Pt(w)] =
+
+> T
+
+X
+
+> t=2
+
+Z
+
+> w∈∆d
+
+(Qt−1(w) − Qt(w)) ln Pt(w)d w
+
+| {z }
+
+> term (b-1)
+
++ H(Q1) − H(QT )
+
+| {z }
+
+> term (b-2)
+
+We then proceed to bound term (b-1) and term (b-2) separately. For notational simplicity, we denote by CT,d = ( d − 1) ln( T + 1) + d(ln d + 1). We can upper bound term (b-1) by 
+
+term (b-1) ≤
+
+> T
+
+X
+
+> t=2
+
+Z
+
+> w∈∆d
+
+|Qt−1(w) − Qt(w)| · | ln Pt(w)|dw
+
+≤ CT,d TX
+
+> t=2
+
+Z
+
+> ∆d
+
+|Qt−1(w) − Qt(w)|dw, (30) 
+
+37 Universal Dynamic Portfolios 
+
+The last inequality holds because |ln Pt(w)| ≤ CT,d for all t ∈ [T ] and w ∈ ∆d. Indeed, the upper bound ln Pt(w) ≤ CT,d follows from Lemma 16. For the lower bound, the fixed-share update (5) and P1(w) = Γ( d) give Pt(w) ≥ μtP1(w) = Γ( d)/t ≥ 1/T , so ln Pt(w) ≥ − ln T ≥ − CT,d .Then, we can further bound the total variation between Qt and Qt−1 by 
+
+> T
+
+X
+
+> t=2
+
+Z
+
+> ∆d
+
+|Qt−1(w) − Qt(w)|dw ≤ 2p2γ
+
+> T
+
+X
+
+> t=2
+
+JS( ut, ut−1) = 2 p2γ P JS  
+
+> T
+
+, (31) where the inequality holds by Lemma 17, and the equality follows from the definition of P JS  
+
+> T
+
+. Combining (30) and (31), we arrive at 
+
+term (b-1) ≤ 2√2CT,d 
+
+√γ P JS  
+
+> T
+
+.
+
+As for term (b-2), we have 
+
+term (b-2) = H(Q1) − H(QT ) = KL ( QT ∥ P1) − KL ( Q1 ∥ P1)since P1 = Dir( 1) is a uniform distribution over the simplex. Finally, we arrive at 
+
+term (b) ≤ 2√2CT,d 
+
+√γ P JS  
+
+> T
+
++ KL ( QT ∥ P1) − KL ( Q1 ∥ P1) .
+
+Combining All . Combining the bounds on terms (a) and (b), we get 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) ≤
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) + T ln 
+
+
+
+1 + dγ
+
+
+
++ 2 √2CT,d 
+
+√γ P JS 
+
+> T
+
++ KL ( QT ∥ P1) + (1 + ln T ). (32) We can further upper bound the KL divergence term by KL ( QT ∥ P1) ≤ KL (Dir( 1 + γei) ∥ P1)= ln Γ( d + γ)Γ( d)Γ(1 + γ) + γ(ψ(1 + γ) − ψ(d + γ)) 
+
+≤ (d − 1) ln(1 + γ).
+
+where ei is a one-hot vector with 1 at the i-th position and 0 elsewhere. The first inequality is due to Lemma 15. For the last inequality, we use the identities Γ( d + γ)/Γ(1 + γ) = Qd−1 
+
+> i=1
+
+(γ + i) and Γ( d) = Qd−1 
+
+> i=1
+
+i, together with ψ(1 + γ) − ψ(d +
+
+γ) ≤ 0. Then, the regret bound (32) becomes 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut)
+
+≤ T ln 
+
+
+
+1 + dγ
+
+
+
++ 2 √2CT,d 
+
+√γ P JS  
+
+> T
+
++ ( d − 1) ln(1 + γ) + (1 + ln T ),
+
+38 Universal Dynamic Portfolios 
+
+where CT,d = ( d − 1) ln( T + 1) + d(ln d + 1) = O d ln( T d ). Since γ appears only in the analysis, we can choose it to optimize the regret bound. We consider the following two cases, depending on the value of P JS  
+
+> T
+
+:
+
+• Case 1  P JS  
+
+> T
+
+≤ 1/T . We set γ = T , which yields an O(d ln( dT )) regret bound. 
+
+• Case 2  P JS  
+
+> T
+
+> 1/T . We choose γ = T 23
+
+ P JS 
+
+> T
+
+− 23 (ln( dT )) − 23 . Substituting this choice of γ into the bound gives 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) = O
+
+
+
+d
+
+
+
+T 13
+
+ P JS 
+
+> T
+
+23 (ln( dT )) 23 + ln( dT )
+
+ 
+
+.
+
+We have completed the proof by combining the two cases. 
+
+C.3. Proof of Theorem 4 Proof of Theorem 4 The proof follows the same overall argument as in the proof of Theorem 1. The main difference lies in the hard example construction. The lower bound in Theorem 1 relies on a hard instance with comparator sequences near the boundary of the simplex. Here, we instead construct a hard instance showing that the T 1/3(P JS  
+
+> T
+
+)2/3 dependence is optimal up to logarithmic factors even for uniformly interior comparator sequences. Our goal remains to establish a lower bound on the minimax regret. 
+
+WT (UJS  
+
+> C
+
+) = inf 
+
+> f1: T
+
+sup  
+
+> x1,..., xT∈Rd
+> +
+
+sup  
+
+> u1: T∈U JS
+> C
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut)
+
+!
+
+,
+
+where f1: T denotes the sequence of online prediction rules and wt = ft(x1: t−1) is the algorithm’s prediction based only on past observations. Here, 
+
+UJS  
+
+> C
+
+=
+
+(
+
+u1: T ∈ ∆Td
+
+> T
+
+X
+
+> t=2
+
+JS ( ut, ut−1) ≤ C
+
+)
+
+is the set of all comparator sequences whose JS-path length is at most C. The same reduction as in the proof of Theorem 1 gives 
+
+WT (UJS  
+
+> C
+
+) ≥ V T (UJS  
+
+> C
+
+) := inf 
+
+> f1: T
+
+sup  
+
+> y1,...,y T∈Y
+
+sup  
+
+> u1: T∈U JS
+> C
+> T
+
+X
+
+> t=1
+
+ℓlog (wt, y t) −
+
+> T
+
+X
+
+> t=1
+
+ℓlog (ut, y t)
+
+!
+
+,
+
+where Y = [ d] is an alphabet of size d and ℓlog (w, y ) = − log[ w]y for any w ∈ ∆d.
+
+39 Universal Dynamic Portfolios 
+
+Hard Example Construction. We first restrict attention to the main regime 
+
+C ∈
+
+q 2( d−1)  
+
+> T
+
+, T
+
+> 4√2( d−1)
+
+
+
+, which is non-empty by the assumption T > 4( d − 1). As in the proof of Theorem 1, we partition the horizon into K = ⌊T /L ⌋ blocks, where the first K − 1 blocks have length 
+
+L =
+
+d − 1
+
+ϵ2
+
+
+
+with ϵ =
+
+(d − 1) C
+
+√2T
+
+13
+
+.
+
+Under the main regime, p(d − 1) /T ≤ ϵ ≤ 1/2, so L ≤ T . The final block has length 
+
+T − (K − 1) L ∈ [L, 2L − 1]. We denote the k-th block by Ik = [ sk, e k]. For each block k ∈ [K], let Ik = [ Ik, 1, . . . , I k,d −1] ∈ { 0, 1}d−1, where Ik,j ∼ Bern(1 /2) independently for every j ∈ [d − 1] and k ∈ [K]. For any t ∈ I k, we define a probability vector eut in the interior of ∆ d by [eut]j = 12( d − 1) + ϵd − 1
+
+
+
+Ik,j − 12
+
+
+
+for all j ∈ [d − 1] , t ∈ I k,
+
+[eut]d = 12 − ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+
+
+Ik,j − 12
+
+
+
+for all t ∈ I k.
+
+Indeed, since ϵ ≤ 1/2, we have [ eut]j ∈  14( d−1) , 34( d−1) 
+
+ for all j ∈ [d − 1] and [ eut]d ∈
+
+[1 /4, 3/4]. We then generate Yt ∼ Cat( eut) independently conditional on I1: K .We next show that the comparator sequence eu1: T has JS-path length at most 
+
+C. Since eut is constant within each block, it can change only at the K − 1 block boundaries. It therefore suffices to bound the JS distance between eusk −1 and eusk , the comparator vectors on blocks k − 1 and k, respectively. For any k ∈ { 2, . . . , K }, we have JS( eusk , eusk −1)2 = 12
+
+> d
+
+X
+
+> i=1
+
+"
+
+[eusk ]i ln 2[ eusk ]i
+
+[eusk ]i + [ eusk −1]i
+
++ [ eusk −1]i ln 2[ eusk −1]i
+
+[eusk ]i + [ eusk −1]i
+
+#
+
+≤ 12
+
+> d
+
+X
+
+> i=1
+
+ [eusk ]i − [eusk −1]i
+
+2
+
+[eusk ]i + [ eusk −1]i
+
+, (33) where the inequality uses ln x ≤ x − 1. We bound the contributions of the first d − 1coordinates and the last coordinate separately. For each j ∈ [d − 1], the coordinate [eut]j takes one of the two values (1 − ϵ)/(2( d − 1)) and (1 + ϵ)/(2( d − 1)). Hence, 
+
+> d−1
+
+X
+
+> j=1
+
+([ eusk ]j − [eusk −1]j )2
+
+[eusk ]j + [ eusk −1]j
+
+≤ 2ϵ2
+
+d − 1
+
+> d−1
+
+X
+
+> j=1
+
+|Ik,j − Ik−1,j | ≤ 2ϵ2, (34) where the first inequality uses [ eusk ]j + [ eusk −1]j ≥ 1/(2( d − 1)) and [ eusk ]j − [eusk −1]j =
+
+ϵ(Ik,j − Ik−1,j )/(d − 1). 
+
+40 Universal Dynamic Portfolios 
+
+For the last coordinate, we have ([ eusk ]d − [eusk −1]d)2
+
+[eusk ]d + [ eusk −1]d
+
+≤ 2 ([ eusk ]d − [eusk −1]d)2 ≤ 2ϵ2. (35) The first inequality uses [ eusk ]d, [eusk −1]d ≥ 1/4. The last inequality follows from the definition of eut, which gives 
+
+|[eusk ]d − [eusk −1]d| = ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+(Ik,j − Ik−1,j ) ≤ ϵd − 1
+
+> d−1
+
+X
+
+> j=1
+
+|Ik,j − Ik−1,j | ≤ ϵ. 
+
+Combining (34) and (35) with (33), we obtain 
+
+P JS  
+
+> T
+
+=
+
+> K
+
+X
+
+> k=2
+
+JS  eusk , eusk −1
+
+ ≤ (K − 1) √2ϵ ≤√2T ϵ 3
+
+d − 1 = C. (36) Here, the second inequality uses K − 1 ≤ T /L and L ≥ (d − 1) /ϵ 2, and the last equality follows from the definition of ϵ. Thus, every realization of the comparator sequence eu1: T belongs to UJS  
+
+> C
+
+.
+
+Lower bounding the minimax regret. For each block k ∈ [K], let YIk := ( Yt)t∈I k
+
+denote the random label sequence on block k, and let yIk := ( yt)t∈I k ∈ Y |I k | denote one of its realizations. Conditional on the environment index Ik, the probability mass function of YIk is eqk(yIk | Ik) := Q 
+
+> t∈I k
+
+[eut]yt , and we use eqYIk |Ik to denote the corresponding conditional distribution. We further define its marginal probability mass function by ¯ qk(yIk ) := EIk [eqk(yIk | Ik)] and use ¯ qYIk to denote the corresponding marginal distribution. The same argument used to derive (15) in the proof of Theorem 1 then shows that 
+
+VT (UJS  
+
+> C
+
+) ≥
+
+> K
+
+X
+
+> k=1
+
+EIk
+
+h
+
+KL 
+
+eqYIk |Ik ∥¯qYIk
+
+i 
+
+. (37) We next lower bound the information contributed by each block. Recall that 
+
+Ik = ( Ik, 1, . . . , I k,d −1) is the binary environment index of block k, where Ik,j ∈ { 0, 1}
+
+determines whether the j-th coordinate of eusk is (1 − ϵ)/(2( d − 1)) or (1 + ϵ)/(2( d − 1)). For every j ∈ [d − 1], we define 
+
+Zk,j = 
+
+> sk+L−1
+
+X
+
+> t=sk
+
+1{Yt = j},
+
+which counts the number of occurrences of label j in the first L rounds of block k. We further define Zk = ( Zk, 1, . . . , Z k,d −1). Given a realization Ik,j = b ∈ { 0, 1}, label j is observed independently at each round with probability πb = 12( d−1) + ϵd−1 (b − 12 ). Hence, 
+
+41 Universal Dynamic Portfolios 
+
+conditional on Ik,j = b, the random variable Zk,j follows the binomial distribution 
+
+Pb = Bin( L, π b), whose probability mass function is 
+
+Pb(z) = Pr( Zk,j = z | Ik,j = b) = 
+
+Lz
+
+
+
+πzb (1 − πb)L−z , z ∈ { 0, . . . , L }.
+
+Since Zk is a deterministic function of YIk , the same argument used to derive (16) in the proof of Theorem 1 gives 
+
+EIk
+
+h
+
+KL 
+
+eqYIk |Ik ∥¯qYIk
+
+i 
+
+≥
+
+> d−1
+
+X
+
+> j=1
+
+I ( Ik,j ; Zk,j ) ≥ d − 12 TV( P0, P 1)2. (38) Here, I( X; Y ) denotes the mutual information between the random variables X and 
+
+Y , and TV( P, Q ) = 12
+
+P 
+
+> z
+
+|P (z) − Q(z)| denotes the total variation distance. The first inequality follows from the independence of the environment indices and the data-processing inequality, as in (16). The last inequality follows from Pinsker’s inequality since Ik,j ∼ Bern(1 /2) and the marginal distribution of Zk,j is the equally weighted mixture M = ( P0 + P1)/2 of its two conditional distributions. In particular, I( Ik,j ; Zk,j ) = 12KL( P0∥M ) + 12KL( P1∥M ) ≥ 12 TV( P0, P 1)2.
+
+We next lower bound the total variation distance between the two conditional distributions. Let ρ = √π0π1 + p(1 − π0)(1 − π1). We have TV( P0, P 1) = 1 −
+
+> L
+
+X
+
+> z=0
+
+min {P0(z), P 1(z)} ≥ 1 −
+
+> L
+
+X
+
+> z=0
+
+pP0(z)P1(z).
+
+The equality follows from |a−b| = a+b−2 min {a, b } and the fact that each probability mass function sums to one. The inequality uses min {a, b } ≤ √ab for a, b ≥ 0. Using the probability mass functions of the two binomial distributions, we obtain 
+
+> L
+
+X
+
+> z=0
+
+pP0(z)P1(z) = 
+
+> L
+
+X
+
+> z=0
+
+Lz
+
+ √π0π1
+
+z  p (1 − π0)(1 − π1)L−z
+
+=
+
+√π0π1 + p(1 − π0)(1 − π1)
+
+L
+
+= ρL.
+
+The second equality follows by expanding the L-th power of the sum. To bound ρ, we note that 1 − ρ = 12
+
+(√π1 − √π0)2 + ( √1 − π1 − √1 − π0)2
+
+≥ 12(π1 − π0)2
+
+(√π1 + √π0)2 ≥ ϵ2
+
+4( d − 1) , (39) 
+
+42 Universal Dynamic Portfolios 
+
+where the last inequality uses π1 − π0 = ϵ/ (d − 1) and ( √π1 + √π0)2 ≤ 2( π0 + π1) = 2/(d − 1). Substituting these bounds into the total variation inequality above gives TV( P0, P 1) ≥ 1 − ρL ≥ 1 − exp 
+
+
+
+− Lϵ 2
+
+4( d − 1) 
+
+
+
+≥ 1 − e−1/4, (40) where the second inequality uses 1 − x ≤ e−x with x = 1 − ρ, and the last inequality follows from Lϵ 2/(d − 1) ≥ 1. Substituting (40) into (38), we obtain 
+
+EIk
+
+h
+
+KL 
+
+eqYIk |Ik ∥¯qYIk
+
+i 
+
+≥ d − 12
+
+ 1 − e−1/42 . (41) Combining (37) and (41) yields 
+
+VT (UJS  
+
+> C
+
+) ≥ d − 12 (1 − e−1/4)2K ≥ (1 − e−1/4)2
+
+8 T ϵ 2 = Ω 
+
+
+
+(d − 1) 23 T 13 C 23
+
+
+
+. (42) Here, the second inequality uses K = ⌊T /L ⌋ ≥ T / (2 L) ≥ T ϵ 2/(4( d − 1)), since 
+
+T /L ≥ 1 and L = ⌈(d − 1) /ϵ 2⌉ ≤ 2( d − 1) /ϵ 2 in the main regime. The last equality follows from the definition ϵ = (( d − 1) C/ (√2T )) 1/3.
+
+Handling Corner Cases. We next consider the two regimes outside the main regime. First, suppose that C < p2( d − 1) /T . We use the same construction with 
+
+ϵ = ϵ0 := p(d − 1) /T . In this case, L = T and K = 1, so the comparator sequence is constant and has zero JS-path length. Applying the one-block estimate in (41) gives 
+
+VT (UJS  
+
+> C
+
+) ≥ d − 12
+
+ 1 − e−1/42 = Ω( d).
+
+Moreover, the condition on C implies ( d − 1) 23 T 13 C 23 < 213 (d − 1) = O(d). Thus, the one-block lower bound already dominates the desired dynamic term in this regime. Next, suppose that C > T / (4 √2( d − 1)). We apply the construction from the main regime with the smaller path length budget C0 = T / (4 √2( d − 1)) . Since UJS  
+
+> C0
+
+⊆ U JS  
+
+> C
+
+,the monotonicity of the comparator classes and (42) give 
+
+VT (UJS  
+
+> C
+
+) ≥ V T (UJS  
+
+> C0
+
+) = Ω 
+
+
+
+(d − 1) 23 T 13 C 23
+
+> 0
+
+
+
+= Ω( T ).
+
+Combining the main regime with the two boundary regimes, we conclude that 
+
+VT (UJS  
+
+> C
+
+) ≥ Ω
+
+
+
+min 
+
+n
+
+T, d 23 T 13 C 23
+
+o 
+
+. (43) Combining this bound with the classical static lower bound Ω( d log(1 + T /d )) for 
+
+C = 0 completes the proof. 
+
+43 Universal Dynamic Portfolios 
+
+C.4. Proof of Corollary 5 Proof of Corollary 5 Fix any comparator sequence u1, . . . , uT ∈ ∆d and let β ∈ (0 , 1) be a certain parameter for mixing the comparator. We define the interior counterpart of ut by ˜ ut = (1 − β)ut + βd 1 for all t ∈ [T ]. Clearly, we have min i∈[d] ˜ut,i ≥ β/d .Besides, the gap between ˜ ut and ut can be bounded by 
+
+> T
+
+X
+
+> t=1
+
+ℓt(˜ ut) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) = 
+
+> T
+
+X
+
+> t=1
+
+ln u⊤ 
+
+> t
+
+xt
+
+(1 − β)u⊤ 
+
+> t
+
+xt + βd 1⊤xt
+
+!
+
+≤ T ln 
+
+ 11 − β
+
+
+
+. (44) We first relate the JS-path length of the smoothed sequence directly to the L1-path length of the original sequence. For any p, q ∈ ∆d with pi, q i ≥ β/d , let m = ( p + q)/2. Applying ln x ≤ x − 1 coordinate-wise gives JS( p, q)2 = 12
+
+> d
+
+X
+
+> i=1
+
+
+
+pi ln pi
+
+mi
+
++ qi ln qi
+
+mi
+
+
+
+≤ 12
+
+> d
+
+X
+
+> i=1
+
+
+
+pi
+
+ pi
+
+mi
+
+− 1
+
+
+
++ qi
+
+ qi
+
+mi
+
+− 1
+
+ 
+
+= 12
+
+> d
+
+X
+
+> i=1
+
+(pi − qi)2
+
+pi + qi
+
+≤ d
+
+4β ∥p − q∥22.
+
+Since ˜ ut − ˜ut−1 = (1 − β)( ut − ut−1), it follows that 
+
+P JS  
+
+> T
+
+(˜ u1: T ) ≤ 1 − β
+
+2
+
+s
+
+dβ
+
+> T
+
+X
+
+> t=2
+
+∥ut − ut−1∥2 ≤ 1 − β
+
+2
+
+s
+
+dβ PT . (45) Then, we can upper bound the dynamic regret with respect to any comparator 
+
+ut ∈ ∆d by D-Reg T ({ut}Tt=1 ) = 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(˜ ut) + 
+
+> T
+
+X
+
+> t=1
+
+ℓt(˜ ut) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut)
+
+≤
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(˜ ut) + T ln 
+
+ 11 − β
+
+
+
+≤ O 
+
+
+
+d43 Bβ − 13 (1 − β)23 T 13 P 23 
+
+> T
+
++ d ln( dT ) + T ln 
+
+ 11 − β
+
+ 
+
+,
+
+where the first inequality follows from (44), and the last inequality follows from (45) and the regret guarantee assumption in Corollary 5. We now choose β to make the bound tight: 
+
+• Case 1 ( PT = 0 ). We choose β = 1 /T , which yields D-Reg T ({ut}Tt=1 ) ≤ O (d ln( dT )) .
+
+44 Universal Dynamic Portfolios 
+
+• Case 2 ( PT > 0). To balance the dynamic regret of ˜ u1: T and smoothing terms, write a = β/ (1 − β) > 0. Using (1 + a)−1/3 ≤ 1 and ln(1 + a) ≤ a, we obtain D-Reg T ({ut}Tt=1 ) ≤ O 
+
+
+
+d43 BT 13 P 23 
+
+> T
+
+a− 13 + T a + d ln( dT )
+
+
+
+.
+
+Balancing the first two terms gives a = dB 3/4pPT /T . With this choice, both terms equal dB 3/4√T P T , yielding D-Reg T ({ut}Tt=1 ) ≤ O 
+
+
+
+dB 34
+
+pT P T + d ln( dT )
+
+
+
+.
+
+Combining the two cases proves the claim. 
+
+C.5. Proof of Proposition 6 Proof of Proposition 6 Fix an interval I = [ r, s ] and a comparator u ∈ ∆d. If 
+
+ℓt(u) = + ∞ for some t ∈ I , the interval-regret claim is immediate, so suppose that its loss is finite throughout I. Following the same steps as in the proof of Theorem 3, for any distribution Qt over ∆ d, we have 
+
+ℓt(wt) ≤ Ew∼Qt [ℓt(w)] + KL( Qt∥Pt) − KL( Qt∥Pt+1 ) + ln 11 − μt+1 
+
+.
+
+For each round t ∈ I = [ r, s ], we take the fixed distribution Qt = QI = Dir( 1 + γu). Summing the above inequality over I with μt = 1 /t yields 
+
+X
+
+> t∈I
+
+ℓt(wt) ≤ X
+
+> t∈I
+
+Ew∼QI [ℓt(w)] 
+
+| {z }
+
+> term (a)
+
++ KL( QI ∥Pr)
+
+| {z }
+
+> term (b)
+
+−KL( QI ∥Ps+1 ) + X
+
+> t∈I
+
+ln 
+
+
+
+1 + 1
+
+t
+
+
+
+.
+
+For term (a), the same argument as in the proof of Theorem 3 gives 
+
+term (a) ≤ X
+
+> t∈I
+
+ℓt(u) + |I| ln 
+
+
+
+1 + dγ
+
+
+
+.
+
+For term (b), the fixed-share update gives Pr(w) ≥ μrP1(w), and hence 
+
+term (b) = KL( QI ∥P1) + Ew∼QI
+
+
+
+ln P1(w)
+
+Pr(w)
+
+
+
+≤ KL( QI ∥P1) + ln 1
+
+μr
+
+≤ (d − 1) ln(1 + γ) + ln T, 
+
+45 Universal Dynamic Portfolios 
+
+where the last inequality follows from Lemma 15 and the calculation in the proof of Theorem 3. Taking γ = T , dropping the nonpositive KL term, and using 
+
+|I| ln 
+
+
+
+1 + dT
+
+
+
+≤ d and 
+
+> s
+
+X
+
+> t=r
+
+ln 
+
+
+
+1 + 1
+
+t
+
+
+
+= ln s + 1 
+
+r ≤ ln( T + 1) complete the proof for the interval regret. For the switching guarantee, partition [ T ] into the ST + 1 maximal intervals on which the comparator is constant. Applying the interval-regret bound on each interval and summing gives D-Reg T ({ut}Tt=1 ) ≤ O  d(ST + 1) ln( dT ),
+
+which completes the proof. 
+
+## Appendix D. Omitted Proofs for Section 3.3 
+
+D.1. Proof of Theorem 7 Proof of Theorem 7 Fix any q ∈ [0 , 1] and any comparator sequence u1, . . . , uT ∈ ∆d.We use the same mixability-based decomposition as in the proof of Theorem 3, with the virtual comparator distribution Qt = Dir( 1 + γut). The bounds on the expected-loss, endpoint, and fixed-share terms remain unchanged. The only modification concerns the total variation between Qt and Qt−1 in term (b-1) . For every t ≥ 2, Lemma 17 gives Z
+
+> ∆d
+
+|Qt(w) − Qt−1(w)| dw ≤ min 
+
+n
+
+2, 2p2γ JS( ut, ut−1)
+
+o
+
+. (46) Therefore, under the endpoint convention above, for every q ∈ [0 , 1], 
+
+Z
+
+> ∆d
+
+|Qt(w) − Qt−1(w)| dw ≤ min {2, 2p2γ JS( ut, ut−1)}≤ 2(2 γ)q/ 2 JS( ut, ut−1)q.
+
+Summing over time and using 2 q/ 2 ≤ √2 yields 
+
+> T
+
+X
+
+> t=2
+
+Z
+
+> ∆d
+
+|Qt(w) − Qt−1(w)| dw ≤ 2√2γq/ 2P JS 
+
+> T,q
+
+. (47) Substituting (47) into (30) and retaining the other bounds from the proof of Theorem 3, we obtain D-Reg T ({ut}Tt=1 ) ≤ T ln 
+
+
+
+1 + dγ
+
+
+
++ 2 √2CT,d γq/ 2P JS 
+
+> T,q
+
++ ( d − 1) ln(1 + γ) + (1 + ln T ), (48) 
+
+46 Universal Dynamic Portfolios 
+
+where CT,d = ( d − 1) ln( T + 1) + d(ln d + 1) = O(d ln( dT )). If P JS  
+
+> T,q
+
+≤ T −q/ 2, choose 
+
+γ = T . Equation (48) then gives O(d ln( dT )). Otherwise, choose 
+
+γ = T 2
+
+> q+2
+
+ P JS 
+
+> T,q
+
+− 2 
+
+> q+2
+
+ ln( dT )− 2 
+
+> q+2
+
+.
+
+The condition of this case ensures γ ≤ T . Using ln(1 + x) ≤ x in (48), the first two terms are both bounded by 
+
+O
+
+
+
+dT qq+2 
+
+ P JS 
+
+> T,q
+
+ 2 
+
+> q+2
+
+ ln( dT ) 2
+
+> q+2
+
+
+
+,
+
+while the remaining terms are O(d ln( dT )). Combining the two cases proves the theorem. 
+
+D.2. Calculations for the Rising Concave Path 
+
+For the rising concave path, write pt = [ ut]1 = 3 /4 − 1/(4 t) and Jt = JS( ut, ut−1). For every t ≥ 2, let δt := pt − pt−1 = 1 /(4 t(t − 1)). Let mt = ( pt + pt−1)/2 and ¯ut = ( ut + ut−1)/2. The JS distance between the consecutive Bernoulli distributions satisfies 
+
+J2 
+
+> t
+
+= 12KL( ut∥¯ut) + 12KL( ut−1∥¯ut). (49) For either θ = pt or θ = pt−1, the inequality ln x ≤ x − 1 gives KL  Bern( θ)∥ Bern( mt) ≤ (θ − mt)2
+
+mt(1 − mt) = δ2
+
+> t
+
+4mt(1 − mt).
+
+Since mt ∈ [1 /2, 3/4], each of the two KL divergences is at most 4 δ2 
+
+> t
+
+/3. On the other hand, Pinsker’s inequality bounds each of them below by δ2 
+
+> t
+
+/2, since 
+
+∥ut − ¯ut∥1 = ∥ut−1 − ¯ut∥1 = δt.
+
+Therefore, 
+
+δt
+
+√2 ≤ Jt ≤ 2δt
+
+√3. (50) Consequently, Jt = Θ([ t(t − 1)] −1). Because every transition is nonzero, P JS  
+
+> T, 0
+
+= T − 1. For each fixed q ∈ (0 , 1], summing (50) gives 
+
+P JS  
+
+> T,q
+
+= Θ 
+
+> T
+
+X
+
+> t=2
+
+[t(t − 1)] −q
+
+!
+
+=
+
+
+
+Θ T 1−2q, 0 < q < 12 ,
+
+Θ(ln T ), q = 12 ,
+
+Θ(1) , 12 < q ≤ 1.
+
+(51) 
+
+47 Universal Dynamic Portfolios 
+
+Suppressing logarithmic factors, substitution into Theorem 7 gives a regret bound of order dT α(q), where 
+
+α(q) = 
+
+
+
+2 − 3qq + 2 , 0 ≤ q ≤ 12 ,qq + 2 , 12 ≤ q ≤ 1. (52) The first branch is strictly decreasing and the second is strictly increasing, so α(q) is uniquely minimized at q = 1 /2, where α(1 /2) = 1 /5. In comparison, α(0) = 1 and 
+
+α(1) = 1 /3, yielding the three rates stated in Section 3.3. 
+
+## Appendix E. Omitted Proofs for Section 4 
+
+Proof of Theorem 10 We begin with a similar mixability-based regret decomposition as Zhang et al. (2025). Let ˜ mt(Pt) = − 1 
+
+> η
+
+ln 
+
+
+
+Eu∼Pt [e−η ˜ℓt(u)]
+
+
+
+be the mix loss. The dynamic regret can be decomposed by 
+
+> T
+
+X
+
+> t=1
+
+ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+ℓt(ut) ≤
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(ut)=
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(wt) −
+
+> T
+
+X
+
+> t=1
+
+˜mt(Pt)
+
+| {z }
+
+> term (a)
+
++
+
+> T
+
+X
+
+> t=1
+
+˜mt(Pt) −
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [˜ℓt(u)] 
+
+| {z }
+
+> term (b)
+
++
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [˜ℓt(u)] −
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(ut)
+
+| {z }
+
+> term (c)
+
+,
+
+where the first line is due to Hazan (2016, Lemma 4.2) under the step size setting 
+
+η = 15 min  12G , κ . In the analysis we choose Qt = N (ut, σ 2Id), where σ > 0 is a parameter that can be virtually tuned to make the bound tight. One can handle terms (a) and (c) using arguments similar to those in Zhang et al. (2025). However, the most challenging part is the analysis of term (b), where the domain constraint is enforced via an intractable I-projection of the distribution Pt
+
+onto a set of infinite Gaussian mixtures. In our algorithm, instead of performing this intractable projection, we identify that it is sufficient to project each component of the mixture distribution Pt individually rather than projecting the mixture as a whole. The latter would require a more in-depth analysis that leverages the two-layer structure of Algorithm 2. This leads to an efficient method. In what follows, we first analyze terms (a) and (c) using arguments similar to those in (Zhang et al., 2025), and then turn to the most challenging term (b). 
+
+48 Universal Dynamic Portfolios 
+
+Bounding term (a). Since ˜ℓt(w) is a quadratic function and the initial distribution of each base base-leaner Bi is a Gaussian, according to van der Hoeven et al. (2018, Theorem 5) shows that the distribution Pt+1 ,i = N (wt+1 ,i , H −1
+
+> t+1 ,i
+
+) for any base-learner 
+
+Bi updated by (7) is also a Gaussian distribution. More precisely, the mean and covariance matrix can be updated by 
+
+
+
+Ht+1 ,i = Ht,i + 2 η2gtg⊤
+
+> t
+
+w′ 
+
+> t+1 ,i
+
+= wt,i − ηH −1
+
+> t+1 ,i
+
+(1 − 2ηg⊤ 
+
+> t
+
+(wt − wt,i )) gt
+
+wt+1 ,i = arg min u∈W ∥u − w′
+
+> t+1 ,i
+
+∥Ht+1 ,i 
+
+(53) The above essentially follows the update procedure of online Newton step (Hazan et al., 2007). The design matrix is also symmetric positive definite and Ht+1 ,i =
+
+Id + 2 η2 Pts=i gsg⊤ 
+
+> s
+
+≤ (1 + dt  
+
+> 2
+
+)Id ≤ dT I d for any Bi ∈ Ht and wt,i ∈ W due to the projection step. Our goal is to show term (a) ≤ 0. To show this, it is sufficient to have 
+
+Eu∼Pt
+
+ exp( −η ˜ℓt(u))  ≤ exp   − η ˜ℓt(wt) = 1 for each iteration. This can be achieved by the following arguments 
+
+Eu∼Pt
+
+h
+
+exp( −η ˜ℓt(u)) 
+
+i
+
+= X
+
+> Bi∈H t
+
+pt,i Eu∼Pt,i [exp( −η ˜ℓt(u))] = X
+
+> Bi∈H t
+
+pt,i Eu∼Pt,i 
+
+h
+
+exp 
+
+
+
+ηg⊤ 
+
+> t
+
+(wt − u) − η2∥u − wt∥2
+
+> gtg⊤
+> t
+
+i 
+
+≤ X
+
+> Bi∈H t
+
+pt,i exp 
+
+
+
+ηg⊤ 
+
+> t
+
+(wt − wt,i ) − η2∥wt − wt,i ∥2
+
+> gtg⊤
+> t
+
+
+
+≤ X
+
+> Bi∈H t
+
+pt,i 
+
+ 1 + ηg⊤ 
+
+> t
+
+(wt − wt,i ) = 1 ,
+
+where the first inequality is due to (van Erven and Koolen, 2016, Lemma 10) under the condition η ≤ 1/(10 G). The second inequality holds because ez−z2
+
+≤ 1 + z for any 
+
+z ≥ − 23 . Then, we can have term (a) ≤ 0. (54) 
+
+Bounding term (c). A direct calculation according to the definition of ˜ℓt shows that 
+
+term (c) =
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [˜ℓt(u)] −
+
+> T
+
+X
+
+> t=1
+
+˜ℓt(ut)= η
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [( g⊤ 
+
+> t
+
+(u − ut)) 2]= ησ 2
+
+> T
+
+X
+
+> t=1
+
+∥gt∥22 ≤ ηdG 2T σ 2, (55) where the last inequality is due to ∥gt∥2 ≤ √d∥gt∥∞ ≤ √dG .
+
+49 Universal Dynamic Portfolios 
+
+Bounding term (b). As for term (b), different from the previous work (Zhang et al., 2025), we decompose the mix loss by exploiting the two-layer structure. Denote by ˜mt(Pt,i ) = − 1
+
+η ln 
+
+
+
+EPt,i [exp( −η ˜ℓt(u))] 
+
+
+
+the mix loss for the individual distribution Pt,i . We can rewrite the mix loss for the aggregated distribution Pt as ˜mt(Pt) = − 1
+
+η ln X
+
+> Bi∈H t
+
+pt,i · Eu∼Pt,i [exp( −η ˜ℓt(u))] 
+
+!
+
+= − 1
+
+η ln X
+
+> Bi∈H t
+
+pt,i · exp( −η ˜mt(Pt,i )) 
+
+!
+
+= X
+
+> Bi∈H t
+
+qt,i · ˜mt(Pt,i ) + 1
+
+η (KL ( qt ∥ pt) − KL ( qt ∥ ˜pt+1 )) , (56) where pt ∈ ∆|H t| denotes the probability vector over the base-learner pool with the 
+
+i-th entry pt,i and ˜ pt+1 ,i ∝ pt,i · exp( −η ˜mt(Pt,i )) = pt,i · EPt,i [exp( −η ˜ℓt(u))] is the same as the one defined in Algorithm 2. The last line holds for any qt ∈ ∆|H t| that assigns weight to each elements in Ht and qt,i is the i-th entry of qt. Furthermore, we can also rewrite the mix loss for each base learner Bi as ˜mt(Pt,i ) = Eu∼Qt [˜ℓt(u)] + 1
+
+η
+
+ KL ( Qt ∥ Pt,i ) − KL  Qt ∥ P ′
+
+> t+1 ,i
+
+ 
+
+≤ Eu∼Qt [˜ℓt(u)] + 1
+
+η (KL ( Qt ∥ Pt,i ) − KL ( Qt ∥ Pt+1 ,i )) , (57) where P ′ 
+
+> t+1 ,i
+
+∝ Pt,i exp( −η ˜ℓt(u)) is the same as (7) and the last line is to the Pythagorean theorem for KL divergence since Pt+1 ,i = arg min P ′∈W KL  P ′ ∥ P ′
+
+> t+1 ,i
+
+
+
+and W is a convex set. Then, plugging (57) back into (56), we arrive ˜mt(Pt) ≤ Eu∼Qt [˜ℓt(u)] + 1
+
+η
+
+X
+
+> Bi∈H t
+
+qt,i KL ( Qt ∥ Pt,i ) + KL ( qt ∥ pt)
+
+!| {z }
+
+> term (b-1)
+
+− 1
+
+η
+
+X
+
+> Bi∈H t
+
+qt,i KL ( Qt ∥ Pt+1 ,i ) + KL ( qt ∥ ˜pt+1 )
+
+!| {z }
+
+> term (b-2)
+
+(58) holds for any qt ∈ ∆|H t| and Qt. Here, we specify qt as the minimizer of the optimization problem 
+
+qt = arg min 
+
+> q∈∆|H t|
+
+X
+
+> Bi∈H t
+
+qiKL ( Qt ∥ Pt,i ) + KL ( q ∥ pt) ,
+
+50 Universal Dynamic Portfolios 
+
+whose optimal value has the close form formulation as 
+
+Vt(Qt) = − ln X
+
+> Bi∈H t
+
+pt,i · exp( −KL ( Qt ∥ Pt,i )) 
+
+!
+
+≥ 0.
+
+The value Vt(Qt) is always greater than 0 since the objective function of the above optimization problem is non-negative. Then, we have 
+
+term (b-1) ≤ 1
+
+η Vt(Qt).
+
+As for term (b-2), we can similarly define ˜qt+1 = arg min 
+
+> q∈∆|H t|
+
+X
+
+> Bi∈H t
+
+qiKL ( Qt ∥ Pt+1 ,i ) + KL ( q ∥ ˜pt+1 ) .
+
+We also have ˜Vt+1 (Qt) = − ln 
+
+ P 
+
+> Bi∈H t
+
+˜pt+1 ,i · exp( −KL ( Qt ∥ Pt+1 ,i )) 
+
+
+
+as the optimal value of the above optimization problem. Clearly, we have 
+
+term (b-2) = − 1
+
+η
+
+X
+
+> Bi∈H t
+
+qt,i KL ( Qt ∥ Pt+1 ,i ) + KL ( qt ∥ ˜pt+1 )
+
+!
+
+≤ − 1
+
+η ˜Vt+1 (Qt),
+
+since qt,i is not the minimizer of the objective function in term (b-2). Plugging the upper bound of term (b-1) and term (b-2) into (58), we have ˜mt(Pt) ≤ Eu∼Qt [˜ℓt(u)] + 1
+
+η
+
+
+
+Vt(Qt) − ˜Vt+1 (Qt)
+
+
+
+. (59) Then, we related ˜Vt+1 (Qt) to Vt+1 (Qt) by 
+
+Vt+1 (Qt) = − ln 
+
+ X
+
+> Bi∈H t+1
+
+pt+1 ,i · exp( −KL ( Qt ∥ Pt+1 ,i )) 
+
+
+
+= − ln 
+
+
+
+(1 − μt+1 ) X
+
+> Bi∈H t
+
+˜pt+1 ,i · exp( −KL ( Qt ∥ Pt+1 ,i )) + μt+1 exp( −KL ( Qt ∥ N0)) 
+
+
+
+≤ − ln X
+
+> Bi∈H t
+
+˜pt+1 ,i · exp( −KL ( Qt ∥ Pt+1 ,i )) 
+
+!
+
++ ln 
+
+ 11 − μt+1 
+
+
+
+= ˜Vt+1 (Qt) + log 
+
+t + 1 
+
+t
+
+
+
+, (60) 
+
+51 Universal Dynamic Portfolios 
+
+where the second line is due to the fixed-share update (9) with N0 = N (u0, I d) and the last equality is due to the parameter setting μt+1 = 1 /(t + 1). Plugging (60) back into (59) and taking a summation over T rounds, we obtain 
+
+> T
+
+X
+
+> t=1
+
+˜mt(Pt) ≤
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [˜ℓt(u)] + 1
+
+η
+
+> T
+
+X
+
+> t=1
+
+(Vt(Qt) − Vt+1 (Qt)) + 
+
+> T
+
+X
+
+> t=1
+
+1
+
+η log 
+
+t + 1 
+
+t
+
+
+
+≤
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [˜ℓt(u)] + 1
+
+η
+
+> T
+
+X
+
+> t=2
+
+(Vt(Qt) − Vt(Qt−1)) + 1
+
+η V1(Q1) + log( T + 1) 
+
+η .
+
+(61) where the second inequality holds because Vt(Q) is always non-negative for any Q.It remains to handle the variation term Vt(Qt) − Vt(Qt−1). Denote by 
+
+ht,i (u) = 12
+
+
+
+log |H−1 
+
+> t,i
+
+| + σ2Tr( Ht,i ) + ∥u − wt,i ∥2
+
+> Ht,i
+
+
+
+, (62) where Tr( A) indicates the trace of a matrix A. Then, the variation term can be expressed as 
+
+Vt(Qt) − Vt(Qt−1) = ln 
+
+P  
+
+> Bi∈H t
+
+pt,i · exp( −KL ( Qt−1 ∥ Pt,i )) 
+
+P 
+
+> Bi∈H t
+
+pt,i · exp( −KL ( Qt ∥ Pt,i )) 
+
+
+
+= ln 
+
+P  
+
+> Bi∈H t
+
+pt,i · exp( −ht,i (ut−1)) 
+
+P 
+
+> Bi∈H t
+
+pt,i · exp( −ht,i (ut)) 
+
+
+
+= Jt(ut) − Jt(ut−1)
+
+≤ sup 
+
+> u∈W
+
+∥∇ Jt(u)∥2 · ∥ ut − ut−1∥2
+
+≤ sup 
+
+> u∈W
+
+∥∇ Jt(u)∥2 · ∥ ut − ut−1∥1 (63) where the second line is due to the definition of KL divergence for Gaussian distributions and we define Jt(u) = − ln  P  
+
+> Bi∈H t
+
+pt,i · exp( −ht,i (u))  in the last line. The next step is to control the gradient of the function Jt(u), which can be calculated as 
+
+∇Jt(u) = X
+
+> Bi∈H t
+
+βt,i (u)Ht,i (u − wt,i ) ∀u ∈ W ,
+
+where βt,i (u) ∈ ∆|H t| and βt,i (u) ∝ pt,i exp( −ht,i (u)). We then bound the norm of 
+
+∇Jt(u) by 
+
+∥∇ Jt(u)∥2 ≤ X
+
+> Bi∈H t
+
+βt,i (u) · ∥ Ht,i (u − wt,i )∥2
+
+≤ X
+
+> Bi∈H t
+
+βt,i (u) ·
+
+q
+
+Tr( Ht,i ) · ∥ u − wt,i ∥Ht,i 
+
+≤
+
+s X
+
+> Bi∈H t
+
+βt,i (u)∥u − wt,i ∥2
+
+> Ht,i
+
+s X
+
+> Bi∈H t
+
+βt,i Tr( Ht,i ) (64) 
+
+52 Universal Dynamic Portfolios 
+
+where the second inequality is by Cauchy–Schwarz inequality and βt,i (u) ∈ ∆|H t|. The third line holds because ∥Ht,i (u−wt,i )∥22 ≤ ∥ Ht,i ∥2 ∥u−wt,i ∥2 
+
+> Ht,i
+
+≤ Tr( Ht,i )∥u−wt,i ∥2
+
+> Ht,i
+
+for a symmetric positive definite matrix Ht,i .Then, we proceed to relate the above two terms back to ht,i (u). As shown in (53), 
+
+Ht,i = Id + 2 η2 Pt−1 
+
+> s=i
+
+gsg⊤ 
+
+> s
+
+⪯  1 + td 
+
+> 2
+
+Id ⪯ dT I d for any Bi ∈ H t and t ∈ [T ], which implies λmin (H−1 
+
+> t,i
+
+) ≥ 1/(dT ). Consequently, one has log |H−1 
+
+> t,i
+
+| ≥ − d log( dT ). Plugging the lower bound into (62) yields Tr( Ht,i ) ≤ 2ht,i (u) + d log( dT )
+
+σ2 and ∥u − wt,i ∥2 
+
+> Ht,i
+
+≤ 2ht,i (u) + d log( dT ). (65) Then, plugging (65) into (64), we can further upper bound the gradient norm by 
+
+∥∇ Jt(u)∥2 ≤ 1
+
+σ d log( dT ) + 2 X
+
+> Bi∈H t
+
+βt,i (u)ht,i (u)
+
+!
+
+≤ 1
+
+σ d log( dT ) + 2 X
+
+> Bi∈H t
+
+βt,i (u)ht,i (u) + 2KL ( βt(u) ∥ pt)
+
+!
+
+= 1
+
+σ d log( dT ) − 2 ln X
+
+> Bi∈H t
+
+pt,i exp( −ht,i (u)) 
+
+!! 
+
+≤ 1
+
+σ
+
+ d log( dT ) − 2 ln  μt · e−ht,t (u) 
+
+= 1
+
+σ (d log( dT ) + 2 ln t + σ2d + ∥u − u0∥22)
+
+≤ (d + 2) log( dT ) + 4 
+
+σ + d(1 + σ2) (66) where the third line is by the definition βt,i (u) ∝ pt,i exp( −ht,i (u)). The fourth line is due to the fixed share update (9) such that there always exists a base algorithm with weight μt = 1 /t and distribution Pt,t = N0 = N (u0, I d). The last line holds since 
+
+∥u − u0∥2 ≤ ∥ u − u0∥1 ≤ 2 for any u ∈ W by Assumption 2 and σ ≤ 1 + σ2.Finally, we can upper bound term (b) by 
+
+term (b) 
+
+=
+
+> T
+
+X
+
+> t=1
+
+˜mt(Pt) −
+
+> T
+
+X
+
+> t=1
+
+Eu∼Qt [˜ℓt(u)] 
+
+53 Universal Dynamic Portfolios 
+
+≤ 1
+
+η
+
+(d + 2) log( dT ) + 4 
+
+σ + dσ 2 + d
+
+ TX
+
+> t=2
+
+∥ut − ut−1∥1 + 1
+
+η V1(Q1) + 2
+
+η log( dT )= 1
+
+η
+
+(d + 2) log( dT ) + 4 
+
+σ + dσ 2 + d
+
+
+
+PT + 1
+
+η KL( Q1∥P1) + 2
+
+η log( dT )
+
+≤ 1
+
+η
+
+(d + 2) log( dT ) + 4 
+
+σ + dσ 2 + d
+
+
+
+PT + 1
+
+η
+
+
+
+3 + d log 
+
+ 1
+
+σ
+
+
+
++ dσ 2
+
+2 + 2 log( dT )
+
+
+
+,
+
+(67) where the first inequality comes from a combination of (61), (63) and (66). The second equality is by the definition of V1(Q1) and the last inequality is due to the closed-form expression for the KL divergence between two Gaussian distributions. 
+
+Combining All. Combining the upper bounds (54), (67) and (55) on term (a), term (b) and term (c), we obtain D-Reg T ({ut}Tt=1 )
+
+≤ (( d + 2) log( dT ) + 4) PT
+
+ησ + d
+
+PT + 1 /2
+
+η + ηG 2T
+
+
+
+σ2
+
++ 1
+
+η
+
+
+
+dP T + 3 + d log 1
+
+σ + 2 log( dT )
+
+
+
+≤ (( d + 2) log( dT ) + 4) PT
+
+ησ + 5dT σ 2
+
+2η + 1
+
+η
+
+
+
+dP T + 3 + d log 1
+
+σ + 2 log( dT )
+
+
+
+.
+
+The last inequality uses PT ≤ 2T , η ≤ 1/(2 G), and T ≥ 2. We consider the following two cases: 
+
+• Case 1: PT ≤ T −1/2. We choose σ = T −1/2. Substituting this choice into the above bound gives D-Reg T ({ut}Tt=1 ) ≤ O 
+
+ dη ln( dT )
+
+
+
+.
+
+• Case 2: PT > T −1/2. We choose σ = ( PT ln( edT )/T )1/3. Substituting this choice into the above bound gives D-Reg T ({ut}Tt=1 ) ≤ O 
+
+ dη
+
+h
+
+ln( dT ) + T 1/3P 2/3 
+
+> T
+
+(ln( dT )) 2/3
+
+i
+
+.
+
+The proof is completed by combining the two cases. 
+
+54 Universal Dynamic Portfolios 
+
+## Appendix F. Technical Lemmas 
+
+Lemma 18 Let ψ(u) = ddu ln Γ( u) be the digamma function. Then, g(u) = γuψ (1 + 
+
+γu ) − ln Γ(1 + γu ) is a convex function for u > 0 and γ > 0.
+
+Proof of Lemma 18 Let ψ(u) = ddu ln Γ( u) and define g(u) = γuψ (1 + γu ) − ln Γ(1 + 
+
+γu ) for γ > 0. Set x = 1 + γu and define h(x) = ( x − 1) ψ(x) − ln Γ( x) for x > 1. Since g(u) = h(1 + γu ), it suffices to show that h is convex on (1 , ∞). A direct computation yields h′(x) = ( x − 1) ψ′(x) and h′′ (x) = ψ′(x) + ( x − 1) ψ′′ (x). Using the integral representations of the polygamma functions, we have 
+
+ψ′(x) = 
+
+Z ∞
+
+> 0
+
+te −xt 
+
+1 − e−t dt, ψ′′ (x) = −
+
+Z ∞
+
+> 0
+
+t2e−xt 
+
+1 − e−t dt, 
+
+for x > 1. Then, by the integration by parts arguments, we obtain for x > 1, 
+
+h′′ (x) = 
+
+Z ∞
+
+> 0
+
+tet − 1 (1 − (x − 1) t) e−(x−1) t dt
+
+=
+
+Z ∞
+
+> 0
+
+tet − 1ddt
+
+
+
+te −(x−1) t
+
+
+
+dt
+
+=
+
+t2e−(x−1) t
+
+et − 1
+
+∞
+
+> 0
+
+−
+
+Z ∞
+
+> 0
+
+ddt
+
+ tet − 1
+
+
+
+te −(x−1) t dt
+
+= −
+
+Z ∞
+
+> 0
+
+ddt
+
+ tet − 1
+
+
+
+te −(x−1) t dt. 
+
+The last equality holds because the function t2e−(x−1) t 
+
+> et−1
+
+→ 0 when t → 0 and t → ∞ .Since ddt
+
+  tet−1
+
+ < 0 for t > 0, the integrand is nonnegative and not identically zero. Hence h′′ (x) > 0 for all x > 1, so h is strictly convex. Therefore g(u) = h(1 + γu ) is strictly convex for u > 0 and γ > 0. 
+
+55
